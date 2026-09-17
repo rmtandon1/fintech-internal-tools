@@ -59,8 +59,9 @@ block is in the SQL predicate, not the UI.
 `refunds.manager_approval_usd_minor`. Re-run the same refund as `analyst`: the same input now
 takes a different branch, because thresholds are read fresh on every decision.
 
-**Masked PII.** As `analyst`, open any case in `/t/kyc`. The document number renders as
-`•••• 1234`. Reveal it: the value is shown and a `pii_revealed` audit row is written.
+**Masked PII.** Open any case in `/t/kyc`. The document number renders as `•••• 1234` for
+every role, and the audit detail masks it too. Only a `manager` or `admin` can reveal it;
+doing so shows the value and writes a `pii_revealed` audit row.
 
 **Kill switch.** As `analyst`, disable a production flag in `/t/flags` — it applies
 immediately. Enabling one, or raising its customer-facing rollout, needs a manager.

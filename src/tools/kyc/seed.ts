@@ -267,6 +267,11 @@ function generated(): SeedCase[] {
     const country = pick(COUNTRIES);
     const riskScore = between(5, 96);
     const status = pick(STATUSES);
+    // An approved case must satisfy the rules that gate approval, or the queue
+    // would show decisions the policy would have denied.
+    const approved = status === "approved";
+    const sanctionsHit = !approved && riskScore > 80 && next() < 0.25;
+    const documentsComplete = approved || next() > 0.15;
     const name = business
       ? `${pick(COMPANY_HEADS)} ${pick(COMPANY_TAILS)}`
       : `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`;
@@ -285,8 +290,8 @@ function generated(): SeedCase[] {
       country,
       segment: business ? "business" : "consumer",
       riskScore,
-      sanctionsHit: riskScore > 80 && next() < 0.25,
-      documentsComplete: next() > 0.15,
+      sanctionsHit,
+      documentsComplete,
       status,
       openedHoursAgo: between(1, 240),
     });

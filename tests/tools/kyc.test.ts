@@ -106,6 +106,13 @@ describe("kyc review queue", () => {
     expect(pendingHighRisk.length).toBeGreaterThanOrEqual(3);
   });
 
+  it("never seeds an approved case that the approval rules would deny", () => {
+    const approved = kycTool
+      .list({ filters: { status: "approved" }, limit: 200, offset: 0 })
+      .rows.filter((row) => row.documentsComplete === 0 || row.sanctionsHit === 1);
+    expect(approved).toEqual([]);
+  });
+
   it("sorts on a declared column in both directions", () => {
     const query = (direction: "asc" | "desc") =>
       kycTool

@@ -1,9 +1,11 @@
 import { Icon } from "@/components/icon";
 import { PolicyTraceList } from "@/components/policy-trace";
 import type { AuditRow } from "@/engine/audit/query";
-import type { PolicyDecision } from "@/engine/types";
+import { maskValue } from "@/engine/pii/mask";
+import type { FieldDecl, PolicyDecision } from "@/engine/types";
 import { formatTimestamp } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { getTool } from "@/tools";
 
 const EVENT_ICONS: Record<string, { icon: string; className: string }> = {
   applied: { icon: "Check", className: "text-emerald-400" },
@@ -55,7 +57,11 @@ export function AuditTimeline({ events }: { events: AuditRow[] }) {
                   Before / after and hashes
                 </summary>
                 <div className="mt-1 space-y-2 rounded-md border border-border p-2">
-                  <ChangedFields before={event.beforeJson} after={event.afterJson} />
+                  <ChangedFields
+                    before={event.beforeJson}
+                    after={event.afterJson}
+                    fields={getTool(event.tool)?.fields ?? []}
+                  />
                   <dl className="space-y-0.5 font-mono text-[10px] text-muted-foreground">
                     <Hash label="seq" value={String(event.seq)} />
                     <Hash label="prev" value={event.prevHash} />
@@ -83,13 +89,19 @@ function Hash({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Only the fields the write actually moved, so the diff stays readable. */
+/**
+ * Only the fields the write actually moved, so the diff stays readable. PII is
+ * masked unconditionally: the audit stream is not a reveal surface, and a
+ * reveal has to go through the audited action on the record.
+ */
 function ChangedFields({
   before,
   after,
+  fields,
 }: {
   before: string | null;
   after: string | null;
+  fields: FieldDecl[];
 }) {
   const from = safeRecord(before);
   const to = safeRecord(after);
@@ -105,15 +117,20 @@ function ChangedFields({
   return (
     <table className="w-full text-[11px]">
       <tbody>
-        {changed.map((key) => (
-          <tr key={key}>
-            <td className="py-0.5 pr-2 align-top text-muted-foreground">{key}</td>
-            <td className="py-0.5 pr-2 align-top font-mono text-muted-foreground/70">
-              {display(from?.[key])}
-            </td>
-            <td className="py-0.5 align-top font-mono">{display(to[key])}</td>
-          </tr>
-        ))}
+        {changed.map((key) => {
+          const pii = fields.find((field) => field.name === key && field.isPII);
+          const show = (value: unknown) =>
+            pii ? maskValue(value, pii.revealTail ?? 4) : display(value);
+          return (
+            <tr key={key}>
+              <td className="py-0.5 pr-2 align-top text-muted-foreground">{key}</td>
+              <td className="py-0.5 pr-2 align-top font-mono text-muted-foreground/70">
+                {show(from?.[key])}
+              </td>
+              <td className="py-0.5 align-top font-mono">{show(to[key])}</td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );

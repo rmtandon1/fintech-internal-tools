@@ -48,16 +48,22 @@ export default async function ToolQueuePage({
   const direction: "asc" | "desc" = query.dir === "asc" ? "asc" : "desc";
   const sort = sortField ? { field: sortField, direction } : undefined;
 
-  const page = Math.max(1, Number(query.page) || 1);
+  const requestedPage = Number(query.page);
+  const page = Number.isSafeInteger(requestedPage) && requestedPage >= 1 ? requestedPage : 1;
 
-  const { rows, total } = decl.list({
-    filters,
-    search,
-    sort,
-    limit: PAGE_SIZE,
-    offset: (page - 1) * PAGE_SIZE,
-  });
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const first = decl.list({ filters, search, sort, limit: PAGE_SIZE, offset: 0 });
+  const pages = Math.max(1, Math.ceil(first.total / PAGE_SIZE));
+  const current = Math.min(page, pages);
+  const { rows, total } =
+    current === 1
+      ? first
+      : decl.list({
+          filters,
+          search,
+          sort,
+          limit: PAGE_SIZE,
+          offset: (current - 1) * PAGE_SIZE,
+        });
 
   const href = (overrides: Record<string, string>) => {
     const next = new URLSearchParams();
@@ -237,19 +243,19 @@ export default async function ToolQueuePage({
       {pages > 1 ? (
         <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
           <span>
-            Page {page} of {pages}
+            Page {current} of {pages}
           </span>
-          {page > 1 ? (
+          {current > 1 ? (
             <Link
-              href={href({ page: String(page - 1) })}
+              href={href({ page: String(current - 1) })}
               className="rounded-md border border-input px-2 py-1 hover:bg-accent"
             >
               Previous
             </Link>
           ) : null}
-          {page < pages ? (
+          {current < pages ? (
             <Link
-              href={href({ page: String(page + 1) })}
+              href={href({ page: String(current + 1) })}
               className="rounded-md border border-input px-2 py-1 hover:bg-accent"
             >
               Next
