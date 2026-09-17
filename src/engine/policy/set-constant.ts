@@ -49,7 +49,7 @@ export function setConstant(
       action: "set_constant",
       recordType: "runtime_constant",
       recordId: key,
-      event: "applied",
+      event: "constant_changed",
       summary: `${key}: ${format(before)} → ${format(parsed.value)}`,
       payload: { key, value: parsed.value },
       before: { key, value: before },

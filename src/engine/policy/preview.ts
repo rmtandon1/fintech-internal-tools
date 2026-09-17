@@ -17,6 +17,8 @@ export interface ActionPreview {
   /** False when the role or the record status rules the action out entirely. */
   offered: boolean;
   unavailableReason?: string;
+  /** True when the action's input has not been supplied or does not parse. */
+  needsInput?: boolean;
   decision: PolicyDecision | null;
   inputFields: InputFieldDesc[];
 }
@@ -32,6 +34,10 @@ export interface InputFieldDesc {
  * The live policy outcome for each action on a record, for this actor. The UI
  * shows it before anything is clicked; it runs the same rules the write path
  * runs, so "Allowed" here means the same thing it means there.
+ *
+ * Rules are only evaluated once the supplied input parses: a rule reading a
+ * field the form has not filled in yet would otherwise throw, or return an
+ * outcome the real write path would never produce.
  */
 export function previewActions(
   decl: ToolDeclaration,
@@ -68,12 +74,17 @@ export function previewActions(
       };
     }
 
+    const parsed = action.input.safeParse(inputs[action.name] ?? {});
+    if (!parsed.success) {
+      return { ...base, offered: true, needsInput: true, decision: null };
+    }
+
     const ctx: RuleContext<GovernedRecord, unknown> = {
       actor,
       tool: decl.name,
       action: action.name,
       record,
-      input: inputs[action.name] ?? {},
+      input: parsed.data,
       constants,
     };
 

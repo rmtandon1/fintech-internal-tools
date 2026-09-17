@@ -1,9 +1,14 @@
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { auditLog } from "@/db/engine-schema";
+import { auditHead, auditLog } from "@/db/engine-schema";
+import { AUDIT_HEAD_ID } from "./append";
 import { GENESIS_HASH, computeRowHash } from "./chain";
 
-export type BreakType = "seq_gap" | "prev_mismatch" | "row_hash_mismatch";
+export type BreakType =
+  | "seq_gap"
+  | "prev_mismatch"
+  | "row_hash_mismatch"
+  | "head_mismatch";
 
 export interface ChainBreak {
   type: BreakType;
@@ -69,6 +74,32 @@ export function verifyChain(): VerifyResult {
     }
     prevHash = row.rowHash;
     expectedSeq += 1;
+  }
+
+  // A hash chain cannot prove how many rows there were: deleting the tail
+  // leaves a shorter but internally consistent chain. The head checkpoint,
+  // written with every append, is what makes truncation visible.
+  const head = db
+    .select()
+    .from(auditHead)
+    .where(eq(auditHead.id, AUDIT_HEAD_ID))
+    .get();
+  const lastRow = rows[rows.length - 1];
+  const headMissing = rows.length > 0 && !head;
+  if (headMissing || (head && (head.seq !== rows.length || head.rowHash !== prevHash))) {
+    return {
+      ok: false,
+      length: rows.length,
+      lastHash: prevHash,
+      firstBreak: {
+        type: "head_mismatch",
+        seq: head?.seq ?? rows.length,
+        id: lastRow?.id ?? "-",
+        detail: head
+          ? `head checkpoint is seq ${head.seq} / ${short(head.rowHash)}, log ends at seq ${rows.length} / ${short(prevHash)} — rows were removed`
+          : "head checkpoint is missing",
+      },
+    };
   }
 
   return {

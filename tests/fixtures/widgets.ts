@@ -40,6 +40,7 @@ export interface Widget extends GovernedRecord {
 }
 
 export const APPROVAL_THRESHOLD_KEY = "widgets.approval_threshold";
+export const SPEND_FEE_KEY = "widgets.spend_fee";
 
 const sufficientBalance: Rule<Widget, { amount: number }> = ({ record, input }) =>
   record && input.amount > record.balance
@@ -98,6 +99,13 @@ export const widgetTool = defineTool<Widget>({
       description: "Spends above this need a manager",
       tool: "widgets",
     },
+    {
+      key: SPEND_FEE_KEY,
+      value: 0,
+      type: "number",
+      description: "Fee added to every spend when it is decided",
+      tool: "widgets",
+    },
   ],
   actions: [
     defineAction<Widget, z.ZodObject<{ amount: z.ZodNumber; reason: z.ZodString }>, { amount: number }>({
@@ -107,10 +115,15 @@ export const widgetTool = defineTool<Widget>({
       input: z.object({ amount: z.number().positive(), reason: z.string().min(1) }),
       fromStatus: ["open"],
       rules: [sufficientBalance, managerApprovalOverThreshold],
-      decide: ({ record, input }) => ({
-        summary: `Spend ${input.amount} from ${record?.name ?? "widget"}`,
-        patch: { amount: input.amount },
-      }),
+      // Deliberately constant-dependent: proves the approval path replays the
+      // decision frozen at request time rather than recomputing it.
+      decide: ({ record, input, constants }) => {
+        const amount = input.amount + constants.number(SPEND_FEE_KEY, 0);
+        return {
+          summary: `Spend ${amount} from ${record?.name ?? "widget"}`,
+          patch: { amount },
+        };
+      },
       apply: ({ tx, record }, decision) => {
         if (!record) throw new Error("spend requires a record");
         tx.update(widgets)
@@ -148,6 +161,48 @@ export const widgetTool = defineTool<Widget>({
       },
     }),
     defineAction<Widget, z.ZodObject<Record<string, never>>, null>({
+      name: "explode",
+      label: "Explode",
+      allowedRoles: ["analyst", "manager", "admin"],
+      input: z.object({}),
+      fromStatus: ["open"],
+      rules: [
+        () => ({
+          type: "require_approval",
+          rule: "always_approval",
+          tier: "manager",
+          allowedRoles: ["manager", "admin"],
+          reason: "fixture action always needs approval",
+        }),
+      ],
+      decide: ({ record }) => ({ summary: `Explode ${record?.id}`, patch: null }),
+      apply: ({ tx, record }) => {
+        if (!record) throw new Error("explode requires a record");
+        tx.update(widgets)
+          .set({ balance: 0, version: record.version + 1 })
+          .where(eq(widgets.id, record.id))
+          .run();
+        throw new Error("apply blew up after writing");
+      },
+    }),
+    defineAction<Widget, z.ZodObject<Record<string, never>>, null>({
+      name: "explode_now",
+      label: "Explode immediately",
+      allowedRoles: ["analyst", "manager", "admin"],
+      input: z.object({}),
+      fromStatus: ["open"],
+      rules: [() => ({ type: "allow", rule: "always" })],
+      decide: ({ record }) => ({ summary: `Explode ${record?.id}`, patch: null }),
+      apply: ({ tx, record }) => {
+        if (!record) throw new Error("explode requires a record");
+        tx.update(widgets)
+          .set({ balance: 0, version: record.version + 1 })
+          .where(eq(widgets.id, record.id))
+          .run();
+        throw new Error("apply blew up after writing");
+      },
+    }),
+    defineAction<Widget, z.ZodObject<Record<string, never>>, null>({
       name: "rename_unruled",
       label: "Rename (no rules)",
       allowedRoles: ["analyst", "manager", "admin"],
@@ -176,3 +231,54 @@ export const widgetTool = defineTool<Widget>({
 function get(id: string): Widget | null {
   return db.select().from(widgets).where(eq(widgets.id, id)).get() ?? null;
 }
+
+/**
+ * A tool only admins can see, whose action and reveal roles nevertheless
+ * name the analyst. Visibility must win in both places.
+ */
+export const vaultTool = defineTool<Widget>({
+  name: "vault",
+  displayName: "Vault",
+  description: "Admin-only fixture tool.",
+  icon: "Lock",
+  group: "Test",
+  recordType: "vault_item",
+  visibleTo: ["admin"],
+  fields: [
+    { name: "name", label: "Name", type: "string" },
+    { name: "ownerEmail", label: "Owner email", type: "string", isPII: true },
+  ],
+  listColumns: [{ field: "name" }],
+  filters: [],
+  sections: [{ title: "Item", fields: ["name", "ownerEmail"] }],
+  statuses: [{ value: "open", label: "Open", tone: "info" }],
+  statusField: "status",
+  titleField: "name",
+  revealRoles: ["analyst", "admin"],
+  actions: [
+    defineAction<Widget, z.ZodObject<Record<string, never>>, null>({
+      name: "close",
+      label: "Close",
+      allowedRoles: ["analyst", "admin"],
+      input: z.object({}),
+      fromStatus: ["open"],
+      rules: [() => ({ type: "allow", rule: "always" })],
+      decide: ({ record }) => ({ summary: `Close ${record?.id}`, patch: null }),
+      apply: ({ tx, record }) => {
+        if (!record) throw new Error("close requires a record");
+        tx.update(widgets)
+          .set({ status: "closed", version: record.version + 1 })
+          .where(eq(widgets.id, record.id))
+          .run();
+        const after = get(record.id);
+        if (!after) throw new Error("item vanished mid-apply");
+        return { recordId: record.id, before: record, after };
+      },
+    }),
+  ],
+  list: ({ limit, offset }) => {
+    const rows = db.select().from(widgets).limit(limit).offset(offset).all();
+    return { rows, total: rows.length };
+  },
+  get,
+});

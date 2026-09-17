@@ -3,7 +3,7 @@ import { db, sqlite } from "@/db/client";
 import { registerConstants } from "@/engine/policy/register";
 import type { Actor } from "@/engine/types";
 import { registerTool } from "@/tools";
-import { WIDGETS_DDL, widgetTool, widgets } from "../fixtures/widgets";
+import { WIDGETS_DDL, vaultTool, widgetTool, widgets } from "../fixtures/widgets";
 
 export const analyst: Actor = { id: "usr_analyst", name: "Analyst", role: "analyst" };
 export const manager: Actor = { id: "usr_manager", name: "Manager", role: "manager" };
@@ -19,6 +19,7 @@ export function setupHarness(): void {
   migrate(db, { migrationsFolder: "drizzle" });
   sqlite.exec(WIDGETS_DDL);
   registerTool(widgetTool);
+  registerTool(vaultTool);
   registerConstants(widgetTool.constants ?? []);
 }
 

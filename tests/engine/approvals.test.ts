@@ -3,7 +3,7 @@ import { ulid } from "ulid";
 import { approve, getApproval, listApprovals, reject } from "@/engine/approvals";
 import { executeIntent } from "@/engine/execute-intent";
 import { setConstant } from "@/engine/policy/set-constant";
-import { APPROVAL_THRESHOLD_KEY } from "../fixtures/widgets";
+import { APPROVAL_THRESHOLD_KEY, SPEND_FEE_KEY } from "../fixtures/widgets";
 import {
   admin,
   analyst,
@@ -55,6 +55,40 @@ describe("approvals", () => {
     setConstant(admin, APPROVAL_THRESHOLD_KEY, "50");
   });
 
+  it("applies the decision frozen at request time, not one recomputed from current constants", () => {
+    makeWidget("w_decision", 1000);
+    const id = requestSpend("w_decision", 500);
+
+    // The fee feeds `decide`, so a recomputed decision would spend 600.
+    setConstant(admin, SPEND_FEE_KEY, "100");
+    const result = approve(manager, id, "ok");
+
+    expect(result.outcome.status).toBe("applied");
+    expect(widgetBalance("w_decision")).toBe(500);
+    setConstant(admin, SPEND_FEE_KEY, "0");
+  });
+
+  it("leaves nothing applied and nothing approved when the effect throws", () => {
+    makeWidget("w_boom", 1000);
+    const requested = executeIntent(analyst, {
+      tool: "widgets",
+      action: "explode",
+      recordId: "w_boom",
+      input: {},
+      idempotencyKey: ulid(),
+    });
+    if (requested.outcome.status !== "pending_approval") {
+      throw new Error(`expected approval, got ${requested.outcome.status}`);
+    }
+
+    const result = approve(manager, requested.outcome.approvalId, "go");
+
+    expect(result.outcome).toMatchObject({ status: "error", code: "internal_error" });
+    // The claim and the partial write rolled back together.
+    expect(getApproval(requested.outcome.approvalId)?.status).toBe("pending");
+    expect(widgetBalance("w_boom")).toBe(1000);
+  });
+
   it("fails safely when the record moved since the request was raised", () => {
     makeWidget("w_stale", 1000);
     const id = requestSpend("w_stale", 500);
@@ -92,6 +126,8 @@ describe("approvals", () => {
     const result = reject(manager, id, "not justified");
 
     expect(result.outcome.status).toBe("applied");
+    if (result.outcome.status !== "applied") throw new Error("unreachable");
+    expect(result.outcome.auditId).not.toBe("-");
     expect(widgetBalance("w_reject")).toBe(1000);
     expect(listApprovals("pending").some((a) => a.id === id)).toBe(false);
   });

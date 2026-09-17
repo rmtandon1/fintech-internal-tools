@@ -65,6 +65,31 @@ describe("audit chain", () => {
     expect(verifyChain().ok).toBe(true);
   });
 
+  it("detects a deleted tail against the head checkpoint", () => {
+    const last = sqlite
+      .prepare("SELECT * FROM audit_log ORDER BY seq DESC LIMIT 1")
+      .get() as Record<string, unknown>;
+
+    // Deleting the tail leaves an internally consistent chain; only the head
+    // checkpoint shows that a row is missing.
+    sqlite.prepare("DELETE FROM audit_log WHERE seq = ?").run(last.seq);
+    const result = verifyChain();
+    sqlite
+      .prepare(
+        `INSERT INTO audit_log (seq, id, ts, actor_id, actor_role, tool, action, record_type,
+          record_id, event, summary, payload_json, before_json, after_json, decision_json,
+          prev_hash, row_hash)
+         VALUES (@seq, @id, @ts, @actor_id, @actor_role, @tool, @action, @record_type,
+          @record_id, @event, @summary, @payload_json, @before_json, @after_json,
+          @decision_json, @prev_hash, @row_hash)`,
+      )
+      .run(last);
+
+    expect(result.ok).toBe(false);
+    expect(result.firstBreak?.type).toBe("head_mismatch");
+    expect(verifyChain().ok).toBe(true);
+  });
+
   it("detects a rewritten link as a prev hash mismatch", () => {
     const original = sqlite
       .prepare("SELECT prev_hash AS prev, row_hash AS row FROM audit_log WHERE seq = 3")

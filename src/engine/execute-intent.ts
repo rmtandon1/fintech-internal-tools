@@ -9,6 +9,7 @@ import { evaluatePolicy } from "@/engine/policy/evaluate";
 import type {
   ActionDecl,
   Actor,
+  Decision,
   GovernedRecord,
   Intent,
   IntentErrorCode,
@@ -16,6 +17,7 @@ import type {
   PolicyTrace,
   RuleContext,
   ToolDeclaration,
+  WriteHandle,
 } from "@/engine/types";
 
 /**
@@ -23,6 +25,11 @@ import type {
  * every request runs through the same fixed order:
  *
  *   validate → idempotency → policy → approval → effect → audit
+ *
+ * The reservation, the effect, the audit row and the stored idempotency
+ * result share one transaction: a crash anywhere rolls the whole request back
+ * and leaves the key free, so a request can never be both applied and stuck
+ * in progress.
  *
  * Nothing in the application writes to a governed table outside this function
  * (or `executeApproved`, which resumes at the effect step with a frozen
@@ -38,6 +45,9 @@ export function executeIntent(actor: Actor, intent: Intent): IntentResult {
   }
 
   // 1. validate — permissions server-side, then input shape, then record state.
+  if (!decl.visibleTo.includes(actor.role)) {
+    return fail("forbidden_role", `Role ${actor.role} may not use ${decl.name}`);
+  }
   if (!action.allowedRoles.includes(actor.role)) {
     return fail(
       "forbidden_role",
@@ -69,51 +79,55 @@ export function executeIntent(actor: Actor, intent: Intent): IntentResult {
     }
   }
 
-  // 2. idempotency — claim the key before any side effect.
   const hash = idempotency.requestHash({
     tool: intent.tool,
     action: intent.action,
     recordId: intent.recordId,
     input,
   });
-  const reservation = transact((tx) =>
-    idempotency.reserve(tx, intent.idempotencyKey, hash, actor, decl.name, action.name),
-  );
-  if (reservation.kind === "replay") return reservation.result;
-  if (reservation.kind === "conflict") {
-    return fail(
-      "idempotency_conflict",
-      "This idempotency key was already used with a different payload",
-    );
-  }
-  if (reservation.kind === "in_progress") {
-    return fail("in_progress", "An identical request is still being processed");
-  }
 
   try {
-    const result = runGoverned(actor, decl, action, record, input, intent);
-    transact((tx) =>
+    return transact((tx) => {
+      // 2. idempotency — claim the key before any side effect.
+      const reservation = idempotency.reserve(
+        tx,
+        intent.idempotencyKey,
+        hash,
+        actor,
+        decl.name,
+        action.name,
+      );
+      if (reservation.kind === "replay") return reservation.result;
+      if (reservation.kind === "conflict") {
+        return fail(
+          "idempotency_conflict",
+          "This idempotency key was already used with a different payload",
+        );
+      }
+      if (reservation.kind === "in_progress") {
+        return fail("in_progress", "An identical request is still being processed");
+      }
+
+      const result = runGoverned(tx, actor, decl, action, record, input, intent);
       idempotency.complete(
         tx,
         intent.idempotencyKey,
         result,
         result.outcome.status === "error" ? "failed" : "completed",
-      ),
-    );
-    return result;
+      );
+      return result;
+    });
   } catch (error) {
-    const result = fail(
+    // The transaction rolled back: no effect, no audit row, no reservation.
+    return fail(
       "internal_error",
       error instanceof Error ? error.message : "Unexpected engine failure",
     );
-    transact((tx) =>
-      idempotency.complete(tx, intent.idempotencyKey, result, "failed"),
-    );
-    return result;
   }
 }
 
 function runGoverned(
+  tx: WriteHandle,
   actor: Actor,
   decl: ToolDeclaration,
   action: ActionDecl<GovernedRecord>,
@@ -134,67 +148,64 @@ function runGoverned(
 
   if (policy.effect === "deny") {
     const reason = policy.reason ?? "Denied by policy";
-    transact((tx) =>
-      appendAudit(tx, {
-        actor,
-        tool: decl.name,
-        action: action.name,
-        recordType: decl.recordType,
-        recordId: record?.id ?? "-",
-        event: "denied",
-        summary: `${action.label} denied: ${reason}`,
-        payload: input,
-        before: null,
-        after: null,
-        decision: policy,
-      }),
-    );
+    appendAudit(tx, {
+      actor,
+      tool: decl.name,
+      action: action.name,
+      recordType: decl.recordType,
+      recordId: record?.id ?? "-",
+      event: "denied",
+      summary: `${action.label} denied: ${reason}`,
+      payload: input,
+      before: null,
+      after: null,
+      decision: policy,
+    });
     return { outcome: { status: "denied", reason, trace: policy.trace }, replayed: false };
   }
 
-  // 4. approval — freeze payload, trace and record version; stop here.
+  // 4. approval — freeze payload, decision, trace and record version; stop here.
   if (policy.effect === "require_approval") {
-    const preview = action.decide(ctx);
+    const decision = action.decide(ctx);
     const approvalId = ulid();
     const reason = policy.reason ?? "Approval required";
-    transact((tx) => {
-      tx.insert(approvalRequests)
-        .values({
-          id: approvalId,
-          tool: decl.name,
-          action: action.name,
-          recordType: decl.recordType,
-          recordId: record?.id ?? null,
-          recordVersion: record?.version ?? null,
-          payloadJson: JSON.stringify(input),
-          traceJson: JSON.stringify(policy.trace),
-          summary: preview.summary,
-          reason,
-          tier: policy.tier ?? "manager",
-          allowedRolesJson: JSON.stringify(policy.allowedRoles ?? ["manager"]),
-          requesterId: actor.id,
-          requesterRole: actor.role,
-          status: "pending",
-          decidedBy: null,
-          decidedAt: null,
-          decisionNote: null,
-          failureCode: null,
-          createdAt: Date.now(),
-        })
-        .run();
-      appendAudit(tx, {
-        actor,
+    tx.insert(approvalRequests)
+      .values({
+        id: approvalId,
         tool: decl.name,
         action: action.name,
         recordType: decl.recordType,
-        recordId: record?.id ?? "-",
-        event: "approval_requested",
-        summary: `${preview.summary} — awaiting approval: ${reason}`,
-        payload: input,
-        before: null,
-        after: null,
-        decision: { ...policy, approvalId },
-      });
+        recordId: record?.id ?? null,
+        recordVersion: record?.version ?? null,
+        payloadJson: JSON.stringify(input),
+        traceJson: JSON.stringify(policy.trace),
+        decisionJson: JSON.stringify(decision),
+        summary: decision.summary,
+        reason,
+        tier: policy.tier ?? "manager",
+        allowedRolesJson: JSON.stringify(policy.allowedRoles ?? ["manager"]),
+        requesterId: actor.id,
+        requesterRole: actor.role,
+        status: "pending",
+        decidedBy: null,
+        decidedAt: null,
+        decisionNote: null,
+        failureCode: null,
+        createdAt: Date.now(),
+      })
+      .run();
+    appendAudit(tx, {
+      actor,
+      tool: decl.name,
+      action: action.name,
+      recordType: decl.recordType,
+      recordId: record?.id ?? "-",
+      event: "approval_requested",
+      summary: `${decision.summary} — awaiting approval: ${reason}`,
+      payload: input,
+      before: null,
+      after: null,
+      decision: { ...policy, approvalId },
     });
     return {
       outcome: {
@@ -207,83 +218,86 @@ function runGoverned(
     };
   }
 
-  // 5 + 6. effect and audit, in one transaction.
-  return applyEffect(actor, decl, action, record, input, policy.trace, "applied", intent);
-}
-
-export function applyEffect(
-  actor: Actor,
-  decl: ToolDeclaration,
-  action: ActionDecl<GovernedRecord>,
-  record: GovernedRecord | null,
-  input: unknown,
-  trace: PolicyTrace,
-  event: string,
-  intent: Pick<Intent, "recordId">,
-): IntentResult {
-  const constants = loadConstants();
-  const ctx: RuleContext<GovernedRecord, unknown> = {
+  // 5 + 6. effect and audit, in the caller's transaction.
+  return applyEffect(tx, {
     actor,
-    tool: decl.name,
-    action: action.name,
+    decl,
+    action,
     record,
     input,
-    constants,
-  };
-  const decision = action.decide(ctx);
+    trace: policy.trace,
+    event: "applied",
+    recordId: intent.recordId,
+  });
+}
 
-  let conflict = false;
-  const result = transact((tx) => {
-    // Optimistic concurrency: the record must not have moved since it was read.
-    if (record && intent.recordId) {
-      const fresh = decl.get(intent.recordId);
-      if (!fresh || fresh.version !== record.version) {
-        conflict = true;
-        return null;
-      }
-    }
+export interface EffectRequest {
+  actor: Actor;
+  decl: ToolDeclaration;
+  action: ActionDecl<GovernedRecord>;
+  record: GovernedRecord | null;
+  input: unknown;
+  trace: PolicyTrace;
+  event: string;
+  recordId: string | null;
+  /**
+   * The decision frozen when an approval was raised. Supplied on the approval
+   * path so a constant edited in the meantime cannot change what was reviewed.
+   */
+  decision?: Decision;
+}
 
-    const applied = action.apply(
-      { tx, actor, record, input, now: Date.now() },
-      decision,
-    );
+export function applyEffect(tx: WriteHandle, req: EffectRequest): IntentResult {
+  const { actor, decl, action, record, input, trace, event } = req;
 
-    if (applied.before && applied.after.version !== applied.before.version + 1) {
-      throw new Error(
-        `${decl.name}.${action.name} did not increment the record version`,
+  // Optimistic concurrency: the record must not have moved since it was read.
+  if (record && req.recordId) {
+    const fresh = decl.get(req.recordId);
+    if (!fresh || fresh.version !== record.version) {
+      return fail(
+        "version_conflict",
+        "The record changed while this request was in flight — nothing was applied",
+        trace,
       );
     }
+  }
 
-    const auditId = appendAudit(tx, {
+  const decision =
+    req.decision ??
+    action.decide({
       actor,
       tool: decl.name,
       action: action.name,
-      recordType: decl.recordType,
-      recordId: applied.recordId,
-      event,
-      summary: decision.summary,
-      payload: input,
-      before: applied.before,
-      after: applied.after,
-      decision: { effect: "allow", trace },
+      record,
+      input,
+      constants: loadConstants(),
     });
 
-    return { recordId: applied.recordId, auditId };
-  });
+  const applied = action.apply({ tx, actor, record, input, now: Date.now() }, decision);
 
-  if (conflict || !result) {
-    return fail(
-      "version_conflict",
-      "The record changed while this request was in flight — nothing was applied",
-      trace,
-    );
+  if (applied.before && applied.after.version !== applied.before.version + 1) {
+    throw new Error(`${decl.name}.${action.name} did not increment the record version`);
   }
+
+  const auditId = appendAudit(tx, {
+    actor,
+    tool: decl.name,
+    action: action.name,
+    recordType: decl.recordType,
+    recordId: applied.recordId,
+    event,
+    summary: decision.summary,
+    payload: input,
+    before: applied.before,
+    after: applied.after,
+    decision: { effect: "allow", trace },
+  });
 
   return {
     outcome: {
       status: "applied",
-      recordId: result.recordId,
-      auditId: result.auditId,
+      recordId: applied.recordId,
+      auditId,
       summary: decision.summary,
       trace,
     },

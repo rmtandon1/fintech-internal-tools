@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Actor, Role } from "@/engine/types";
 import { ROLES } from "@/engine/types";
 
@@ -13,8 +13,18 @@ export const DEMO_ACTORS: Record<Role, Actor> = {
 
 export const DEFAULT_ACTOR = DEMO_ACTORS.analyst;
 
+let devSecret: string | null = null;
+
+/**
+ * Role switching is a demo convenience, not authentication, so the cookie
+ * only needs to resist casual editing. ACTOR_COOKIE_SECRET is used when set;
+ * otherwise the key is random per process rather than a published constant.
+ */
 function secret(): string {
-  return process.env.ACTOR_COOKIE_SECRET ?? "demo-console-development-secret";
+  const configured = process.env.ACTOR_COOKIE_SECRET;
+  if (configured) return configured;
+  devSecret ??= randomBytes(32).toString("hex");
+  return devSecret;
 }
 
 export function signRole(role: Role): string {

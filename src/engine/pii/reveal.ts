@@ -21,6 +21,10 @@ export function revealField(
   const decl = getTool(toolName);
   if (!decl) return { ok: false, reason: `No such tool: ${toolName}` };
 
+  if (!decl.visibleTo.includes(actor.role)) {
+    return { ok: false, reason: `Role ${actor.role} may not use ${decl.name}` };
+  }
+
   const fieldDecl = decl.fields.find((f) => f.name === field);
   if (!fieldDecl?.isPII) {
     return { ok: false, reason: `${field} is not a personal data field` };

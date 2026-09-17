@@ -26,6 +26,26 @@ describe("idempotency", () => {
     expect(widgetBalance("w_replay")).toBe(90);
   });
 
+  it("rolls the reservation back with the effect when apply throws", () => {
+    makeWidget("w_crash", 100);
+    const intent = {
+      tool: "widgets",
+      action: "explode_now",
+      recordId: "w_crash",
+      input: {},
+      idempotencyKey: ulid(),
+    };
+
+    const failed = executeIntent(analyst, intent);
+
+    expect(failed.outcome).toMatchObject({ status: "error", code: "internal_error" });
+    expect(widgetBalance("w_crash")).toBe(100);
+    // The key is free again: a retry is not blocked by a stranded reservation.
+    const retry = executeIntent(analyst, { ...intent, action: "spend", input: { amount: 10, reason: "retry" } });
+    expect(retry.outcome.status).toBe("applied");
+    expect(widgetBalance("w_crash")).toBe(90);
+  });
+
   it("rejects the same key with a different payload", () => {
     makeWidget("w_conflict", 100);
     const key = ulid();

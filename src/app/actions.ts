@@ -18,6 +18,7 @@ export async function switchRole(role: string): Promise<void> {
   store.set(ACTOR_COOKIE, signRole(role as Role), {
     httpOnly: true,
     sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
     path: "/",
   });
   revalidatePath("/", "layout");

@@ -1,6 +1,6 @@
 import { desc } from "drizzle-orm";
 import { ulid } from "ulid";
-import { auditLog } from "@/db/engine-schema";
+import { auditHead, auditLog } from "@/db/engine-schema";
 import type { Actor, WriteHandle } from "@/engine/types";
 import { canonicalJson } from "./canonical";
 import { GENESIS_HASH, computeRowHash } from "./chain";
@@ -21,10 +21,12 @@ export interface AuditInput {
   ts?: number;
 }
 
+export const AUDIT_HEAD_ID = 1;
+
 /**
- * Appends one row to the tamper-evident audit log. Must run inside the same
- * transaction as the effect it records, so an effect can never land without
- * its audit row.
+ * Appends one row to the tamper-evident audit log and moves the head
+ * checkpoint. Must run inside the same transaction as the effect it records,
+ * so an effect can never land without its audit row.
  */
 export function appendAudit(tx: WriteHandle, input: AuditInput): string {
   const [head] = tx
@@ -54,8 +56,13 @@ export function appendAudit(tx: WriteHandle, input: AuditInput): string {
     decisionJson: canonicalJson(input.decision),
   };
 
-  tx.insert(auditLog)
-    .values({ ...row, prevHash, rowHash: computeRowHash(row, prevHash) })
+  const rowHash = computeRowHash(row, prevHash);
+  tx.insert(auditLog).values({ ...row, prevHash, rowHash }).run();
+
+  const checkpoint = { seq, rowHash, updatedAt: Date.now() };
+  tx.insert(auditHead)
+    .values({ id: AUDIT_HEAD_ID, ...checkpoint })
+    .onConflictDoUpdate({ target: auditHead.id, set: checkpoint })
     .run();
 
   return row.id;

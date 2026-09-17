@@ -66,6 +66,18 @@ describe("policy precedence", () => {
     expect(result.outcome).toMatchObject({ status: "error", code: "forbidden_role" });
   });
 
+  it("refuses a write to a tool the role cannot see, whatever the action allows", () => {
+    makeWidget("w_hidden", 100);
+    const result = executeIntent(analyst, {
+      tool: "vault",
+      action: "close",
+      recordId: "w_hidden",
+      input: {},
+      idempotencyKey: ulid(),
+    });
+    expect(result.outcome).toMatchObject({ status: "error", code: "forbidden_role" });
+  });
+
   it("reads thresholds from runtime constants on every evaluation", () => {
     makeWidget("w_constant", 1000);
     expect(spend(40, "w_constant").outcome.status).toBe("applied");

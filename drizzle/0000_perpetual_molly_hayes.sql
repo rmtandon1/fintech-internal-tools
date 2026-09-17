@@ -7,6 +7,7 @@ CREATE TABLE `approval_requests` (
 	`record_version` integer,
 	`payload_json` text NOT NULL,
 	`trace_json` text NOT NULL,
+	`decision_json` text NOT NULL,
 	`summary` text NOT NULL,
 	`reason` text NOT NULL,
 	`tier` text NOT NULL,
@@ -22,6 +23,13 @@ CREATE TABLE `approval_requests` (
 );
 --> statement-breakpoint
 CREATE INDEX `approval_requests_status_idx` ON `approval_requests` (`status`);--> statement-breakpoint
+CREATE TABLE `audit_head` (
+	`id` integer PRIMARY KEY NOT NULL,
+	`seq` integer NOT NULL,
+	`row_hash` text NOT NULL,
+	`updated_at` integer NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `audit_log` (
 	`seq` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`id` text NOT NULL,

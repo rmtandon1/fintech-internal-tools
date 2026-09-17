@@ -174,7 +174,11 @@ function ActionForm({
               </button>
               {showTrace ? <PolicyTraceList trace={preview.decision.trace} /> : null}
             </div>
-          ) : null}
+          ) : (
+            <p className="text-[11px] text-muted-foreground">
+              Policy is evaluated once the required input is filled in.
+            </p>
+          )}
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">{preview.unavailableReason}</p>

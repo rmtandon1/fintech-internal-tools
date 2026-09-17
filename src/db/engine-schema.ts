@@ -56,6 +56,8 @@ export const approvalRequests = sqliteTable(
     recordVersion: integer("record_version"),
     payloadJson: text("payload_json").notNull(),
     traceJson: text("trace_json").notNull(),
+    /** The tool's decision frozen at request time; replayed verbatim on approval. */
+    decisionJson: text("decision_json").notNull(),
     summary: text("summary").notNull(),
     reason: text("reason").notNull(),
     tier: text("tier").notNull(),
@@ -73,6 +75,18 @@ export const approvalRequests = sqliteTable(
   },
   (t) => [index("approval_requests_status_idx").on(t.status)],
 );
+
+/**
+ * Single-row checkpoint of the audit chain head. Written in the same
+ * transaction as every append, so deleting the tail of `audit_log` leaves a
+ * head the remaining rows cannot account for.
+ */
+export const auditHead = sqliteTable("audit_head", {
+  id: integer("id").primaryKey(),
+  seq: integer("seq").notNull(),
+  rowHash: text("row_hash").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
 
 /** Numeric/list policy thresholds, read fresh on every policy evaluation. */
 export const runtimeConstants = sqliteTable("runtime_constants", {

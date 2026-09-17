@@ -7,6 +7,7 @@ import { appendAudit } from "@/engine/audit/append";
 import { applyEffect } from "@/engine/execute-intent";
 import type {
   Actor,
+  Decision,
   IntentErrorCode,
   IntentResult,
   PolicyTrace,
@@ -22,6 +23,8 @@ export interface ApprovalView {
   recordVersion: number | null;
   payload: unknown;
   trace: PolicyTrace;
+  /** The decision the tool computed when the request was raised. */
+  decision: Decision;
   summary: string;
   reason: string;
   tier: string;
@@ -84,11 +87,21 @@ export function canDecide(
   return { ok: true };
 }
 
+/** Rolls the approval transaction back when the frozen effect cannot land. */
+class EffectFailed extends Error {
+  constructor(readonly result: IntentResult & { outcome: { status: "error" } }) {
+    super("effect failed");
+  }
+}
+
 /**
- * Executes a frozen request. The payload, the policy trace and the record
- * version were all captured when the request was raised: nothing is
- * re-decided here except the version check, which fails the approval safely
- * if the record moved in the meantime.
+ * Executes a frozen request. The payload, the decision, the policy trace and
+ * the record version were all captured when the request was raised: nothing
+ * is re-decided here except the version check, which fails the approval
+ * safely if the record moved in the meantime.
+ *
+ * The claim, the effect and both audit rows share one transaction, so an
+ * approval can never be recorded for an effect that did not land.
  */
 export function approve(actor: Actor, id: string, note?: string): IntentResult {
   const approval = getApproval(id);
@@ -122,75 +135,85 @@ export function approve(actor: Actor, id: string, note?: string): IntentResult {
     );
   }
 
-  // Self-approval is also blocked at the database level: the row can only be
-  // claimed by an actor who is not the requester.
-  const claimed = transact((tx) =>
-    tx
-      .update(approvalRequests)
-      .set({
-        status: "approved",
-        decidedBy: actor.id,
-        decidedAt: Date.now(),
-        decisionNote: note ?? null,
-      })
-      .where(
-        and(
-          eq(approvalRequests.id, id),
-          eq(approvalRequests.status, "pending"),
-          ne(approvalRequests.requesterId, actor.id),
-        ),
-      )
-      .run(),
-  );
-  if (claimed.changes !== 1) {
-    return error("approval_not_pending", "The request was already decided");
-  }
-
-  const result = applyEffect(
-    { id: approval.requesterId, name: approval.requesterId, role: approval.requesterRole },
-    decl,
-    action,
-    record,
-    approval.payload,
-    approval.trace,
-    "applied_after_approval",
-    { recordId: approval.recordId },
-  );
-
-  transact((tx) =>
-    appendAudit(tx, {
-      actor,
-      tool: approval.tool,
-      action: approval.action,
-      recordType: approval.recordType,
-      recordId: approval.recordId ?? "-",
-      event: "approval_granted",
-      summary: `Approved: ${approval.summary}`,
-      payload: approval.payload,
-      before: null,
-      after: null,
-      decision: {
-        approvalId: approval.id,
-        requesterId: approval.requesterId,
-        note: note ?? null,
-        trace: approval.trace,
-        result: result.outcome.status,
-      },
-    }),
-  );
-
-  const outcome = result.outcome;
-  if (outcome.status === "error") {
-    transact((tx) =>
-      tx
+  try {
+    return transact((tx) => {
+      // Self-approval is also blocked at the database level: the row can only
+      // be claimed by an actor who is not the requester.
+      const claimed = tx
         .update(approvalRequests)
-        .set({ status: "failed", failureCode: outcome.code })
-        .where(eq(approvalRequests.id, id))
-        .run(),
+        .set({
+          status: "approved",
+          decidedBy: actor.id,
+          decidedAt: Date.now(),
+          decisionNote: note ?? null,
+        })
+        .where(
+          and(
+            eq(approvalRequests.id, id),
+            eq(approvalRequests.status, "pending"),
+            ne(approvalRequests.requesterId, actor.id),
+          ),
+        )
+        .run();
+      if (claimed.changes !== 1) {
+        return error("approval_not_pending", "The request was already decided");
+      }
+
+      const result = applyEffect(tx, {
+        actor: {
+          id: approval.requesterId,
+          name: approval.requesterRole,
+          role: approval.requesterRole,
+        },
+        decl,
+        action,
+        record,
+        input: approval.payload,
+        trace: approval.trace,
+        event: "applied_after_approval",
+        recordId: approval.recordId,
+        decision: approval.decision,
+      });
+      if (result.outcome.status === "error") {
+        throw new EffectFailed(result as IntentResult & { outcome: { status: "error" } });
+      }
+
+      appendAudit(tx, {
+        actor,
+        tool: approval.tool,
+        action: approval.action,
+        recordType: approval.recordType,
+        recordId: approval.recordId ?? "-",
+        event: "approval_granted",
+        summary: `Approved: ${approval.summary}`,
+        payload: approval.payload,
+        before: null,
+        after: null,
+        decision: {
+          approvalId: approval.id,
+          requesterId: approval.requesterId,
+          note: note ?? null,
+          trace: approval.trace,
+          result: result.outcome.status,
+        },
+      });
+
+      return result;
+    });
+  } catch (thrown) {
+    // The claim rolled back with the effect. A rejected effect is recorded as
+    // a failed approval; an unexpected throw leaves the request pending so it
+    // can be decided again.
+    if (thrown instanceof EffectFailed) {
+      const outcome = thrown.result.outcome;
+      failApproval(actor, approval, outcome.code, outcome.message);
+      return thrown.result;
+    }
+    return error(
+      "internal_error",
+      thrown instanceof Error ? thrown.message : "Unexpected engine failure",
     );
   }
-
-  return result;
 }
 
 export function reject(actor: Actor, id: string, note: string): IntentResult {
@@ -204,7 +227,7 @@ export function reject(actor: Actor, id: string, note: string): IntentResult {
     );
   }
 
-  const claimed = transact((tx) => {
+  const decided = transact((tx) => {
     const res = tx
       .update(approvalRequests)
       .set({
@@ -221,25 +244,23 @@ export function reject(actor: Actor, id: string, note: string): IntentResult {
         ),
       )
       .run();
-    if (res.changes === 1) {
-      appendAudit(tx, {
-        actor,
-        tool: approval.tool,
-        action: approval.action,
-        recordType: approval.recordType,
-        recordId: approval.recordId ?? "-",
-        event: "approval_rejected",
-        summary: `Rejected: ${approval.summary}`,
-        payload: approval.payload,
-        before: null,
-        after: null,
-        decision: { approvalId: approval.id, note, trace: approval.trace },
-      });
-    }
-    return res;
+    if (res.changes !== 1) return null;
+    return appendAudit(tx, {
+      actor,
+      tool: approval.tool,
+      action: approval.action,
+      recordType: approval.recordType,
+      recordId: approval.recordId ?? "-",
+      event: "approval_rejected",
+      summary: `Rejected: ${approval.summary}`,
+      payload: approval.payload,
+      before: null,
+      after: null,
+      decision: { approvalId: approval.id, note, trace: approval.trace },
+    });
   });
 
-  if (claimed.changes !== 1) {
+  if (!decided) {
     return error("approval_not_pending", "The request was already decided");
   }
 
@@ -247,7 +268,7 @@ export function reject(actor: Actor, id: string, note: string): IntentResult {
     outcome: {
       status: "applied",
       recordId: approval.recordId ?? "-",
-      auditId: "-",
+      auditId: decided,
       summary: `Rejected: ${approval.summary}`,
       trace: approval.trace,
     },
@@ -258,7 +279,7 @@ export function reject(actor: Actor, id: string, note: string): IntentResult {
 function failApproval(
   actor: Actor,
   approval: ApprovalView,
-  code: "version_conflict" | "record_not_found",
+  code: IntentErrorCode,
   message: string,
 ): IntentResult {
   transact((tx) => {
@@ -299,6 +320,7 @@ function toView(row: typeof approvalRequests.$inferSelect): ApprovalView {
     recordVersion: row.recordVersion,
     payload: JSON.parse(row.payloadJson) as unknown,
     trace: JSON.parse(row.traceJson) as PolicyTrace,
+    decision: JSON.parse(row.decisionJson) as Decision,
     summary: row.summary,
     reason: row.reason,
     tier: row.tier,

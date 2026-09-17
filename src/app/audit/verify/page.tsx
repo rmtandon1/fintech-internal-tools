@@ -10,6 +10,8 @@ const BREAK_EXPLANATIONS: Record<string, string> = {
   seq_gap: "A row was deleted: the sequence is no longer dense.",
   prev_mismatch: "A row was inserted or reordered: its prev_hash does not follow.",
   row_hash_mismatch: "A row's contents were edited in place: the hash no longer matches.",
+  head_mismatch:
+    "The end of the log was removed: the head checkpoint records a row the log no longer has.",
 };
 
 export default async function VerifyPage() {

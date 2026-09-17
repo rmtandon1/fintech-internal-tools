@@ -27,6 +27,12 @@ describe("pii", () => {
     expect(result.ok).toBe(false);
   });
 
+  it("refuses to reveal on a tool the role cannot see, whatever the reveal roles say", () => {
+    const result = revealField(analyst, "vault", "w_pii", "ownerEmail");
+
+    expect(result).toMatchObject({ ok: false });
+  });
+
   it("reveals for a permitted role and audits the reveal", () => {
     const result = revealField(manager, "widgets", "w_pii", "ownerEmail");
 
