@@ -1,0 +1,172 @@
+import Link from "next/link";
+import { Icon } from "@/components/icon";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { countPendingFor } from "@/engine/approvals";
+import { auditStats } from "@/engine/audit/query";
+import { verifyChain } from "@/engine/audit/verify";
+import { formatRelative } from "@/lib/format";
+import { modesByGroup } from "@/lib/modes";
+import { currentActor } from "@/lib/session";
+import { getTool, toolsForRole } from "@/tools";
+import { cn } from "@/lib/utils";
+
+export default async function HomePage() {
+  const actor = await currentActor();
+  const tools = toolsForRole(actor.role);
+  const stats = auditStats();
+  const chain = verifyChain();
+  const pending = countPendingFor(actor);
+
+  return (
+    <div className="space-y-6">
+      <header className="space-y-1">
+        <h1 className="text-xl font-semibold">Operations home</h1>
+        <p className="text-sm text-muted-foreground">
+          Acting as {actor.role}. Every action below runs through the same governed write
+          path: validate → idempotency → policy → approval → effect → audit.
+        </p>
+      </header>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Tools available" value={String(tools.length)} icon="Wrench" />
+        <Stat
+          label="Approvals waiting"
+          value={String(pending)}
+          icon="Inbox"
+          href={actor.role === "analyst" ? undefined : "/inbox"}
+        />
+        <Stat
+          label="Audit events"
+          value={String(stats.total)}
+          icon="ScrollText"
+          hint={stats.lastTs ? `last ${formatRelative(stats.lastTs)}` : undefined}
+          href="/audit"
+        />
+        <Stat
+          label="Audit chain"
+          value={chain.ok ? "Intact" : "Broken"}
+          icon={chain.ok ? "ShieldCheck" : "ShieldX"}
+          tone={chain.ok ? "positive" : "negative"}
+          href={actor.role === "admin" ? "/audit/verify" : undefined}
+        />
+      </div>
+
+      {modesByGroup().map(({ group, modes }) => (
+        <section key={group} className="space-y-2">
+          <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            {group}
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {modes.map((mode) => {
+              const decl = getTool(mode.id);
+              const live = decl ? decl.visibleTo.includes(actor.role) : false;
+              const permitted = mode.roles.includes(actor.role);
+              const body = (
+                <Card
+                  className={cn(
+                    "h-full transition-colors",
+                    live ? "hover:border-primary/50" : "opacity-60",
+                  )}
+                >
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start gap-2.5">
+                      <div
+                        className={cn(
+                          "flex size-8 shrink-0 items-center justify-center rounded-md",
+                          live ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+                        )}
+                      >
+                        <Icon name={decl?.icon ?? mode.icon} className="size-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <CardTitle className="text-sm">
+                          {decl?.displayName ?? mode.name}
+                        </CardTitle>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {decl?.description ?? mode.description}
+                        </p>
+                      </div>
+                      <Badge
+                        variant={live ? "default" : "outline"}
+                        className="ml-auto shrink-0 text-[10px] font-normal"
+                      >
+                        {live ? "Live" : "Planned"}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="flex flex-wrap gap-1 pt-0">
+                    {mode.actions.slice(0, 4).map((action) => (
+                      <span
+                        key={action}
+                        className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
+                      >
+                        {action}
+                      </span>
+                    ))}
+                    {!permitted ? (
+                      <span className="ml-auto text-[10px] text-muted-foreground">
+                        {mode.roles.join(", ")} only
+                      </span>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              );
+
+              return live ? (
+                <Link key={mode.id} href={`/t/${mode.id}`}>
+                  {body}
+                </Link>
+              ) : (
+                <div key={mode.id}>{body}</div>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  icon,
+  hint,
+  href,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string;
+  icon: string;
+  hint?: string;
+  href?: string;
+  tone?: "neutral" | "positive" | "negative";
+}) {
+  const card = (
+    <Card className="h-full">
+      <CardContent className="flex items-center gap-3 py-4">
+        <div
+          className={cn(
+            "flex size-9 items-center justify-center rounded-md",
+            tone === "positive"
+              ? "bg-emerald-500/10 text-emerald-400"
+              : tone === "negative"
+                ? "bg-red-500/10 text-red-400"
+                : "bg-muted text-muted-foreground",
+          )}
+        >
+          <Icon name={icon} className="size-4" />
+        </div>
+        <div>
+          <div className="text-lg font-semibold leading-none">{value}</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {label}
+            {hint ? ` · ${hint}` : ""}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+  return href ? <Link href={href}>{card}</Link> : card;
+}
