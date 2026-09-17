@@ -10,7 +10,7 @@ const TOOL_NAMES = ["kyc", "refunds", "flags"];
 
 /** Only the engine may take a write handle; everything else writes via intents. */
 const WRITE_CLIENT = "@/db/write-client";
-const WRITE_CLIENT_ALLOWED = [join("src", "engine"), join("src", "db")];
+const WRITE_CLIENT_ALLOWED = [join("src", "engine") + sep, join("src", "db") + sep];
 
 const failures: string[] = [];
 

@@ -32,15 +32,18 @@ export async function submitIntent(form: FormData): Promise<IntentResult> {
   const idempotencyKey = String(form.get("idempotencyKey") || ulid());
 
   // Inputs arrive as `input:<type>:<name>` so string fields that happen to
-  // look numeric (document numbers, flag keys) survive the round trip. A blank
-  // field is omitted rather than sent as "", so optional fields fall through to
-  // the schema default instead of carrying a value the user never chose.
+  // look numeric (document numbers, flag keys) survive the round trip. An
+  // optional field is marked `input:<type>?:<name>`: blank means "not
+  // supplied", so the schema default applies instead of a value the user never
+  // chose. A blank required field is still sent, so "" reaches validation.
   const input: Record<string, unknown> = {};
   for (const [key, value] of form.entries()) {
     if (!key.startsWith("input:")) continue;
+    const [, marker, name] = key.split(":");
+    const optional = marker.endsWith("?");
+    const type = optional ? marker.slice(0, -1) : marker;
     const raw = String(value);
-    if (raw === "") continue;
-    const [, type, name] = key.split(":");
+    if (raw === "" && (optional || type === "number")) continue;
     input[name] = coerce(type, raw);
   }
 

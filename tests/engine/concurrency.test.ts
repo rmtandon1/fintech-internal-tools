@@ -17,8 +17,12 @@ beforeAll(() => {
   setConstant(admin, APPROVAL_THRESHOLD_KEY, "1000");
 });
 
-describe("concurrent writes against one record", () => {
-  it("lets exactly one of ten overlapping spends through", async () => {
+// better-sqlite3 is synchronous, so ten interleaved in-flight transactions
+// cannot be produced in-process: these requests are serialised. What the test
+// pins down is the outcome of a lost race — every request after the first sees
+// the record it read has moved and refuses cleanly, with no partial write.
+describe("repeated writes against one record", () => {
+  it("lets exactly one of ten identical spends through", async () => {
     makeWidget("w_race", 100);
 
     const results = await Promise.all(

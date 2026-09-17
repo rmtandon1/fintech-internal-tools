@@ -206,8 +206,9 @@ export function approve(actor: Actor, id: string, note?: string): IntentResult {
     // can be decided again.
     if (thrown instanceof EffectFailed) {
       const outcome = thrown.result.outcome;
-      failApproval(actor, approval, outcome.code, outcome.message);
-      return thrown.result;
+      // failApproval reports the effect error when it claims the row, and
+      // approval_not_pending when another decider claimed it first.
+      return failApproval(actor, approval, outcome.code, outcome.message);
     }
     return error(
       "internal_error",

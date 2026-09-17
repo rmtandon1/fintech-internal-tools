@@ -115,6 +115,8 @@ function ActionForm({
       {preview.offered ? (
         <div className="space-y-2">
           {preview.inputFields.map((field) => (
+            // `input:<type><?>:<name>`: the marker tells the server a blank
+            // value means "not supplied" rather than an empty value.
             <div key={field.name} className="space-y-1">
               <Label
                 htmlFor={`${preview.action}-${field.name}`}
@@ -126,14 +128,14 @@ function ActionForm({
               {field.type === "string" && field.name.includes("reason") ? (
                 <Textarea
                   id={`${preview.action}-${field.name}`}
-                  name={`input:string:${field.name}`}
+                  name={`input:string${field.optional ? "?" : ""}:${field.name}`}
                   rows={2}
                   className="text-xs"
                 />
               ) : field.type === "enum" ? (
                 <select
                   id={`${preview.action}-${field.name}`}
-                  name={`input:string:${field.name}`}
+                  name={`input:string${field.optional ? "?" : ""}:${field.name}`}
                   className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs"
                 >
                   {field.optional ? <option value="">—</option> : null}
@@ -146,7 +148,7 @@ function ActionForm({
               ) : field.type === "boolean" ? (
                 <select
                   id={`${preview.action}-${field.name}`}
-                  name={`input:boolean:${field.name}`}
+                  name={`input:boolean${field.optional ? "?" : ""}:${field.name}`}
                   className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs"
                 >
                   {field.optional ? <option value="">—</option> : null}
@@ -156,7 +158,7 @@ function ActionForm({
               ) : (
                 <Input
                   id={`${preview.action}-${field.name}`}
-                  name={`input:${field.type === "number" ? "number" : "string"}:${field.name}`}
+                  name={`input:${field.type === "number" ? "number" : "string"}${field.optional ? "?" : ""}:${field.name}`}
                   type={field.type === "number" ? "number" : "text"}
                   className="h-8 text-xs"
                 />
