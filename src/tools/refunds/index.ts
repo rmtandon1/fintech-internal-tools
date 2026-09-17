@@ -129,7 +129,13 @@ export const refundTool = defineTool<Refund>({
       type: "currency",
       currencyField: "currency",
     },
-    { name: "usdMinor", label: "USD equivalent", type: "number" },
+    {
+      name: "usdMinor",
+      label: "USD equivalent",
+      type: "currency",
+      currency: "USD",
+      help: "Frozen at request time; thresholds are evaluated against this.",
+    },
     { name: "currency", label: "Currency", type: "string" },
     {
       name: "reasonCode",

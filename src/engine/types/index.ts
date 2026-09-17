@@ -30,6 +30,8 @@ export interface FieldDecl {
   enumValues?: readonly string[];
   /** For `currency` fields: the field holding the ISO currency code. */
   currencyField?: string;
+  /** For `currency` fields always denominated in one currency. */
+  currency?: string;
   help?: string;
 }
 
