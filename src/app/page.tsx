@@ -23,9 +23,8 @@ export default async function HomePage() {
       <header className="space-y-1">
         <h1 className="text-xl font-semibold">Operations home</h1>
         <p className="text-sm text-muted-foreground">
-          Signed in as {actor.name} · {actor.role}. Every action below runs through the
-          same governed write path: validate → idempotency → policy → approval → effect →
-          audit.
+          Acting as {actor.role}. Every action below runs through the same governed write
+          path: validate → idempotency → policy → approval → effect → audit.
         </p>
       </header>
 

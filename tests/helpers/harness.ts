@@ -5,14 +5,14 @@ import type { Actor } from "@/engine/types";
 import { registerTool } from "@/tools";
 import { WIDGETS_DDL, widgetTool, widgets } from "../fixtures/widgets";
 
-export const analyst: Actor = { id: "usr_analyst", name: "Ana Analyst", role: "analyst" };
-export const manager: Actor = { id: "usr_manager", name: "Mo Manager", role: "manager" };
+export const analyst: Actor = { id: "usr_analyst", name: "Analyst", role: "analyst" };
+export const manager: Actor = { id: "usr_manager", name: "Manager", role: "manager" };
 export const otherManager: Actor = {
   id: "usr_manager_2",
-  name: "Mia Manager",
+  name: "Manager 2",
   role: "manager",
 };
-export const admin: Actor = { id: "usr_admin", name: "Adi Admin", role: "admin" };
+export const admin: Actor = { id: "usr_admin", name: "Admin", role: "admin" };
 
 /** Fresh schema, fixture tool registered, default constants installed. */
 export function setupHarness(): void {

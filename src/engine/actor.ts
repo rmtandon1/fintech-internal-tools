@@ -4,11 +4,11 @@ import { ROLES } from "@/engine/types";
 
 export const ACTOR_COOKIE = "ops_actor";
 
-/** Demo personas. Real deployments would resolve these from an identity provider. */
+/** Demo actors. Real deployments would resolve these from an identity provider. */
 export const DEMO_ACTORS: Record<Role, Actor> = {
-  analyst: { id: "usr_analyst_amara", name: "Amara Osei", role: "analyst" },
-  manager: { id: "usr_manager_dan", name: "Dan Whitfield", role: "manager" },
-  admin: { id: "usr_admin_priya", name: "Priya Raman", role: "admin" },
+  analyst: { id: "usr_analyst", name: "Analyst", role: "analyst" },
+  manager: { id: "usr_manager", name: "Manager", role: "manager" },
+  admin: { id: "usr_admin", name: "Admin", role: "admin" },
 };
 
 export const DEFAULT_ACTOR = DEMO_ACTORS.analyst;

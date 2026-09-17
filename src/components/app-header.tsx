@@ -2,7 +2,6 @@
 
 import { useTransition } from "react";
 import { Icon } from "@/components/icon";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -52,9 +51,7 @@ export function AppHeader({
         </div>
 
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="font-normal">
-            {actor.name}
-          </Badge>
+          <span className="text-xs text-muted-foreground">Acting as</span>
           <Select
             value={actor.role}
             disabled={pending}
