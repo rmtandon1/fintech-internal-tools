@@ -39,6 +39,8 @@ export interface ColumnDecl {
   field: string;
   label?: string;
   align?: "left" | "right";
+  /** Offers the column as a sort key; the tool's `list` resolves the field. */
+  sortable?: boolean;
 }
 
 export interface FilterDecl {
@@ -200,8 +202,14 @@ export interface ToolDeclaration<TRecord extends GovernedRecord = GovernedRecord
 export interface ListOptions {
   filters: Record<string, string>;
   search?: string;
+  sort?: SortOption;
   limit: number;
   offset: number;
+}
+
+export interface SortOption {
+  field: string;
+  direction: "asc" | "desc";
 }
 
 export interface Intent<TInput = unknown> {

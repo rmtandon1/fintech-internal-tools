@@ -96,6 +96,40 @@ describe("kyc review queue", () => {
     expect(kycTool.get("kyc_0002")?.status).toBe("pending_review");
   });
 
+  it("seeds a queue deep enough to page through, with high-risk work waiting", () => {
+    const { rows, total } = kycTool.list({ filters: {}, limit: 50, offset: 0 });
+    expect(total).toBeGreaterThanOrEqual(100);
+    expect(rows).toHaveLength(50);
+    const pendingHighRisk = kycTool
+      .list({ filters: { status: "pending_review" }, limit: 200, offset: 0 })
+      .rows.filter((row) => Number(row.riskScore) >= 70);
+    expect(pendingHighRisk.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("sorts on a declared column in both directions", () => {
+    const query = (direction: "asc" | "desc") =>
+      kycTool
+        .list({ filters: {}, sort: { field: "riskScore", direction }, limit: 10, offset: 0 })
+        .rows.map((row) => Number(row.riskScore));
+
+    const ascending = query("asc");
+    const descending = query("desc");
+    expect(ascending).toEqual([...ascending].sort((a, b) => a - b));
+    expect(descending).toEqual([...descending].sort((a, b) => b - a));
+    expect(ascending[0]).toBeLessThan(descending[0]);
+  });
+
+  it("ignores a sort field the declaration does not offer", () => {
+    const rows = kycTool.list({
+      filters: {},
+      sort: { field: "documentNumber", direction: "asc" },
+      limit: 5,
+      offset: 0,
+    }).rows;
+    const scores = rows.map((row) => Number(row.riskScore));
+    expect(scores).toEqual([...scores].sort((a, b) => b - a));
+  });
+
   it("requires a manager once a case has been escalated", () => {
     const result = act(analyst, "approve", "kyc_0011");
     if (result.outcome.status !== "pending_approval") {

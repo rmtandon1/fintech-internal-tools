@@ -50,6 +50,19 @@ export function AuditTimeline({ events }: { events: AuditRow[] }) {
                   </div>
                 </details>
               ) : null}
+              <details>
+                <summary className="cursor-pointer text-[11px] text-muted-foreground hover:text-foreground">
+                  Before / after and hashes
+                </summary>
+                <div className="mt-1 space-y-2 rounded-md border border-border p-2">
+                  <ChangedFields before={event.beforeJson} after={event.afterJson} />
+                  <dl className="space-y-0.5 font-mono text-[10px] text-muted-foreground">
+                    <Hash label="seq" value={String(event.seq)} />
+                    <Hash label="prev" value={event.prevHash} />
+                    <Hash label="row" value={event.rowHash} />
+                  </dl>
+                </div>
+              </details>
               <div className="font-mono text-[10px] text-muted-foreground/70">
                 #{event.seq} · {event.rowHash.slice(0, 16)}…
               </div>
@@ -59,6 +72,66 @@ export function AuditTimeline({ events }: { events: AuditRow[] }) {
       })}
     </ol>
   );
+}
+
+function Hash({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex gap-2">
+      <dt className="w-10 shrink-0 text-muted-foreground/70">{label}</dt>
+      <dd className="min-w-0 break-all">{value}</dd>
+    </div>
+  );
+}
+
+/** Only the fields the write actually moved, so the diff stays readable. */
+function ChangedFields({
+  before,
+  after,
+}: {
+  before: string | null;
+  after: string | null;
+}) {
+  const from = safeRecord(before);
+  const to = safeRecord(after);
+  if (!to) return <p className="text-[11px] text-muted-foreground">No record change.</p>;
+
+  const changed = Object.keys(to).filter(
+    (key) => JSON.stringify(from?.[key]) !== JSON.stringify(to[key]),
+  );
+  if (changed.length === 0) {
+    return <p className="text-[11px] text-muted-foreground">No field changed.</p>;
+  }
+
+  return (
+    <table className="w-full text-[11px]">
+      <tbody>
+        {changed.map((key) => (
+          <tr key={key}>
+            <td className="py-0.5 pr-2 align-top text-muted-foreground">{key}</td>
+            <td className="py-0.5 pr-2 align-top font-mono text-muted-foreground/70">
+              {display(from?.[key])}
+            </td>
+            <td className="py-0.5 align-top font-mono">{display(to[key])}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function display(value: unknown): string {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+function safeRecord(json: string | null): Record<string, unknown> | null {
+  if (!json) return null;
+  try {
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
 }
 
 function safeDecision(json: string): PolicyDecision | null {
