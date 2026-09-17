@@ -1,10 +1,11 @@
 import type { Role, ToolDeclaration } from "@/engine/types";
+import { kycTool } from "@/tools/kyc";
 
 /**
  * Explicit registry of governed tools. A tool is added by importing its
  * declaration and listing it here; nothing else in the app enumerates tools.
  */
-export const TOOLS: ToolDeclaration[] = [];
+export const TOOLS: ToolDeclaration[] = [kycTool];
 
 /**
  * Adds a declaration to the registry at runtime. Production tools are listed

@@ -8,6 +8,13 @@
       "when": 1789647889614,
       "tag": "0000_perpetual_molly_hayes",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789650305313,
+      "tag": "0001_noisy_guardian",
+      "breakpoints": true
     }
   ]
 }
