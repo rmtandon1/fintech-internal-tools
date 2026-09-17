@@ -52,7 +52,7 @@ export default async function ToolQueuePage({
           <p className="text-sm text-muted-foreground">{decl.description}</p>
         </div>
         <div className="ml-auto text-sm text-muted-foreground">
-          {total} {total === 1 ? decl.recordType : `${decl.recordType}s`}
+          {total} {(total === 1 ? decl.recordType : `${decl.recordType}s`).replace(/_/g, " ")}
         </div>
       </header>
 
@@ -110,7 +110,7 @@ export default async function ToolQueuePage({
                 >
                   {column.label ??
                     decl.fields.find((f) => f.name === column.field)?.label ??
-                    column.field}
+                    humanize(column.field)}
                 </TableHead>
               ))}
             </TableRow>
@@ -169,4 +169,10 @@ export default async function ToolQueuePage({
       </div>
     </div>
   );
+}
+
+/** Declaration identifiers are snake_case; column and count labels are not. */
+function humanize(value: string): string {
+  const spaced = value.replace(/_/g, " ");
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }

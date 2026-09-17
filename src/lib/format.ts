@@ -38,8 +38,8 @@ export function formatFieldValue(
   switch (field.type) {
     case "currency": {
       const currency = field.currencyField
-        ? String(record[field.currencyField] ?? "GBP")
-        : "GBP";
+        ? String(record[field.currencyField] ?? field.currency ?? "GBP")
+        : (field.currency ?? "GBP");
       return typeof value === "number"
         ? formatMinorUnits(value, currency)
         : String(value);

@@ -12,11 +12,13 @@ export function requestHash(input: {
   return sha256(canonicalJson(input));
 }
 
-export type Reservation =
-  | { kind: "reserved" }
+export type Lookup =
+  | { kind: "none" }
   | { kind: "replay"; result: IntentResult }
   | { kind: "conflict" }
   | { kind: "in_progress" };
+
+export type Reservation = { kind: "reserved" } | Exclude<Lookup, { kind: "none" }>;
 
 /**
  * Claims the key for this submission. A repeat of the same key with the same
@@ -59,6 +61,27 @@ export function reserve(
   if (existing.status === "in_progress") return { kind: "in_progress" };
   if (!existing.resultJson) return { kind: "in_progress" };
 
+  const stored = JSON.parse(existing.resultJson) as IntentResult;
+  return { kind: "replay", result: { ...stored, replayed: true } };
+}
+
+/**
+ * Read-only lookup of the key's outcome. Used before the record-state check so
+ * a retransmitted request replays its own outcome, and a reused key reports a
+ * conflict, rather than failing on a record the first attempt already moved on.
+ * `reserve` remains the authoritative, race-safe claim inside the transaction.
+ */
+export function peek(db: WriteHandle, key: string, hash: string): Lookup {
+  const existing = db
+    .select()
+    .from(idempotencyKeys)
+    .where(eq(idempotencyKeys.key, key))
+    .get();
+  if (!existing) return { kind: "none" };
+  if (existing.requestHash !== hash) return { kind: "conflict" };
+  if (existing.status === "in_progress" || !existing.resultJson) {
+    return { kind: "in_progress" };
+  }
   const stored = JSON.parse(existing.resultJson) as IntentResult;
   return { kind: "replay", result: { ...stored, replayed: true } };
 }

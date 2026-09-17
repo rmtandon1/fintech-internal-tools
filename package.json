@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "npx --yes concurrently --names next,open --prefix-colors cyan,green \"next dev --port 3001\" \"npx --yes wait-on -t 120000 tcp:127.0.0.1:3001 && npx --yes open-cli http://localhost:3001\"",
     "build": "next build",
-    "start": "next start",
+    "start": "next start --port 3001",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",

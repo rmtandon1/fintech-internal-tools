@@ -1,4 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import type { Actor, Role } from "@/engine/types";
 import { ROLES } from "@/engine/types";
 
@@ -15,16 +17,44 @@ export const DEFAULT_ACTOR = DEMO_ACTORS.analyst;
 
 let devSecret: string | null = null;
 
+const DEV_SECRET_PATH = resolve(
+  process.env.ACTOR_COOKIE_SECRET_PATH ?? "data/.actor-secret",
+);
+
 /**
  * Role switching is a demo convenience, not authentication, so the cookie
  * only needs to resist casual editing. ACTOR_COOKIE_SECRET is used when set;
- * otherwise the key is random per process rather than a published constant.
+ * otherwise a generated key is cached on disk, because server actions and
+ * page renders can run in different processes and must agree on the key.
  */
 function secret(): string {
   const configured = process.env.ACTOR_COOKIE_SECRET;
   if (configured) return configured;
-  devSecret ??= randomBytes(32).toString("hex");
+  if (devSecret) return devSecret;
+  const existing = readSecretFile();
+  if (existing) {
+    devSecret = existing;
+    return devSecret;
+  }
+  const candidate = randomBytes(32).toString("hex");
+  mkdirSync(dirname(DEV_SECRET_PATH), { recursive: true });
+  try {
+    // Exclusive create: processes starting together must not each keep their
+    // own candidate while the last writer decides what is on disk.
+    writeFileSync(DEV_SECRET_PATH, candidate, { mode: 0o600, flag: "wx" });
+    devSecret = candidate;
+  } catch {
+    devSecret = readSecretFile() ?? candidate;
+  }
   return devSecret;
+}
+
+function readSecretFile(): string | null {
+  try {
+    return readFileSync(DEV_SECRET_PATH, "utf8").trim() || null;
+  } catch {
+    return null;
+  }
 }
 
 export function signRole(role: Role): string {

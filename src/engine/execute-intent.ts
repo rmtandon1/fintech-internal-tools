@@ -1,6 +1,6 @@
 import { ulid } from "ulid";
 import { approvalRequests } from "@/db/engine-schema";
-import { transact } from "@/db/write-client";
+import { transact, writeDb } from "@/db/write-client";
 import { getTool } from "@/tools";
 import { appendAudit } from "@/engine/audit/append";
 import * as idempotency from "@/engine/idempotency";
@@ -61,6 +61,28 @@ export function executeIntent(actor: Actor, intent: Intent): IntentResult {
   }
   const input = parsed.data;
 
+  const hash = idempotency.requestHash({
+    tool: intent.tool,
+    action: intent.action,
+    recordId: intent.recordId,
+    input,
+  });
+
+  // A retransmission replays its own stored outcome and a reused key reports a
+  // conflict: the first attempt may already have moved the record past this
+  // action's allowed statuses, which would otherwise mask both as a bad status.
+  const seen = idempotency.peek(writeDb, intent.idempotencyKey, hash);
+  if (seen.kind === "replay") return seen.result;
+  if (seen.kind === "conflict") {
+    return fail(
+      "idempotency_conflict",
+      "This idempotency key was already used with a different payload",
+    );
+  }
+  if (seen.kind === "in_progress") {
+    return fail("in_progress", "An identical request is still being processed");
+  }
+
   let record: GovernedRecord | null = null;
   if (!action.createsRecord) {
     if (!intent.recordId) return fail("record_not_found", "No record id supplied");
@@ -78,13 +100,6 @@ export function executeIntent(actor: Actor, intent: Intent): IntentResult {
       }
     }
   }
-
-  const hash = idempotency.requestHash({
-    tool: intent.tool,
-    action: intent.action,
-    recordId: intent.recordId,
-    input,
-  });
 
   try {
     return transact((tx) => {

@@ -10,4 +10,5 @@ export function transact<T>(fn: (tx: WriteHandle) => T): T {
   return db.transaction((tx) => fn(tx as unknown as WriteHandle));
 }
 
-export const writeDb = db;
+/** The same handle outside a transaction, for the engine's own reads. */
+export const writeDb = db as unknown as WriteHandle;
