@@ -98,6 +98,29 @@ const rolloutIncrease: FlagRule<{ percent: number }> = ({
     : { type: "allow", rule: "rollout_increase" };
 };
 
+/**
+ * A rollout that raises customer exposure in production is the same change as
+ * an enable, so it carries the same gate. A decrease stays ungated.
+ */
+const productionExposureIncrease: FlagRule<{ percent: number }> = ({
+  record,
+  input,
+  constants,
+}) =>
+  record &&
+  record.environment === "production" &&
+  record.customerFacing === 1 &&
+  input.percent > record.rolloutPercent &&
+  constants.boolean(PROD_APPROVAL_KEY, true)
+    ? {
+        type: "require_approval",
+        rule: "production_exposure_increase",
+        tier: "manager",
+        allowedRoles: ["manager", "admin"],
+        reason: "Raising customer-facing traffic in production needs a manager",
+      }
+    : { type: "allow", rule: "production_exposure_increase" };
+
 const allow =
   <TInput>(rule: string): FlagRule<TInput> =>
   () => ({ type: "allow", rule });
@@ -262,7 +285,13 @@ export const flagTool = defineTool<FeatureFlag>({
         reason: z.string().min(5).max(500),
       }),
       fromStatus: ["off", "partial", "on"],
-      rules: [notArchived, notExpired, permissionFlagTier, rolloutIncrease],
+      rules: [
+        notArchived,
+        notExpired,
+        permissionFlagTier,
+        productionExposureIncrease,
+        rolloutIncrease,
+      ],
       decide: ({ record, input }) => ({
         summary: `Set ${record?.key ?? ""} rollout to ${input.percent}%: ${input.reason}`,
         patch: {

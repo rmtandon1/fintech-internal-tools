@@ -89,4 +89,39 @@ describe("idempotency", () => {
     });
     expect(widgetBalance("w_conflict")).toBe(90);
   });
+
+  it("reports a reused key as a conflict once the record has moved on", () => {
+    makeWidget("w_reused", 100);
+    const key = ulid();
+    const spent = executeIntent(analyst, {
+      tool: "widgets",
+      action: "spend",
+      recordId: "w_reused",
+      input: { amount: 10, reason: "first" },
+      idempotencyKey: key,
+    });
+    expect(spent.outcome.status).toBe("applied");
+    executeIntent(manager, {
+      tool: "widgets",
+      action: "close",
+      recordId: "w_reused",
+      input: {},
+      idempotencyKey: ulid(),
+    });
+
+    // "spend" no longer accepts a closed widget, but key reuse is the failure
+    // the caller needs to hear about.
+    const reused = executeIntent(analyst, {
+      tool: "widgets",
+      action: "spend",
+      recordId: "w_reused",
+      input: { amount: 25, reason: "different" },
+      idempotencyKey: key,
+    });
+
+    expect(reused.outcome).toMatchObject({
+      status: "error",
+      code: "idempotency_conflict",
+    });
+  });
 });

@@ -31,14 +31,30 @@ function secret(): string {
   const configured = process.env.ACTOR_COOKIE_SECRET;
   if (configured) return configured;
   if (devSecret) return devSecret;
+  const existing = readSecretFile();
+  if (existing) {
+    devSecret = existing;
+    return devSecret;
+  }
+  const candidate = randomBytes(32).toString("hex");
+  mkdirSync(dirname(DEV_SECRET_PATH), { recursive: true });
   try {
-    devSecret = readFileSync(DEV_SECRET_PATH, "utf8").trim();
+    // Exclusive create: processes starting together must not each keep their
+    // own candidate while the last writer decides what is on disk.
+    writeFileSync(DEV_SECRET_PATH, candidate, { mode: 0o600, flag: "wx" });
+    devSecret = candidate;
   } catch {
-    devSecret = randomBytes(32).toString("hex");
-    mkdirSync(dirname(DEV_SECRET_PATH), { recursive: true });
-    writeFileSync(DEV_SECRET_PATH, devSecret, { mode: 0o600 });
+    devSecret = readSecretFile() ?? candidate;
   }
   return devSecret;
+}
+
+function readSecretFile(): string | null {
+  try {
+    return readFileSync(DEV_SECRET_PATH, "utf8").trim() || null;
+  } catch {
+    return null;
+  }
 }
 
 export function signRole(role: Role): string {

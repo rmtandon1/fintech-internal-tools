@@ -91,6 +91,29 @@ describe("feature flags", () => {
     );
   });
 
+  it("holds a small rollout that raises customer-facing production traffic", () => {
+    const result = act(analyst, "set_rollout", "flag_0012", {
+      percent: 25,
+      reason: "Start the digest cohort",
+    });
+    if (result.outcome.status !== "pending_approval") {
+      throw new Error("expected an approval request");
+    }
+    expect(result.outcome.trace).toContainEqual(
+      expect.objectContaining({ rule: "production_exposure_increase", tier: "manager" }),
+    );
+    expect(flagTool.get("flag_0012")?.rolloutPercent).toBe(0);
+  });
+
+  it("leaves a customer-facing production decrease ungated", () => {
+    const result = act(analyst, "set_rollout", "flag_0001", {
+      percent: 10,
+      reason: "Funding balance under pressure",
+    });
+    expect(result.outcome.status).toBe("applied");
+    expect(flagTool.get("flag_0001")?.rolloutPercent).toBe(10);
+  });
+
   it("treats a decrease as ordinary regardless of size", () => {
     const result = act(analyst, "set_rollout", "flag_0005", {
       percent: 0,

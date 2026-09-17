@@ -68,10 +68,20 @@ export function executeIntent(actor: Actor, intent: Intent): IntentResult {
     input,
   });
 
-  // A retransmission replays its own stored outcome: the first attempt may
-  // already have moved the record past this action's allowed statuses.
-  const replay = idempotency.peek(writeDb, intent.idempotencyKey, hash);
-  if (replay) return replay;
+  // A retransmission replays its own stored outcome and a reused key reports a
+  // conflict: the first attempt may already have moved the record past this
+  // action's allowed statuses, which would otherwise mask both as a bad status.
+  const seen = idempotency.peek(writeDb, intent.idempotencyKey, hash);
+  if (seen.kind === "replay") return seen.result;
+  if (seen.kind === "conflict") {
+    return fail(
+      "idempotency_conflict",
+      "This idempotency key was already used with a different payload",
+    );
+  }
+  if (seen.kind === "in_progress") {
+    return fail("in_progress", "An identical request is still being processed");
+  }
 
   let record: GovernedRecord | null = null;
   if (!action.createsRecord) {
