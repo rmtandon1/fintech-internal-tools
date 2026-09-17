@@ -136,6 +136,7 @@ function ActionForm({
                   name={`input:string:${field.name}`}
                   className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs"
                 >
+                  {field.optional ? <option value="">—</option> : null}
                   {field.options?.map((option) => (
                     <option key={option} value={option}>
                       {titleCase(option)}
@@ -148,6 +149,7 @@ function ActionForm({
                   name={`input:boolean:${field.name}`}
                   className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs"
                 >
+                  {field.optional ? <option value="">—</option> : null}
                   <option value="true">Yes</option>
                   <option value="false">No</option>
                 </select>

@@ -282,8 +282,11 @@ function failApproval(
   code: IntentErrorCode,
   message: string,
 ): IntentResult {
-  transact((tx) => {
-    tx.update(approvalRequests)
+  const failed = transact((tx) => {
+    // Only a still-pending request may be failed: another decider may have
+    // claimed it between the checks above and this transaction.
+    const claimed = tx
+      .update(approvalRequests)
       .set({
         status: "failed",
         failureCode: code,
@@ -291,8 +294,11 @@ function failApproval(
         decidedAt: Date.now(),
         decisionNote: message,
       })
-      .where(eq(approvalRequests.id, approval.id))
+      .where(
+        and(eq(approvalRequests.id, approval.id), eq(approvalRequests.status, "pending")),
+      )
       .run();
+    if (claimed.changes !== 1) return false;
     appendAudit(tx, {
       actor,
       tool: approval.tool,
@@ -306,7 +312,11 @@ function failApproval(
       after: null,
       decision: { approvalId: approval.id, code, trace: approval.trace },
     });
+    return true;
   });
+  if (!failed) {
+    return error("approval_not_pending", "The request was already decided");
+  }
   return error(code, message);
 }
 

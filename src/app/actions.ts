@@ -32,12 +32,16 @@ export async function submitIntent(form: FormData): Promise<IntentResult> {
   const idempotencyKey = String(form.get("idempotencyKey") || ulid());
 
   // Inputs arrive as `input:<type>:<name>` so string fields that happen to
-  // look numeric (document numbers, flag keys) survive the round trip.
+  // look numeric (document numbers, flag keys) survive the round trip. A blank
+  // field is omitted rather than sent as "", so optional fields fall through to
+  // the schema default instead of carrying a value the user never chose.
   const input: Record<string, unknown> = {};
   for (const [key, value] of form.entries()) {
     if (!key.startsWith("input:")) continue;
+    const raw = String(value);
+    if (raw === "") continue;
     const [, type, name] = key.split(":");
-    input[name] = coerce(type, String(value));
+    input[name] = coerce(type, raw);
   }
 
   const result = executeIntent(actor, { tool, action, recordId, input, idempotencyKey });
@@ -74,7 +78,7 @@ export async function updateConstant(key: string, value: string) {
 }
 
 function coerce(type: string, value: string): unknown {
-  if (type === "number") return value === "" ? undefined : Number(value);
+  if (type === "number") return Number(value);
   if (type === "boolean") return value === "true" || value === "on";
   return value;
 }

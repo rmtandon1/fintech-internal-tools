@@ -1,6 +1,6 @@
 import { asc, eq } from "drizzle-orm";
-import { db } from "@/db/client";
 import { auditHead, auditLog } from "@/db/engine-schema";
+import { transact } from "@/db/write-client";
 import { AUDIT_HEAD_ID } from "./append";
 import { GENESIS_HASH, computeRowHash } from "./chain";
 
@@ -26,7 +26,13 @@ export interface VerifyResult {
 }
 
 export function verifyChain(): VerifyResult {
-  const rows = db.select().from(auditLog).orderBy(asc(auditLog.seq)).all();
+  // Rows and checkpoint are read in one transaction: appends write both
+  // together, so reading them from different snapshots would report a
+  // concurrent append as truncation.
+  const { rows, head } = transact((tx) => ({
+    rows: tx.select().from(auditLog).orderBy(asc(auditLog.seq)).all(),
+    head: tx.select().from(auditHead).where(eq(auditHead.id, AUDIT_HEAD_ID)).get(),
+  }));
 
   let prevHash = GENESIS_HASH;
   let expectedSeq = 1;
@@ -79,11 +85,6 @@ export function verifyChain(): VerifyResult {
   // A hash chain cannot prove how many rows there were: deleting the tail
   // leaves a shorter but internally consistent chain. The head checkpoint,
   // written with every append, is what makes truncation visible.
-  const head = db
-    .select()
-    .from(auditHead)
-    .where(eq(auditHead.id, AUDIT_HEAD_ID))
-    .get();
   const lastRow = rows[rows.length - 1];
   const headMissing = rows.length > 0 && !head;
   if (headMissing || (head && (head.seq !== rows.length || head.rowHash !== prevHash))) {

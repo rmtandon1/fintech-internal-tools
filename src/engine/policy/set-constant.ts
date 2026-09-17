@@ -23,18 +23,26 @@ export function setConstant(
     return { ok: false, reason: "Only admins may change policy constants" };
   }
 
-  const row = db
-    .select()
+  const type = db
+    .select({ type: runtimeConstants.type })
     .from(runtimeConstants)
     .where(eq(runtimeConstants.key, key))
-    .get();
-  if (!row) return { ok: false, reason: `No such constant: ${key}` };
+    .get()?.type;
+  if (!type) return { ok: false, reason: `No such constant: ${key}` };
 
-  const parsed = parseValue(row.type, rawValue);
+  const parsed = parseValue(type, rawValue);
   if (!parsed.ok) return { ok: false, reason: parsed.reason };
 
-  const before = JSON.parse(row.valueJson) as unknown;
-  transact((tx) => {
+  // The previous value is read inside the transaction so the audited
+  // transition is the one this write actually performed.
+  const outcome = transact((tx) => {
+    const row = tx
+      .select()
+      .from(runtimeConstants)
+      .where(eq(runtimeConstants.key, key))
+      .get();
+    if (!row) return null;
+    const before = JSON.parse(row.valueJson) as unknown;
     tx.update(runtimeConstants)
       .set({
         valueJson: JSON.stringify(parsed.value),
@@ -56,9 +64,11 @@ export function setConstant(
       after: { key, value: parsed.value },
       decision: { effect: "allow", trace: [] },
     });
+    return { before };
   });
 
-  return { ok: true, key, before, after: parsed.value };
+  if (!outcome) return { ok: false, reason: `No such constant: ${key}` };
+  return { ok: true, key, before: outcome.before, after: parsed.value };
 }
 
 function parseValue(
