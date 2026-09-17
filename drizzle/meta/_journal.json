@@ -15,6 +15,13 @@
       "when": 1789650305313,
       "tag": "0001_noisy_guardian",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789650454851,
+      "tag": "0002_real_nuke",
+      "breakpoints": true
     }
   ]
 }

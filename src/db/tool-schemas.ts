@@ -4,3 +4,4 @@
  * needs to change when a tool is added or removed.
  */
 export { kycCases } from "@/tools/kyc/schema";
+export { refunds } from "@/tools/refunds/schema";

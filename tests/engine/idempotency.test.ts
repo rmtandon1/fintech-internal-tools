@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { ulid } from "ulid";
 import { executeIntent } from "@/engine/execute-intent";
-import { analyst, makeWidget, setupHarness, widgetBalance } from "../helpers/harness";
+import { analyst, makeWidget, manager, setupHarness, widgetBalance } from "../helpers/harness";
 
 beforeAll(() => setupHarness());
 
@@ -44,6 +44,24 @@ describe("idempotency", () => {
     const retry = executeIntent(analyst, { ...intent, action: "spend", input: { amount: 10, reason: "retry" } });
     expect(retry.outcome.status).toBe("applied");
     expect(widgetBalance("w_crash")).toBe(90);
+  });
+
+  it("replays even once the record has left the action's allowed status", () => {
+    makeWidget("w_closed", 100);
+    const intent = {
+      tool: "widgets",
+      action: "close",
+      recordId: "w_closed",
+      input: {},
+      idempotencyKey: ulid(),
+    };
+
+    const first = executeIntent(manager, intent);
+    const retransmission = executeIntent(manager, intent);
+
+    expect(first.outcome.status).toBe("applied");
+    expect(retransmission.replayed).toBe(true);
+    expect(retransmission.outcome).toEqual(first.outcome);
   });
 
   it("rejects the same key with a different payload", () => {

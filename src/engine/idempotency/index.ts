@@ -63,6 +63,23 @@ export function reserve(
   return { kind: "replay", result: { ...stored, replayed: true } };
 }
 
+/**
+ * Read-only lookup of a completed result for this key and payload. Used before
+ * the record-state check so a retransmitted request replays its own outcome
+ * rather than failing because the first attempt already moved the record on.
+ */
+export function peek(db: WriteHandle, key: string, hash: string): IntentResult | null {
+  const existing = db
+    .select()
+    .from(idempotencyKeys)
+    .where(eq(idempotencyKeys.key, key))
+    .get();
+  if (!existing || existing.requestHash !== hash) return null;
+  if (existing.status === "in_progress" || !existing.resultJson) return null;
+  const stored = JSON.parse(existing.resultJson) as IntentResult;
+  return { ...stored, replayed: true };
+}
+
 export function complete(
   tx: WriteHandle,
   key: string,
