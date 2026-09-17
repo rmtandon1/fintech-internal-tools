@@ -6,14 +6,14 @@ import { countPendingFor } from "@/engine/approvals";
 import { auditStats } from "@/engine/audit/query";
 import { verifyChain } from "@/engine/audit/verify";
 import { formatRelative } from "@/lib/format";
-import { modesByGroup } from "@/lib/modes";
+import { OPS_MODES, modesByGroup } from "@/lib/modes";
 import { currentActor } from "@/lib/session";
-import { getTool, toolsForRole } from "@/tools";
+import { getTool } from "@/tools";
 import { cn } from "@/lib/utils";
 
 export default async function HomePage() {
   const actor = await currentActor();
-  const tools = toolsForRole(actor.role);
+  const modeCount = OPS_MODES.filter((m) => m.roles.includes(actor.role)).length;
   const stats = auditStats();
   const chain = verifyChain();
   const pending = countPendingFor(actor);
@@ -29,7 +29,7 @@ export default async function HomePage() {
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Tools available" value={String(tools.length)} icon="Wrench" />
+        <Stat label="Modes available" value={String(modeCount)} icon="Wrench" />
         <Stat
           label="Approvals waiting"
           value={String(pending)}
@@ -63,20 +63,10 @@ export default async function HomePage() {
               const live = decl ? decl.visibleTo.includes(actor.role) : false;
               const permitted = mode.roles.includes(actor.role);
               const body = (
-                <Card
-                  className={cn(
-                    "h-full transition-colors",
-                    live ? "hover:border-primary/50" : "opacity-60",
-                  )}
-                >
+                <Card className="h-full transition-colors hover:border-primary/50">
                   <CardHeader className="pb-2">
                     <div className="flex items-start gap-2.5">
-                      <div
-                        className={cn(
-                          "flex size-8 shrink-0 items-center justify-center rounded-md",
-                          live ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
-                        )}
-                      >
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                         <Icon name={decl?.icon ?? mode.icon} className="size-4" />
                       </div>
                       <div className="min-w-0">
@@ -88,10 +78,10 @@ export default async function HomePage() {
                         </p>
                       </div>
                       <Badge
-                        variant={live ? "default" : "outline"}
-                        className="ml-auto shrink-0 text-[10px] font-normal"
+                        variant="outline"
+                        className="ml-auto shrink-0 text-[10px] font-normal capitalize"
                       >
-                        {live ? "Live" : "Planned"}
+                        {mode.segment === "both" ? "All segments" : mode.segment}
                       </Badge>
                     </div>
                   </CardHeader>

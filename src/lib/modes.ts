@@ -1,7 +1,7 @@
 import type { Role } from "@/engine/types";
 
 export interface OpsMode {
-  /** Matches a registered tool's `name` when `status` is "live". */
+  /** Matches a registered tool's `name` where one is registered. */
   id: string;
   name: string;
   group: ModeGroup;
@@ -24,7 +24,7 @@ export type ModeGroup = (typeof MODE_GROUPS)[number];
 
 /**
  * The console's full surface. A mode whose `id` matches a registered tool is
- * navigable; the rest are declared but not yet built.
+ * navigable and renders that tool's own declaration.
  */
 export const OPS_MODES: OpsMode[] = [
   {
