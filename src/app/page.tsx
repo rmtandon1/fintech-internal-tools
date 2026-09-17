@@ -6,14 +6,13 @@ import { countPendingFor } from "@/engine/approvals";
 import { auditStats } from "@/engine/audit/query";
 import { verifyChain } from "@/engine/audit/verify";
 import { formatRelative } from "@/lib/format";
-import { OPS_MODES, modesByGroup } from "@/lib/modes";
+import { modesByGroup } from "@/lib/modes";
 import { currentActor } from "@/lib/session";
 import { getTool } from "@/tools";
 import { cn } from "@/lib/utils";
 
 export default async function HomePage() {
   const actor = await currentActor();
-  const modeCount = OPS_MODES.filter((m) => m.roles.includes(actor.role)).length;
   const stats = auditStats();
   const chain = verifyChain();
   const pending = countPendingFor(actor);
@@ -28,8 +27,7 @@ export default async function HomePage() {
         </p>
       </header>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Modes available" value={String(modeCount)} icon="Wrench" />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Stat
           label="Approvals waiting"
           value={String(pending)}
@@ -105,12 +103,10 @@ export default async function HomePage() {
                 </Card>
               );
 
-              return live ? (
-                <Link key={mode.id} href={`/t/${mode.id}`}>
+              return (
+                <Link key={mode.id} href={live ? `/t/${mode.id}` : `/roadmap/${mode.id}`}>
                   {body}
                 </Link>
-              ) : (
-                <div key={mode.id}>{body}</div>
               );
             })}
           </div>
