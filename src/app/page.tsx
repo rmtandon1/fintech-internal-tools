@@ -96,14 +96,16 @@ export default async function HomePage() {
                     </div>
                   </CardHeader>
                   <CardContent className="flex flex-wrap gap-1 pt-0">
-                    {mode.actions.slice(0, 4).map((action) => (
-                      <span
-                        key={action}
-                        className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
-                      >
-                        {action}
-                      </span>
-                    ))}
+                    {(decl ? decl.actions.map((a) => a.name) : mode.actions)
+                      .slice(0, 4)
+                      .map((action) => (
+                        <span
+                          key={action}
+                          className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
+                        >
+                          {action}
+                        </span>
+                      ))}
                     {!permitted ? (
                       <span className="ml-auto text-[10px] text-muted-foreground">
                         {mode.roles.join(", ")} only
