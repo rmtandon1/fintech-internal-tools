@@ -1,8 +1,14 @@
-import { and, desc, eq, like, or } from "drizzle-orm";
+import { and, asc, desc, eq, like, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
 import { defineAction, defineTool } from "@/engine/declare";
-import type { ApplyContext, ApplyResult, GovernedRecord, Rule } from "@/engine/types";
+import type {
+  ApplyContext,
+  ApplyResult,
+  GovernedRecord,
+  Rule,
+  SortOption,
+} from "@/engine/types";
 import { kycCases } from "./schema";
 import { seedKycCases } from "./seed";
 
@@ -105,6 +111,20 @@ const allow =
   (rule: string): CaseRule =>
   () => ({ type: "allow", rule });
 
+const SORTABLE = {
+  customerName: kycCases.customerName,
+  country: kycCases.country,
+  riskScore: kycCases.riskScore,
+  status: kycCases.status,
+  dueAt: kycCases.dueAt,
+} as const;
+
+function order(sort?: SortOption) {
+  const column = sort ? SORTABLE[sort.field as keyof typeof SORTABLE] : undefined;
+  if (!column) return desc(kycCases.riskScore);
+  return sort?.direction === "asc" ? asc(column) : desc(column);
+}
+
 export const kycTool = defineTool<KycCase>({
   name: "kyc",
   displayName: "KYC review queue",
@@ -147,13 +167,13 @@ export const kycTool = defineTool<KycCase>({
     { name: "decidedBy", label: "Decided by", type: "string" },
   ],
   listColumns: [
-    { field: "customerName" },
-    { field: "country" },
+    { field: "customerName", sortable: true },
+    { field: "country", sortable: true },
     { field: "segment" },
-    { field: "riskScore", align: "right" },
+    { field: "riskScore", align: "right", sortable: true },
     { field: "riskTier" },
-    { field: "status" },
-    { field: "dueAt" },
+    { field: "status", sortable: true },
+    { field: "dueAt", sortable: true },
   ],
   filters: [
     {
@@ -290,7 +310,7 @@ export const kycTool = defineTool<KycCase>({
       apply: (ctx, decision) => write(ctx, decision.patch),
     }),
   ],
-  list: ({ filters, search, limit, offset }) => {
+  list: ({ filters, search, sort, limit, offset }) => {
     const clauses = [];
     if (filters.status) clauses.push(eq(kycCases.status, filters.status));
     if (filters.riskTier) clauses.push(eq(kycCases.riskTier, filters.riskTier));
@@ -308,7 +328,7 @@ export const kycTool = defineTool<KycCase>({
       .select()
       .from(kycCases)
       .where(where)
-      .orderBy(desc(kycCases.riskScore))
+      .orderBy(order(sort))
       .limit(limit)
       .offset(offset)
       .all();

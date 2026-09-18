@@ -13,6 +13,7 @@ import {
 import { maskRecord } from "@/engine/pii/mask";
 import { formatFieldValue } from "@/lib/format";
 import { currentActor } from "@/lib/session";
+import { cn } from "@/lib/utils";
 import { getTool } from "@/tools";
 
 const PAGE_SIZE = 50;
@@ -38,8 +39,50 @@ export default async function ToolQueuePage({
     }
   }
   const search = typeof query.q === "string" ? query.q : undefined;
+  const sortable = decl.listColumns.filter((column) => column.sortable);
+  const sortField =
+    typeof query.sort === "string" &&
+    sortable.some((column) => column.field === query.sort)
+      ? query.sort
+      : undefined;
+  const direction: "asc" | "desc" = query.dir === "asc" ? "asc" : "desc";
+  const sort = sortField ? { field: sortField, direction } : undefined;
 
-  const { rows, total } = decl.list({ filters, search, limit: PAGE_SIZE, offset: 0 });
+  const requestedPage = Number(query.page);
+  const page = Number.isSafeInteger(requestedPage) && requestedPage >= 1 ? requestedPage : 1;
+
+  const first = decl.list({ filters, search, sort, limit: PAGE_SIZE, offset: 0 });
+  const pages = Math.max(1, Math.ceil(first.total / PAGE_SIZE));
+  const current = Math.min(page, pages);
+  const { rows, total } =
+    current === 1
+      ? first
+      : decl.list({
+          filters,
+          search,
+          sort,
+          limit: PAGE_SIZE,
+          offset: (current - 1) * PAGE_SIZE,
+        });
+
+  const href = (overrides: Record<string, string>) => {
+    const next = new URLSearchParams();
+    for (const [key, value] of Object.entries(filters)) next.set(key, value);
+    if (search) next.set("q", search);
+    if (sortField) {
+      next.set("sort", sortField);
+      next.set("dir", direction);
+    }
+    for (const [key, value] of Object.entries(overrides)) next.set(key, value);
+    return `/t/${decl.name}?${next.toString()}`;
+  };
+
+  const sortHref = (field: string) =>
+    href({
+      sort: field,
+      dir: sortField === field && direction === "desc" ? "asc" : "desc",
+      page: "1",
+    });
 
   return (
     <div className="space-y-4">
@@ -82,6 +125,8 @@ export default async function ToolQueuePage({
             )}
           </label>
         ))}
+        {sortField ? <input type="hidden" name="sort" value={sortField} /> : null}
+        {sortField ? <input type="hidden" name="dir" value={direction} /> : null}
         <label className="space-y-1 text-[11px] text-muted-foreground">
           <span className="block">Search</span>
           <input
@@ -103,16 +148,43 @@ export default async function ToolQueuePage({
         <Table>
           <TableHeader>
             <TableRow>
-              {decl.listColumns.map((column) => (
-                <TableHead
-                  key={column.field}
-                  className={column.align === "right" ? "text-right" : undefined}
-                >
-                  {column.label ??
-                    decl.fields.find((f) => f.name === column.field)?.label ??
-                    humanize(column.field)}
-                </TableHead>
-              ))}
+              {decl.listColumns.map((column) => {
+                const label =
+                  column.label ??
+                  decl.fields.find((f) => f.name === column.field)?.label ??
+                  humanize(column.field);
+                const active = sortField === column.field;
+                return (
+                  <TableHead
+                    key={column.field}
+                    className={column.align === "right" ? "text-right" : undefined}
+                  >
+                    {column.sortable ? (
+                      <Link
+                        href={sortHref(column.field)}
+                        className="inline-flex items-center gap-1 hover:text-foreground"
+                      >
+                        {label}
+                        <Icon
+                          name={
+                            active
+                              ? direction === "asc"
+                                ? "ArrowUp"
+                                : "ArrowDown"
+                              : "ChevronsUpDown"
+                          }
+                          className={cn(
+                            "size-3",
+                            active ? "text-foreground" : "text-muted-foreground/50",
+                          )}
+                        />
+                      </Link>
+                    ) : (
+                      label
+                    )}
+                  </TableHead>
+                );
+              })}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -167,6 +239,30 @@ export default async function ToolQueuePage({
           </TableBody>
         </Table>
       </div>
+
+      {pages > 1 ? (
+        <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
+          <span>
+            Page {current} of {pages}
+          </span>
+          {current > 1 ? (
+            <Link
+              href={href({ page: String(current - 1) })}
+              className="rounded-md border border-input px-2 py-1 hover:bg-accent"
+            >
+              Previous
+            </Link>
+          ) : null}
+          {current < pages ? (
+            <Link
+              href={href({ page: String(current + 1) })}
+              className="rounded-md border border-input px-2 py-1 hover:bg-accent"
+            >
+              Next
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

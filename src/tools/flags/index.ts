@@ -1,8 +1,14 @@
-import { and, asc, eq, like, or } from "drizzle-orm";
+import { and, asc, desc, eq, like, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
 import { defineAction, defineTool } from "@/engine/declare";
-import type { ApplyContext, ApplyResult, GovernedRecord, Rule } from "@/engine/types";
+import type {
+  ApplyContext,
+  ApplyResult,
+  GovernedRecord,
+  Rule,
+  SortOption,
+} from "@/engine/types";
 import { featureFlags } from "./schema";
 import { seedFeatureFlags } from "./seed";
 
@@ -125,6 +131,21 @@ const allow =
   <TInput>(rule: string): FlagRule<TInput> =>
   () => ({ type: "allow", rule });
 
+const SORTABLE = {
+  key: featureFlags.key,
+  environment: featureFlags.environment,
+  rolloutPercent: featureFlags.rolloutPercent,
+  owner: featureFlags.owner,
+  status: featureFlags.status,
+  expiresAt: featureFlags.expiresAt,
+} as const;
+
+function order(sort?: SortOption) {
+  const column = sort ? SORTABLE[sort.field as keyof typeof SORTABLE] : undefined;
+  if (!column) return asc(featureFlags.key);
+  return sort?.direction === "desc" ? desc(column) : asc(column);
+}
+
 export const flagTool = defineTool<FeatureFlag>({
   name: "flags",
   displayName: "Feature flags",
@@ -158,13 +179,13 @@ export const flagTool = defineTool<FeatureFlag>({
     { name: "lastNote", label: "Last note", type: "text" },
   ],
   listColumns: [
-    { field: "key" },
+    { field: "key", sortable: true },
     { field: "flagType" },
-    { field: "environment" },
-    { field: "rolloutPercent", align: "right" },
-    { field: "owner" },
-    { field: "status" },
-    { field: "expiresAt" },
+    { field: "environment", sortable: true },
+    { field: "rolloutPercent", align: "right", sortable: true },
+    { field: "owner", sortable: true },
+    { field: "status", sortable: true },
+    { field: "expiresAt", sortable: true },
   ],
   filters: [
     {
@@ -318,7 +339,7 @@ export const flagTool = defineTool<FeatureFlag>({
       apply: (ctx, decision) => write(ctx, decision.patch),
     }),
   ],
-  list: ({ filters, search, limit, offset }) => {
+  list: ({ filters, search, sort, limit, offset }) => {
     const clauses = [];
     if (filters.status) clauses.push(eq(featureFlags.status, filters.status));
     if (filters.environment)
@@ -338,7 +359,7 @@ export const flagTool = defineTool<FeatureFlag>({
       .select()
       .from(featureFlags)
       .where(where)
-      .orderBy(asc(featureFlags.key))
+      .orderBy(order(sort))
       .limit(limit)
       .offset(offset)
       .all();

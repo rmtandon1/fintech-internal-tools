@@ -217,10 +217,96 @@ const CASES: SeedCase[] = [
   },
 ];
 
+/**
+ * The hand-written cases cover the policy branches; the rest fill the queue out
+ * to a realistic size. Generated from a fixed seed so every run is identical.
+ */
+const FIRST_NAMES = [
+  "Amara", "Bence", "Chiara", "Dmitri", "Elif", "Finn", "Greta", "Hugo",
+  "Ines", "Jonas", "Keiko", "Lars", "Maja", "Nikolai", "Oona", "Pedro",
+  "Quentin", "Rania", "Stefan", "Tamar", "Ulla", "Viktor", "Wiktoria", "Yusuf",
+];
+const LAST_NAMES = [
+  "Aaltonen", "Bergqvist", "Costa", "Dumont", "Ferreira", "Grabowski",
+  "Haugen", "Ivanova", "Jelinek", "Kowalczyk", "Lindqvist", "Moretti",
+  "Nakamura", "Olsen", "Petrov", "Rossi", "Schneider", "Toriello",
+  "Ueda", "Vargas", "Weiss", "Zielinski",
+];
+const COMPANY_HEADS = [
+  "Adriatic", "Baltic", "Cedar", "Drayton", "Eastgate", "Fairline", "Granite",
+  "Highvale", "Ironbridge", "Juniper", "Kestrel", "Longmoor",
+];
+const COMPANY_TAILS = ["Logistics", "Capital", "Trading", "Systems", "Partners", "Holdings"];
+const COUNTRIES = [
+  "GB", "IE", "DE", "FR", "ES", "IT", "NL", "SE", "NO", "DK", "PL", "PT",
+  "US", "CA", "BR", "MX", "IN", "SG", "AE", "ZA", "NG", "TR",
+];
+const DOC_TYPES = ["passport", "national_id", "driving_licence"];
+const STATUSES = [
+  "pending_review", "pending_review", "pending_review", "pending_review",
+  "info_requested", "escalated", "approved", "approved", "rejected",
+];
+
+function generated(): SeedCase[] {
+  let state = 20_260_917;
+  /** Mulberry32: deterministic, so the queue is the same on every machine. */
+  const next = () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4_294_967_296;
+  };
+  const pick = <T,>(items: readonly T[]): T => items[Math.floor(next() * items.length)];
+  const between = (min: number, max: number) => min + Math.floor(next() * (max - min + 1));
+
+  const cases: SeedCase[] = [];
+  for (let i = 0; i < 88; i++) {
+    const id = `kyc_${String(i + 13).padStart(4, "0")}`;
+    const business = next() < 0.22;
+    const country = pick(COUNTRIES);
+    const riskScore = between(5, 96);
+    const status = pick(STATUSES);
+    // An approved case must satisfy the rules that gate approval, or the queue
+    // would show decisions the policy would have denied.
+    const approved = status === "approved";
+    const sanctionsHit = !approved && riskScore > 80 && next() < 0.25;
+    const documentsComplete = approved || next() > 0.15;
+    const name = business
+      ? `${pick(COMPANY_HEADS)} ${pick(COMPANY_TAILS)}`
+      : `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`;
+    const handle = name.toLowerCase().replace(/[^a-z]+/g, ".");
+    cases.push({
+      id,
+      customerName: name,
+      email: business
+        ? `kyb@${handle.replace(/\./g, "")}.example.com`
+        : `${handle}@example.com`,
+      dateOfBirth: business
+        ? `${between(2005, 2022)}-${pad(between(1, 12))}-${pad(between(1, 28))}`
+        : `${between(1962, 2003)}-${pad(between(1, 12))}-${pad(between(1, 28))}`,
+      documentType: business ? "company_registry" : pick(DOC_TYPES),
+      documentNumber: `${country}${between(1_000_000, 9_999_999)}`,
+      country,
+      segment: business ? "business" : "consumer",
+      riskScore,
+      sanctionsHit,
+      documentsComplete,
+      status,
+      openedHoursAgo: between(1, 240),
+    });
+  }
+  return cases;
+}
+
+function pad(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
 /** Idempotent: re-running restores the demo cases to their opening state. */
 export function seedKycCases(): void {
   const now = Date.now();
-  for (const c of CASES) {
+  for (const c of [...CASES, ...generated()]) {
     const openedAt = now - c.openedHoursAgo * HOUR;
     const row = {
       id: c.id,

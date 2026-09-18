@@ -1,8 +1,14 @@
-import { and, desc, eq, like, or } from "drizzle-orm";
+import { and, asc, desc, eq, like, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/client";
 import { defineAction, defineTool } from "@/engine/declare";
-import type { ApplyContext, ApplyResult, GovernedRecord, Rule } from "@/engine/types";
+import type {
+  ApplyContext,
+  ApplyResult,
+  GovernedRecord,
+  Rule,
+  SortOption,
+} from "@/engine/types";
 import { refunds } from "./schema";
 import { seedRefunds } from "./seed";
 
@@ -97,6 +103,20 @@ const allow =
   (rule: string): RefundRule =>
   () => ({ type: "allow", rule });
 
+const SORTABLE = {
+  paymentId: refunds.paymentId,
+  merchant: refunds.merchant,
+  amountMinor: refunds.usdMinor,
+  status: refunds.status,
+  requestedAt: refunds.requestedAt,
+} as const;
+
+function order(sort?: SortOption) {
+  const column = sort ? SORTABLE[sort.field as keyof typeof SORTABLE] : undefined;
+  if (!column) return desc(refunds.usdMinor);
+  return sort?.direction === "asc" ? asc(column) : desc(column);
+}
+
 export const refundTool = defineTool<Refund>({
   name: "refunds",
   displayName: "Refunds",
@@ -150,13 +170,13 @@ export const refundTool = defineTool<Refund>({
     { name: "lastNote", label: "Last note", type: "text" },
   ],
   listColumns: [
-    { field: "paymentId" },
-    { field: "merchant" },
-    { field: "amountMinor", align: "right" },
+    { field: "paymentId", sortable: true },
+    { field: "merchant", sortable: true },
+    { field: "amountMinor", align: "right", sortable: true },
     { field: "currency" },
     { field: "reasonCode" },
-    { field: "status" },
-    { field: "requestedAt" },
+    { field: "status", sortable: true },
+    { field: "requestedAt", sortable: true },
   ],
   filters: [
     {
@@ -284,7 +304,7 @@ export const refundTool = defineTool<Refund>({
       apply: (ctx, decision) => write(ctx, decision.patch),
     }),
   ],
-  list: ({ filters, search, limit, offset }) => {
+  list: ({ filters, search, sort, limit, offset }) => {
     const clauses = [];
     if (filters.status) clauses.push(eq(refunds.status, filters.status));
     if (filters.reasonCode) clauses.push(eq(refunds.reasonCode, filters.reasonCode));
@@ -302,7 +322,7 @@ export const refundTool = defineTool<Refund>({
       .select()
       .from(refunds)
       .where(where)
-      .orderBy(desc(refunds.usdMinor))
+      .orderBy(order(sort))
       .limit(limit)
       .offset(offset)
       .all();
