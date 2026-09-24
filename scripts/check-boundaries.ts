@@ -30,7 +30,8 @@ const FORBIDDEN_IMPORTS: { from: string; target: RegExp; why: string }[] = [
 const WRITE_CLIENT = /^@\/db\/write-client$/;
 const WRITE_CLIENT_ALLOWED = [join("src", "engine") + sep, join("src", "db") + sep];
 
-const IMPORT_RE = /^\s*(?:import|export)\b[^'"]*?from\s*['"]([^'"]+)['"]/gm;
+/** Static `import ... from "x"`, `export ... from "x"` and side-effect `import "x"`. */
+const IMPORT_RE = /^\s*(?:(?:import|export)\b[^'"]*?from\s*|import\s*)['"]([^'"]+)['"]/gm;
 
 const failures: string[] = [];
 
