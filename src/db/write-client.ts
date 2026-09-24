@@ -3,7 +3,7 @@ import { db } from "./client";
 
 /**
  * The only write handle in the application. Importing this module outside
- * `src/engine/` is a boundary violation and fails `scripts/check-boundary.ts`
+ * `src/engine/` is a boundary violation and fails `scripts/check-boundaries.ts`
  * (seed and migration scripts are the documented exception).
  */
 export function transact<T>(fn: (tx: WriteHandle) => T): T {

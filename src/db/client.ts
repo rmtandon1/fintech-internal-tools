@@ -2,7 +2,6 @@ import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import * as schema from "./schema";
 
 export const databasePath = resolve(
   process.env.DATABASE_PATH ?? "data/console.db",
@@ -24,6 +23,6 @@ export const sqlite = globalForDb.__consoleSqlite ?? connect();
 if (process.env.NODE_ENV !== "production") globalForDb.__consoleSqlite = sqlite;
 
 /** Read connection. Every read path in the app uses this. */
-export const db = drizzle(sqlite, { schema });
+export const db = drizzle(sqlite);
 
 export type AppDatabase = typeof db;

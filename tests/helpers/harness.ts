@@ -1,8 +1,9 @@
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { db, sqlite } from "@/db/client";
 import { registerConstants } from "@/engine/policy/register";
-import type { Actor } from "@/engine/types";
-import { registerTool } from "@/tools";
+import { configureEngine } from "@/engine/registry";
+import type { Actor, ToolDeclaration } from "@/engine/types";
+import { getTool } from "@/tools";
 import { WIDGETS_DDL, vaultTool, widgetTool, widgets } from "../fixtures/widgets";
 
 export const kycReviewer: Actor = {
@@ -32,12 +33,19 @@ export const otherManager: Actor = {
 };
 export const admin: Actor = { id: "usr_admin", name: "Admin", role: "admin" };
 
-/** Fresh schema, fixture tool registered, default constants installed. */
+/**
+ * Fixture tools take precedence over the shipped registry, so engine tests
+ * never depend on a real tool while tool tests can still address theirs.
+ */
+const fixtures = new Map<string, ToolDeclaration>(
+  [widgetTool, vaultTool].map((t) => [t.name, t]),
+);
+
+/** Fresh schema, fixture tools registered, default constants installed. */
 export function setupHarness(): void {
   migrate(db, { migrationsFolder: "drizzle" });
   sqlite.exec(WIDGETS_DDL);
-  registerTool(widgetTool);
-  registerTool(vaultTool);
+  configureEngine({ tools: { get: (name) => fixtures.get(name) ?? getTool(name) } });
   registerConstants(widgetTool.constants ?? []);
 }
 

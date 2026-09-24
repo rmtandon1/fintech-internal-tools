@@ -82,7 +82,7 @@ pnpm setup` puts the demo back.
 | Script | |
 | --- | --- |
 | `pnpm setup` | `db:migrate` then `db:seed` |
-| `pnpm db:generate` | regenerate migrations from `src/db/schema.ts` |
+| `pnpm db:generate` | regenerate migrations from `src/tools/schema.ts` |
 | `pnpm db:tamper` | corrupt an audit row for the chain-break demo (local only) |
 | `pnpm test` | engine and tool tests |
 | `pnpm check:boundaries` | engine must not name a tool; tools must not import the write client |

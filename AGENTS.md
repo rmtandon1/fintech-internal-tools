@@ -25,14 +25,15 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 ## Architecture Rules
 - All writes go through `executeIntent` (`src/engine/execute-intent.ts`): validate -> idempotency -> policy -> approval -> effect -> audit
 - Only `src/engine` and `src/db` may import `@/db/write-client`; everything else reads via `@/db/client` and writes via intents
-- `src/engine` must stay tool-agnostic: never reference `kyc`, `refunds`, or `flags` there (enforced by `scripts/check-boundaries.ts`)
-- Tools are declared in `src/tools/<tool>/` (`index.ts`, `schema.ts`, `seed.ts`) and registered in `src/tools/index.ts`
+- `src/engine` must stay tool-agnostic: never reference `kyc`, `refunds`, or `flags` there and never import `@/tools`; the engine resolves declarations through the `ToolRegistry` passed to `configureEngine` (`src/engine/registry.ts`), which `src/app/bootstrap.ts` wires up (enforced by `scripts/check-boundaries.ts`)
+- `src/db` never imports `@/tools`; it holds only the engine tables and clients. The migration schema Drizzle reads is `src/tools/schema.ts` (engine tables plus each tool's tables)
+- Tools are declared in `src/tools/<tool>/` (`index.ts`, `schema.ts`, `seed.ts`), registered in `src/tools/index.ts` and their tables re-exported from `src/tools/schema.ts`
 - Audit rows are hash-chained and appended in the same transaction as the effect; never write audit rows outside the engine
 
 ## Testing Guidelines
 - Vitest (`vitest.config.ts`), Node environment, tests in `tests/**/*.test.ts`
 - Each test file owns its own database; file parallelism is disabled, so do not share state across files
-- Use `tests/helpers/harness.ts` and `tests/fixtures/widgets.ts` for engine setup and fixtures
+- Use `tests/helpers/harness.ts` and `tests/fixtures/widgets.ts` for engine setup and fixtures; `setupHarness` calls `configureEngine` with the fixture tools layered over the shipped registry
 - Add engine tests under `tests/engine/` and tool tests under `tests/tools/`
 - Cover new policy rules, approval paths, and idempotency behaviour with tests
 - Run `pnpm verify` before committing
@@ -41,8 +42,8 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 - `src/app` - Next.js routes (inbox, audit, admin/policy, roadmap, `t/[tool]` tool views) and server actions
 - `src/components` - App components; `src/components/ui` holds shadcn primitives
 - `src/engine` - Governed write path: policy, approvals, idempotency, audit, PII masking
-- `src/db` - Drizzle schema, read client, engine-only write client
-- `src/tools` - Tool declarations (kyc, refunds, flags)
+- `src/db` - Engine tables, read client, engine-only write client
+- `src/tools` - Tool declarations (kyc, refunds, flags), the tool registry and the aggregate migration schema
 - `src/lib` - Shared helpers (formatting, modes, session) and the role catalog (`roles.ts`)
 - `drizzle` - Generated SQL migrations and snapshots
 - `scripts` - `migrate.ts`, `seed.ts`, `check-boundaries.ts`
