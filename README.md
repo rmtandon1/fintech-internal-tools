@@ -5,14 +5,14 @@ Internal operations console demo.
 ## Setup
 
 Requires Node 24 and pnpm. Everything runs on localhost against a local SQLite file
-(`data/console.db`); there are no external services, keys or network calls.
+(`apps/console/data/console.db`); there are no external services, keys or network calls.
 
 ```bash
 git clone https://github.com/rmtandon1/buy-v-build-cog-demo.git
 cd buy-v-build-cog-demo
 git switch dashboard-shell-structure
 pnpm install
-pnpm setup      # migrate + seed data/console.db
+pnpm setup      # migrate + seed apps/console/data/console.db
 pnpm dev        # serves http://localhost:3001 and opens a browser
 ```
 
@@ -20,7 +20,7 @@ pnpm dev        # serves http://localhost:3001 and opens a browser
 any point, delete the file and re-seed:
 
 ```bash
-rm -rf data/console.db* && pnpm setup
+rm -rf apps/console/data/console.db* && pnpm setup
 ```
 
 Role switching is a signed cookie (no auth), chosen from the header. Roles are
@@ -74,7 +74,7 @@ pnpm db:tamper prev_mismatch   # rewrites a row's prev hash
 pnpm db:tamper seq_gap         # deletes a row mid-chain
 ```
 
-The verify page names the break type and the row it starts at. `rm -rf data/console.db* &&
+The verify page names the break type and the row it starts at. `rm -rf apps/console/data/console.db* &&
 pnpm setup` puts the demo back.
 
 ## Scripts
@@ -82,19 +82,26 @@ pnpm setup` puts the demo back.
 | Script | |
 | --- | --- |
 | `pnpm setup` | `db:migrate` then `db:seed` |
-| `pnpm db:generate` | regenerate migrations from `src/tools/schema.ts` |
+| `pnpm db:generate` | regenerate migrations from `apps/console/src/schema.ts` |
 | `pnpm db:tamper` | corrupt an audit row for the chain-break demo (local only) |
 | `pnpm test` | engine and tool tests |
-| `pnpm check:boundaries` | engine must not name a tool; tools must not import the write client |
+| `pnpm check:boundaries` | engine must not name a tool; no relative imports across packages; only the engine may depend on `db-write` |
 | `pnpm verify` | lint + typecheck + boundaries + tests |
 | `pnpm build` | production build |
 
 ## Layout
 
+pnpm workspace. Each folder is a package; a package can only import what its
+`package.json` lists, so the dependency direction below is enforced by the
+package manager (see `docs/MIGRATION.md` for the old `src/` → new path map).
+
 ```
-src/engine/    execute-intent, policy, approvals, audit, idempotency, pii
-src/tools/     tool declarations + registry
-src/db/        Drizzle schema, write client (engine only)
-src/app/t/     generic list and record routes
-tests/         engine tests against a fixture tool
+apps/console/          the Next app: routes, server actions, tool registry, migrations, tests
+tools/{kyc,refunds,flags}/  one tool declaration per package (index, schema, seed)
+packages/engine/       executeIntent, policy, approvals, idempotency, audit, pii
+packages/permissions/  the role catalog
+packages/ui/           shadcn primitives + presentational views
+packages/db/           read client
+packages/db-write/     write handle — only packages/engine depends on it
+packages/db-core/      the SQLite connection + engine tables
 ```

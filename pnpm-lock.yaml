@@ -7,7 +7,186 @@ settings:
 importers:
 
   .:
+    devDependencies:
+      '@eslint/eslintrc':
+        specifier: ^3
+        version: 3.3.7(supports-color@7.2.0)
+      '@types/node':
+        specifier: ^20
+        version: 20.19.43
+      eslint:
+        specifier: ^9
+        version: 9.39.5(jiti@2.7.0)(supports-color@7.2.0)
+      eslint-config-next:
+        specifier: 15.5.3
+        version: 15.5.3(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3)
+      tsx:
+        specifier: ^4.23.13
+        version: 4.23.13
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  apps/console:
     dependencies:
+      '@console/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@console/db-core':
+        specifier: workspace:*
+        version: link:../../packages/db-core
+      '@console/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
+      '@console/permissions':
+        specifier: workspace:*
+        version: link:../../packages/permissions
+      '@console/tool-flags':
+        specifier: workspace:*
+        version: link:../../tools/flags
+      '@console/tool-kyc':
+        specifier: workspace:*
+        version: link:../../tools/kyc
+      '@console/tool-refunds':
+        specifier: workspace:*
+        version: link:../../tools/refunds
+      '@console/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      better-sqlite3:
+        specifier: ^13.0.3
+        version: 13.0.3
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)
+      lucide-react:
+        specifier: ^1.46.0
+        version: 1.46.0(react@19.1.0)
+      next:
+        specifier: 15.5.3
+        version: 15.5.3(@babel/core@7.29.7(supports-color@7.2.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      next-themes:
+        specifier: ^0.4.6
+        version: 0.4.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      react:
+        specifier: 19.1.0
+        version: 19.1.0
+      react-dom:
+        specifier: 19.1.0
+        version: 19.1.0(react@19.1.0)
+      sonner:
+        specifier: ^2.0.8
+        version: 2.0.8(@types/react@19.3.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      ulid:
+        specifier: ^3.0.2
+        version: 3.0.2
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@tailwindcss/postcss':
+        specifier: ^4
+        version: 4.3.3
+      '@types/better-sqlite3':
+        specifier: ^9.6.0
+        version: 9.6.0
+      '@types/node':
+        specifier: ^20
+        version: 20.19.43
+      '@types/react':
+        specifier: ^19
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.3.0(@types/react@19.3.0)
+      drizzle-kit:
+        specifier: ^0.31.10
+        version: 0.31.10
+      shadcn:
+        specifier: ^4.21.0
+        version: 4.21.0(supports-color@7.2.0)(typescript@5.9.3)
+      tailwindcss:
+        specifier: ^4
+        version: 4.3.3
+      tsx:
+        specifier: ^4.23.13
+        version: 4.23.13
+      tw-animate-css:
+        specifier: ^1.4.0
+        version: 1.4.0
+      vitest:
+        specifier: ^5.0.1
+        version: 5.0.1(@types/node@20.19.43)(vite@8.3.0(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13))
+
+  packages/db:
+    dependencies:
+      '@console/db-core':
+        specifier: workspace:*
+        version: link:../db-core
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)
+
+  packages/db-core:
+    dependencies:
+      better-sqlite3:
+        specifier: ^13.0.3
+        version: 13.0.3
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)
+    devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^9.6.0
+        version: 9.6.0
+      '@types/node':
+        specifier: ^20
+        version: 20.19.43
+
+  packages/db-write:
+    dependencies:
+      '@console/db-core':
+        specifier: workspace:*
+        version: link:../db-core
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)
+
+  packages/engine:
+    dependencies:
+      '@console/db':
+        specifier: workspace:*
+        version: link:../db
+      '@console/db-core':
+        specifier: workspace:*
+        version: link:../db-core
+      '@console/db-write':
+        specifier: workspace:*
+        version: link:../db-write
+      '@console/permissions':
+        specifier: workspace:*
+        version: link:../permissions
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)
+      ulid:
+        specifier: ^3.0.2
+        version: 3.0.2
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.43
+
+  packages/permissions: {}
+
+  packages/ui:
+    dependencies:
+      '@console/engine':
+        specifier: workspace:*
+        version: link:../engine
       '@radix-ui/react-dialog':
         specifier: ^1.1.23
         version: 1.1.23(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -29,94 +208,97 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.2.16
         version: 1.2.16(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      better-sqlite3:
-        specifier: ^13.0.3
-        version: 13.0.3
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      drizzle-orm:
-        specifier: ^0.45.2
-        version: 0.45.2(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)
       lucide-react:
         specifier: ^1.46.0
         version: 1.46.0(react@19.1.0)
-      next:
-        specifier: 15.5.3
-        version: 15.5.3(@babel/core@7.29.7(supports-color@7.2.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       radix-ui:
         specifier: ^1.6.7
         version: 1.6.7(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      react:
-        specifier: 19.1.0
-        version: 19.1.0
-      react-dom:
-        specifier: 19.1.0
-        version: 19.1.0(react@19.1.0)
       sonner:
         specifier: ^2.0.8
         version: 2.0.8(@types/react@19.3.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       tailwind-merge:
         specifier: ^3.7.0
         version: 3.7.0
-      ulid:
-        specifier: ^3.0.2
-        version: 3.0.2
-      zod:
-        specifier: ^4.6.5
-        version: 4.6.5
     devDependencies:
-      '@eslint/eslintrc':
-        specifier: ^3
-        version: 3.3.7(supports-color@7.2.0)
-      '@tailwindcss/postcss':
-        specifier: ^4
-        version: 4.3.3
-      '@types/better-sqlite3':
-        specifier: ^9.6.0
-        version: 9.6.0
-      '@types/node':
-        specifier: ^20
-        version: 20.19.43
       '@types/react':
         specifier: ^19
         version: 19.3.0
       '@types/react-dom':
         specifier: ^19
         version: 19.3.0(@types/react@19.3.0)
-      drizzle-kit:
-        specifier: ^0.31.10
-        version: 0.31.10
-      eslint:
-        specifier: ^9
-        version: 9.39.5(jiti@2.7.0)(supports-color@7.2.0)
-      eslint-config-next:
+      next:
         specifier: 15.5.3
-        version: 15.5.3(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3)
-      shadcn:
-        specifier: ^4.21.0
-        version: 4.21.0(supports-color@7.2.0)(typescript@5.9.3)
-      tailwindcss:
-        specifier: ^4
-        version: 4.3.3
-      tsx:
-        specifier: ^4.23.13
-        version: 4.23.13
-      tw-animate-css:
-        specifier: ^1.4.0
-        version: 1.4.0
-      typescript:
-        specifier: ^5
-        version: 5.9.3
-      vitest:
-        specifier: ^5.0.1
-        version: 5.0.1(@types/node@20.19.43)(vite@8.3.0(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13))
+        version: 15.5.3(@babel/core@7.29.7(supports-color@7.2.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      react:
+        specifier: 19.1.0
+        version: 19.1.0
+      react-dom:
+        specifier: 19.1.0
+        version: 19.1.0(react@19.1.0)
+
+  tools/flags:
+    dependencies:
+      '@console/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@console/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
+      '@console/permissions':
+        specifier: workspace:*
+        version: link:../../packages/permissions
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
+  tools/kyc:
+    dependencies:
+      '@console/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@console/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
+      '@console/permissions':
+        specifier: workspace:*
+        version: link:../../packages/permissions
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
+  tools/refunds:
+    dependencies:
+      '@console/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@console/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
+      '@console/permissions':
+        specifier: workspace:*
+        version: link:../../packages/permissions
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
 
 packages:
 
