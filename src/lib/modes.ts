@@ -1,10 +1,10 @@
 import type { Role } from "@/engine/types";
+import { getTool } from "@/tools";
 
 export interface OpsMode {
   /** Matches a registered tool's `name` where one is registered. */
   id: string;
   name: string;
-  group: ModeGroup;
   description: string;
   /** lucide-react icon name. */
   icon: string;
@@ -12,15 +12,6 @@ export interface OpsMode {
   actions: string[];
   segment: "consumer" | "business" | "both" | "platform";
 }
-
-export const MODE_GROUPS = [
-  "Risk & Compliance",
-  "Money Movement",
-  "Customer Ops",
-  "Platform & Config",
-] as const;
-
-export type ModeGroup = (typeof MODE_GROUPS)[number];
 
 /**
  * The console's full surface. A mode whose `id` matches a registered tool is
@@ -30,7 +21,6 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "kyc",
     name: "KYC review queue",
-    group: "Risk & Compliance",
     description: "Customer due diligence cases awaiting a decision.",
     icon: "IdCard",
     roles: ["analyst", "manager", "admin"],
@@ -40,7 +30,6 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "refunds",
     name: "Refunds",
-    group: "Money Movement",
     description: "Refund requests against captured payments.",
     icon: "Undo2",
     roles: ["analyst", "manager", "admin"],
@@ -50,7 +39,6 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "flags",
     name: "Feature flags",
-    group: "Platform & Config",
     description: "Runtime configuration and kill switches by environment.",
     icon: "ToggleLeft",
     roles: ["analyst", "manager", "admin"],
@@ -60,7 +48,6 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "aml_alerts",
     name: "Transaction monitoring",
-    group: "Risk & Compliance",
     description: "AML rule and model alerts triaged into escalations.",
     icon: "Radar",
     roles: ["analyst", "manager", "admin"],
@@ -70,7 +57,6 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "sanctions",
     name: "Sanctions screening",
-    group: "Risk & Compliance",
     description: "Name-screening hits requiring true/false positive calls.",
     icon: "ShieldAlert",
     roles: ["analyst", "manager", "admin"],
@@ -80,7 +66,6 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "sar_filing",
     name: "SAR / STR filing",
-    group: "Risk & Compliance",
     description: "Suspicious activity reports from draft to filed.",
     icon: "FileWarning",
     roles: ["manager", "admin"],
@@ -90,7 +75,6 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "wire_release",
     name: "Wire release queue",
-    group: "Money Movement",
     description: "High-value outbound payments held for dual control.",
     icon: "Banknote",
     roles: ["analyst", "manager", "admin"],
@@ -100,7 +84,6 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "chargebacks",
     name: "Chargebacks & disputes",
-    group: "Money Movement",
     description: "Disputes, evidence packs and representment deadlines.",
     icon: "Gavel",
     roles: ["analyst", "manager", "admin"],
@@ -110,7 +93,6 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "remittances",
     name: "Remittances",
-    group: "Money Movement",
     description: "Cross-border payouts, corridor limits and repairs.",
     icon: "Globe2",
     roles: ["analyst", "manager", "admin"],
@@ -120,7 +102,6 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "ledger_adjustments",
     name: "Ledger adjustments",
-    group: "Money Movement",
     description: "Manual credits, write-offs and goodwill postings.",
     icon: "BookOpenCheck",
     roles: ["manager", "admin"],
@@ -130,7 +111,6 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "card_ops",
     name: "Card operations",
-    group: "Customer Ops",
     description: "Reissue, freeze and spend controls on issued cards.",
     icon: "CreditCard",
     roles: ["analyst", "manager", "admin"],
@@ -140,7 +120,6 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "account_closure",
     name: "Offboarding",
-    group: "Customer Ops",
     description: "Account closure, exit reasons and balance return.",
     icon: "DoorOpen",
     roles: ["manager", "admin"],
@@ -150,7 +129,6 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "complaints",
     name: "Complaints",
-    group: "Customer Ops",
     description: "Regulated complaint handling with response clocks.",
     icon: "MessageSquareWarning",
     roles: ["analyst", "manager", "admin"],
@@ -160,7 +138,6 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "dsar",
     name: "Data subject requests",
-    group: "Customer Ops",
     description: "GDPR access, rectification and erasure requests.",
     icon: "FileLock2",
     roles: ["manager", "admin"],
@@ -170,7 +147,6 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "merchant_onboarding",
     name: "Business onboarding",
-    group: "Risk & Compliance",
     description: "KYB for business clients: UBOs, documents, risk tier.",
     icon: "Building2",
     roles: ["analyst", "manager", "admin"],
@@ -180,7 +156,6 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "pricing",
     name: "Pricing & rates",
-    group: "Platform & Config",
     description: "FX spreads, APY and fee schedule changes.",
     icon: "Percent",
     roles: ["manager", "admin"],
@@ -190,7 +165,6 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "plans",
     name: "Plans & entitlements",
-    group: "Platform & Config",
     description: "Paid tiers, entitlements and bespoke overrides.",
     icon: "Layers",
     roles: ["manager", "admin"],
@@ -200,7 +174,6 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "model_risk",
     name: "Model overrides",
-    group: "Platform & Config",
     description: "Risk model versions, thresholds and manual overrides.",
     icon: "Brain",
     roles: ["admin"],
@@ -210,7 +183,6 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "reconciliation",
     name: "Reconciliation breaks",
-    group: "Money Movement",
     description: "Unmatched ledger and scheme settlement entries.",
     icon: "Scale",
     roles: ["analyst", "manager", "admin"],
@@ -220,7 +192,6 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "collections",
     name: "Collections",
-    group: "Customer Ops",
     description: "Arrears, forbearance plans and recovery actions.",
     icon: "HandCoins",
     roles: ["analyst", "manager", "admin"],
@@ -229,9 +200,10 @@ export const OPS_MODES: OpsMode[] = [
   },
 ];
 
-export function modesByGroup(): { group: ModeGroup; modes: OpsMode[] }[] {
-  return MODE_GROUPS.map((group) => ({
-    group,
-    modes: OPS_MODES.filter((m) => m.group === group),
-  }));
+/** Modes backed by a registered tool that this role may see. */
+export function liveModes(actorRole: Role): OpsMode[] {
+  return OPS_MODES.filter((mode) => {
+    const decl = getTool(mode.id);
+    return decl !== undefined && decl.visibleTo.includes(actorRole);
+  });
 }

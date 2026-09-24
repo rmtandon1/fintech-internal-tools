@@ -221,6 +221,9 @@ export const kycTool = defineTool<KycCase>({
   statusField: "status",
   titleField: "customerName",
   revealRoles: ["manager", "admin"],
+  openStatuses: OPEN_STATUSES,
+  attention: (r, now) =>
+    OPEN_STATUSES.includes(r.status) && r.dueAt < now ? "overdue" : null,
   constants: [
     {
       key: MANAGER_REVIEW_SCORE_KEY,
