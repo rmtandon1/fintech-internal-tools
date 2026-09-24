@@ -198,7 +198,7 @@ function runGoverned(
         summary: decision.summary,
         reason,
         tier: policy.tier ?? "manager",
-        allowedRolesJson: JSON.stringify(policy.allowedRoles ?? ["manager"]),
+        allowedRolesJson: JSON.stringify(policy.allowedRoles ?? ["admin"]),
         requesterId: actor.id,
         requesterRole: actor.role,
         status: "pending",

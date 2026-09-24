@@ -1,8 +1,8 @@
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type { ZodType } from "zod";
+import type { Role } from "@/lib/roles";
 
-export const ROLES = ["analyst", "manager", "admin"] as const;
-export type Role = (typeof ROLES)[number];
+export type { Role };
 
 export interface Actor {
   id: string;

@@ -5,7 +5,7 @@ import { setConstant } from "@/engine/policy/set-constant";
 import { APPROVAL_THRESHOLD_KEY } from "../fixtures/widgets";
 import {
   admin,
-  analyst,
+  kycReviewer,
   makeWidget,
   setupHarness,
   widgetBalance,
@@ -28,7 +28,7 @@ describe("repeated writes against one record", () => {
     const results = await Promise.all(
       Array.from({ length: 10 }, () =>
         Promise.resolve().then(() =>
-          executeIntent(analyst, {
+          executeIntent(kycReviewer, {
             tool: "widgets",
             action: "spend",
             recordId: "w_race",

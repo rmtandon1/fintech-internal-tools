@@ -9,6 +9,7 @@ import type {
   Rule,
   SortOption,
 } from "@/engine/types";
+import { MANAGER_ROLES } from "@/lib/roles";
 import { featureFlags } from "./schema";
 import { seedFeatureFlags } from "./seed";
 
@@ -60,7 +61,7 @@ const productionEnable: FlagRule<unknown> = ({ record, constants }) =>
         type: "require_approval",
         rule: "production_enable",
         tier: "manager",
-        allowedRoles: ["manager", "admin"],
+        allowedRoles: MANAGER_ROLES,
         reason: "Enabling a customer-facing flag in production needs a manager",
       }
     : { type: "allow", rule: "production_enable" };
@@ -80,7 +81,7 @@ const notExpired: FlagRule<unknown> = ({ record }) =>
         type: "require_approval",
         rule: "not_expired",
         tier: "manager",
-        allowedRoles: ["manager", "admin"],
+        allowedRoles: MANAGER_ROLES,
         reason: "This flag is past its review date and should be cleaned up",
       }
     : { type: "allow", rule: "not_expired" };
@@ -98,7 +99,7 @@ const rolloutIncrease: FlagRule<{ percent: number }> = ({
         type: "require_approval",
         rule: "rollout_increase",
         tier: "manager",
-        allowedRoles: ["manager", "admin"],
+        allowedRoles: MANAGER_ROLES,
         reason: `Raising the rollout by ${delta} points exceeds the ${step}-point step`,
       }
     : { type: "allow", rule: "rollout_increase" };
@@ -122,7 +123,7 @@ const productionExposureIncrease: FlagRule<{ percent: number }> = ({
         type: "require_approval",
         rule: "production_exposure_increase",
         tier: "manager",
-        allowedRoles: ["manager", "admin"],
+        allowedRoles: MANAGER_ROLES,
         reason: "Raising customer-facing traffic in production needs a manager",
       }
     : { type: "allow", rule: "production_exposure_increase" };
@@ -153,7 +154,7 @@ export const flagTool = defineTool<FeatureFlag>({
   icon: "ToggleRight",
   group: "Platform",
   recordType: "feature_flag",
-  visibleTo: ["analyst", "manager", "admin"],
+  visibleTo: MANAGER_ROLES,
   fields: [
     { name: "key", label: "Key", type: "string", help: "Immutable once created" },
     { name: "description", label: "Description", type: "text" },
@@ -235,7 +236,7 @@ export const flagTool = defineTool<FeatureFlag>({
   ],
   statusField: "status",
   titleField: "key",
-  revealRoles: ["manager", "admin"],
+  revealRoles: MANAGER_ROLES,
   constants: [
     {
       key: PROD_APPROVAL_KEY,
@@ -264,7 +265,7 @@ export const flagTool = defineTool<FeatureFlag>({
       name: "enable",
       label: "Enable",
       description: "Turn the flag fully on.",
-      allowedRoles: ["analyst", "manager", "admin"],
+      allowedRoles: MANAGER_ROLES,
       input: z.object({ reason: z.string().min(5).max(500) }),
       fromStatus: ["off", "partial"],
       tone: "primary",
@@ -278,8 +279,8 @@ export const flagTool = defineTool<FeatureFlag>({
     defineAction<FeatureFlag, z.ZodObject<{ reason: z.ZodString }>, Patch>({
       name: "disable",
       label: "Disable",
-      description: "Turn the flag off. Available to anyone, for incident response.",
-      allowedRoles: ["analyst", "manager", "admin"],
+      description: "Turn the flag off. Available to any manager, for incident response.",
+      allowedRoles: MANAGER_ROLES,
       input: z.object({ reason: z.string().min(5).max(500) }),
       fromStatus: ["on", "partial"],
       tone: "destructive",
@@ -300,7 +301,7 @@ export const flagTool = defineTool<FeatureFlag>({
       name: "set_rollout",
       label: "Set rollout",
       description: "Move the flag to a percentage of traffic.",
-      allowedRoles: ["analyst", "manager", "admin"],
+      allowedRoles: MANAGER_ROLES,
       input: z.object({
         percent: z.number().int().min(0).max(100),
         reason: z.string().min(5).max(500),
@@ -328,7 +329,7 @@ export const flagTool = defineTool<FeatureFlag>({
       name: "archive",
       label: "Archive",
       description: "Retire a flag whose code path has been removed.",
-      allowedRoles: ["manager", "admin"],
+      allowedRoles: MANAGER_ROLES,
       input: z.object({ reason: z.string().min(5).max(500) }),
       fromStatus: ["off"],
       rules: [notArchived],

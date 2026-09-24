@@ -4,7 +4,13 @@ import { executeIntent } from "@/engine/execute-intent";
 import { registerConstants } from "@/engine/policy/register";
 import type { Actor } from "@/engine/types";
 import { flagTool } from "@/tools/flags";
-import { admin, analyst, manager, setupHarness } from "../helpers/harness";
+import {
+  admin,
+  kycManager,
+  kycReviewer,
+  refundsManager,
+  setupHarness,
+} from "../helpers/harness";
 
 beforeAll(() => {
   setupHarness();
@@ -29,13 +35,27 @@ function act(
 
 /** flag_0002 kill switch, flag_0006 permission, flag_0010 past review date. */
 describe("feature flags", () => {
-  it("lets anyone pull a kill switch without an approval", () => {
-    const enabled = act(analyst, "set_rollout", "flag_0002", {
+  it("keeps domain agents and reviewers out of flag changes", () => {
+    expect(
+      act(kycReviewer, "enable", "flag_0009", { reason: "Not my domain" }).outcome,
+    ).toMatchObject({ code: "forbidden_role" });
+  });
+
+  it("lets a refunds manager enable a non-production flag", () => {
+    const result = act(refundsManager, "enable", "flag_0009", {
+      reason: "Cross-domain flag ownership",
+    });
+    expect(result.outcome.status).toBe("applied");
+    expect(flagTool.get("flag_0009")?.status).toBe("on");
+  });
+
+  it("lets any manager pull a kill switch without an approval", () => {
+    const enabled = act(kycManager, "set_rollout", "flag_0002", {
       percent: 25,
       reason: "Primary acquirer degraded",
     });
     expect(enabled.outcome.status).toBe("applied");
-    const off = act(analyst, "disable", "flag_0002", {
+    const off = act(kycManager, "disable", "flag_0002", {
       reason: "Primary acquirer recovered",
     });
     expect(off.outcome.status).toBe("applied");
@@ -43,7 +63,7 @@ describe("feature flags", () => {
   });
 
   it("requires a manager to enable a customer-facing production flag", () => {
-    const result = act(analyst, "enable", "flag_0001", {
+    const result = act(kycManager, "enable", "flag_0001", {
       reason: "Ramp instant payouts to everyone",
     });
     if (result.outcome.status !== "pending_approval") {
@@ -56,7 +76,7 @@ describe("feature flags", () => {
   });
 
   it("requires an admin for a permission flag", () => {
-    const result = act(manager, "enable", "flag_0006", {
+    const result = act(kycManager, "enable", "flag_0006", {
       reason: "Re-enable the low-risk bypass",
     });
     if (result.outcome.status !== "pending_approval") {
@@ -72,14 +92,14 @@ describe("feature flags", () => {
   });
 
   it("allows a rollout step inside the limit and holds a larger one", () => {
-    const small = act(analyst, "set_rollout", "flag_0009", {
+    const small = act(kycManager, "set_rollout", "flag_0009", {
       percent: 30,
       reason: "Next ledger cohort",
     });
     expect(small.outcome.status).toBe("applied");
     expect(flagTool.get("flag_0009")?.status).toBe("partial");
 
-    const large = act(analyst, "set_rollout", "flag_0009", {
+    const large = act(kycManager, "set_rollout", "flag_0009", {
       percent: 100,
       reason: "Straight to everyone",
     });
@@ -92,7 +112,7 @@ describe("feature flags", () => {
   });
 
   it("holds a small rollout that raises customer-facing production traffic", () => {
-    const result = act(analyst, "set_rollout", "flag_0012", {
+    const result = act(kycManager, "set_rollout", "flag_0012", {
       percent: 25,
       reason: "Start the digest cohort",
     });
@@ -106,7 +126,7 @@ describe("feature flags", () => {
   });
 
   it("leaves a customer-facing production decrease ungated", () => {
-    const result = act(analyst, "set_rollout", "flag_0001", {
+    const result = act(kycManager, "set_rollout", "flag_0001", {
       percent: 10,
       reason: "Funding balance under pressure",
     });
@@ -115,7 +135,7 @@ describe("feature flags", () => {
   });
 
   it("treats a decrease as ordinary regardless of size", () => {
-    const result = act(analyst, "set_rollout", "flag_0005", {
+    const result = act(kycManager, "set_rollout", "flag_0005", {
       percent: 0,
       reason: "Shadow scoring skewing the queue",
     });
@@ -124,7 +144,7 @@ describe("feature flags", () => {
   });
 
   it("routes a flag past its review date to a manager", () => {
-    const result = act(analyst, "set_rollout", "flag_0010", {
+    const result = act(kycManager, "set_rollout", "flag_0010", {
       percent: 90,
       reason: "Keep legacy reconciliation running",
     });
@@ -137,7 +157,7 @@ describe("feature flags", () => {
   });
 
   it("keeps archiving with managers and admins", () => {
-    expect(act(analyst, "archive", "flag_0007", { reason: "Code path removed" }).outcome)
+    expect(act(kycReviewer, "archive", "flag_0007", { reason: "Code path removed" }).outcome)
       .toMatchObject({ code: "forbidden_role" });
     const archived = act(admin, "archive", "flag_0007", {
       reason: "Bulk refunds shipped without a flag",
@@ -147,7 +167,7 @@ describe("feature flags", () => {
   });
 
   it("refuses to change an archived flag", () => {
-    const result = act(manager, "set_rollout", "flag_0007", {
+    const result = act(kycManager, "set_rollout", "flag_0007", {
       percent: 50,
       reason: "Bring it back",
     });
@@ -156,22 +176,22 @@ describe("feature flags", () => {
 
   it("rejects a rollout outside 0-100 and an empty reason", () => {
     expect(
-      act(manager, "set_rollout", "flag_0003", { percent: 140, reason: "Too far" })
+      act(kycManager, "set_rollout", "flag_0003", { percent: 140, reason: "Too far" })
         .outcome,
     ).toMatchObject({ code: "invalid_input" });
     expect(
-      act(manager, "set_rollout", "flag_0003", { percent: 50, reason: "no" }).outcome,
+      act(kycManager, "set_rollout", "flag_0003", { percent: 50, reason: "no" }).outcome,
     ).toMatchObject({ code: "invalid_input" });
   });
 
   it("records the actor and bumps the version on every change", () => {
     const before = flagTool.get("flag_0011");
-    const result = act(manager, "disable", "flag_0011", {
+    const result = act(kycManager, "disable", "flag_0011", {
       reason: "SMS provider outage",
     });
     expect(result.outcome.status).toBe("applied");
     const after = flagTool.get("flag_0011");
-    expect(after?.lastChangedBy).toBe(manager.id);
+    expect(after?.lastChangedBy).toBe(kycManager.id);
     expect(after?.version).toBe((before?.version ?? 0) + 1);
   });
 });

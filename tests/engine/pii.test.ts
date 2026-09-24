@@ -3,7 +3,7 @@ import { listAuditEvents } from "@/engine/audit/query";
 import { maskRecord } from "@/engine/pii/mask";
 import { revealField } from "@/engine/pii/reveal";
 import { widgetTool } from "../fixtures/widgets";
-import { analyst, makeWidget, manager, setupHarness } from "../helpers/harness";
+import { kycReviewer, makeWidget, kycManager, setupHarness } from "../helpers/harness";
 
 beforeAll(() => {
   setupHarness();
@@ -15,7 +15,7 @@ describe("pii", () => {
     const record = widgetTool.get("w_pii");
     if (!record) throw new Error("missing fixture");
 
-    const masked = maskRecord(widgetTool, record, analyst);
+    const masked = maskRecord(widgetTool, record, kycReviewer);
 
     expect(masked.values.ownerEmail).not.toContain("w_pii@example.com");
     expect(masked.maskedFields).toEqual(["ownerEmail"]);
@@ -23,22 +23,22 @@ describe("pii", () => {
   });
 
   it("refuses to reveal for a role without the permission", () => {
-    const result = revealField(analyst, "widgets", "w_pii", "ownerEmail");
+    const result = revealField(kycReviewer, "widgets", "w_pii", "ownerEmail");
     expect(result.ok).toBe(false);
   });
 
   it("refuses to reveal on a tool the role cannot see, whatever the reveal roles say", () => {
-    const result = revealField(analyst, "vault", "w_pii", "ownerEmail");
+    const result = revealField(kycReviewer, "vault", "w_pii", "ownerEmail");
 
     expect(result).toMatchObject({ ok: false });
   });
 
   it("reveals for a permitted role and audits the reveal", () => {
-    const result = revealField(manager, "widgets", "w_pii", "ownerEmail");
+    const result = revealField(kycManager, "widgets", "w_pii", "ownerEmail");
 
     expect(result).toMatchObject({ ok: true, value: "w_pii@example.com" });
     const { rows } = listAuditEvents({ event: "pii_revealed" });
     expect(rows[0]?.recordId).toBe("w_pii");
-    expect(rows[0]?.actorId).toBe(manager.id);
+    expect(rows[0]?.actorId).toBe(kycManager.id);
   });
 });

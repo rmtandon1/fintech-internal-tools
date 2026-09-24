@@ -9,6 +9,7 @@ import type {
   Rule,
   SortOption,
 } from "@/engine/types";
+import { rolesFor } from "@/lib/roles";
 import { kycCases } from "./schema";
 import { seedKycCases } from "./seed";
 
@@ -89,7 +90,7 @@ const riskTierApproval: CaseRule = ({ record, constants }) => {
       type: "require_approval",
       rule: "risk_tier_approval",
       tier: "manager",
-      allowedRoles: ["manager", "admin"],
+      allowedRoles: rolesFor("kyc", "manager"),
       reason: `Risk score ${score} is at or above the ${managerScore} manager threshold`,
     };
   }
@@ -102,7 +103,7 @@ const escalatedNeedsManager: CaseRule = ({ record }) =>
         type: "require_approval",
         rule: "escalated_needs_manager",
         tier: "manager",
-        allowedRoles: ["manager", "admin"],
+        allowedRoles: rolesFor("kyc", "manager"),
         reason: "The case was escalated, so a manager owns the decision",
       }
     : { type: "allow", rule: "escalated_needs_manager" };
@@ -132,7 +133,7 @@ export const kycTool = defineTool<KycCase>({
   icon: "IdCard",
   group: "Risk & Compliance",
   recordType: "kyc_case",
-  visibleTo: ["analyst", "manager", "admin"],
+  visibleTo: rolesFor("kyc", "agent"),
   fields: [
     { name: "customerName", label: "Customer", type: "string" },
     { name: "email", label: "Email", type: "string", isPII: true },
@@ -220,7 +221,7 @@ export const kycTool = defineTool<KycCase>({
   ],
   statusField: "status",
   titleField: "customerName",
-  revealRoles: ["manager", "admin"],
+  revealRoles: rolesFor("kyc", "manager"),
   constants: [
     {
       key: MANAGER_REVIEW_SCORE_KEY,
@@ -249,7 +250,7 @@ export const kycTool = defineTool<KycCase>({
       name: "approve",
       label: "Approve case",
       description: "Accept the customer onto the platform.",
-      allowedRoles: ["analyst", "manager", "admin"],
+      allowedRoles: rolesFor("kyc", "agent"),
       input: z.object({ note: z.string().max(500).optional() }),
       fromStatus: OPEN_STATUSES,
       tone: "primary",
@@ -270,7 +271,7 @@ export const kycTool = defineTool<KycCase>({
       name: "reject",
       label: "Reject case",
       description: "Decline the customer and close the case.",
-      allowedRoles: ["analyst", "manager", "admin"],
+      allowedRoles: rolesFor("kyc", "agent"),
       input: z.object({ reason: z.string().min(5).max(500) }),
       fromStatus: OPEN_STATUSES,
       tone: "destructive",
@@ -285,7 +286,7 @@ export const kycTool = defineTool<KycCase>({
       name: "request_info",
       label: "Request information",
       description: "Ask the customer for more documents or detail.",
-      allowedRoles: ["analyst", "manager", "admin"],
+      allowedRoles: rolesFor("kyc", "agent"),
       input: z.object({ reason: z.string().min(5).max(500) }),
       fromStatus: ["pending_review", "escalated"],
       rules: [allow("request_info_always_permitted")],
@@ -299,7 +300,7 @@ export const kycTool = defineTool<KycCase>({
       name: "escalate",
       label: "Escalate",
       description: "Hand the case to compliance for a senior decision.",
-      allowedRoles: ["analyst", "manager", "admin"],
+      allowedRoles: rolesFor("kyc", "agent"),
       input: z.object({ reason: z.string().min(5).max(500) }),
       fromStatus: ["pending_review", "info_requested"],
       rules: [allow("escalate_always_permitted")],

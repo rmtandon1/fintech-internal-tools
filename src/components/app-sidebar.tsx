@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { Badge } from "@/components/ui/badge";
 import type { Actor } from "@/engine/types";
+import { canApprove } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 
 interface ToolLink {
@@ -25,7 +26,7 @@ export function AppSidebar({
   const pathname = usePathname();
 
   const governance = [
-    { href: "/inbox", label: "Approvals", icon: "Inbox", show: actor.role !== "analyst", badge: pendingApprovals },
+    { href: "/inbox", label: "Approvals", icon: "Inbox", show: canApprove(actor.role), badge: pendingApprovals },
     { href: "/audit", label: "Audit stream", icon: "ScrollText", show: true },
     { href: "/audit/verify", label: "Chain verify", icon: "ShieldCheck", show: actor.role === "admin" },
     { href: "/admin/policy", label: "Policy constants", icon: "SlidersHorizontal", show: actor.role === "admin" },

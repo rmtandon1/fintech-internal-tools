@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@/db/client";
 import { defineAction, defineTool } from "@/engine/declare";
 import type { GovernedRecord, Rule } from "@/engine/types";
+import { rolesFor } from "@/lib/roles";
 
 /**
  * A stand-in governed tool. It exercises the engine exactly as a real tool
@@ -61,7 +62,7 @@ const managerApprovalOverThreshold: Rule<Widget, { amount: number }> = ({
         type: "require_approval",
         rule: "manager_approval_over_threshold",
         tier: "manager",
-        allowedRoles: ["manager", "admin"],
+        allowedRoles: rolesFor("kyc", "manager"),
         reason: `Amount ${input.amount} is over the ${threshold} threshold`,
       }
     : { type: "allow", rule: "manager_approval_over_threshold" };
@@ -74,7 +75,7 @@ export const widgetTool = defineTool<Widget>({
   icon: "Box",
   group: "Test",
   recordType: "widget",
-  visibleTo: ["analyst", "manager", "admin"],
+  visibleTo: rolesFor("kyc", "agent"),
   fields: [
     { name: "name", label: "Name", type: "string" },
     { name: "ownerEmail", label: "Owner email", type: "string", isPII: true },
@@ -90,7 +91,7 @@ export const widgetTool = defineTool<Widget>({
   ],
   statusField: "status",
   titleField: "name",
-  revealRoles: ["manager", "admin"],
+  revealRoles: rolesFor("kyc", "manager"),
   constants: [
     {
       key: APPROVAL_THRESHOLD_KEY,
@@ -111,7 +112,7 @@ export const widgetTool = defineTool<Widget>({
     defineAction<Widget, z.ZodObject<{ amount: z.ZodNumber; reason: z.ZodString }>, { amount: number }>({
       name: "spend",
       label: "Spend",
-      allowedRoles: ["analyst", "manager", "admin"],
+      allowedRoles: rolesFor("kyc", "agent"),
       input: z.object({ amount: z.number().positive(), reason: z.string().min(1) }),
       fromStatus: ["open"],
       rules: [sufficientBalance, managerApprovalOverThreshold],
@@ -141,7 +142,7 @@ export const widgetTool = defineTool<Widget>({
     defineAction<Widget, z.ZodObject<Record<string, never>>, null>({
       name: "close",
       label: "Close",
-      allowedRoles: ["manager", "admin"],
+      allowedRoles: rolesFor("kyc", "manager"),
       input: z.object({}),
       fromStatus: ["open"],
       rules: [() => ({ type: "allow", rule: "always" })],
@@ -163,7 +164,7 @@ export const widgetTool = defineTool<Widget>({
     defineAction<Widget, z.ZodObject<Record<string, never>>, null>({
       name: "explode",
       label: "Explode",
-      allowedRoles: ["analyst", "manager", "admin"],
+      allowedRoles: rolesFor("kyc", "agent"),
       input: z.object({}),
       fromStatus: ["open"],
       rules: [
@@ -171,7 +172,7 @@ export const widgetTool = defineTool<Widget>({
           type: "require_approval",
           rule: "always_approval",
           tier: "manager",
-          allowedRoles: ["manager", "admin"],
+          allowedRoles: rolesFor("kyc", "manager"),
           reason: "fixture action always needs approval",
         }),
       ],
@@ -188,7 +189,7 @@ export const widgetTool = defineTool<Widget>({
     defineAction<Widget, z.ZodObject<Record<string, never>>, null>({
       name: "explode_now",
       label: "Explode immediately",
-      allowedRoles: ["analyst", "manager", "admin"],
+      allowedRoles: rolesFor("kyc", "agent"),
       input: z.object({}),
       fromStatus: ["open"],
       rules: [() => ({ type: "allow", rule: "always" })],
@@ -205,7 +206,7 @@ export const widgetTool = defineTool<Widget>({
     defineAction<Widget, z.ZodObject<Record<string, never>>, null>({
       name: "rename_unruled",
       label: "Rename (no rules)",
-      allowedRoles: ["analyst", "manager", "admin"],
+      allowedRoles: rolesFor("kyc", "agent"),
       input: z.object({}),
       rules: [],
       decide: () => ({ summary: "Rename", patch: null }),
@@ -234,7 +235,7 @@ function get(id: string): Widget | null {
 
 /**
  * A tool only admins can see, whose action and reveal roles nevertheless
- * name the analyst. Visibility must win in both places.
+ * name the reviewer. Visibility must win in both places.
  */
 export const vaultTool = defineTool<Widget>({
   name: "vault",
@@ -254,12 +255,12 @@ export const vaultTool = defineTool<Widget>({
   statuses: [{ value: "open", label: "Open", tone: "info" }],
   statusField: "status",
   titleField: "name",
-  revealRoles: ["analyst", "admin"],
+  revealRoles: ["kyc_reviewer", "admin"],
   actions: [
     defineAction<Widget, z.ZodObject<Record<string, never>>, null>({
       name: "close",
       label: "Close",
-      allowedRoles: ["analyst", "admin"],
+      allowedRoles: ["kyc_reviewer", "admin"],
       input: z.object({}),
       fromStatus: ["open"],
       rules: [() => ({ type: "allow", rule: "always" })],

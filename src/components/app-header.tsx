@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { switchRole } from "@/app/actions";
 import type { Actor } from "@/engine/types";
-import { ROLES } from "@/engine/types";
+import { ROLES, roleLabel } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 
 export function AppHeader({
@@ -57,13 +57,13 @@ export function AppHeader({
             disabled={pending}
             onValueChange={(role) => startTransition(() => switchRole(role))}
           >
-            <SelectTrigger size="sm" className="w-[130px] capitalize">
+            <SelectTrigger size="sm" className="w-[150px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {ROLES.map((role) => (
-                <SelectItem key={role} value={role} className="capitalize">
-                  {role}
+                <SelectItem key={role} value={role}>
+                  {roleLabel(role)}
                 </SelectItem>
               ))}
             </SelectContent>
