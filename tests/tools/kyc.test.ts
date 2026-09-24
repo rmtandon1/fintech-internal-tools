@@ -4,9 +4,7 @@ import { executeIntent } from "@/engine/execute-intent";
 import { registerConstants } from "@/engine/policy/register";
 import type { Actor } from "@/engine/types";
 import { kycTool } from "@/tools/kyc";
-import { setupHarness } from "../helpers/harness";
-import { getApproval, canDecide } from "@/engine/approvals";
-import { admin, kycManager, kycReviewer, refundsAgent, refundsManager } from "../helpers/harness";
+import { kycManager, kycReviewer, setupHarness } from "../helpers/harness";
 
 beforeAll(() => {
   setupHarness();
