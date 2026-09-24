@@ -57,7 +57,7 @@ export function AppHeader({
             disabled={pending}
             onValueChange={(role) => startTransition(() => switchRole(role))}
           >
-            <SelectTrigger size="sm" className="w-[150px]">
+            <SelectTrigger size="sm" className="w-[180px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
