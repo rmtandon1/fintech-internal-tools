@@ -2,7 +2,7 @@ import { and, desc, eq, ne } from "drizzle-orm";
 import { db } from "@/db/client";
 import { approvalRequests } from "@/db/engine-schema";
 import { transact } from "@/db/write-client";
-import { getTool } from "@/tools";
+import { resolveTool } from "@/engine/registry";
 import { appendAudit } from "@/engine/audit/append";
 import { applyEffect } from "@/engine/execute-intent";
 import type {
@@ -116,7 +116,7 @@ export function approve(actor: Actor, id: string, note?: string): IntentResult {
     );
   }
 
-  const decl = getTool(approval.tool);
+  const decl = resolveTool(approval.tool);
   const action = decl?.actions.find((a) => a.name === approval.action);
   if (!decl || !action) {
     return error("unknown_action", `${approval.tool}.${approval.action} is not registered`);
