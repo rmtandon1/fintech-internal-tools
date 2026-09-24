@@ -80,7 +80,7 @@ function ActionButton({
       : undefined;
 
   const label = needsApproval
-    ? `${preview.label} ${String.fromCharCode(0x2192)} ${approvalTier(preview)}`
+    ? `${preview.label} → ${approvalTier(preview)}`
     : preview.label;
   const variant =
     preview.tone === "destructive"

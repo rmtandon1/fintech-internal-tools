@@ -1,4 +1,4 @@
-import type { Actor, GovernedRecord, ToolDeclaration } from "@/engine/types";
+import type { GovernedRecord, ToolDeclaration } from "@/engine/types";
 
 export interface WorkSummary {
   open: number;
@@ -13,10 +13,8 @@ export interface WorkSummary {
  */
 export function workSummary(
   decl: ToolDeclaration,
-  actor: Actor,
   now: number,
 ): WorkSummary {
-  void actor;
   const { rows } = decl.list({ filters: {}, limit: 500, offset: 0 });
   let open = 0;
   let attention = 0;

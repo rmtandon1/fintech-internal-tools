@@ -19,7 +19,7 @@ export default async function HomePage({
   const now = Date.now();
 
   const tools = toolsForRole(actor.role);
-  const summaries = tools.map((decl) => ({ decl, summary: workSummary(decl, actor, now) }));
+  const summaries = tools.map((decl) => ({ decl, summary: workSummary(decl, now) }));
 
   const selected =
     typeof query.tool === "string"
