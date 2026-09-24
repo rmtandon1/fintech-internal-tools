@@ -26,7 +26,6 @@ export function RecordView({
   const masked = maskRecord(decl, record, actor);
   const previews = previewActions(decl, record, actor);
   const trail = auditTrailFor(decl.recordType, record.id);
-  const now = Date.now();
 
   const traced = previews.find((p) => p.offered && p.decision);
 
