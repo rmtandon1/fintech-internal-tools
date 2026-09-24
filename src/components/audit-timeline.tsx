@@ -17,9 +17,43 @@ const EVENT_ICONS: Record<string, { icon: string; className: string }> = {
   constant_changed: { icon: "SlidersHorizontal", className: "text-sky-400" },
 };
 
-export function AuditTimeline({ events }: { events: AuditRow[] }) {
+export function AuditTimeline({
+  events,
+  compact,
+}: {
+  events: AuditRow[];
+  compact?: boolean;
+}) {
   if (events.length === 0) {
     return <p className="text-xs text-muted-foreground">No events yet.</p>;
+  }
+
+  if (compact) {
+    return (
+      <ol>
+        {events.map((event) => {
+          const tone = EVENT_ICONS[event.event] ?? {
+            icon: "Dot",
+            className: "text-muted-foreground",
+          };
+          return (
+            <li key={event.id} className="flex h-7 items-center gap-2 px-3">
+              <Icon name={tone.icon} className={cn("size-3.5 shrink-0", tone.className)} />
+              <span className="min-w-0 flex-1 truncate text-xs">{event.summary}</span>
+              <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                {event.actorId}
+              </span>
+              <span className="shrink-0 text-[11px] text-muted-foreground">
+                {formatTimestamp(event.ts)}
+              </span>
+              <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
+                {event.rowHash.slice(0, 8)}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    );
   }
 
   return (

@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { revealPii } from "@/app/actions";
-import { Icon } from "@/components/icon";
 
 /** Masked by default; revealing calls the server and writes an audit event. */
 export function RevealField({
@@ -35,17 +34,17 @@ export function RevealField({
   }
 
   return (
-    <div className="flex items-center gap-2 text-sm">
+    <div className="flex items-center gap-2 text-xs">
       <span className={value ? undefined : "font-mono"}>{value ?? masked}</span>
       {canReveal && !value ? (
         <button
           type="button"
           onClick={onReveal}
           disabled={pending}
-          className="text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+          className="text-[11px] text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline disabled:opacity-50"
           title="Reveal (audited)"
         >
-          <Icon name="Eye" className="size-3.5" />
+          reveal
         </button>
       ) : null}
     </div>

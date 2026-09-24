@@ -1,15 +1,14 @@
 import { Icon } from "@/components/icon";
 import type { PolicyDecision, RuleOutcome } from "@/engine/types";
 import { cn } from "@/lib/utils";
-import { titleCase } from "@/lib/format";
 
-const TONE: Record<RuleOutcome["type"], { icon: string; className: string; label: string }> = {
-  allow: { icon: "Check", className: "text-emerald-400", label: "Allowed" },
-  deny: { icon: "Ban", className: "text-red-400", label: "Denied" },
+const TONE: Record<RuleOutcome["type"], { icon: string; className: string; word: string }> = {
+  allow: { icon: "Check", className: "text-emerald-400", word: "allow" },
+  deny: { icon: "Ban", className: "text-red-400", word: "deny" },
   require_approval: {
     icon: "UserCheck",
     className: "text-amber-400",
-    label: "Approval required",
+    word: "approval",
   },
 };
 
@@ -19,7 +18,7 @@ export function PolicyOutcomeLine({ decision }: { decision: PolicyDecision }) {
     <div className={cn("flex items-center gap-1.5 text-xs", tone.className)}>
       <Icon name={tone.icon} className="size-3.5" />
       <span>
-        {tone.label}
+        {tone.word}
         {decision.reason ? `: ${decision.reason}` : ""}
       </span>
     </div>
@@ -35,21 +34,26 @@ export function PolicyTraceList({
   className?: string;
 }) {
   if (trace.length === 0) {
-    return <p className="text-xs text-muted-foreground">No rules evaluated.</p>;
+    return (
+      <p className="px-3 py-2 text-xs text-muted-foreground">No rules evaluated.</p>
+    );
   }
   return (
-    <ul className={cn("space-y-1", className)}>
+    <ul className={className}>
       {trace.map((outcome, index) => {
         const tone = TONE[outcome.type];
         return (
-          <li key={`${outcome.rule}-${index}`} className="flex items-start gap-2 text-xs">
-            <Icon name={tone.icon} className={cn("mt-0.5 size-3.5 shrink-0", tone.className)} />
-            <span className="font-mono text-[11px] text-muted-foreground">
-              {titleCase(outcome.rule)}
+          <li
+            key={`${outcome.rule}-${index}`}
+            className="grid h-7 grid-cols-[72px_1fr_auto] items-center gap-2 px-3 text-xs"
+          >
+            <span className={cn("font-mono lowercase", tone.className)}>
+              {tone.word}
             </span>
-            <span className={cn("ml-auto text-right", tone.className)}>
+            <span className="truncate font-mono">{outcome.rule}</span>
+            <span className="truncate text-right text-muted-foreground">
               {outcome.type === "allow"
-                ? (outcome.message ?? "allow")
+                ? (outcome.message ?? "")
                 : outcome.reason}
             </span>
           </li>
