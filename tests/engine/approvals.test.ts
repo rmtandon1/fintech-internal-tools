@@ -6,9 +6,9 @@ import { setConstant } from "@/engine/policy/set-constant";
 import { APPROVAL_THRESHOLD_KEY, SPEND_FEE_KEY } from "../fixtures/widgets";
 import {
   admin,
-  analyst,
+  kycReviewer,
   makeWidget,
-  manager,
+  kycManager,
   otherManager,
   setupHarness,
   widgetBalance,
@@ -16,7 +16,7 @@ import {
 
 beforeAll(() => setupHarness());
 
-function requestSpend(recordId: string, amount: number, actor = analyst) {
+function requestSpend(recordId: string, amount: number, actor = kycReviewer) {
   const result = executeIntent(actor, {
     tool: "widgets",
     action: "spend",
@@ -33,9 +33,9 @@ function requestSpend(recordId: string, amount: number, actor = analyst) {
 describe("approvals", () => {
   it("blocks self-approval at the database predicate", () => {
     makeWidget("w_self", 1000);
-    const id = requestSpend("w_self", 500, manager);
+    const id = requestSpend("w_self", 500, kycManager);
 
-    const result = approve(manager, id, "approving my own request");
+    const result = approve(kycManager, id, "approving my own request");
 
     expect(result.outcome).toMatchObject({ status: "error", code: "self_approval" });
     expect(getApproval(id)?.status).toBe("pending");
@@ -48,7 +48,7 @@ describe("approvals", () => {
 
     // Moving the threshold after the fact must not change what was approved.
     setConstant(admin, APPROVAL_THRESHOLD_KEY, "900");
-    const result = approve(manager, id, "ok");
+    const result = approve(kycManager, id, "ok");
 
     expect(result.outcome.status).toBe("applied");
     expect(widgetBalance("w_frozen")).toBe(500);
@@ -61,7 +61,7 @@ describe("approvals", () => {
 
     // The fee feeds `decide`, so a recomputed decision would spend 600.
     setConstant(admin, SPEND_FEE_KEY, "100");
-    const result = approve(manager, id, "ok");
+    const result = approve(kycManager, id, "ok");
 
     expect(result.outcome.status).toBe("applied");
     expect(widgetBalance("w_decision")).toBe(500);
@@ -70,7 +70,7 @@ describe("approvals", () => {
 
   it("leaves nothing applied and nothing approved when the effect throws", () => {
     makeWidget("w_boom", 1000);
-    const requested = executeIntent(analyst, {
+    const requested = executeIntent(kycReviewer, {
       tool: "widgets",
       action: "explode",
       recordId: "w_boom",
@@ -81,7 +81,7 @@ describe("approvals", () => {
       throw new Error(`expected approval, got ${requested.outcome.status}`);
     }
 
-    const result = approve(manager, requested.outcome.approvalId, "go");
+    const result = approve(kycManager, requested.outcome.approvalId, "go");
 
     expect(result.outcome).toMatchObject({ status: "error", code: "internal_error" });
     // The claim and the partial write rolled back together.
@@ -93,7 +93,7 @@ describe("approvals", () => {
     makeWidget("w_stale", 1000);
     const id = requestSpend("w_stale", 500);
 
-    executeIntent(analyst, {
+    executeIntent(kycReviewer, {
       tool: "widgets",
       action: "spend",
       recordId: "w_stale",
@@ -101,7 +101,7 @@ describe("approvals", () => {
       idempotencyKey: ulid(),
     });
 
-    const result = approve(manager, id, "too late");
+    const result = approve(kycManager, id, "too late");
 
     expect(result.outcome).toMatchObject({ status: "error", code: "version_conflict" });
     expect(getApproval(id)?.status).toBe("failed");
@@ -112,7 +112,7 @@ describe("approvals", () => {
     makeWidget("w_twice", 1000);
     const id = requestSpend("w_twice", 500);
 
-    expect(approve(manager, id, "yes").outcome.status).toBe("applied");
+    expect(approve(kycManager, id, "yes").outcome.status).toBe("applied");
     expect(approve(otherManager, id, "again").outcome).toMatchObject({
       status: "error",
       code: "approval_not_pending",
@@ -123,7 +123,7 @@ describe("approvals", () => {
     makeWidget("w_reject", 1000);
     const id = requestSpend("w_reject", 500);
 
-    const result = reject(manager, id, "not justified");
+    const result = reject(kycManager, id, "not justified");
 
     expect(result.outcome.status).toBe("applied");
     if (result.outcome.status !== "applied") throw new Error("unreachable");

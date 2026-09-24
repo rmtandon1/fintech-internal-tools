@@ -29,6 +29,13 @@
       "when": 1789650635074,
       "tag": "0003_small_talkback",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1790284307845,
+      "tag": "0004_expand_roles",
+      "breakpoints": true
     }
   ]
 }

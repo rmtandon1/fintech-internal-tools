@@ -6,12 +6,30 @@ import type { Actor, ToolDeclaration } from "@/engine/types";
 import { getTool } from "@/tools";
 import { WIDGETS_DDL, vaultTool, widgetTool, widgets } from "../fixtures/widgets";
 
-export const analyst: Actor = { id: "usr_analyst", name: "Analyst", role: "analyst" };
-export const manager: Actor = { id: "usr_manager", name: "Manager", role: "manager" };
+export const kycReviewer: Actor = {
+  id: "usr_kyc_reviewer",
+  name: "KYC reviewer",
+  role: "kyc_reviewer",
+};
+export const kycManager: Actor = {
+  id: "usr_kyc_manager",
+  name: "KYC manager",
+  role: "kyc_manager",
+};
+export const refundsAgent: Actor = {
+  id: "usr_refunds_agent",
+  name: "Refunds agent",
+  role: "refunds_agent",
+};
+export const refundsManager: Actor = {
+  id: "usr_refunds_manager",
+  name: "Refunds manager",
+  role: "refunds_manager",
+};
 export const otherManager: Actor = {
-  id: "usr_manager_2",
-  name: "Manager 2",
-  role: "manager",
+  id: "usr_kyc_manager_2",
+  name: "KYC manager 2",
+  role: "kyc_manager",
 };
 export const admin: Actor = { id: "usr_admin", name: "Admin", role: "admin" };
 

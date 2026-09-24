@@ -44,7 +44,7 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 - `src/engine` - Governed write path: policy, approvals, idempotency, audit, PII masking
 - `src/db` - Engine tables, read client, engine-only write client
 - `src/tools` - Tool declarations (kyc, refunds, flags), the tool registry and the aggregate migration schema
-- `src/lib` - Shared helpers (formatting, modes, session)
+- `src/lib` - Shared helpers (formatting, modes, session) and the role catalog (`roles.ts`)
 - `drizzle` - Generated SQL migrations and snapshots
 - `scripts` - `migrate.ts`, `seed.ts`, `check-boundaries.ts`
 - `tests` - Vitest suites, fixtures, helpers

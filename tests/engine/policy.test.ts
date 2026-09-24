@@ -3,12 +3,12 @@ import { ulid } from "ulid";
 import { executeIntent } from "@/engine/execute-intent";
 import { setConstant } from "@/engine/policy/set-constant";
 import { APPROVAL_THRESHOLD_KEY } from "../fixtures/widgets";
-import { admin, analyst, makeWidget, setupHarness } from "../helpers/harness";
+import { admin, kycReviewer, makeWidget, setupHarness } from "../helpers/harness";
 
 beforeAll(() => setupHarness());
 
 function spend(amount: number, recordId: string) {
-  return executeIntent(analyst, {
+  return executeIntent(kycReviewer, {
     tool: "widgets",
     action: "spend",
     recordId,
@@ -44,7 +44,7 @@ describe("policy precedence", () => {
 
   it("defaults to deny when an action declares no rules", () => {
     makeWidget("w_norules", 100);
-    const result = executeIntent(analyst, {
+    const result = executeIntent(kycReviewer, {
       tool: "widgets",
       action: "rename_unruled",
       recordId: "w_norules",
@@ -56,7 +56,7 @@ describe("policy precedence", () => {
 
   it("refuses an action the role may not perform, server-side", () => {
     makeWidget("w_role", 100);
-    const result = executeIntent(analyst, {
+    const result = executeIntent(kycReviewer, {
       tool: "widgets",
       action: "close",
       recordId: "w_role",
@@ -68,7 +68,7 @@ describe("policy precedence", () => {
 
   it("refuses a write to a tool the role cannot see, whatever the action allows", () => {
     makeWidget("w_hidden", 100);
-    const result = executeIntent(analyst, {
+    const result = executeIntent(kycReviewer, {
       tool: "vault",
       action: "close",
       recordId: "w_hidden",

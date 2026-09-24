@@ -6,6 +6,7 @@ import { countPendingFor } from "@/engine/approvals";
 import { auditStats } from "@/engine/audit/query";
 import { verifyChain } from "@/engine/audit/verify";
 import { formatRelative } from "@/lib/format";
+import { canApprove } from "@/lib/roles";
 import { modesByGroup } from "@/lib/modes";
 import { currentActor } from "@/lib/session";
 import { getTool } from "@/tools";
@@ -32,7 +33,7 @@ export default async function HomePage() {
           label="Approvals waiting"
           value={String(pending)}
           icon="Inbox"
-          href={actor.role === "analyst" ? undefined : "/inbox"}
+          href={canApprove(actor.role) ? "/inbox" : undefined}
         />
         <Stat
           label="Audit events"
