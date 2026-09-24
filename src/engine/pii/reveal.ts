@@ -1,5 +1,5 @@
 import { transact } from "@/db/write-client";
-import { getTool } from "@/tools";
+import { resolveTool } from "@/engine/registry";
 import { appendAudit } from "@/engine/audit/append";
 import type { Actor } from "@/engine/types";
 
@@ -18,7 +18,7 @@ export function revealField(
   recordId: string,
   field: string,
 ): RevealResult {
-  const decl = getTool(toolName);
+  const decl = resolveTool(toolName);
   if (!decl) return { ok: false, reason: `No such tool: ${toolName}` };
 
   if (!decl.visibleTo.includes(actor.role)) {

@@ -1,3 +1,4 @@
+import "@/app/bootstrap";
 import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/sonner";
 import { AppSidebar } from "@/components/app-sidebar";

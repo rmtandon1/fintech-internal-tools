@@ -1,5 +1,6 @@
 "use server";
 
+import "@/app/bootstrap";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { ulid } from "ulid";

@@ -1,3 +1,4 @@
+import type { ToolRegistry } from "@/engine/registry";
 import type { Role, ToolDeclaration } from "@/engine/types";
 import { flagTool } from "@/tools/flags";
 import { kycTool } from "@/tools/kyc";
@@ -9,20 +10,12 @@ import { refundTool } from "@/tools/refunds";
  */
 export const TOOLS: ToolDeclaration[] = [kycTool, refundTool, flagTool];
 
-/**
- * Adds a declaration to the registry at runtime. Production tools are listed
- * in `TOOLS` above; this exists so tests can register a fixture tool without
- * the engine ever knowing a concrete tool name.
- */
-export function registerTool(decl: ToolDeclaration): void {
-  const index = TOOLS.findIndex((t) => t.name === decl.name);
-  if (index >= 0) TOOLS.splice(index, 1, decl);
-  else TOOLS.push(decl);
-}
-
 export function getTool(name: string): ToolDeclaration | undefined {
   return TOOLS.find((t) => t.name === name);
 }
+
+/** What the application hands to `configureEngine`. */
+export const toolRegistry: ToolRegistry = { get: getTool };
 
 export function toolsForRole(role: Role): ToolDeclaration[] {
   return TOOLS.filter((t) => t.visibleTo.includes(role));
