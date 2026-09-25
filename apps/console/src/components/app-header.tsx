@@ -10,18 +10,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@console/ui/select";
-import { switchRole } from "@/app/actions";
+import { signOut, switchRole } from "@/app/actions";
 import type { Actor } from "@console/engine/types";
 import { ROLES, roleLabel } from "@console/permissions";
 import { cn } from "@console/ui/utils";
 
+const SIGN_OUT = "__sign_out";
+
 export function AppHeader({
   actor,
+  roleChosen,
   chainOk,
   chainLength,
   agent,
 }: {
   actor: Actor;
+  /** False until a role is picked: the switcher then asks for one. */
+  roleChosen: boolean;
   chainOk: boolean;
   chainLength: number;
   /** Opens the Devin window. */
@@ -72,19 +77,26 @@ export function AppHeader({
         </div>
 
         <Select
-          value={actor.role}
+          value={roleChosen ? actor.role : ""}
           disabled={pending}
-          onValueChange={(role) => startTransition(() => switchRole(role))}
+          onValueChange={(role) =>
+            startTransition(() => (role === SIGN_OUT ? signOut() : switchRole(role)))
+          }
         >
-          <SelectTrigger size="sm" className="h-7 w-[130px] text-xs sm:w-[150px]">
-            <SelectValue />
+          <SelectTrigger size="sm" className="h-8 w-[150px] text-sm sm:w-[170px]">
+            <SelectValue placeholder="Choose a role" />
           </SelectTrigger>
           <SelectContent>
             {ROLES.map((role) => (
-              <SelectItem key={role} value={role} className="text-xs">
+              <SelectItem key={role} value={role} className="text-sm">
                 {roleLabel(role)}
               </SelectItem>
             ))}
+            {roleChosen ? (
+              <SelectItem value={SIGN_OUT} className="text-sm text-muted-foreground">
+                Sign out
+              </SelectItem>
+            ) : null}
           </SelectContent>
         </Select>
       </div>

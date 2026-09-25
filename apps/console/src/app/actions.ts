@@ -3,6 +3,7 @@
 import "@/app/bootstrap";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { ulid } from "ulid";
 import { ACTOR_COOKIE, signRole } from "@console/engine/actor";
 import * as approvals from "@console/engine/approvals";
@@ -11,6 +12,7 @@ import { setConstant } from "@console/engine/policy/set-constant";
 import { revealField } from "@console/engine/pii/reveal";
 import type { IntentResult, Role } from "@console/engine/types";
 import { ROLES } from "@console/permissions";
+import { OPS_MODES } from "@/lib/modes";
 import { readOutcomeAudit, type OutcomeAudit } from "@/lib/outcome-audit";
 import { currentActor } from "@/lib/session";
 
@@ -28,6 +30,31 @@ export async function switchRole(role: string): Promise<void> {
     path: "/",
   });
   revalidatePath("/", "layout");
+}
+
+/** Opens an app from the home page as the role it is demonstrated with. */
+export async function openApp(id: string): Promise<void> {
+  const mode = OPS_MODES.find((m) => m.id === id);
+  if (!mode) redirect("/");
+  if (mode.launchRole) {
+    const store = await cookies();
+    store.set(ACTOR_COOKIE, signRole(mode.launchRole), {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+    });
+  }
+  revalidatePath("/", "layout");
+  redirect(mode.href ?? `/t/${mode.id}`);
+}
+
+/** Clears the role, so the next person starts from the home page with none. */
+export async function signOut(): Promise<void> {
+  const store = await cookies();
+  store.delete(ACTOR_COOKIE);
+  revalidatePath("/", "layout");
+  redirect("/");
 }
 
 export async function submitIntent(form: FormData): Promise<SubmitResult> {

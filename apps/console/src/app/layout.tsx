@@ -1,5 +1,6 @@
 import "@/app/bootstrap";
 import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@console/ui/sonner";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
@@ -14,7 +15,7 @@ import { verifyChain } from "@console/engine/audit/verify";
 import { automationTool } from "@console/tool-automation";
 import { devinMode } from "@/lib/devin-status";
 import { modesFor } from "@/lib/modes";
-import { currentActor } from "@/lib/session";
+import { chosenRole, currentActor } from "@/lib/session";
 import { toolsForRole } from "@/registry";
 import "./globals.css";
 
@@ -25,11 +26,16 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
+const sans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
+const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
+
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const actor = await currentActor();
-  const visible = toolsForRole(actor.role);
+  // Until a role is picked, the rail offers only Home, where picking an app picks one.
+  const role = await chosenRole();
+  const visible = role ? toolsForRole(actor.role) : [];
   // Automation runs are reached through RUNS, not a generic tool list.
   const tools = visible
     .filter((t) => t.name !== automationTool.name)
@@ -51,14 +57,15 @@ export default async function RootLayout({
   }));
 
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className="h-screen overflow-hidden bg-background text-foreground antialiased">
+    <html lang="en" suppressHydrationWarning className={`${sans.variable} ${mono.variable}`}>
+      <body className="h-screen overflow-hidden bg-background font-sans text-foreground antialiased">
         <CommandPaletteProvider modes={modes}>
           <div className="flex h-full">
-            <AppSidebar actor={actor} tools={tools} runs={runs} pendingApprovals={pending} />
+            <AppSidebar actor={actor} roleChosen={role !== null} tools={tools} runs={runs} pendingApprovals={pending} />
             <div className="flex min-w-0 flex-1 flex-col">
               <AppHeader
                 actor={actor}
+                roleChosen={role !== null}
                 chainOk={chain.ok}
                 chainLength={chain.length}
                 agent={

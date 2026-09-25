@@ -35,8 +35,8 @@ export default async function RoadmapPage({
   return (
     <div className="flex h-full flex-col gap-3 overflow-auto">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Link href="/apps" className="hover:text-foreground">
-          Apps
+        <Link href="/" className="hover:text-foreground">
+          Home
         </Link>
         <Icon name="ChevronRight" className="size-3" />
         <span>{mode.area}</span>

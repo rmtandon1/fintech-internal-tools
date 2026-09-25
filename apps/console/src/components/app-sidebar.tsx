@@ -38,11 +38,14 @@ function isEditable(target: EventTarget | null): boolean {
 
 export function AppSidebar({
   actor,
+  roleChosen,
   tools,
   runs,
   pendingApprovals,
 }: {
   actor: Actor;
+  /** False until a role is picked; the rail then offers only Home. */
+  roleChosen: boolean;
   tools: ToolLink[];
   /** Whether this role sees the `automation` tool, and so the RUNS list. */
   runs: boolean;
@@ -53,13 +56,7 @@ export function AppSidebar({
   const asideRef = useRef<HTMLElement>(null);
 
   const items: RailItem[] = [
-    { href: "/", label: "Home", icon: "Home", active: pathname === "/" },
-    {
-      href: "/apps",
-      label: "Apps",
-      icon: "LayoutGrid",
-      active: pathname === "/apps" || pathname.startsWith("/roadmap"),
-    },
+    { href: "/", label: "Home", icon: "Home", active: pathname === "/" || pathname.startsWith("/roadmap") },
     ...tools.map((tool) => ({
       href: `/t/${tool.name}`,
       label: tool.displayName,
@@ -76,7 +73,7 @@ export function AppSidebar({
           },
         ]
       : []),
-    ...(canApprove(actor.role)
+    ...(roleChosen && canApprove(actor.role)
       ? [
           {
             href: "/inbox",
@@ -87,13 +84,17 @@ export function AppSidebar({
           },
         ]
       : []),
-    {
-      href: "/audit",
-      label: "Audit log",
-      icon: "ScrollText",
-      active: pathname === "/audit",
-    },
-    ...(actor.role === "admin"
+    ...(roleChosen
+      ? [
+          {
+            href: "/audit",
+            label: "Audit log",
+            icon: "ScrollText",
+            active: pathname === "/audit",
+          },
+        ]
+      : []),
+    ...(roleChosen && actor.role === "admin"
       ? [
           {
             href: "/audit/verify",

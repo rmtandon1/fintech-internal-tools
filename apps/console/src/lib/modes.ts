@@ -18,6 +18,10 @@ export interface OpsMode {
   area: ModeArea;
   /** Column headings for the sample queue on a pending mode's preview page. */
   columns?: string[];
+  /** The role a live app opens as when it is picked from the home page. */
+  launchRole?: Role;
+  /** Where a live app opens, when that is not its queue at `/t/<id>`. */
+  href?: string;
 }
 
 /**
@@ -34,6 +38,7 @@ export const OPS_MODES: OpsMode[] = [
     actions: ["approve", "reject", "request_info"],
     segment: "both",
     area: "Compliance",
+    launchRole: "kyc_reviewer",
   },
   {
     id: "refunds",
@@ -44,6 +49,7 @@ export const OPS_MODES: OpsMode[] = [
     actions: ["request_refund", "approve", "reject", "execute"],
     segment: "both",
     area: "Money movement",
+    launchRole: "refunds_manager",
   },
   {
     id: "flags",
@@ -54,6 +60,19 @@ export const OPS_MODES: OpsMode[] = [
     actions: ["enable", "disable"],
     segment: "platform",
     area: "Platform",
+    launchRole: "admin",
+  },
+  {
+    id: "automation",
+    name: "Rule changes",
+    description: "Rule changes Devin is making, each reviewed by an engineer before it goes live.",
+    icon: "Bot",
+    roles: ["refunds_manager", "kyc_manager", "engineer", "admin"],
+    actions: ["dispatch", "approve_pr", "stop"],
+    segment: "platform",
+    area: "Platform",
+    launchRole: "engineer",
+    href: "/runs",
   },
   {
     id: "aml_alerts",
@@ -274,7 +293,24 @@ export function modesFor(actorRole: Role): ModeEntry[] {
       icon: decl?.icon ?? mode.icon,
       actions: decl ? decl.actions.map((a) => a.name) : mode.actions,
       live,
-      href: live ? `/t/${mode.id}` : `/roadmap/${mode.id}`,
+      href: live ? (mode.href ?? `/t/${mode.id}`) : `/roadmap/${mode.id}`,
     }];
+  });
+}
+
+/** Every mode, whatever the current role: the home page lists them all. */
+export function allModes(): ModeEntry[] {
+  return OPS_MODES.map((mode) => {
+    const decl = getTool(mode.id);
+    const live = decl !== undefined;
+    return {
+      ...mode,
+      name: decl?.displayName ?? mode.name,
+      description: decl?.description ?? mode.description,
+      icon: decl?.icon ?? mode.icon,
+      actions: decl ? decl.actions.map((a) => a.name) : mode.actions,
+      live,
+      href: live ? (mode.href ?? `/t/${mode.id}`) : `/roadmap/${mode.id}`,
+    };
   });
 }
