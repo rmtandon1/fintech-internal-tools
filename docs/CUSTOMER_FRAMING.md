@@ -78,7 +78,7 @@ Stop a rule the moment it misfires, without waiting on engineering. Then have it
 
 Stop tracing rules by hand. Review a small PR against a one-sentence request and a plan committed before the first edit all while keeping the final say on every merge.
 
-**Example:** the Kestrel hold arrives as five files: the rule, its setting, the KYC check, eight tests and a green `pnpm verify` at 76 tests. Review takes ~5 minutes instead of 4–6 hours, and CI fails any file outside the plan.
+**Example:** the Kestrel hold arrives as five files: the rule, its setting, the KYC check, eight tests and a green `pnpm verify` at 76 tests. Review takes ~5 minutes instead of 4–6 hours, and CI's Boundaries check fails any code that writes to the database without going through the engine.
 
 **Example:** a change to the shared engine, such as requiring a reason on every privileged action, also needs the engine owner's approval. Before approving, the reviewer tries each privileged action in the console and runs `/audit/verify`, so a path Devin missed can't reach production.
 
@@ -155,7 +155,7 @@ Speaker notes:
 - **Open on today's two options.** A rule change is either fast and unreviewed, or reviewed and slow.
 - **Show the pattern.** On `/t/refunds`, open the Kestrel chip. Say it plainly: each refund is clean, and together they are split around the $500 line. Send `rfnd_0012` to the processor. Nothing stops it. Tell the viewer to remember that click.
 - **Make the request.** Click **Ask Devin for a rule** and read the one-sentence request aloud, as the refunds manager would. Note what it leaves out. Point at the evidence panel: this is everything Devin sees, and no customer emails or card numbers are in it.
-- **Pause on the finished run.** Point down it: Devin didn't just add a threshold. It wrote `clustering_hold`, placed it after `goodwill_approval` so the trace reads in order, added a window setting with an off value, added `linked_refund_hold` to KYC, built a regression test from the four Kestrel amounts, and ran `pnpm verify`. Each is a row on screen with its file and lines changed, and each guard check is green by name. Point at the plan commit: CI fails any file outside it.
+- **Pause on the finished run.** Point down it: Devin didn't just add a threshold. It wrote `clustering_hold`, placed it after `goodwill_approval` so the trace reads in order, added a window setting with an off value, added `linked_refund_hold` to KYC, built a regression test from the four Kestrel amounts, and ran `pnpm verify`. Each is a row on screen with its file and lines changed, and CI's four checks are green by name: Lint, Typecheck, Boundaries and Test. Boundaries fails any code that writes to the database without going through the engine.
 - **One beat on the real pull request.** Open it on GitHub: the five files, the CI checks green, the run id in the description.
 - **Approve, then show the proof.** Switch to the engineer role and approve: the GitHub review lands, Devin merges, the audit row writes. Then repeat the earlier click on `rfnd_0013`. It lands in the inbox, and the trace names the rule and the $1,880 total. Open `kyc_0013`: approval now needs a KYC manager. Say it: nothing was switched on, the code changed.
 - **Reverse it (recorded, ~30 s).** A courier outage sends Fernhill's genuine refunds to the inbox. Set the window to 0: stopped in 30 seconds. Click **Reverse this change**. Show the conflict line Devin resolved and the 60 held refunds it listed for a person to release. Say it: no flag was added, and none was left behind.
