@@ -1,8 +1,10 @@
 import { DEMO_ACTORS } from "@console/engine/actor";
 import { listAuditEvents } from "@console/engine/audit/query";
+import { previewActions } from "@console/engine/policy/preview";
 import type { Actor } from "@console/engine/types";
 import {
   AUTOMATION_ROLES,
+  automationTool,
   type DevinRun,
   getRun,
   getSpec,
@@ -11,7 +13,13 @@ import {
   type RunKind,
   type RunStatus,
 } from "@console/tool-automation";
-import { observeMerge, pollRun, readReplay } from "@console/tool-automation/bridge";
+import {
+  observeMerge,
+  observeSessionEnd,
+  pollRun,
+  type PollOutcome,
+  readReplay,
+} from "@console/tool-automation/bridge";
 import type { AppBridgeDeps } from "@/lib/bridge";
 import { runOffers, type RunOffers } from "@/lib/run-surface";
 
@@ -73,9 +81,17 @@ export async function handleGet(
   let run = getRun(runId);
   if (!run) return { status: 404, body: { error: "not_found" } };
 
-  // A poll is observational: it appends a frame and writes no run state.
+  // A poll appends a frame; when it reports the session has ended without a
+  // merge, observeSessionEnd lands the governed stop the run needs.
+  let outcome: PollOutcome | null = null;
   if (run.sessionId && IN_FLIGHT_STATUSES.includes(run.status as RunStatus)) {
-    await pollRun(run, deps).catch(() => null);
+    outcome = await pollRun(run, deps).catch(() => null);
+    if (outcome) {
+      const requester =
+        Object.values(DEMO_ACTORS).find((a) => a.id === run?.requestedBy) ?? actor;
+      await observeSessionEnd(requester, run, outcome, deps).catch(() => null);
+      run = getRun(runId) ?? run;
+    }
   }
   // An approved run may have merged since; observe it as the approver.
   if (run.status === "approved") {
@@ -98,7 +114,14 @@ export async function handleGet(
         : null,
     summary: getSpec(run.spec)?.summaries?.[run.kind as RunKind] ?? run.intent,
     lastAuditId: listAuditEvents({ recordId: run.id, limit: 1 }).rows[0]?.id ?? null,
-    offers: await runOffers(run, actor, deps, latest?.structured_output ?? null),
+    offers: await runOffers(
+      run,
+      actor,
+      deps,
+      latest?.structured_output ?? null,
+      // Reuse the URL the poll just reported instead of polling twice.
+      run.prUrl ?? (outcome?.kind === "output" ? outcome.structuredOutput.pr_url : null),
+    )
   };
   return { status: 200, body: payload };
 }
@@ -121,6 +144,21 @@ export async function handlePost(
   }
   if (!run.sessionId || !deps.devin) {
     return { status: 409, body: { error: "the run has no live session" } };
+  }
+  if (!(IN_FLIGHT_STATUSES as readonly string[]).includes(run.status)) {
+    return { status: 409, body: { error: "the run is not waiting for input" } };
+  }
+  const latest = readReplay(deps.repoRoot, runId, deps.replaysDir).at(-1);
+  if (latest?.structured_output.phase_status !== "waiting_for_user") {
+    return { status: 409, body: { error: "the run is not waiting for input" } };
+  }
+  // Same rule set as `stop`: only an actor who owns the run's domain may
+  // write to its session.
+  const stopPreview = previewActions(automationTool, run, actor, {
+    stop: { reason: "preview" },
+  }).find((p) => p.action === "stop");
+  if (!stopPreview?.offered || stopPreview.decision?.effect !== "allow") {
+    return { status: 403, body: { error: "forbidden" } };
   }
   await deps.devin.sendMessage(run.sessionId, message);
   return { status: 200, body: { ok: true } };

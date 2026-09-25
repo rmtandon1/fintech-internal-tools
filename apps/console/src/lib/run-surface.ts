@@ -33,11 +33,13 @@ export async function runOffers(
   actor: Actor,
   deps: BridgeDeps,
   latest?: StructuredOutput | null,
+  /** The caller already knows the PR URL (e.g. from the poll it just ran). */
+  prUrl?: string | null,
 ): Promise<RunOffers> {
-  const prUrl = await currentPrUrl(run, deps).catch(() => null);
+  const resolved = prUrl !== undefined ? prUrl : await currentPrUrl(run, deps).catch(() => null);
   const previews = previewActions(automationTool, run, actor, {
     approve_pr: {
-      prUrl: prUrl ?? "https://github.com/owner/repo/pull/0",
+      prUrl: resolved ?? "https://github.com/owner/repo/pull/0",
       checksGreen: true,
       branchContextSha256: run.contextSha256,
     },
@@ -65,7 +67,7 @@ export async function runOffers(
             : { offered: true };
 
   return {
-    approve: prUrl ? approve : { offered: false, reason: approve.reason ?? "No pull request yet" },
+    approve: resolved ? approve : { offered: false, reason: approve.reason ?? "No pull request yet" },
     stop: gate("stop"),
     reply: latest?.phase_status === "waiting_for_user",
     reverse,

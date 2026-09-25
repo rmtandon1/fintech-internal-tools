@@ -6,6 +6,7 @@ import { executeIntent } from "@console/engine/execute-intent";
 import { previewActions } from "@console/engine/policy/preview";
 import type { Actor, IntentResult } from "@console/engine/types";
 import { buildContext } from "./context";
+export { readContextJson } from "./context";
 import type { DevinClient } from "./devin-api";
 import { SYNC_BRANCH, SYNC_REMOTE, type GitRunner } from "./git";
 import { type GitHubClient, parsePullUrl } from "./github-api";
@@ -73,21 +74,6 @@ export interface DispatchOutcome {
 
 export function runDir(repoRoot: string, runId: string): string {
   return join(repoRoot, "runs", runId);
-}
-
-/**
- * `runs/<id>/context.json`, falling back to the data-dir copy a successful
- * dispatch leaves for later REVERSALs to read.
- */
-export function readContextJson(repoRoot: string, runId: string): string | null {
-  const candidates = [
-    join(runDir(repoRoot, runId), "context.json"),
-    join(repoRoot, "apps", "console", "data", "runs", runId, "context.json"),
-  ];
-  for (const path of candidates) {
-    if (existsSync(path)) return readFileSync(path, "utf8");
-  }
-  return null;
 }
 
 export function replaysDir(deps: Pick<BridgeDeps, "repoRoot" | "replaysDir">): string {
@@ -269,16 +255,26 @@ export async function pollRun(run: DevinRun, deps: BridgeDeps): Promise<PollOutc
   }
   // The validated frame is appended to the run's recording so the run view
   // has a timeline to show. The write is a recording, not a transition.
-  const frame: ReplayFrame = {
-    at_ms: (deps.now ?? Date.now)(),
-    status: snapshot.status,
-    status_detail: snapshot.statusDetail,
-    structured_output: parsed.data,
-  };
-  const dir = replaysDir(deps);
-  mkdirSync(dir, { recursive: true });
-  const frames = [...readReplay(deps.repoRoot, run.id, deps.replaysDir), frame];
-  writeFileSync(join(dir, `${run.id}.json`), JSON.stringify(frames, null, 2) + "\n");
+  // Repeated polls of an unchanged snapshot record nothing — the timeline
+  // shows changes, not poll cadence.
+  const existing = readReplay(deps.repoRoot, run.id, deps.replaysDir);
+  const last = existing.at(-1);
+  const unchanged =
+    last !== undefined &&
+    last.status === snapshot.status &&
+    last.status_detail === snapshot.statusDetail &&
+    JSON.stringify(last.structured_output) === JSON.stringify(parsed.data);
+  if (!unchanged) {
+    const frame: ReplayFrame = {
+      at_ms: (deps.now ?? Date.now)(),
+      status: snapshot.status,
+      status_detail: snapshot.statusDetail,
+      structured_output: parsed.data,
+    };
+    const dir = replaysDir(deps);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, `${run.id}.json`), JSON.stringify([...existing, frame], null, 2) + "\n");
+  }
   return {
     kind: "output",
     structuredOutput: parsed.data,
@@ -288,6 +284,41 @@ export async function pollRun(run: DevinRun, deps: BridgeDeps): Promise<PollOutc
 }
 
 /** The PR a run is working on: the audited one once approved, else the one the session reports now. */
+/**
+ * When a poll reports the session has ended without a merge, records the
+ * governed `stop` so the run does not sit `running` forever. Stable
+ * idempotency key: repeated polls replay rather than write a second row.
+ */
+export async function observeSessionEnd(
+  actor: Actor,
+  run: DevinRun,
+  outcome: PollOutcome,
+  deps: BridgeDeps,
+): Promise<IntentResult | null> {
+  void deps;
+  const sessionEnded =
+    (outcome.kind === "output" ||
+      outcome.kind === "no_output" ||
+      outcome.kind === "invalid_output") &&
+    ["stopped", "expired"].includes(outcome.status.toLowerCase());
+  const outputEnded =
+    outcome.kind === "output" && outcome.structuredOutput.phase_status === "stopped";
+  if (!sessionEnded && !outputEnded) return null;
+  const status = outcome.status;
+  const detail =
+    outcome.kind === "output" || outcome.kind === "no_output" ? outcome.statusDetail : null;
+  const reason = `Devin session ${status}${detail ? `: ${detail}` : ""}`.slice(0, 500);
+  // The session is already over; nothing to terminateSession. The intent is
+  // what lands the run on `stopped`.
+  return executeIntent(actor, {
+    tool: "automation",
+    action: "stop",
+    recordId: run.id,
+    input: { reason },
+    idempotencyKey: key(run.id, `stop:session:${run.sessionId}`),
+  });
+}
+
 export async function currentPrUrl(run: DevinRun, deps: BridgeDeps): Promise<string | null> {
   if (run.prUrl) return run.prUrl;
   if (!deps.devin || !run.sessionId) return null;

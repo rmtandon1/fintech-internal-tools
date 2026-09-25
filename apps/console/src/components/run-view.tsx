@@ -261,7 +261,9 @@ export function RunView({ runId, initial }: { runId: string; initial?: RunViewPa
     });
   }
 
-  if (!payload) {
+  // A payload fetched for another runId (stale after a focus change) is no
+  // better than none: keep showing the loading state until ours arrives.
+  if (!payload || payload.run.id !== runId) {
     return <p className="px-3 py-6 text-center text-xs text-muted-foreground">Loading run…</p>;
   }
   const { run, latest, frames, offers, sessionUrl, mode } = payload;

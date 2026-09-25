@@ -53,7 +53,7 @@ export default async function RecordPage({
         decl={decl}
         record={record}
         actor={actor}
-        extra={isRun ? <RunView runId={id} /> : undefined}
+        extra={isRun ? <RunView key={id} runId={id} /> : undefined}
       />
     </Panel>
   );

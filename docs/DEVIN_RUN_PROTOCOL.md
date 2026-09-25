@@ -66,7 +66,7 @@ The effect writes the run row and the audit row in one transaction. The HTTP cal
 
 Polled run state is never written to `devin_runs`. Phase, `status_detail` and `structured_output` come from the session poll and are held in memory, not persisted. Only audited transitions touch the table: `dispatch`, `record_session`, `approve_pr`, `record_merge` and `stop`. That keeps a run at four audit rows on the normal path (dispatch, record_session, approve_pr, record_merge), with `stop` or `dispatch_failed` replacing the later rows when a run ends early.
 
-`stop` also records terminal session failure. When a poll reports the session `failed` (or a phase stopped the run, § Phases), the console submits `stop` with the reported reason, so the row leaves the in-flight state and the "no other run in flight against the same tool" rule releases the tool. Without that, a failed run would block the next `dispatch` until someone pressed **Stop run**. A `stop` row names whether it was an operator's click or a reported failure.
+`stop` also records terminal session failure. When a poll reports the session has ended — `stopped`, `expired` or `failed`, or a phase stopped the run (§ Phases) — the console submits `stop` with the reported reason, so the row leaves the in-flight state and the "no other run in flight against the same tool" rule releases the tool. Without that, a failed run would block the next `dispatch` until someone pressed **Stop run**. A `stop` row names whether it was an operator's click or a reported failure.
 
 `approve_pr` rules:
 

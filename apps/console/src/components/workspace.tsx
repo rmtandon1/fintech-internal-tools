@@ -29,6 +29,9 @@ interface WorkspaceState {
   agentFocus: AgentFocus;
   /** Focusing also expands the column when it is collapsed. */
   setAgentFocus: (focus: AgentFocus) => void;
+  /** Below `lg` the column lives in a sheet; this is its open state. */
+  agentSheetOpen: boolean;
+  setAgentSheetOpen: (open: boolean) => void;
 }
 
 const WorkspaceContext = createContext<WorkspaceState | null>(null);
@@ -62,6 +65,7 @@ export function WorkspaceProvider({
   const [agentOpen, setAgentOpen] = useState((initialLayout?.[AGENT] ?? 1) > 0);
   const [hasOpenSize, setHasOpenSize] = useState(agentOpen);
   const [agentFocus, setFocus] = useState<AgentFocus>(null);
+  const [agentSheetOpen, setAgentSheetOpen] = useState(false);
 
   // A column saved collapsed has no open size to return to this session, so
   // it reopens at the default width instead of the minimum.
@@ -82,6 +86,11 @@ export function WorkspaceProvider({
     (focus: AgentFocus) => {
       setFocus(focus);
       if (focus === null) return;
+      // Below `lg` there is no column: the focus target is the sheet.
+      if (!window.matchMedia("(min-width: 64rem)").matches) {
+        setAgentSheetOpen(true);
+        return;
+      }
       const panel = agentRef.current;
       if (!panel) return;
       if (panel.isCollapsed()) {
@@ -104,7 +113,16 @@ export function WorkspaceProvider({
 
   return (
     <WorkspaceContext.Provider
-      value={{ agentRef, agentOpen, onAgentResize, toggleAgent, agentFocus, setAgentFocus }}
+      value={{
+        agentRef,
+        agentOpen,
+        onAgentResize,
+        toggleAgent,
+        agentFocus,
+        setAgentFocus,
+        agentSheetOpen,
+        setAgentSheetOpen,
+      }}
     >
       {children}
     </WorkspaceContext.Provider>

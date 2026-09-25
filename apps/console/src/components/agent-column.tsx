@@ -38,7 +38,7 @@ function Content({ mode, inFlight, lastMerged }: AgentColumnProps) {
   const focusRunId = agentFocus?.kind === "run" ? agentFocus.runId : null;
   const runId = focusRunId ?? inFlight?.id ?? null;
   if (runId) {
-    return <RunView runId={runId} />;
+    return <RunView key={runId} runId={runId} />;
   }
 
   return (
@@ -119,8 +119,9 @@ export function AgentColumn(props: AgentColumnProps) {
 }
 
 export function AgentColumnSheet(props: AgentColumnProps) {
+  const { agentSheetOpen, setAgentSheetOpen } = useWorkspace();
   return (
-    <Sheet>
+    <Sheet open={agentSheetOpen} onOpenChange={setAgentSheetOpen}>
       <SheetTrigger
         className="flex h-7 items-center gap-1.5 rounded-md border border-input px-2 text-[11px] text-muted-foreground hover:text-foreground lg:hidden"
         title="Devin"
