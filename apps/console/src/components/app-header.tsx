@@ -25,7 +25,7 @@ export function AppHeader({
   actor: Actor;
   chainOk: boolean;
   chainLength: number;
-  /** Opens the agent column as a sheet where the column itself is hidden. */
+  /** Opens the Devin window. */
   agent?: React.ReactNode;
 }) {
   const [pending, startTransition] = useTransition();

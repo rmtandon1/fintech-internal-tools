@@ -118,6 +118,7 @@ export const StructuredOutput = z
         })
         .strict(),
     ),
+    guards: z.array(z.object({ name: z.string().min(1), pass: z.boolean().nullable() }).strict()),
     conflicts: z.array(
       z.object({ file: z.string().min(1), kept: z.string(), removed: z.string() }).strict(),
     ),

@@ -39,11 +39,14 @@ function isEditable(target: EventTarget | null): boolean {
 export function AppSidebar({
   actor,
   tools,
+  runs,
   pendingApprovals,
   showRuns,
 }: {
   actor: Actor;
   tools: ToolLink[];
+  /** Whether this role sees the `automation` tool, and so the RUNS list. */
+  runs: boolean;
   pendingApprovals: number;
   /** The /runs page is for roles that may see the automation tool. */
   showRuns?: boolean;
@@ -60,6 +63,16 @@ export function AppSidebar({
       icon: tool.icon,
       active: pathname.startsWith(`/t/${tool.name}`),
     })),
+    ...(runs
+      ? [
+          {
+            href: "/runs",
+            label: "Runs",
+            icon: "Bot",
+            active: pathname.startsWith("/runs") || pathname.startsWith("/t/automation"),
+          },
+        ]
+      : []),
     ...(canApprove(actor.role)
       ? [
           {

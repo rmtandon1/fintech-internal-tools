@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Panel } from "@/components/panel";
 import { RunRow } from "@/components/run-row";
@@ -12,12 +13,13 @@ import type { Actor } from "@console/engine/types";
 import {
   AUTOMATION_ROLES,
   automationTool,
+  countRuns,
   getRun,
   getSpec,
   IMPLEMENTATION_KINDS,
   kindsStartableBy,
+  listRuns,
   reversingRun,
-  type DevinRun,
   type RunKind,
 } from "@console/tool-automation";
 import { type AppBridgeDeps, bridgeDeps } from "@/lib/bridge";
@@ -58,19 +60,44 @@ function reversalOffer(runId: string, actor: Actor, deps: AppBridgeDeps): Handof
   }
 }
 
-export default async function RunsPage() {
+const PAGE_SIZE = 50;
+
+export default async function RunsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const actor = await currentActor();
   if (!AUTOMATION_ROLES.includes(actor.role)) notFound();
   const deps = bridgeDeps();
-  const { rows } = automationTool.list({ filters: {}, limit: 200, offset: 0 });
-  const runs = rows as DevinRun[];
+  const total = countRuns();
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(pages, Math.max(1, Number((await searchParams).page) || 1));
+  const runs = listRuns({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE });
 
   return (
     <Panel
       className="h-full"
       title={
-        <span>
-          Runs · <span className="tabular-nums">{rows.length}</span>
+        <span className="flex items-center gap-2">
+          {total} run{total === 1 ? "" : "s"} · newest first
+          {pages > 1 ? (
+            <span className="flex items-center gap-1">
+              {page > 1 ? (
+                <Link href={`/runs?page=${page - 1}`} className="hover:text-foreground">
+                  ‹ Newer
+                </Link>
+              ) : null}
+              <span className="tabular-nums">
+                {page}/{pages}
+              </span>
+              {page < pages ? (
+                <Link href={`/runs?page=${page + 1}`} className="hover:text-foreground">
+                  Older ›
+                </Link>
+              ) : null}
+            </span>
+          ) : null}
         </span>
       }
       bodyClassName="p-0"

@@ -5,13 +5,14 @@ import { ulid } from "ulid";
 import { executeIntent } from "@console/engine/execute-intent";
 import { previewActions } from "@console/engine/policy/preview";
 import type { Actor, IntentResult } from "@console/engine/types";
-import { buildContext } from "./context";
+import { buildContext, readContextJson } from "./context";
 export { readContextJson } from "./context";
 import type { DevinClient } from "./devin-api";
 import { SYNC_BRANCH, SYNC_REMOTE, type GitRunner } from "./git";
 import { type GitHubClient, parsePullUrl } from "./github-api";
 import { automationTool, getRun, type DevinRun } from "./index";
 import {
+  ContextFile,
   STRUCTURED_OUTPUT_JSON_SCHEMA,
   ReplayFile,
   type ReplayFrame,
@@ -24,7 +25,8 @@ import { getSpec, type RunKind, type RunScope } from "./specs";
  * Every database change here is an `executeIntent` call; the Devin and GitHub
  * calls happen strictly after the intent they depend on has committed, or
  * strictly before the intent that records what they returned. Polled session
- * progress is read from the session and never written to `devin_runs`
+ * progress is read from the session and never written to `devin_runs`; the
+ * one exception is the pull request URL, recorded once through `record_pr`
  * (DEVIN_RUN_PROTOCOL.md § Progress).
  */
 
@@ -99,6 +101,16 @@ export function readReplay(
   return [];
 }
 
+/** The cluster a run's `context.json` was built from, or null when it is missing or malformed. */
+function contextClusterKey(repoRoot: string, runId: string): string | null {
+  const raw = readContextJson(repoRoot, runId);
+  if (!raw) return null;
+  const parsed = ContextFile.safeParse(JSON.parse(raw));
+  if (!parsed.success) return null;
+  const at = parsed.data.evidence.cluster.indexOf(":");
+  return at < 0 ? null : parsed.data.evidence.cluster.slice(at + 1) || null;
+}
+
 function key(runId: string, step: string): string {
   return `automation:${runId}:${step}`;
 }
@@ -141,10 +153,13 @@ export async function dispatchRun(
   const runId = ulid();
 
   let reverses: { runId: string; mergeCommit: string } | null = null;
+  let clusterKey = req.clusterKey;
   if (req.reverses) {
     const target = getRun(req.reverses);
     if (!target?.mergeCommit) throw new Error(`${req.reverses} has no merge commit to reverse`);
     reverses = { runId: target.id, mergeCommit: target.mergeCommit };
+    // A reversal's evidence is the merged run's, never the caller's.
+    clusterKey = contextClusterKey(deps.repoRoot, target.id) ?? "";
   }
 
   const built = buildContext({
@@ -154,7 +169,7 @@ export async function dispatchRun(
     scope: req.scope,
     intent: req.intent,
     requestedBy: actor.role,
-    clusterKey: req.clusterKey,
+    clusterKey,
     evidenceIds: req.evidenceIds,
     reverses,
     repoRoot: deps.repoRoot,
@@ -318,7 +333,40 @@ export async function observeSessionEnd(
   });
 }
 
-/** The PR a run is working on: the audited one once approved, else the one the session reports now. */
+export interface ObserveOutcome {
+  poll: PollOutcome;
+  /**
+   * The `record_pr` result; null when the run already names its PR, the
+   * session reports none, or the policy would not let this actor record it.
+   */
+  record: IntentResult | null;
+}
+
+/**
+ * Polls the session and, the first time it reports a pull request, records
+ * that URL on the run through `record_pr`, so a later poll without it does
+ * not lose the PR. The policy is previewed first so an actor the rules would
+ * deny leaves no stored outcome behind for the next poller to replay.
+ */
+export async function observeRun(actor: Actor, run: DevinRun, deps: BridgeDeps): Promise<ObserveOutcome> {
+  const poll = await pollRun(run, deps);
+  const prUrl = poll.kind === "output" ? poll.structuredOutput.pr_url : null;
+  if (!prUrl || run.prUrl || run.status !== "running") return { poll, record: null };
+  const preview = previewActions(automationTool, run, actor, { record_pr: { prUrl } }).find(
+    (p) => p.action === "record_pr",
+  );
+  if (preview?.offered !== true || preview.decision?.effect !== "allow") return { poll, record: null };
+  const record = executeIntent(actor, {
+    tool: "automation",
+    action: "record_pr",
+    recordId: run.id,
+    input: { prUrl },
+    idempotencyKey: key(run.id, `record_pr:${prUrl}:${actor.id}`),
+  });
+  return { poll, record };
+}
+
+/** The PR a run is working on: the recorded one when present, else the one the session reports now. */
 export async function currentPrUrl(run: DevinRun, deps: BridgeDeps): Promise<string | null> {
   if (run.prUrl) return run.prUrl;
   if (!deps.devin || !run.sessionId) return null;
@@ -334,9 +382,10 @@ export interface ApproveOutcome {
 }
 
 /**
- * Reads the head's checks and the branch's `context.json` digest from GitHub,
- * hands both to `approve_pr` as server-read inputs, and submits the GitHub
- * review only once that intent has committed.
+ * Records the session's pull request if the run does not name one yet, reads
+ * the head's checks and the branch's `context.json` digest from GitHub, hands
+ * both to `approve_pr` as server-read inputs, and submits the GitHub review
+ * only once that intent has committed.
  */
 export async function approveRun(
   actor: Actor,
@@ -345,7 +394,14 @@ export async function approveRun(
   deps: BridgeDeps,
 ): Promise<ApproveOutcome> {
   if (!deps.github) throw new Error("GitHub API is not configured: set GITHUB_TOKEN on the server");
-  const prUrl = await currentPrUrl(run, deps);
+  let prUrl = run.prUrl;
+  if (!prUrl && deps.devin && run.sessionId) {
+    const observed = await observeRun(actor, run, deps);
+    if (observed.record && !applied(observed.record)) {
+      throw new Error(`Could not record the pull request: ${describeIntent(observed.record)}`);
+    }
+    prUrl = observed.poll.kind === "output" ? observed.poll.structuredOutput.pr_url : null;
+  }
   const ref = prUrl ? parsePullUrl(prUrl) : null;
   if (!prUrl || !ref) throw new Error("The session has not reported a pull request yet");
 

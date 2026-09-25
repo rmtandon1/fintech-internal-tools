@@ -25,7 +25,7 @@ Switching a rule off uses the existing constant editor. The rule's spec names wh
 
 ## The handoff panel
 
-It opens in the right-hand agent column (`OPERATOR_CONSOLE_LAYOUT.md`) and holds:
+It opens in the Devin window (`apps/console/src/components/agent-window.tsx`; controls in `CONSOLE_ROLE_VIEWS.md`) and holds:
 
 - **Intent**: one sentence, prefilled from the spec and editable. This is the only free text in the flow.
 - **Evidence**: what goes into `context.json`: cluster rows with PII dropped, the live constants the rule depends on, and the base commit. It is shown so the requester sees exactly what Devin will see.
@@ -75,7 +75,7 @@ A glyph checklist that summarises the run in one glance: `✓` done, `●` runni
 
 - **Reusing lines** come from `reuses[]` in `plan.json`, so they appear when the Plan phase lands. They show the change sitting on the existing engine rather than beside it.
 - **Editing** shows the file currently being written, from the newest entry in `files[]`.
-- **Verify** and **Tests** expand to the `verify_steps[]` the timeline below already shows. The checklist is the summary, the timeline stays the evidence.
+- **Running guards** and **Tests** expand to the guard names and `verify_steps[]` the timeline below already shows. The checklist is the summary, the timeline stays the evidence.
 - A REVERSAL swaps the reuse lines for `✓ Reverting <merge>` and `✓ Resolving conflict in <file>`.
 
 The checklist is a second reading of the same fields as the timeline, not a second data source. If a line has no field behind it, cut the line.
@@ -88,7 +88,7 @@ One timeline, one row per phase, each with a state (waiting, running with spinne
 - **Baseline:** `pnpm verify` green at base, 68 tests.
 - **Plan:** branch `devin/<run_id>-clustering-hold`, plan commit SHA, and the planned paths with `create` or `modify` and a one-line reason each.
 - **Edit:** per file, +/− lines and the symbol touched, e.g. `tools/kyc/src/index.ts · modify · +12 −1 · linked_refund_hold on approve`.
-- **Verify:** `pnpm verify` split into its four checks — Lint, Typecheck, Boundaries and Test (68 → 76). **Context untouched** is checked by `approve_pr`, not CI, so it shows in the approval dialog.
+- **Verify:** `pnpm verify` split into lint, typecheck, boundaries and tests (68 → 76), then each guard check by name with its result: **Stays in plan**, **Plan stays in scope**, **Run dir frozen**, **Engine untouched**, **Tests never shrink**, **No type escapes**, **Seed is not state**. For a REVERSAL, **Only undo** as well. **Context untouched** is checked by `approve_pr`, not CI, so it shows in the approval dialog (`DEVIN_RUN_PROTOCOL.md` § Guard checks).
 - **Pull request:** PR number and title, link to GitHub.
 
 For a REVERSAL, two more things show:
@@ -156,7 +156,7 @@ Keep it one sentence. Don't grow the field into a specification form. The senten
 - **ADDITION and CHANGE** take free text, because the operator knows the behaviour they want and not how the code does it. For example, on an existing rule: "Also hold refunds when three or more go to the same card within 10 minutes."
 - **REMOVAL, REVERSAL and switching a rule off** are buttons. The intent is already fully known, and typing "please remove this rule" adds nothing.
 
-**What this claims.** Business users don't reprogram the fintech through natural language. The claim is that when internally owned software needs engineering work, starting that work takes one sentence from the record, and the engineering stays reviewed. Some sentences will ask for more than a rule. "Require a second reviewer for KYC applications above risk score 90" needs a two-approver primitive the engine doesn't have (`packages/engine/src/approvals.ts` takes one approver per request). A rule-scope run cannot touch `packages/engine`, so that request stops at Plan. That's engineering's design work, with Devin as implementer (`CHANGE_TYPES.md`, "Change the engine").
+**What this claims.** Business users don't reprogram the fintech through natural language. The claim is that when internally owned software needs engineering work, starting that work takes one sentence from the record, and the engineering stays reviewed. Some sentences will ask for more than a rule. "Require a second reviewer for KYC applications above risk score 90" needs a two-approver primitive the engine doesn't have (`packages/engine/src/approvals.ts` takes one approver per request). **Engine untouched** stops that run at Plan. That's engineering's design work, with Devin as implementer (`CHANGE_TYPES.md`, "Change the engine").
 
 Revisit if operators need to ask for rules with no record to start from, such as "a rule for a market we haven't launched". The answer is still a sentence that produces the same intent, started from `/admin/policy` rather than a cluster.
 

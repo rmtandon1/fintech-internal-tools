@@ -415,6 +415,7 @@ describe("run files", () => {
         reuses: [],
         files: [],
         verify_steps: [{ name: "pnpm test", pass: null, before: 130, after: null }],
+        guards: [],
         conflicts: [],
         pr_url: null,
         stopped_by: null,

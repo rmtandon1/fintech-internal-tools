@@ -43,6 +43,7 @@ function out(over: Partial<StructuredOutput>): StructuredOutput {
     reuses: [],
     files: [],
     verify_steps: [],
+    guards: [],
     conflicts: [],
     pr_url: null,
     stopped_by: null,

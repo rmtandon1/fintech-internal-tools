@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, like, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, like, or } from "drizzle-orm";
 import { ulid } from "ulid";
 import { z } from "zod";
 import { db } from "@console/db";
@@ -258,6 +258,22 @@ const RecordSessionInput = z.union([
 ]);
 type RecordSessionInput = z.infer<typeof RecordSessionInput>;
 
+const RecordPrInput = z.object({ prUrl: z.string().url() });
+type RecordPrInput = z.infer<typeof RecordPrInput>;
+
+/** A run records its pull request once; a repeat, same URL or not, writes nothing. */
+const prNotYetRecorded: RunRule<RecordPrInput> = ({ record, input }) =>
+  record?.prUrl
+    ? {
+        type: "deny",
+        rule: "pr_not_yet_recorded",
+        reason:
+          record.prUrl === input.prUrl
+            ? `Pull request ${record.prUrl} is already recorded`
+            : `Run already has pull request ${record.prUrl}`,
+      }
+    : { type: "allow", rule: "pr_not_yet_recorded" };
+
 const RecordMergeInput = z.object({
   mergeCommit: z.string().regex(/^[0-9a-f]{7,40}$/),
   prUrl: z.string().url(),
@@ -433,6 +449,21 @@ export const automationTool = defineTool<DevinRun>({
             },
       apply: (ctx, decision) => transition(ctx, decision.patch),
     }),
+    defineAction<DevinRun, typeof RecordPrInput, Transition>({
+      name: "record_pr",
+      label: "Record pull request",
+      description: "Store the pull request the session reports, so it survives a poll that omits it.",
+      allowedRoles: AUTOMATION_ROLES,
+      input: RecordPrInput,
+      fromStatus: ["running"],
+      rules: [actorOwnsRunDomain, prNotYetRecorded],
+      decide: ({ input }) => ({
+        summary: `Pull request opened: ${input.prUrl}`,
+        patch: { status: "running", prUrl: input.prUrl },
+        nextStatus: "running",
+      }),
+      apply: (ctx, decision) => transition(ctx, decision.patch),
+    }),
     defineAction<DevinRun, typeof ApproveInput, Transition>({
       name: "approve_pr",
       label: "Approve PR",
@@ -565,4 +596,24 @@ export function reversingRun(id: string): DevinRun | null {
       )
       .get() ?? null
   );
+}
+
+/** One page of runs, newest request first. */
+export function listRuns({ limit, offset = 0 }: { limit: number; offset?: number }): DevinRun[] {
+  return db
+    .select()
+    .from(devinRuns)
+    .orderBy(desc(devinRuns.requestedAt))
+    .limit(limit)
+    .offset(offset)
+    .all();
+}
+
+export function countRuns(): number {
+  return db.select({ n: count() }).from(devinRuns).get()?.n ?? 0;
+}
+
+/** Whether a stored status string is one of the in-flight statuses. */
+export function isInFlight(status: string): boolean {
+  return IN_FLIGHT_STATUSES.some((s) => s === status);
 }

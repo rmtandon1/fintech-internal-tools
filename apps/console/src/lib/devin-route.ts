@@ -15,8 +15,8 @@ import {
 } from "@console/tool-automation";
 import {
   observeMerge,
+  observeRun,
   observeSessionEnd,
-  pollRun,
   type PollOutcome,
   readReplay,
 } from "@console/tool-automation/bridge";
@@ -81,15 +81,17 @@ export async function handleGet(
   let run = getRun(runId);
   if (!run) return { status: 404, body: { error: "not_found" } };
 
-  // A poll appends a frame; when it reports the session has ended without a
-  // merge, observeSessionEnd lands the governed stop the run needs.
+  // observeRun polls, records the PR once through record_pr and appends a
+  // frame; when the poll reports the session has ended without a merge,
+  // observeSessionEnd lands the governed stop the run needs.
   let outcome: PollOutcome | null = null;
   if (run.sessionId && IN_FLIGHT_STATUSES.includes(run.status as RunStatus)) {
-    outcome = await pollRun(run, deps).catch(() => null);
-    if (outcome) {
-      const requester =
-        Object.values(DEMO_ACTORS).find((a) => a.id === run?.requestedBy) ?? actor;
-      await observeSessionEnd(requester, run, outcome, deps).catch(() => null);
+    const requester =
+      Object.values(DEMO_ACTORS).find((a) => a.id === run?.requestedBy) ?? actor;
+    const observed = await observeRun(requester, run, deps).catch(() => null);
+    if (observed) {
+      outcome = observed.poll;
+      await observeSessionEnd(requester, run, observed.poll, deps).catch(() => null);
       run = getRun(runId) ?? run;
     }
   }

@@ -10,6 +10,7 @@
     "./run-files": "./src/run-files.ts",
     "./context": "./src/context.ts",
     "./bridge": "./src/bridge.ts",
+    "./playbook-registration": "./src/playbook-registration.ts",
     "./git": "./src/git.ts"
   },
   "scripts": {

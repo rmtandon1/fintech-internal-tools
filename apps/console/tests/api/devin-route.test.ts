@@ -128,8 +128,10 @@ describe("GET /api/devin/<runId>", () => {
     const run = getRun(out.runId);
     if (!run) throw new Error("no run");
     t += 45_000;
-    await handleGet(out.runId, admin, d); // record the pr_open frame
-    const approved = await approveRun(engineer, run, undefined, d);
+    await handleGet(out.runId, admin, d); // record the pr_open frame and the pr
+    const polled = getRun(out.runId);
+    if (!polled) throw new Error("no run");
+    const approved = await approveRun(engineer, polled, undefined, d);
     expect(approved.approve.outcome.status).toBe("applied");
 
     const tooEarly = (await handleGet(out.runId, admin, d)).body as RunViewPayload;

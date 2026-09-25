@@ -15,11 +15,14 @@
     "db:scenario": "pnpm --filter @console/app db:scenario",
     "db:setup": "pnpm --filter @console/app db:setup",
     "check:boundaries": "tsx scripts/check-boundaries.ts",
+    "check:run": "tsx scripts/run-guard.ts",
+    "devin:playbook": "tsx scripts/register-playbook.ts",
     "test": "pnpm --filter @console/app test",
     "test:watch": "pnpm --filter @console/app test:watch",
-    "verify": "pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm test"
+    "verify": "pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm check:run && pnpm test"
   },
   "devDependencies": {
+    "@console/tool-automation": "workspace:*",
     "@eslint/eslintrc": "^3",
     "@types/node": "^20",
     "eslint": "^9",
