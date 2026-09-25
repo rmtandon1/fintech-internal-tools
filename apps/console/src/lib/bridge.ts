@@ -16,25 +16,30 @@ const execFileAsync = promisify(execFile);
 const MigrationJournal = z.object({ entries: z.array(z.object({ when: z.number() })) });
 const LastMigration = z.object({ created_at: z.number() });
 
-/** `owner/repo` from GITHUB_REPOSITORY, else the checkout's GitHub remote. */
-let repository: string | null | undefined;
+const REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 
+/**
+ * `owner/repo` from GITHUB_REPOSITORY, else the checkout's GitHub remote,
+ * read on every call so a changed remote is never served stale. Anything
+ * that is not a plain `owner/repo` is dropped: the value goes into the prompt.
+ */
 function githubRepository(repoRoot: string, remote: string): string | undefined {
-  if (process.env.GITHUB_REPOSITORY) return process.env.GITHUB_REPOSITORY;
-  if (repository === undefined) {
-    try {
-      const url = execFileSync("git", ["remote", "get-url", remote], { cwd: repoRoot, encoding: "utf8" });
-      repository = parseGitHubRepository(url);
-    } catch {
-      repository = null;
-    }
+  const configured = process.env.GITHUB_REPOSITORY;
+  if (configured !== undefined) return REPOSITORY.test(configured) ? configured : undefined;
+  try {
+    const url = execFileSync("git", ["remote", "get-url", remote], { cwd: repoRoot, encoding: "utf8" });
+    return parseGitHubRepository(url) ?? undefined;
+  } catch {
+    return undefined;
   }
-  return repository ?? undefined;
 }
 
-/** `owner/repo` from an https or ssh GitHub remote URL, or null for any other host. */
+/** `owner/repo` from an https or ssh remote whose host is github.com, or null. */
 export function parseGitHubRepository(url: string): string | null {
-  const m = /github\.com[:/]([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?\s*$/.exec(url);
+  const m =
+    /^(?:https:\/\/(?:[^@/\s]+@)?github\.com\/|ssh:\/\/git@github\.com\/|git@github\.com:)([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?\/?$/.exec(
+      url.trim(),
+    );
   return m ? `${m[1]}/${m[2]}` : null;
 }
 
