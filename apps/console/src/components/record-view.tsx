@@ -1,5 +1,9 @@
 import { ActionBar } from "@/components/action-panel";
 import { AuditTimeline } from "@/components/audit-timeline";
+import { CustomerCard } from "@/components/customer-card";
+import { CUSTOMER_CARD_FIELDS, customerFacts, type CustomerFacts } from "@/lib/customer-profile";
+import { kycThresholds } from "@/lib/kyc-thresholds";
+import { kycTool } from "@console/tool-kyc";
 import { Panel } from "@/components/panel";
 import { PolicyTraceList } from "@console/ui/policy-trace";
 import { RevealField } from "@/components/reveal-field";
@@ -36,12 +40,20 @@ export function RecordView({
   // The checks for the first action this person can take, so they can see
   // what would happen before they click.
   const traced = previews.find((p) => p.offered && p.decision);
+  const facts = decl.name === kycTool.name ? customerFacts(record) : null;
+  // Fields the customer card already shows are not repeated in the grid.
+  const sections = facts
+    ? decl.sections
+        .map((s) => ({ ...s, fields: s.fields.filter((f) => !CUSTOMER_CARD_FIELDS.includes(f)) }))
+        .filter((s) => s.fields.length > 0)
+    : decl.sections;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 overflow-auto">
+        {facts ? <CustomerCardFor decl={decl} record={record} facts={facts} /> : null}
         <div className="grid grid-cols-2 gap-x-6 gap-y-4 p-5 xl:grid-cols-3">
-          {decl.sections.map((section) => (
+          {sections.map((section) => (
             <div key={section.title} className="contents">
               <div className="col-span-full mt-3 border-b border-border pb-2 text-sm font-semibold text-foreground first:mt-0">
                 {section.title}
@@ -116,6 +128,28 @@ export function RecordView({
         )}
       </div>
     </div>
+  );
+}
+
+function CustomerCardFor({
+  decl,
+  record,
+  facts,
+}: {
+  decl: ToolDeclaration;
+  record: GovernedRecord;
+  facts: CustomerFacts;
+}) {
+  const { prohibited, ...thresholds } = kycThresholds();
+  return (
+    <CustomerCard
+      key={record.id}
+      facts={facts}
+      thresholds={thresholds}
+      countryAllowed={!prohibited.includes(facts.country)}
+      open={decl.openStatuses?.includes(String(record[decl.statusField])) ?? true}
+      now={Date.now()}
+    />
   );
 }
 
