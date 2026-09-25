@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Panel } from "@/components/panel";
+import { RefreshInFlight } from "@/components/refresh-in-flight";
 import { RunRow } from "@/components/run-row";
 import {
   Table,
@@ -17,6 +18,7 @@ import {
   getRun,
   getSpec,
   IMPLEMENTATION_KINDS,
+  isInFlight,
   kindsStartableBy,
   listRuns,
   reversingRun,
@@ -24,6 +26,7 @@ import {
 } from "@console/tool-automation";
 import { type AppBridgeDeps, bridgeDeps } from "@/lib/bridge";
 import { buildHandoffOffer, type HandoffOffer, reversalEvidence } from "@/lib/handoff";
+import { pageNumber } from "@/lib/page-number";
 import { currentActor } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -72,7 +75,7 @@ export default async function RunsPage({
   const deps = bridgeDeps();
   const total = countRuns();
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const page = Math.min(pages, Math.max(1, Number((await searchParams).page) || 1));
+  const page = Math.min(pages, pageNumber((await searchParams).page));
   const runs = listRuns({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE });
 
   return (
@@ -126,6 +129,7 @@ export default async function RunsPage({
           ))}
         </TableBody>
       </Table>
+      {runs.some((run) => isInFlight(run.status)) ? <RefreshInFlight /> : null}
     </Panel>
   );
 }

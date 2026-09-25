@@ -83,6 +83,7 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
           rows={3}
           maxLength={500}
           value={intent}
+          readOnly={offer.kind === "REVERSAL"}
           onChange={(e) => setIntent(e.target.value)}
           className="text-xs"
           aria-label="Intent"

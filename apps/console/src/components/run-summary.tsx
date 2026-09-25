@@ -1,9 +1,15 @@
 import { Panel } from "@/components/panel";
 import { ChecklistList } from "@/components/checklist-list";
 import type { ChecklistLine } from "@/lib/run-checklist";
-import { automationTool, type DevinRun, getSpec, RUN_KINDS } from "@console/tool-automation";
+import type { DevinRun } from "@console/tool-automation";
 import { ROLES, roleLabel, type Role } from "@console/permissions";
 import { StatusChip } from "@console/ui/status-chip";
+
+/** The fields the summary reads; the route's public run satisfies this. */
+export type RunSummaryRun = Pick<
+  DevinRun,
+  "intent" | "kind" | "status" | "reverses" | "requestedBy" | "requestedByRole"
+>;
 
 const ROLE_NAMES: readonly string[] = ROLES;
 
@@ -12,33 +18,41 @@ function isRole(value: string): value is Role {
 }
 
 /** The requester as the operator knows them: role label and actor id. */
-export function requesterLabel(run: DevinRun): string {
+export function requesterLabel(run: Pick<RunSummaryRun, "requestedBy" | "requestedByRole">): string {
   const role = isRole(run.requestedByRole) ? roleLabel(run.requestedByRole) : run.requestedByRole;
   return `${role} · ${run.requestedBy}`;
 }
 
-/** The spec's one-line consequence of merging this kind of run. */
-export function onceMerged(run: DevinRun): string | null {
-  const kind = RUN_KINDS.find((k) => k === run.kind);
-  return kind ? (getSpec(run.spec)?.outcomes[kind] ?? null) : null;
-}
+/** The status options `StatusChip` needs, kept client-safe (no tool index). */
+export const RUN_STATUS_OPTIONS = [
+  { value: "dispatched", label: "Dispatched", tone: "info" as const },
+  { value: "dispatch_failed", label: "Dispatch failed", tone: "negative" as const },
+  { value: "running", label: "Running", tone: "info" as const },
+  { value: "approved", label: "Approved", tone: "positive" as const },
+  { value: "merged", label: "Merged", tone: "positive" as const },
+  { value: "stopped", label: "Stopped", tone: "neutral" as const },
+];
 
 /**
  * What an operator needs before touching a run: what was asked, by whom,
  * what kind of change it is, where it stands and what merging it does. Under
  * that, the checklist projected from the session's last structured output.
+ * Presentational only: the spec's once-merged line arrives as a prop because
+ * resolving it needs the registered spec, a server-side lookup.
  */
 export function RunSummary({
   run,
   checklist,
   phaseLine,
+  outcome,
 }: {
-  run: DevinRun;
+  run: RunSummaryRun;
   checklist: ChecklistLine[];
   /** The session's `phase · phase_status`, when it has reported one. */
   phaseLine: string | null;
+  /** The spec's one-line consequence of merging this run, when it names one. */
+  outcome: string | null;
 }) {
-  const outcome = onceMerged(run);
   return (
     <Panel
       title="Run summary"
@@ -54,7 +68,7 @@ export function RunSummary({
         <dd className="font-mono">{run.kind}</dd>
         <dt className="text-muted-foreground">Status</dt>
         <dd className="flex flex-wrap items-center gap-2">
-          <StatusChip value={run.status} statuses={automationTool.statuses} />
+          <StatusChip value={run.status} statuses={RUN_STATUS_OPTIONS} />
           {phaseLine ? <span className="font-mono text-muted-foreground">{phaseLine}</span> : null}
         </dd>
         {outcome ? (

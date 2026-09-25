@@ -1,4 +1,5 @@
-import { PHASES, type StructuredOutput } from "@console/tool-automation/run-files";
+import { PHASES } from "@console/tool-automation/phases";
+import type { StructuredOutput } from "@console/tool-automation/run-files";
 import type { z } from "zod";
 import type { ChecklistState } from "@/lib/checklist-glyph";
 
