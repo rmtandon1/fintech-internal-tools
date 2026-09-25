@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
     "@console/db-write",
     "@console/engine",
     "@console/permissions",
+    "@console/tool-automation",
     "@console/tool-flags",
     "@console/tool-kyc",
     "@console/tool-refunds",
