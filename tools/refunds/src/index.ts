@@ -213,6 +213,46 @@ export const refundTool = defineTool<Refund>({
       ],
     },
   ],
+  stats: [
+    {
+      key: "requested",
+      label: "Requested",
+      roles: ["refunds_agent", "refunds_manager"],
+      source: { kind: "records", filters: { status: "requested" } },
+    },
+    {
+      key: "my_requests_awaiting",
+      label: "My requests awaiting approval",
+      roles: ["refunds_agent"],
+      source: { kind: "approvals", scope: "requested_by_me" },
+    },
+    {
+      key: "awaiting_approval",
+      label: "Awaiting your approval",
+      roles: ["refunds_manager", "admin"],
+      source: { kind: "approvals", scope: "decidable" },
+    },
+    {
+      key: "failed",
+      label: "Failed",
+      roles: ["refunds_agent", "refunds_manager"],
+      tone: "warning",
+      source: { kind: "records", filters: { status: "failed" } },
+    },
+    {
+      key: "denied_24h",
+      label: "Denied 24h",
+      roles: ["admin"],
+      tone: "warning",
+      source: { kind: "audit", event: "denied", sinceHours: 24 },
+    },
+    {
+      key: "policy_changes_7d",
+      label: "Policy changes 7d",
+      roles: ["admin"],
+      source: { kind: "audit", event: "constant_changed", sinceHours: 24 * 7 },
+    },
+  ],
   sections: [
     { title: "Payment", fields: ["paymentId", "merchant", "psp", "capturedMinor", "refundedMinor"] },
     { title: "Refund", fields: ["amountMinor", "currency", "usdMinor", "reasonCode", "disputed"] },

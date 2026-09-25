@@ -64,8 +64,18 @@ export function getApproval(id: string): ApprovalView | null {
   return row ? toView(row) : null;
 }
 
-export function countPendingFor(actor: Actor): number {
-  return listApprovals("pending").filter((a) => canDecide(a, actor).ok).length;
+/** Pending requests the actor may decide, optionally within one tool. */
+export function countPendingFor(actor: Actor, tool?: string): number {
+  return listApprovals("pending").filter(
+    (a) => (!tool || a.tool === tool) && canDecide(a, actor).ok,
+  ).length;
+}
+
+/** Pending requests the actor raised within one tool. */
+export function countRequestedBy(actor: Actor, tool: string): number {
+  return listApprovals("pending").filter(
+    (a) => a.tool === tool && a.requesterId === actor.id,
+  ).length;
 }
 
 export function canDecide(

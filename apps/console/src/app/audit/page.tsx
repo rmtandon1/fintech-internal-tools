@@ -17,10 +17,17 @@ export default async function AuditPage({
       ? (query[key] as string)
       : undefined;
 
+  const sinceHours = Number(pick("since"));
+  const since =
+    Number.isFinite(sinceHours) && sinceHours > 0
+      ? Date.now() - sinceHours * 60 * 60 * 1000
+      : undefined;
+
   const { rows, total } = listAuditEvents({
     tool: pick("tool"),
     event: pick("event"),
     actorId: pick("actorId"),
+    since,
     limit: 100,
   });
 
@@ -29,7 +36,8 @@ export default async function AuditPage({
       className="h-full"
       title={
         <span>
-          Audit stream · <span className="tabular-nums">{total}</span>
+          Audit stream{since !== undefined ? ` · last ${sinceHours}h` : ""} ·{" "}
+          <span className="tabular-nums">{total}</span>
         </span>
       }
       actions={
@@ -68,6 +76,9 @@ export default async function AuditPage({
               </option>
             ))}
           </select>
+          {since !== undefined ? (
+            <input type="hidden" name="since" value={String(sinceHours)} />
+          ) : null}
           <input
             name="actorId"
             defaultValue={pick("actorId") ?? ""}

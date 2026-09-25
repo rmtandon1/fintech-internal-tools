@@ -55,6 +55,22 @@ export interface FilterDecl {
   options?: readonly { value: string; label: string }[];
 }
 
+/**
+ * A count shown at the top of a tool's queue for the roles listed. Every stat
+ * is a query: records stats are the tool's own `list` with fixed filters,
+ * approvals and audit stats are the engine's counters.
+ */
+export interface StatDecl {
+  key: string;
+  label: string;
+  roles: Role[];
+  tone?: "neutral" | "warning";
+  source:
+    | { kind: "records"; filters: Record<string, string> }
+    | { kind: "approvals"; scope: "decidable" | "requested_by_me" }
+    | { kind: "audit"; event: "denied" | "constant_changed"; sinceHours: number };
+}
+
 export interface SectionDecl {
   title: string;
   fields: string[];
@@ -209,6 +225,8 @@ export interface ToolDeclaration<TRecord extends GovernedRecord = GovernedRecord
   fields: FieldDecl[];
   listColumns: ColumnDecl[];
   filters: FilterDecl[];
+  /** Role-scoped counts rendered above the queue; omit for no strip. */
+  stats?: StatDecl[];
   sections: SectionDecl[];
   statuses: StatusDecl[];
   statusField: string;

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Icon } from "@console/ui/icon";
 import { Panel } from "@/components/panel";
 import { RecordCell, columnIsNumeric } from "@/components/record-table";
+import { StatStrip } from "@/components/stat-strip";
 import {
   Table,
   TableBody,
@@ -95,7 +96,10 @@ export default async function ToolQueuePage({
     });
 
   const filterRow = (
-    <form className="flex items-center gap-2">
+    <form
+      key={new URLSearchParams({ ...filters, q: search ?? "" }).toString()}
+      className="flex items-center gap-2"
+    >
       {decl.filters.map((filter) =>
         filter.type === "enum" ? (
           <select
@@ -149,7 +153,9 @@ export default async function ToolQueuePage({
           </span>
         }
         actions={filterRow}
+        bodyClassName="flex flex-col"
       >
+        <StatStrip decl={decl} actor={actor} />
         {clusters.length ? (
           <div
             className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2"

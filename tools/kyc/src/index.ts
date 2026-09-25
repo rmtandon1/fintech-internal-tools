@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, like, or } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, like, lt, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@console/db";
 import { defineAction, defineTool } from "@console/engine/declare";
@@ -40,6 +40,9 @@ export const ADMIN_REVIEW_SCORE_KEY = "kyc.admin_review_score";
 export const PROHIBITED_COUNTRIES_KEY = "kyc.prohibited_countries";
 
 const OPEN_STATUSES = ["pending_review", "info_requested", "escalated"];
+
+const HOUR = 60 * 60 * 1000;
+const DUE_SOON_WINDOW = 12 * HOUR;
 
 /** Rules here read the record only, so they are input-agnostic. */
 type CaseRule = Rule<KycCase, unknown>;
@@ -200,6 +203,68 @@ export const kycTool = defineTool<KycCase>({
         { value: "high", label: "High" },
       ],
     },
+    {
+      field: "due",
+      label: "Due",
+      type: "enum",
+      options: [
+        { value: "overdue", label: "Overdue" },
+        { value: "due_12h", label: "Due in 12h" },
+      ],
+    },
+  ],
+  stats: [
+    {
+      key: "pending_review",
+      label: "Pending review",
+      roles: ["kyc_reviewer"],
+      source: { kind: "records", filters: { status: "pending_review" } },
+    },
+    {
+      key: "high_risk_pending",
+      label: "High risk pending",
+      roles: ["kyc_reviewer"],
+      tone: "warning",
+      source: { kind: "records", filters: { status: "pending_review", riskTier: "high" } },
+    },
+    {
+      key: "due_12h",
+      label: "Due in 12h",
+      roles: ["kyc_reviewer"],
+      source: { kind: "records", filters: { due: "due_12h" } },
+    },
+    {
+      key: "overdue",
+      label: "Overdue",
+      roles: ["kyc_manager"],
+      tone: "warning",
+      source: { kind: "records", filters: { due: "overdue" } },
+    },
+    {
+      key: "escalated",
+      label: "Escalated",
+      roles: ["kyc_manager"],
+      source: { kind: "records", filters: { status: "escalated" } },
+    },
+    {
+      key: "awaiting_approval",
+      label: "Awaiting your approval",
+      roles: ["kyc_manager", "admin"],
+      source: { kind: "approvals", scope: "decidable" },
+    },
+    {
+      key: "denied_24h",
+      label: "Denied 24h",
+      roles: ["admin"],
+      tone: "warning",
+      source: { kind: "audit", event: "denied", sinceHours: 24 },
+    },
+    {
+      key: "policy_changes_7d",
+      label: "Policy changes 7d",
+      roles: ["admin"],
+      source: { kind: "audit", event: "constant_changed", sinceHours: 24 * 7 },
+    },
   ],
   sections: [
     {
@@ -320,6 +385,15 @@ export const kycTool = defineTool<KycCase>({
     const clauses = [];
     if (filters.status) clauses.push(eq(kycCases.status, filters.status));
     if (filters.riskTier) clauses.push(eq(kycCases.riskTier, filters.riskTier));
+    if (filters.due) {
+      const now = Date.now();
+      clauses.push(inArray(kycCases.status, OPEN_STATUSES));
+      if (filters.due === "overdue") {
+        clauses.push(lt(kycCases.dueAt, now));
+      } else if (filters.due === "due_12h") {
+        clauses.push(gte(kycCases.dueAt, now), lt(kycCases.dueAt, now + DUE_SOON_WINDOW));
+      }
+    }
     if (search) {
       clauses.push(
         or(

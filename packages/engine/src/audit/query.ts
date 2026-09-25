@@ -1,4 +1,4 @@
-import { and, count, desc, eq, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, gte, type SQL } from "drizzle-orm";
 import { db } from "@console/db";
 import { auditLog } from "@console/db-core/engine-schema";
 
@@ -10,6 +10,8 @@ export interface AuditFilters {
   action?: string;
   event?: string;
   recordId?: string;
+  /** Only rows with `ts >= since` (epoch milliseconds). */
+  since?: number;
   limit?: number;
   offset?: number;
 }
@@ -24,6 +26,7 @@ export function listAuditEvents(filters: AuditFilters = {}): {
   if (filters.action) clauses.push(eq(auditLog.action, filters.action));
   if (filters.event) clauses.push(eq(auditLog.event, filters.event));
   if (filters.recordId) clauses.push(eq(auditLog.recordId, filters.recordId));
+  if (filters.since !== undefined) clauses.push(gte(auditLog.ts, filters.since));
   const where = clauses.length ? and(...clauses) : undefined;
 
   const rows = db

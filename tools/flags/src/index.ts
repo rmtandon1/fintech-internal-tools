@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, like, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, lt, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@console/db";
 import { defineAction, defineTool } from "@console/engine/declare";
@@ -222,6 +222,46 @@ export const flagTool = defineTool<FeatureFlag>({
         { value: "archived", label: "Archived" },
       ],
     },
+    {
+      field: "expired",
+      label: "Review date",
+      type: "enum",
+      options: [{ value: "yes", label: "Expired, still serving" }],
+    },
+  ],
+  stats: [
+    {
+      key: "partial_production",
+      label: "Partial in production",
+      roles: ["kyc_manager", "refunds_manager"],
+      source: { kind: "records", filters: { environment: "production", status: "partial" } },
+    },
+    {
+      key: "expired_serving",
+      label: "Expired, still serving",
+      roles: ["kyc_manager", "refunds_manager"],
+      tone: "warning",
+      source: { kind: "records", filters: { expired: "yes" } },
+    },
+    {
+      key: "awaiting_approval",
+      label: "Awaiting your approval",
+      roles: MANAGER_ROLES,
+      source: { kind: "approvals", scope: "decidable" },
+    },
+    {
+      key: "denied_24h",
+      label: "Denied 24h",
+      roles: ["admin"],
+      tone: "warning",
+      source: { kind: "audit", event: "denied", sinceHours: 24 },
+    },
+    {
+      key: "policy_changes_7d",
+      label: "Policy changes 7d",
+      roles: ["admin"],
+      source: { kind: "audit", event: "constant_changed", sinceHours: 24 * 7 },
+    },
   ],
   sections: [
     { title: "Flag", fields: ["key", "description", "flagType", "environment"] },
@@ -347,6 +387,12 @@ export const flagTool = defineTool<FeatureFlag>({
     if (filters.environment)
       clauses.push(eq(featureFlags.environment, filters.environment));
     if (filters.flagType) clauses.push(eq(featureFlags.flagType, filters.flagType));
+    if (filters.expired === "yes") {
+      clauses.push(
+        lt(featureFlags.expiresAt, Date.now()),
+        inArray(featureFlags.status, ["on", "partial"]),
+      );
+    }
     if (search) {
       clauses.push(
         or(
