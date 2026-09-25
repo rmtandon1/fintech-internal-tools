@@ -34,7 +34,7 @@ function requestSpend(recordId: string, amount: number, actor = kycReviewer) {
 
 describe("approvals", () => {
   it("forbids engineer intents for every action in KYC, refunds, and flags", () => {
-    for (const tool of TOOLS) {
+    for (const tool of TOOLS.filter((t) => t.name !== "automation")) {
       for (const action of tool.actions) {
         const result = executeIntent(DEMO_ACTORS.engineer, {
           tool: tool.name,

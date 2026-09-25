@@ -41,8 +41,10 @@ describe("role catalog", () => {
       name: "Engineer",
       role: "engineer",
     });
-    expect(toolsForRole("engineer")).toEqual([]);
-    for (const tool of TOOLS) expect(tool.visibleTo).not.toContain("engineer");
+    expect(toolsForRole("engineer").map((t) => t.name)).toEqual(["automation"]);
+    for (const tool of TOOLS.filter((t) => t.name !== "automation")) {
+      expect(tool.visibleTo).not.toContain("engineer");
+    }
   });
 
   it("lists every manager-or-above role across domains", () => {
