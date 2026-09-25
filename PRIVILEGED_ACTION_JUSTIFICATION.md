@@ -7,7 +7,7 @@
 - It is the demo's stress test. The obvious fix covers one of five places the console writes audit rows, and the repo's `AGENTS.md` points at that one.
 - Three Devin sessions run it in parallel from the same prompt. Each is scored against the reviewer checklist, and all three results are published.
 - Before approving, the reviewer tries each privileged action in the console and runs `/audit/verify`, so a missed path is caught before merge.
-- Framing and demo beat: `DEMO_DECISIONS.md` › "Scenario detail". Run table and run notes: `DEMO_DECISIONS.md` › "Stress test". Shared run rules: `DEVIN_RUN_PROTOCOL.md`, scope `engine`.
+- Framing: `CUSTOMER_FRAMING.md` § 3 › "5. One control, every app". Shared run rules: `DEVIN_RUN_PROTOCOL.md`, scope `engine`.
 
 ## The problem
 
@@ -46,7 +46,7 @@ The `engine` scope in `DEVIN_RUN_PROTOCOL.md` › Scope, plus each tool's declar
 
 A run is worth publishing only if Devin could have got it wrong on its own. Check these before dispatch:
 
-- **The base carries no answer key.** This file's reviewer checklist, `CUSTOMER_FRAMING.md`, `DEMO_DECISIONS.md` and `DEVIN_RUN_PROTOCOL.md` all name the entry points or the fix. None may be on the base commit. Check: `git grep -n "revealField\|appendAudit\|hashableFields" <base> -- '*.md'` returns nothing. The default branch passes today, because only `AGENTS.md` and `README.md` are committed. Once all the .md files are pushed, dispatch from the last commit before that push.
+- **The base carries no answer key.** This file's reviewer checklist, `CUSTOMER_FRAMING.md` and `DEVIN_RUN_PROTOCOL.md` all name the entry points or the fix, and they are on the default branch. Dispatch from `36b0dbc`, the last commit before they were added. Check: `git grep -n "revealField\|appendAudit\|hashableFields" <base> -- '*.md'` returns nothing.
 - **Devin gets only the parts marked "sent to Devin".** The intent, the decided items and the acceptance tests go into the prompt. Nothing from "Reviewer checklist" down is sent.
 - **`AGENTS.md` stays as it is** (see Intent).
 
@@ -75,7 +75,7 @@ The engine owner approves as well as the engineer (**Engine owner approves**). B
 
 ### Reviewer checklist (reviewer only)
 
-What a complete run does. The PR is scored against this, and the scores go in the run table in `DEMO_DECISIONS.md` › "Stress test".
+What a complete run does. The PR is scored against this, and the scores go in "Run results" below.
 
 - **All five paths.** Tool actions through `executeIntent`, approving and rejecting a pending request, `setConstant` and `revealField`. A fix inside `executeIntent` alone covers one.
 - **Approvals don't go back through `executeIntent`.** `approvals.approve` re-runs the effect through `applyEffect`. A check placed in `executeIntent`'s validate step misses held requests even when the action itself is marked privileged.
@@ -94,11 +94,24 @@ What a complete run does. The PR is scored against this, and the scores go in th
 1. Run the base check in "Keeping the test fair". Record the base commit.
 2. Dispatch three sessions at once, with the same prompt, playbook, base and `max_acu_limit`. Tag them `stress:1`, `stress:2` and `stress:3`.
 3. Let each run to a PR. When a CI guard fails or the reviewer finds a missed path, Devin fixes it inside its plan, with two attempts as for any run. Record whether it did.
-4. Score each PR against the checklist above and fill in the run table in `DEMO_DECISIONS.md` › "Stress test".
+4. Score each PR against the checklist above and fill in "Run results".
 5. The best run's PR goes to the engine owner and the engineer. Close the other two, unmerged, with a link to the results. Don't delete them.
 6. Publish all three columns in the README and the Loom, including any miss and how it was caught.
 
 Each run opens one pull request, so the three compare like for like and the engine owner reviews the whole change.
+
+### Run results
+
+One column per session, published whatever it shows.
+
+| | Run 1 | Run 2 | Run 3 |
+|---|---|---|---|
+| Entry points covered (of 5) | | | |
+| Where the reason is stored | | | |
+| Pre-change rows verify | | | |
+| Missed paths caught in review | | | |
+| Fixed in the same session | | | |
+| ACUs, wall time | | | |
 
 ### What the operator sees after merge
 
