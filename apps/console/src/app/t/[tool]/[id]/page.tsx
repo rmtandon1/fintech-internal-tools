@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Icon } from "@console/ui/icon";
+import { ContextDrawer } from "@/components/context-drawer";
+import {
+  LinkedActivityBody,
+  LinkedActivitySummaryLine,
+} from "@/components/linked-activity";
 import { Panel } from "@/components/panel";
 import { RecordView } from "@/components/record-view";
 import { StatusChip } from "@console/ui/status-chip";
@@ -20,6 +25,31 @@ export default async function RecordPage({
   const record = decl.get(id);
   if (!record) notFound();
 
+  const activity = decl.linkedActivity?.(record, actor) ?? null;
+  const linked = activity ? getTool(activity.tool) : undefined;
+
+  const panel = (
+    <Panel
+      className="min-h-0 flex-1"
+      title={
+        <span className="flex items-center gap-2 normal-case tracking-normal">
+          <span className="font-mono text-foreground">{record.id}</span>
+          <span aria-hidden>·</span>
+          <StatusChip
+            value={String(record[decl.statusField])}
+            statuses={decl.statuses}
+          />
+          <span aria-hidden>·</span>
+          <span className="tabular-nums text-muted-foreground">
+            v{record.version}
+          </span>
+        </span>
+      }
+    >
+      <RecordView decl={decl} record={record} actor={actor} />
+    </Panel>
+  );
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -30,25 +60,19 @@ export default async function RecordPage({
         <span className="font-mono">{record.id}</span>
       </div>
 
-      <Panel
-        className="min-h-0 flex-1"
-        title={
-          <span className="flex items-center gap-2 normal-case tracking-normal">
-            <span className="font-mono text-foreground">{record.id}</span>
-            <span aria-hidden>·</span>
-            <StatusChip
-              value={String(record[decl.statusField])}
-              statuses={decl.statuses}
-            />
-            <span aria-hidden>·</span>
-            <span className="tabular-nums text-muted-foreground">
-              v{record.version}
-            </span>
-          </span>
-        }
-      >
-        <RecordView decl={decl} record={record} actor={actor} />
-      </Panel>
+      {activity ? (
+        <ContextDrawer
+          title="Linked activity (same customer)"
+          summary={<LinkedActivitySummaryLine activity={activity} />}
+          content={
+            <LinkedActivityBody activity={activity} linked={linked} actor={actor} />
+          }
+        >
+          {panel}
+        </ContextDrawer>
+      ) : (
+        panel
+      )}
     </div>
   );
 }

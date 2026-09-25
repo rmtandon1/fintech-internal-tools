@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, like, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@console/db";
 import { defineAction, defineTool } from "@console/engine/declare";
@@ -10,8 +10,16 @@ import type {
   SortOption,
 } from "@console/engine/types";
 import { rolesFor } from "@console/permissions";
+import { MANAGER_APPROVAL_USD_KEY, notReceivedByMerchant } from "./clusters";
 import { refunds } from "./schema";
 import { seedRefunds } from "./seed";
+
+export {
+  CLUSTERING_WINDOW_DAYS_KEY,
+  MANAGER_APPROVAL_USD_KEY,
+  clusteringWindowDays,
+  notReceivedByMerchant,
+} from "./clusters";
 
 export interface Refund extends GovernedRecord {
   id: string;
@@ -35,7 +43,6 @@ export interface Refund extends GovernedRecord {
   version: number;
 }
 
-export const MANAGER_APPROVAL_USD_KEY = "refunds.manager_approval_usd_minor";
 export const ADMIN_APPROVAL_USD_KEY = "refunds.admin_approval_usd_minor";
 export const GOODWILL_APPROVAL_USD_KEY = "refunds.goodwill_approval_usd_minor";
 
@@ -206,6 +213,46 @@ export const refundTool = defineTool<Refund>({
       ],
     },
   ],
+  stats: [
+    {
+      key: "requested",
+      label: "Requested",
+      roles: ["refunds_agent", "refunds_manager"],
+      source: { kind: "records", filters: { status: "requested" } },
+    },
+    {
+      key: "my_requests_awaiting",
+      label: "My requests awaiting approval",
+      roles: ["refunds_agent"],
+      source: { kind: "approvals", scope: "requested_by_me" },
+    },
+    {
+      key: "awaiting_approval",
+      label: "Awaiting your approval",
+      roles: ["refunds_manager", "admin"],
+      source: { kind: "approvals", scope: "decidable" },
+    },
+    {
+      key: "failed",
+      label: "Failed",
+      roles: ["refunds_agent", "refunds_manager"],
+      tone: "warning",
+      source: { kind: "records", filters: { status: "failed" } },
+    },
+    {
+      key: "denied_24h",
+      label: "Denied 24h",
+      roles: ["admin"],
+      tone: "warning",
+      source: { kind: "audit", event: "denied", sinceHours: 24 },
+    },
+    {
+      key: "policy_changes_7d",
+      label: "Policy changes 7d",
+      roles: ["admin"],
+      source: { kind: "audit", event: "constant_changed", sinceHours: 24 * 7 },
+    },
+  ],
   sections: [
     { title: "Payment", fields: ["paymentId", "merchant", "psp", "capturedMinor", "refundedMinor"] },
     { title: "Refund", fields: ["amountMinor", "currency", "usdMinor", "reasonCode", "disputed"] },
@@ -307,6 +354,15 @@ export const refundTool = defineTool<Refund>({
       apply: (ctx, decision) => write(ctx, decision.patch),
     }),
   ],
+  clusters: [
+    {
+      id: "merchant_not_received",
+      label: "Stacked under the manager line",
+      groups: () => notReceivedByMerchant(),
+      traceAction: "execute",
+      handoffSpec: "REFUND_CLUSTERING_HOLD.md",
+    },
+  ],
   list: ({ filters, search, sort, limit, offset }) => {
     const clauses = [];
     if (filters.status) clauses.push(eq(refunds.status, filters.status));
@@ -316,7 +372,7 @@ export const refundTool = defineTool<Refund>({
         or(
           like(refunds.paymentId, `%${search}%`),
           like(refunds.merchant, `%${search}%`),
-          eq(refunds.id, search),
+          inArray(refunds.id, search.split(",").map((s) => s.trim())),
         ),
       );
     }

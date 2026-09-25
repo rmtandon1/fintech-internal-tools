@@ -1,24 +1,51 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ApprovalCard } from "@/components/approval-card";
 import { Panel } from "@/components/panel";
 import { canDecide, listApprovals } from "@console/engine/approvals";
 import { canApprove } from "@console/permissions";
 import { currentActor } from "@/lib/session";
+import { getTool } from "@/registry";
 
-export default async function InboxPage() {
+export default async function InboxPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const query = await searchParams;
   const actor = await currentActor();
-  if (!canApprove(actor.role)) notFound();
+  const approver = canApprove(actor.role);
+  const tool = typeof query.tool === "string" ? getTool(query.tool) : undefined;
+  if (typeof query.tool === "string" && !tool?.visibleTo.includes(actor.role)) notFound();
+  if (!approver && !tool) notFound();
 
-  const pending = listApprovals("pending");
-  const decided = listApprovals().filter((a) => a.status !== "pending").slice(0, 20);
+  const inScope = listApprovals().filter(
+    (a) => (!tool || a.tool === tool.name) && (approver || a.requesterId === actor.id),
+  );
+  const pending = inScope.filter(
+    (a) => a.status === "pending" && (!tool || !approver || canDecide(a, actor).ok),
+  );
+  const decided = inScope.filter((a) => a.status !== "pending").slice(0, 20);
 
   return (
     <div className="grid h-full min-h-0 gap-3 lg:grid-cols-2">
       <Panel
         title={
           <span>
-            Pending · <span className="tabular-nums">{pending.length}</span>
+            {approver ? "Pending" : "My pending requests"}
+            {tool ? ` · ${tool.displayName}` : ""} ·{" "}
+            <span className="tabular-nums">{pending.length}</span>
           </span>
+        }
+        actions={
+          tool && approver ? (
+            <Link
+              href="/inbox"
+              className="h-6 rounded-md border border-input px-2 leading-6 text-[11px] hover:bg-accent"
+            >
+              All tools
+            </Link>
+          ) : null
         }
         bodyClassName="space-y-3 p-3"
       >

@@ -5,6 +5,7 @@ import { registerConstants } from "@console/engine/policy/register";
 import type { Actor } from "@console/engine/types";
 import { kycTool } from "@console/tool-kyc";
 import { kycManager, kycReviewer, setupHarness } from "../helpers/harness";
+import { expectRecordStatsMatchList } from "../helpers/stats";
 
 beforeAll(() => {
   setupHarness();
@@ -144,5 +145,44 @@ describe("kyc review queue", () => {
     expect(result.outcome.trace).toContainEqual(
       expect.objectContaining({ rule: "escalated_needs_manager" }),
     );
+  });
+});
+
+describe("kyc stats", () => {
+  it("declares three stats for each role that can open the queue", () => {
+    for (const role of kycTool.visibleTo) {
+      expect(kycTool.stats?.filter((s) => s.roles.includes(role)).length, role).toBe(3);
+    }
+  });
+
+  it("counts each records stat with the same query its link opens", () => {
+    expectRecordStatsMatchList(kycTool);
+  });
+
+  it("splits cases by SLA window with the due filter", () => {
+    const now = Date.now();
+    const all = kycTool.list({ filters: {}, limit: 1000, offset: 0 }).rows;
+    const overdue = kycTool.list({ filters: { due: "overdue" }, limit: 1000, offset: 0 });
+    const soon = kycTool.list({ filters: { due: "due_12h" }, limit: 1000, offset: 0 });
+    expect(soon.total).toBe(
+      all.filter((c) => Number(c.dueAt) >= now && Number(c.dueAt) < now + 12 * 60 * 60 * 1000)
+        .length,
+    );
+    for (const row of overdue.rows) {
+      expect(Number(row.dueAt)).toBeLessThan(now);
+      expect(["pending_review", "info_requested", "escalated"]).toContain(row.status);
+    }
+    const finishedPastDue = all.filter(
+      (c) => Number(c.dueAt) < now && ["approved", "rejected"].includes(String(c.status)),
+    );
+    expect(finishedPastDue.length).toBeGreaterThan(0);
+    expect(overdue.total).toBe(
+      all.filter(
+        (c) =>
+          Number(c.dueAt) < now &&
+          ["pending_review", "info_requested", "escalated"].includes(String(c.status)),
+      ).length,
+    );
+    for (const row of soon.rows) expect(Number(row.dueAt)).toBeGreaterThanOrEqual(now);
   });
 });

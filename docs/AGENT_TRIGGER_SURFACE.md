@@ -89,7 +89,7 @@ One timeline, one row per phase, each with a state (waiting, running with spinne
 - **Baseline:** `pnpm verify` green at base, 68 tests.
 - **Plan:** branch `devin/<run_id>-clustering-hold`, plan commit SHA, and the planned paths with `create` or `modify` and a one-line reason each.
 - **Edit:** per file, +/− lines and the symbol touched, e.g. `tools/kyc/src/index.ts · modify · +12 −1 · linked_refund_hold on approve`.
-- **Verify:** `pnpm verify` split into lint, typecheck, boundaries and tests (68 → 76), then each guard check by name with its result: **Stays in plan**, **Plan stays in scope**, **Context untouched**, **Engine untouched**, **Tests never shrink**, **No type escapes**, **Seed is not state**. For a REVERSAL, **Only undo** as well.
+- **Verify:** `pnpm verify` split into lint, typecheck, boundaries and tests (68 → 76), then each guard check by name with its result: **Stays in plan**, **Plan stays in scope**, **Run dir frozen**, **Engine untouched**, **Tests never shrink**, **No type escapes**, **Seed is not state**. For a REVERSAL, **Only undo** as well. **Context untouched** is checked by `approve_pr`, not CI, so it shows in the approval dialog (`DEVIN_RUN_PROTOCOL.md` § Guard checks).
 - **Pull request:** PR number and title, link to GitHub.
 
 For a REVERSAL, two more things show:
@@ -171,12 +171,15 @@ A list of every run: kind, intent, requester, status, PR, and the run it reverse
 - `schema.ts`: `devin_runs` (`id`, `kind`, `spec`, `intent`, `contextSha256`, `sessionId`, `status`, `prUrl`, `mergeCommit`, `reverses`, `requestedBy`, timestamps, `version`).
 - `index.ts`: actions `dispatch`, `record_session`, `approve_pr`, `record_merge`, `stop`, with the rules from `DEVIN_RUN_PROTOCOL.md` § Starting a run is a governed write.
 - Add the `engineer` role to `ROLES` and `ROLE_META` (`packages/permissions/src/roles.ts`, `domain: null`) and `DEMO_ACTORS` (`packages/engine/src/actor.ts`), and to the role switcher. `RoleLevel` has no fit: `canApprove` lets every non-agent level decide ops approvals, so `engineer` needs its own level that `canApprove` and `rolesFor` exclude. The build agent does this, not a Devin run.
+- The `engineer` reviews code and approves PRs through `approve_pr`, and never decides ops approvals: `canApprove("engineer")` is `false`, `rolesFor` never returns it for any domain or level, and `MANAGER_ROLES` excludes it. It can see the inbox and the audit chain, but no **Approve** or **Reject** on a pending request renders for it.
 - `context.ts`: builds `context.json` from the live database. It drops PII, never masks it.
 - Register it in `apps/console/src/registry.ts` and `apps/console/src/schema.ts`, and generate a migration.
 
 ### `apps/console/src/app/api/devin/` (new)
 
 A server-only route that dispatches, polls and terminates through the v3 API, reading `DEVIN_API_KEY` and `DEVIN_ORG_ID` from the server environment. The browser calls this route, never Devin. Without a key, it serves the replay fixture from `runs/<run_id>/replay.json`.
+
+In live mode, every poll response (`status`, `status_detail`, `structured_output`, with a timestamp) is also appended to `apps/console/data/replays/<run_id>.json`, shaped exactly like `replay.json`. `apps/console/data/` is gitignored, so this is a local recording, not state: it is never read back into `devin_runs` (`DEVIN_RUN_PROTOCOL.md` § Starting a run is a governed write). Once a real run has finished, the file can be committed by hand as `runs/<run_id>/replay.json`, so the replay the demo plays is a recorded run rather than a scripted one.
 
 ### Constant registration on start
 

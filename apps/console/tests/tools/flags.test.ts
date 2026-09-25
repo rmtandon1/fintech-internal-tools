@@ -11,6 +11,7 @@ import {
   refundsManager,
   setupHarness,
 } from "../helpers/harness";
+import { expectRecordStatsMatchList } from "../helpers/stats";
 
 beforeAll(() => {
   setupHarness();
@@ -193,5 +194,27 @@ describe("feature flags", () => {
     const after = flagTool.get("flag_0011");
     expect(after?.lastChangedBy).toBe(kycManager.id);
     expect(after?.version).toBe((before?.version ?? 0) + 1);
+  });
+});
+
+describe("flags stats", () => {
+  it("declares three stats for each role that can open the queue", () => {
+    for (const role of flagTool.visibleTo) {
+      expect(flagTool.stats?.filter((s) => s.roles.includes(role)).length, role).toBe(3);
+    }
+  });
+
+  it("counts each records stat with the same query its link opens", () => {
+    expectRecordStatsMatchList(flagTool);
+  });
+
+  it("lists only flags past their review date that still serve traffic", () => {
+    const now = Date.now();
+    const expired = flagTool.list({ filters: { expired: "yes" }, limit: 1000, offset: 0 });
+    expect(expired.total).toBeGreaterThan(0);
+    for (const row of expired.rows) {
+      expect(Number(row.expiresAt)).toBeLessThan(now);
+      expect(["on", "partial"]).toContain(row.status);
+    }
   });
 });
