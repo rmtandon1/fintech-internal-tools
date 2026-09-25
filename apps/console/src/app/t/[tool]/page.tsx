@@ -314,7 +314,12 @@ function chipLabel(group: ClusterGroup): string {
   const parts = [
     group.label,
     group.qualifier ? `${group.count} ${group.qualifier}` : String(group.count),
-    `$${Math.round(group.totalUsdMinor / 100).toLocaleString("en-US")}`,
+    (group.totalUsdMinor / 100).toLocaleString("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }),
   ];
   if (group.windowDays) parts.push(`${group.windowDays}d`);
   return parts.join(" · ");

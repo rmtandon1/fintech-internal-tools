@@ -1,4 +1,4 @@
-import { and, eq, gte } from "drizzle-orm";
+import { and, eq, gte, ne } from "drizzle-orm";
 import { db } from "@console/db";
 import { loadConstants } from "@console/engine/policy/constants";
 import type { ClusterGroup } from "@console/engine/types";
@@ -21,7 +21,8 @@ export function clusteringWindowDays(): number {
 /**
  * Merchants whose `not_received` refunds inside the window each sit below the
  * manager line but add up to it or more. Every row on its own passes
- * `amount_approval`; only the aggregate shows the pattern.
+ * `amount_approval`; only the aggregate shows the pattern. Rejected refunds
+ * don't count, matching the hold in `REFUND_CLUSTERING_HOLD.md`.
  */
 export function notReceivedByMerchant(now = Date.now()): ClusterGroup[] {
   const managerUsd = loadConstants().number(
@@ -39,7 +40,13 @@ export function notReceivedByMerchant(now = Date.now()): ClusterGroup[] {
       requestedAt: refunds.requestedAt,
     })
     .from(refunds)
-    .where(and(eq(refunds.reasonCode, "not_received"), gte(refunds.requestedAt, since)))
+    .where(
+      and(
+        eq(refunds.reasonCode, "not_received"),
+        ne(refunds.status, "rejected"),
+        gte(refunds.requestedAt, since),
+      ),
+    )
     .orderBy(refunds.requestedAt)
     .all();
 

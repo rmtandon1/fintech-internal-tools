@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
 import { db } from "@console/db";
 import { registerConstants } from "@console/engine/policy/register";
 import { setConstant } from "@console/engine/policy/set-constant";
@@ -88,6 +89,22 @@ describe("refunds clusters", () => {
     const merchants = notReceivedByMerchant().map((g) => g.key);
     expect(merchants).not.toContain("Big Ticket Co");
     expect(merchants).toContain("Kestrel Outdoors");
+  });
+
+  it("rejected refunds do not count toward the total", () => {
+    db.update(refunds)
+      .set({ status: "rejected" })
+      .where(eq(refunds.id, "rfnd_0014"))
+      .run();
+    const kestrel = notReceivedByMerchant().find((g) => g.key === "Kestrel Outdoors");
+    expect(kestrel?.count).toBe(3);
+    expect([...(kestrel?.recordIds ?? [])].sort()).toEqual(["rfnd_0011", "rfnd_0012", "rfnd_0013"]);
+    expect(kestrel?.totalUsdMinor).toBe(48_000 + 47_500 + 46_000);
+
+    db.update(refunds)
+      .set({ status: "requested" })
+      .where(eq(refunds.id, "rfnd_0014"))
+      .run();
   });
 
   it("aggregates contain no PII fields", () => {
