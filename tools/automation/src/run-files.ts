@@ -89,6 +89,9 @@ export type PlanFile = z.infer<typeof PlanFile>;
 
 export const PHASES = ["intake", "baseline", "plan", "edit", "verify", "pull_request", "merge"] as const;
 
+/** The PR's required checks: exactly what `pnpm verify` runs. */
+export const CI_CHECKS = ["Lint", "Typecheck", "Boundaries", "Test"] as const;
+
 export const StructuredOutput = z
   .object({
     phase: z.enum(PHASES),
@@ -115,7 +118,6 @@ export const StructuredOutput = z
         })
         .strict(),
     ),
-    guards: z.array(z.object({ name: z.string().min(1), pass: z.boolean().nullable() }).strict()),
     conflicts: z.array(
       z.object({ file: z.string().min(1), kept: z.string(), removed: z.string() }).strict(),
     ),

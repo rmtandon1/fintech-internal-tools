@@ -344,7 +344,7 @@ describe("run files", () => {
     expect(STRUCTURED_OUTPUT_JSON_SCHEMA).toMatchObject({ type: "object" });
     const props = (STRUCTURED_OUTPUT_JSON_SCHEMA as { properties: Record<string, unknown> }).properties;
     expect(Object.keys(props)).toEqual(
-      expect.arrayContaining(["phase", "verify_steps", "guards", "conflicts", "pr_url", "stopped_by"]),
+      expect.arrayContaining(["phase", "verify_steps", "conflicts", "pr_url", "stopped_by"]),
     );
     expect(
       StructuredOutput.safeParse({
@@ -358,7 +358,6 @@ describe("run files", () => {
         reuses: [],
         files: [],
         verify_steps: [{ name: "pnpm test", pass: null, before: 130, after: null }],
-        guards: [],
         conflicts: [],
         pr_url: null,
         stopped_by: null,
