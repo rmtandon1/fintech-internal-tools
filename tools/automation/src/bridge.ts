@@ -10,7 +10,7 @@ import type { DevinClient } from "./devin-api";
 import { SYNC_BRANCH, SYNC_REMOTE, type GitRunner } from "./git";
 import { type GitHubClient, parsePullUrl } from "./github-api";
 import { automationTool, getRun, type DevinRun } from "./index";
-import { STRUCTURED_OUTPUT_JSON_SCHEMA, StructuredOutput } from "./run-files";
+import { ContextFile, STRUCTURED_OUTPUT_JSON_SCHEMA, StructuredOutput } from "./run-files";
 import { getSpec, type RunKind, type RunScope } from "./specs";
 
 /**
@@ -66,6 +66,16 @@ export function runDir(repoRoot: string, runId: string): string {
   return join(repoRoot, "runs", runId);
 }
 
+/** The cluster a run's `context.json` was built from, or null when it is missing or malformed. */
+function contextClusterKey(repoRoot: string, runId: string): string | null {
+  const raw = readContextJson(repoRoot, runId);
+  if (!raw) return null;
+  const parsed = ContextFile.safeParse(JSON.parse(raw));
+  if (!parsed.success) return null;
+  const at = parsed.data.evidence.cluster.indexOf(":");
+  return at < 0 ? null : parsed.data.evidence.cluster.slice(at + 1) || null;
+}
+
 export function readContextJson(repoRoot: string, runId: string): string | null {
   const path = join(runDir(repoRoot, runId), "context.json");
   return existsSync(path) ? readFileSync(path, "utf8") : null;
@@ -113,10 +123,13 @@ export async function dispatchRun(
   const runId = ulid();
 
   let reverses: { runId: string; mergeCommit: string } | null = null;
+  let clusterKey = req.clusterKey;
   if (req.reverses) {
     const target = getRun(req.reverses);
     if (!target?.mergeCommit) throw new Error(`${req.reverses} has no merge commit to reverse`);
     reverses = { runId: target.id, mergeCommit: target.mergeCommit };
+    // A reversal's evidence is the merged run's, never the caller's.
+    clusterKey = contextClusterKey(deps.repoRoot, target.id) ?? "";
   }
 
   const built = buildContext({
@@ -126,7 +139,7 @@ export async function dispatchRun(
     scope: req.scope,
     intent: req.intent,
     requestedBy: actor.role,
-    clusterKey: req.clusterKey,
+    clusterKey,
     evidenceIds: req.evidenceIds,
     reverses,
     repoRoot: deps.repoRoot,

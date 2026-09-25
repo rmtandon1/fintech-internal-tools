@@ -10,6 +10,7 @@ import {
 } from "@/components/command-palette";
 import { countPendingFor } from "@console/engine/approvals";
 import { verifyChain } from "@console/engine/audit/verify";
+import { automationTool } from "@console/tool-automation";
 import { OPS_MODES } from "@/lib/modes";
 import { currentActor } from "@/lib/session";
 import { getTool, toolsForRole } from "@/registry";
@@ -26,11 +27,12 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const actor = await currentActor();
-  const tools = toolsForRole(actor.role).map((t) => ({
-    name: t.name,
-    displayName: t.displayName,
-    icon: t.icon,
-  }));
+  const visible = toolsForRole(actor.role);
+  // Automation runs are reached through RUNS, not a generic tool list.
+  const tools = visible
+    .filter((t) => t.name !== automationTool.name)
+    .map((t) => ({ name: t.name, displayName: t.displayName, icon: t.icon }));
+  const runs = visible.some((t) => t.name === automationTool.name);
   const pending = countPendingFor(actor);
   const chain = verifyChain();
 
@@ -57,7 +59,7 @@ export default async function RootLayout({
       <body className="h-screen overflow-hidden bg-background text-foreground antialiased">
         <CommandPaletteProvider modes={modes}>
           <div className="flex h-full">
-            <AppSidebar actor={actor} tools={tools} pendingApprovals={pending} />
+            <AppSidebar actor={actor} tools={tools} runs={runs} pendingApprovals={pending} />
             <div className="flex min-w-0 flex-1 flex-col">
               <AppHeader
                 actor={actor}

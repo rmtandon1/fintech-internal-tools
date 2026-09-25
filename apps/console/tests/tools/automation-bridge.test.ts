@@ -480,6 +480,29 @@ describe("observeMerge and stopRun", () => {
     expect(after?.prUrl).toBe(PR);
   });
 
+  it("builds a reversal's context from the merged run's cluster, not the caller's", async () => {
+    const run = await approved();
+    await observeMerge(admin, run, deps({ github: fakeGitHub({ merged: true }).client }));
+    const devin = fakeDevin({});
+    const out = await dispatchRun(
+      admin,
+      {
+        ...request,
+        kind: "REVERSAL",
+        intent: REFUND_CLUSTERING_HOLD.intents.REVERSAL ?? "",
+        clusterKey: "Forged Merchant",
+        evidenceIds: [],
+        reverses: run.id,
+      },
+      deps({ devin: devin.client }),
+    );
+    expect(out.dispatch.outcome.status).toBe("applied");
+    const context = JSON.parse(readFileSync(join(repoRoot, "runs", out.runId, "context.json"), "utf8"));
+    expect(context.evidence.cluster).toBe(`${REFUND_CLUSTERING_HOLD.evidence.cluster}:Kestrel Outdoors`);
+    expect(context.reverses).toMatchObject({ run_id: run.id, merge_commit: MERGE });
+    expect(getRun(out.runId)?.reverses).toBe(run.id);
+  });
+
   it("terminates the Devin session, then records stop", async () => {
     const run = await approved();
     const devin = fakeDevin({});

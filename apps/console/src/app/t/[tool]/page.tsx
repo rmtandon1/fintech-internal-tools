@@ -319,10 +319,10 @@ function dispatchOffer(
 ): DispatchOffer | null {
   const spec = cluster.handoffSpec ? getSpec(cluster.handoffSpec) : undefined;
   if (!spec) return null;
-  const kinds = kindsStartableBy(actor.role, spec).map((kind) => ({
-    kind,
-    intent: spec.intents[kind] ?? "",
-  }));
+  // Reversals start from the merged run on /runs, not from evidence.
+  const kinds = kindsStartableBy(actor.role, spec)
+    .filter((kind) => kind !== "REVERSAL")
+    .map((kind) => ({ kind, intent: spec.intents[kind] ?? "" }));
   if (kinds.length === 0) return null;
   return { spec: spec.file, clusterKey: group.key, evidenceIds: group.recordIds, kinds };
 }

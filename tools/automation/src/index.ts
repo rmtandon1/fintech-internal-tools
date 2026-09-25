@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, like, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, like, or } from "drizzle-orm";
 import { ulid } from "ulid";
 import { z } from "zod";
 import { db } from "@console/db";
@@ -578,4 +578,24 @@ function transition(
 
 export function getRun(id: string): DevinRun | null {
   return db.select().from(devinRuns).where(eq(devinRuns.id, id)).get() ?? null;
+}
+
+/** One page of runs, newest request first. */
+export function listRuns({ limit, offset = 0 }: { limit: number; offset?: number }): DevinRun[] {
+  return db
+    .select()
+    .from(devinRuns)
+    .orderBy(desc(devinRuns.requestedAt))
+    .limit(limit)
+    .offset(offset)
+    .all();
+}
+
+export function countRuns(): number {
+  return db.select({ n: count() }).from(devinRuns).get()?.n ?? 0;
+}
+
+/** Whether a stored status string is one of the in-flight statuses. */
+export function isInFlight(status: string): boolean {
+  return IN_FLIGHT_STATUSES.some((s) => s === status);
 }

@@ -3,7 +3,7 @@
 import "@/app/bootstrap";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { getRun, RUN_KINDS, RUN_SCOPES } from "@console/tool-automation";
+import { getRun, getSpec, RUN_KINDS, RUN_SCOPES } from "@console/tool-automation";
 import {
   approveRun,
   describeIntent,
@@ -36,14 +36,29 @@ export interface BridgeResult {
   reload?: boolean;
 }
 
-const DispatchForm = z.object({
-  spec: z.string().min(1),
-  kind: z.enum(RUN_KINDS),
-  scope: z.enum(RUN_SCOPES),
-  intent: z.string().min(1).max(500),
-  clusterKey: z.string().min(1),
-  evidenceIds: z.array(z.string().min(1)).min(1),
-});
+const DispatchForm = z
+  .object({
+    spec: z.string().min(1),
+    kind: z.enum(RUN_KINDS),
+    scope: z.enum(RUN_SCOPES),
+    intent: z.string().min(1).max(500),
+    clusterKey: z.string(),
+    evidenceIds: z.array(z.string().min(1)),
+    reverses: z.string().min(1).nullable(),
+  })
+  .superRefine((form, ctx) => {
+    // A reversal names the merged run; the bridge reuses that run's cluster.
+    // Every other kind is dispatched from a cluster with evidence in hand.
+    if (form.kind === "REVERSAL") {
+      if (!form.reverses) ctx.addIssue({ code: "custom", message: "A reversal names the run it reverses" });
+      if (form.intent !== getSpec(form.spec)?.intents.REVERSAL) {
+        ctx.addIssue({ code: "custom", message: "A reversal uses the spec's reversal intent" });
+      }
+    } else {
+      if (!form.clusterKey) ctx.addIssue({ code: "custom", message: "Dispatch from a cluster" });
+      if (form.evidenceIds.length === 0) ctx.addIssue({ code: "custom", message: "Select evidence rows" });
+    }
+  });
 
 export async function dispatchAutomationRun(form: FormData): Promise<BridgeResult> {
   const parsed = DispatchForm.safeParse({
@@ -53,6 +68,7 @@ export async function dispatchAutomationRun(form: FormData): Promise<BridgeResul
     intent: form.get("intent"),
     clusterKey: form.get("clusterKey"),
     evidenceIds: form.getAll("evidenceIds").map(String),
+    reverses: form.get("reverses") || null,
   });
   if (!parsed.success) {
     return { ok: false, title: "Invalid dispatch", detail: parsed.error.issues[0]?.message };
@@ -82,6 +98,7 @@ export async function pollAutomationRun(runId: string): Promise<BridgeResult> {
   try {
     const { poll: outcome, record } = await observeRun(actor, run, bridgeDeps());
     revalidatePath(`/t/automation/${runId}`);
+    revalidatePath("/runs");
     switch (outcome.kind) {
       case "output":
         return {
