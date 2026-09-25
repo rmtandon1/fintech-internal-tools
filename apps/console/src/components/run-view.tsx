@@ -15,6 +15,12 @@ import type { ReplayFrame, StructuredOutput } from "@console/tool-automation";
 
 const TERMINAL = new Set(["merged", "stopped", "dispatch_failed"]);
 
+async function fetchRun(runId: string): Promise<RunViewPayload | null> {
+  const res = await fetch(`/api/devin/${runId}`).catch(() => null);
+  if (!res || !res.ok) return null;
+  return (await res.json()) as RunViewPayload;
+}
+
 const RUN_STATUSES = RUN_STATUS_OPTIONS;
 
 const PHASE_LABELS: Record<string, string> = {
@@ -223,10 +229,8 @@ export function RunView({
   useEffect(() => {
     let cancelled = false;
     async function poll() {
-      const res = await fetch(`/api/devin/${runId}`).catch(() => null);
-      if (!res || cancelled) return;
-      if (!res.ok) return;
-      const body = (await res.json()) as RunViewPayload;
+      const body = await fetchRun(runId);
+      if (!body || cancelled) return;
       setPayload(body);
       return !TERMINAL.has(body.run.status);
     }
@@ -272,7 +276,11 @@ export function RunView({
       const result = await syncAutomationRun(runId);
       if (result.ok) toast.success(result.title, { description: result.detail });
       else toast.error(result.title, { description: result.detail });
-      if (result.reload) router.refresh();
+      if (result.reload) {
+        router.refresh();
+        const body = await fetchRun(runId);
+        if (body) setPayload(body);
+      }
     });
   }
 

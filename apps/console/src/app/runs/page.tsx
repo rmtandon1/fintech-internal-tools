@@ -129,7 +129,11 @@ export default async function RunsPage({
           ))}
         </TableBody>
       </Table>
-      {runs.some((run) => isInFlight(run.status)) ? <RefreshInFlight /> : null}
+      {runs.some((run) => isInFlight(run.status)) ? (
+        <RefreshInFlight
+          runIds={runs.filter((run) => isInFlight(run.status)).map((run) => run.id)}
+        />
+      ) : null}
     </Panel>
   );
 }

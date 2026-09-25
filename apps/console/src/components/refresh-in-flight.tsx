@@ -4,14 +4,25 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 /**
- * Re-render the server list while a run is in flight: the run row's status
- * only changes when the page re-reads `devin_runs`, so refresh every 5s.
+ * Keep the server list live while runs are in flight. Each tick observes the
+ * in-flight runs through `/api/devin/<id>` (which polls Devin and records an
+ * ended session) and then re-renders the page so the rows re-read `devin_runs`.
  */
-export function RefreshInFlight() {
+export function RefreshInFlight({ runIds }: { runIds: string[] }) {
   const router = useRouter();
+  const key = runIds.join(",");
   useEffect(() => {
-    const timer = setInterval(() => router.refresh(), 5000);
-    return () => clearInterval(timer);
-  }, [router]);
+    let cancelled = false;
+    const timer = setInterval(async () => {
+      await Promise.all(
+        key.split(",").filter(Boolean).map((id) => fetch(`/api/devin/${id}`).catch(() => null)),
+      );
+      if (!cancelled) router.refresh();
+    }, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [router, key]);
   return null;
 }
