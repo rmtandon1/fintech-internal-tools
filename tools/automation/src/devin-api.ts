@@ -11,8 +11,16 @@ export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
 
 export interface DevinCredentials {
   apiKey: string;
-  orgId: string;
+  /** Resolved from `GET /v3/self` when absent, so the key alone is enough. */
+  orgId?: string;
   baseUrl?: string;
+}
+
+/** Who the API key authenticates as (`GET /v3/self`). */
+export interface DevinSelf {
+  principalType: string;
+  name: string | null;
+  orgId: string | null;
 }
 
 export interface CreateSessionRequest {
@@ -64,10 +72,58 @@ export class DevinApiError extends Error {
   }
 }
 
+function apiBase(baseUrl?: string): string {
+  return (baseUrl ?? DEVIN_API_BASE).replace(/\/$/, "");
+}
+
+/** Reads the key's principal and organisation. A rejected key throws `DevinApiError`. */
+export async function getSelf(
+  apiKey: string,
+  fetchImpl: FetchLike,
+  baseUrl?: string,
+): Promise<DevinSelf> {
+  const path = `${apiBase(baseUrl)}/self`;
+  const res = await fetchImpl(path, { method: "GET", headers: { Authorization: `Bearer ${apiKey}` } });
+  if (!res.ok) throw new DevinApiError(res.status, path, await res.text().catch(() => ""));
+  const json: unknown = JSON.parse(await res.text());
+  const principalType = field(json, "principal_type");
+  const name = field(json, "service_user_name") ?? field(json, "user_name");
+  const orgId = field(json, "org_id");
+  return {
+    principalType: typeof principalType === "string" ? principalType : "unknown",
+    name: typeof name === "string" ? name : null,
+    orgId: typeof orgId === "string" && orgId.length > 0 ? orgId : null,
+  };
+}
+
+/** The configured organisation, or the one the key belongs to. */
+export async function resolveOrgId(creds: DevinCredentials, fetchImpl: FetchLike): Promise<string> {
+  if (creds.orgId) return creds.orgId;
+  const self = await getSelf(creds.apiKey, fetchImpl, creds.baseUrl);
+  if (!self.orgId) {
+    throw new Error("The Devin API key is not scoped to an organisation; set DEVIN_ORG_ID");
+  }
+  return self.orgId;
+}
+
 export function httpDevinClient(creds: DevinCredentials, fetchImpl: FetchLike): DevinClient {
-  const base = (creds.baseUrl ?? DEVIN_API_BASE).replace(/\/$/, "");
-  const org = `${base}/organizations/${encodeURIComponent(creds.orgId)}`;
+  const base = apiBase(creds.baseUrl);
   const headers = { Authorization: `Bearer ${creds.apiKey}` };
+
+  // Resolved once per client; a failed lookup is retried on the next call.
+  let orgBase: Promise<string> | null = null;
+  function orgPath(): Promise<string> {
+    if (!orgBase) {
+      const pending = resolveOrgId(creds, fetchImpl).then(
+        (id) => `${base}/organizations/${encodeURIComponent(id)}`,
+      );
+      pending.catch(() => {
+        orgBase = null;
+      });
+      orgBase = pending;
+    }
+    return orgBase;
+  }
 
   async function call(path: string, init: CallInit): Promise<unknown> {
     const res = await fetchImpl(path, { ...init, headers: { ...headers, ...init.headers } });
@@ -79,7 +135,7 @@ export function httpDevinClient(creds: DevinCredentials, fetchImpl: FetchLike): 
   async function uploadAttachment(name: string, body: string): Promise<string> {
     const form = new FormData();
     form.append("file", new Blob([body], { type: "application/json" }), name);
-    const json = await call(`${org}/attachments`, { method: "POST", body: form });
+    const json = await call(`${await orgPath()}/attachments`, { method: "POST", body: form });
     const url = field(json, "url");
     if (typeof url !== "string") throw new Error("Devin attachment upload returned no url");
     return url;
@@ -88,7 +144,7 @@ export function httpDevinClient(creds: DevinCredentials, fetchImpl: FetchLike): 
   return {
     async createSession(req) {
       const attachmentUrl = await uploadAttachment(req.attachment.name, req.attachment.body);
-      const json = await call(`${org}/sessions`, {
+      const json = await call(`${await orgPath()}/sessions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -110,7 +166,7 @@ export function httpDevinClient(creds: DevinCredentials, fetchImpl: FetchLike): 
       return { sessionId, url };
     },
     async getSession(sessionId) {
-      const json = await call(`${org}/sessions/${encodeURIComponent(sessionId)}`, { method: "GET" });
+      const json = await call(`${await orgPath()}/sessions/${encodeURIComponent(sessionId)}`, { method: "GET" });
       const status = field(json, "status");
       if (typeof status !== "string") throw new Error("Devin session read returned no status");
       const detail = field(json, "status_detail");
@@ -121,14 +177,14 @@ export function httpDevinClient(creds: DevinCredentials, fetchImpl: FetchLike): 
       };
     },
     async sendMessage(sessionId, message) {
-      await call(`${org}/sessions/${encodeURIComponent(sessionId)}/messages`, {
+      await call(`${await orgPath()}/sessions/${encodeURIComponent(sessionId)}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message }),
       });
     },
     async terminateSession(sessionId) {
-      await call(`${org}/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" });
+      await call(`${await orgPath()}/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" });
     },
   };
 }
