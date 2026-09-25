@@ -25,10 +25,10 @@ A `kyc_reviewer` approves a low-risk case:
 
 ```
 APPROVED · kyc_0014 · pending_review → approved · v1 → v2
-✓ Permission   kyc_reviewer may approve kyc
-✓ Policy       5 rules · all allow                     [trace]
-✓ Decision     usr_kyc_reviewer · 2026-09-25 14:02:11 UTC
-✓ Audit        #232 · 9f3a…c1 · chain ✓                [open]
+✓ Permission   kyc_reviewer is allowed to approve in kyc
+✓ Policy       5 rules checked, all passed             [trace]
+✓ Recorded     by usr_kyc_reviewer at 2026-09-25 14:02:11 UTC
+✓ Audit        #232 · 9f3a…c1 · chain intact           [open]
 ```
 
 | Line | Source |
@@ -36,7 +36,7 @@ APPROVED · kyc_0014 · pending_review → approved · v1 → v2
 | Header | Audit row `before_json` / `after_json`: status and `version` |
 | Permission | `actor.role` against `action.allowedRoles`. The server checks this in `executeIntent` step 1, so an applied outcome means it passed |
 | Policy | `outcome.trace`: rule count and effects. `[trace]` expands the existing `PolicyTrace` component |
-| Decision | Audit row `actor_id` and `ts`. They get their own line because an auditor asks for them first. "Decision" is the operator's word; the panel doesn't describe the database |
+| Recorded | Audit row `actor_id` and `ts`. They get their own line because an auditor asks for them first. Plain words throughout; the panel doesn't describe the database |
 | Audit | Row fetched by `outcome.auditId`: `seq`, `row_hash`, and `verifyChain` over the head. `[open]` links to `/audit` at that row |
 
 ### Action sent for approval
@@ -44,12 +44,12 @@ APPROVED · kyc_0014 · pending_review → approved · v1 → v2
 The outcome the demo depends on. After `REFUND_CLUSTERING_HOLD.md` merges, the refunds agent approves `rfnd_0013`:
 
 ```
-SENT TO MANAGER · rfnd_0013 · still requested · v1
-✓ Permission   refunds_agent may approve refunds
+WAITING FOR MANAGER · rfnd_0013 · requested unchanged · v1
+✓ Permission   refunds_agent is allowed to approve in refunds
 → Policy       clustering_hold: Kestrel Outdoors not-received refunds
                total 1880.00 USD over 14 days          [trace]
-✓ Frozen       payload, trace and v1 held · approval 01K5…
-✓ Audit        #233 approval_requested · chain ✓       [open]
+✓ Held         request 01K5… keeps the input and v1 until a decision
+✓ Audit        #233 approval_requested · chain intact  [open]
 ```
 
 The record didn't change, and the header says so. The policy line names the rule that routed it, with the engine's own reason string. This is the proof shot in `CUSTOMER_FRAMING.md` › Demo pitch › "Approve, then show the proof".
@@ -60,7 +60,7 @@ The action bar disables any action the preview already denies, so a denial only 
 
 ### Duplicate submit
 
-A second submit with the same idempotency key returns the stored result. The panel adds one line, `↺ Replayed · no second write`. The idempotency key appears only here, where it explains what happened.
+A second submit with the same idempotency key returns the stored result. The panel adds one line, `↺ Duplicate · input already received, nothing written again`. The idempotency key appears only here, where it explains what happened.
 
 ## Downstream systems
 
@@ -92,7 +92,7 @@ pnpm db:setup && pnpm dev
 ```
 
 - As `kyc_reviewer`, approve a case under the manager line. The panel shows `v1 → v2`, and its `#seq` and hash match the row at `/audit`.
-- Approve a case at or above 70. The panel reads "SENT TO MANAGER", names `risk_tier_approval`, and the audit line shows `approval_requested`.
+- Approve a case at or above 70. The panel reads "WAITING FOR MANAGER", names `risk_tier_approval`, and the audit line shows `approval_requested`.
 - Run the same approvals in refunds and flags. The panel has the same shape, and no file under `tools/` changed.
 - Submit twice with the same key. The panel shows the replay line and `/audit` gains no row.
 - No line renders without a value.
