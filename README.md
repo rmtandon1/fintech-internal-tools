@@ -16,10 +16,10 @@ pnpm dev        # serves http://localhost:3001 and opens a browser
 ```
 
 `pnpm dev` fails to render until `pnpm db:setup` has created the database. To start over at
-any point, delete the file and re-seed:
+any point, delete the data folder and re-seed:
 
 ```bash
-rm -rf apps/console/data/console.db* && pnpm db:setup
+rm -rf apps/console/data && pnpm db:setup
 ```
 
 Role switching is a signed cookie (no auth), chosen from the header. Roles are
@@ -73,7 +73,7 @@ pnpm db:tamper prev_mismatch   # rewrites a row's prev hash
 pnpm db:tamper seq_gap         # deletes a row mid-chain
 ```
 
-The verify page names the break type and the row it starts at. `rm -rf apps/console/data/console.db* &&
+The verify page names the break type and the row it starts at. `rm -rf apps/console/data &&
 pnpm db:setup` puts the demo back.
 
 ## Scripts
