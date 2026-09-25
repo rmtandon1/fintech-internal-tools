@@ -3,7 +3,16 @@ import { ConstantEditor } from "@/components/constant-editor";
 import { Panel } from "@/components/panel";
 import { RulesCard, type RuleRow } from "@/components/rules-card";
 import { listConstants } from "@console/engine/policy/constants";
-import { SPECS, type RunKind } from "@console/tool-automation";
+import { ALL_ROLES, roleLabel } from "@console/permissions";
+import {
+  kindsStartableBy,
+  roleMayStart,
+  SPECS,
+  type RunKind,
+  type RunnableSpec,
+} from "@console/tool-automation";
+import { bridgeDeps } from "@/lib/bridge";
+import { buildHandoffOffer } from "@/lib/handoff";
 import { currentActor } from "@/lib/session";
 
 export default async function PolicyConstantsPage() {
@@ -12,21 +21,36 @@ export default async function PolicyConstantsPage() {
 
   const constants = listConstants();
 
+  const deps = bridgeDeps();
+
+  const action = (
+    spec: RunnableSpec,
+    kind: RunKind,
+    label: string,
+  ): RuleRow["actions"][number] => {
+    if (!spec.kinds.includes(kind)) {
+      return { kind, label, enabled: false, reason: `${spec.file} offers no ${kind} run` };
+    }
+    if (!kindsStartableBy(actor.role, spec).includes(kind)) {
+      const who = ALL_ROLES.filter((role) => roleMayStart(role, spec, kind)).map(roleLabel);
+      return { kind, label, enabled: false, reason: `Only ${who.join(", ")} may start this run` };
+    }
+    try {
+      const offer = buildHandoffOffer(spec, kind, actor, { clusterKey: "", evidenceIds: [] }, deps);
+      return offer
+        ? { kind, label, enabled: true, offer }
+        : { kind, label, enabled: false, reason: "Context unavailable" };
+    } catch {
+      return { kind, label, enabled: false, reason: "Context unavailable" };
+    }
+  };
+
   const rules: RuleRow[] = SPECS.map((spec) => {
-    const action = (kind: RunKind, label: string): RuleRow["actions"][number] =>
-      spec.kinds.includes(kind)
-        ? { kind, label, enabled: false, reason: "Not wired to a trigger here" }
-        : {
-            kind,
-            label,
-            enabled: false,
-            reason: `${spec.file} offers no ${kind} run`,
-          };
     return {
       spec: spec.file,
       actions: [
-        action("IMPLEMENTATION/CHANGE", "Ask Devin to change this rule"),
-        action("IMPLEMENTATION/REMOVAL", "Ask Devin to remove this rule"),
+        action(spec, "IMPLEMENTATION/CHANGE", "Ask Devin to change this rule"),
+        action(spec, "IMPLEMENTATION/REMOVAL", "Ask Devin to remove this rule"),
       ],
     };
   });

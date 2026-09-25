@@ -3,17 +3,17 @@
 import "@/app/bootstrap";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { ContextFile, getRun, RUN_KINDS, RUN_SCOPES } from "@console/tool-automation";
+import { getRun, RUN_KINDS, RUN_SCOPES } from "@console/tool-automation";
 import {
   approveRun,
   describeIntent,
   dispatchRun,
   observeMerge,
   pollRun,
-  readContextJson,
   stopRun,
 } from "@console/tool-automation/bridge";
 import { bridgeDeps } from "@/lib/bridge";
+import { reversalEvidence } from "@/lib/handoff";
 import { currentActor } from "@/lib/session";
 
 /**
@@ -30,6 +30,8 @@ export interface BridgeResult {
   href?: string;
   /** The run a dispatch created, so the caller can focus it in place. */
   runId?: string;
+  /** The audit row the intent wrote, when the outcome carries one. */
+  auditId?: string;
 }
 
 const DispatchForm = z.object({
@@ -42,21 +44,6 @@ const DispatchForm = z.object({
   evidenceIds: z.array(z.string().min(1)).default([]),
   reverses: z.string().min(1).optional(),
 });
-
-/** The cluster key and evidence ids a REVERSAL reuses from the run it undoes. */
-function reversalEvidence(
-  repoRoot: string,
-  reverses: string,
-): { clusterKey: string; evidenceIds: string[] } {
-  const json = readContextJson(repoRoot, reverses);
-  if (!json) throw new Error(`No context.json on disk for run ${reverses}`);
-  const context = ContextFile.parse(JSON.parse(json));
-  const sep = context.evidence.cluster.indexOf(":");
-  return {
-    clusterKey: sep < 0 ? context.evidence.cluster : context.evidence.cluster.slice(sep + 1),
-    evidenceIds: context.evidence.rows.map((row) => row.id),
-  };
-}
 
 export async function dispatchAutomationRun(form: FormData): Promise<BridgeResult> {
   const parsed = DispatchForm.safeParse({
@@ -150,17 +137,20 @@ export async function approveAutomationRun(runId: string, note: string): Promise
     const outcome = await approveRun(actor, run, note || undefined, bridgeDeps());
     revalidatePath("/", "layout");
     const status = outcome.approve.outcome.status;
+    const auditId =
+      "auditId" in outcome.approve.outcome ? outcome.approve.outcome.auditId : undefined;
     if (status !== "applied") {
       return {
         ok: false,
         title: status === "denied" ? "Approval denied" : "Approval failed",
         detail: `${describeIntent(outcome.approve)} (${outcome.checks})`,
+        auditId,
       };
     }
     if (outcome.reviewError) {
       return { ok: false, title: "Approved, but GitHub review failed", detail: outcome.reviewError };
     }
-    return { ok: true, title: "PR approved", detail: outcome.checks };
+    return { ok: true, title: "PR approved", detail: outcome.checks, auditId };
   } catch (error) {
     return { ok: false, title: "Approval failed", detail: message(error) };
   }

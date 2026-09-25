@@ -38,14 +38,14 @@ Once the run starts, the same column becomes the run view.
 **Grouped layout.** The fields sit in four groups: REQUEST (the intent, the one editable field) and three blocks the system fills in: CONTEXT (evidence, constants, base commit, no PII), GUARDRAILS (the allowed files) and EXECUTION (mode, start). It shows without narration that the operator writes one sentence and the system supplies the rest. Two requirements:
 
 1. The group headers don't push the evidence line below the fold (see On camera).
-2. The GUARDRAILS caption reads "CI fails anything outside the plan", not "outside this scope". CI checks the plan Devin commits. The scope is the outer bound that plan must fall within.
+2. The GUARDRAILS caption reads "The PR's checks: Lint · Typecheck · Boundaries · Test. Approval: an engineer who did not request the run", not "outside this scope". The four CI checks gate the merge; the scope is the outer bound the plan must fall within.
 
 ## On camera
 
 This panel carries three lines of the demo pitch (`CUSTOMER_FRAMING.md` § 4), so it has to make both visible without narration:
 
 - **"This is everything Devin sees."** The evidence block shows the four Kestrel amounts, the $500 and score-70 lines and base commit `1a67f60`, and no email or card number. If the presenter has to scroll to prove the PII is absent, the panel is too long.
-- **"CI fails anything outside the plan."** When the Plan phase lands, the run view lists the five planned paths, not just a count, so the viewer sees the commitment before the first edit.
+- **"The commitment comes before the first edit."** When the Plan phase lands, the run view lists the five planned paths, not just a count, so the viewer sees the commitment before the first edit — and the reviewer checks the diff against it.
 - **"Devin didn't just add a threshold."** The finished run view shows every file with its +/− lines, `pnpm verify` split into its four checks — Lint, Typecheck, Boundaries and Test — each passing. The presenter points at it instead of listing files from memory.
 
 ## The run view

@@ -21,17 +21,6 @@ const RUN_STATUSES = [
   { value: "stopped", label: "Stopped", tone: "neutral" as const },
 ];
 
-/** The business sentence for what the run changes once merged. */
-function summary(run: RunViewPayload["run"]): string {
-  if (run.kind === "REVERSAL") {
-    return `Removing the change run ${run.reverses ?? ""} added, and keeping everything merged since.`;
-  }
-  if (run.spec === "REFUND_CLUSTERING_HOLD.md") {
-    return "Holding a merchant's not-received refunds once together they pass the manager line, and sending those customers' KYC approvals to a manager.";
-  }
-  return run.intent;
-}
-
 const PHASE_LABELS: Record<string, string> = {
   intake: "Read the evidence",
   baseline: "Confirmed the base",
@@ -94,12 +83,13 @@ function Checklist({ out, run }: { out: StructuredOutput | null; run: RunViewPay
     label: PHASE_LABELS.intake,
     detail: out?.base_commit ? `base ${out.base_commit.slice(0, 7)}` : undefined,
   });
+  const testStep = out?.verify_steps.find((s) => s.name === "Test");
   rows.push({
     state: stateOf("baseline"),
     label: PHASE_LABELS.baseline,
     detail:
-      durations.baseline !== undefined
-        ? `${out?.verify_steps.find((s) => s.name === "Test")?.before ?? 68} tests`
+      durations.baseline !== undefined && testStep?.before != null
+        ? `${testStep.before} tests`
         : undefined,
   });
   rows.push({
@@ -128,8 +118,8 @@ function Checklist({ out, run }: { out: StructuredOutput | null; run: RunViewPay
             .map((s) => `${s.name} ${s.pass === true ? "✓" : s.pass === false ? "✗" : "…"}`)
             .join(" ")}`
         : PHASE_LABELS.verify,
-    detail: steps.find((s) => s.name === "Test")?.after
-      ? `${steps.find((s) => s.name === "Test")?.before} → ${steps.find((s) => s.name === "Test")?.after}`
+    detail: testStep?.after
+      ? `${testStep.before} → ${testStep.after}`
       : undefined,
   });
   const pr = run.prUrl ?? out?.pr_url ?? null;
@@ -153,6 +143,13 @@ function Checklist({ out, run }: { out: StructuredOutput | null; run: RunViewPay
       ))}
     </ul>
   );
+}
+
+/** Elapsed time since dispatch, `+mm:ss` — frames are relative, not clocked. */
+function elapsed(ms: number): string {
+  const m = Math.floor(ms / 60_000);
+  const s = Math.floor((ms % 60_000) / 1_000);
+  return `+${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
 function Detail({ frames }: { frames: ReplayFrame[] }) {
@@ -189,7 +186,7 @@ function Detail({ frames }: { frames: ReplayFrame[] }) {
           .map((f) => (
             <li key={f.at_ms} className="flex items-baseline gap-2 py-0.5">
               <span className="font-mono text-muted-foreground tabular-nums">
-                {new Date(f.at_ms).toISOString().slice(11, 19)}
+                {elapsed(f.at_ms)}
               </span>
               <span className="font-mono">{f.structured_output.phase}</span>
               <span className="min-w-0 flex-1 truncate text-muted-foreground">
@@ -294,7 +291,7 @@ export function RunView({ runId, initial }: { runId: string; initial?: RunViewPa
         <p className="mt-1 text-muted-foreground">{run.intent}</p>
         <p className="mt-0.5 text-[11px] text-muted-foreground">
           requested by <span className="text-foreground">{run.requestedByRole}</span> ·{" "}
-          {summary(run)}
+          {payload.summary}
         </p>
         {run.reverses ? (
           <p className="mt-0.5 text-[11px] text-muted-foreground">

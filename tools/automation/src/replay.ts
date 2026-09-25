@@ -6,7 +6,13 @@ import type {
   SessionSnapshot,
 } from "./devin-api";
 import type { GitHubClient, PullRef } from "./github-api";
-import { automationTool, type DevinRun, getRun, getRunByPrUrl } from "./index";
+import {
+  automationTool,
+  type DevinRun,
+  getRun,
+  getRunByPrUrl,
+  IN_FLIGHT_STATUSES,
+} from "./index";
 import { CI_CHECKS, type ReplayFrame, type StructuredOutput } from "./run-files";
 import type { RunKind } from "./specs";
 
@@ -413,18 +419,18 @@ const MERGE_DELAY_MS = 4_000;
  */
 export function replayGitHubClient(now: () => number = Date.now): GitHubClient {
   function runFor(pr: PullRef) {
-    const byUrl = getRunByPrUrl(`${REPO_PR_BASE}/${pr.number}`);
-    if (byUrl) return byUrl;
-    // Before approval the run's pr_url lives only in its frames; match the
-    // scripted PR number against in-flight replay runs by kind instead.
+    // An in-flight replay run wins over a URL match: a merged run keeps its
+    // pr_url forever, but it is no longer the PR this getPull is about.
     const { rows } = automationTool.list({ filters: {}, limit: 200, offset: 0 });
-    return (
-      (rows as DevinRun[]).find(
+    const inFlight = (rows as DevinRun[])
+      .filter(
         (r) =>
           r.sessionId?.startsWith("replay-") &&
+          IN_FLIGHT_STATUSES.includes(r.status as (typeof IN_FLIGHT_STATUSES)[number]) &&
           (pr.number === 991 ? r.kind === "REVERSAL" : r.kind !== "REVERSAL"),
-      ) ?? null
-    );
+      )
+      .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+    return inFlight ?? getRunByPrUrl(`${REPO_PR_BASE}/${pr.number}`);
   }
   return {
     async getPull(pr) {

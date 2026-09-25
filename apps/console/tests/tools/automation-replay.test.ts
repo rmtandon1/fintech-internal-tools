@@ -19,7 +19,13 @@ import {
   ReplayFile,
   scriptedFrames,
 } from "@console/tool-automation";
-import { approveRun, type BridgeDeps, dispatchRun, pollRun } from "@console/tool-automation/bridge";
+import {
+  approveRun,
+  type BridgeDeps,
+  dispatchRun,
+  observeMerge,
+  pollRun,
+} from "@console/tool-automation/bridge";
 import { kycTool } from "@console/tool-kyc";
 import { refundTool } from "@console/tool-refunds";
 import { admin, setupHarness } from "../helpers/harness";
@@ -138,5 +144,39 @@ describe("replay clients", () => {
     expect(pull.merged).toBe(true);
     expect(pull.mergeCommit).toMatch(/^[0-9a-f]{40}$/);
     expect((await github.getChecks(pr, pull.headSha)).green).toBe(true);
+  });
+
+  it("matches the in-flight run over a merged run of the same kind", async () => {
+    stopAll();
+    let t = Date.now();
+    let githubShift = 0;
+    const devin = replayDevinClient(() => t);
+    const github = replayGitHubClient(() => Date.now() + githubShift);
+    const deps: BridgeDeps = { devin, github, repoRoot, replaysDir, now: () => t };
+
+    // Merge one run so its pr_url points at the scripted PR number forever.
+    const first = await dispatchRun(admin, request, deps);
+    const firstRun = getRun(first.runId);
+    if (!firstRun) throw new Error("no run");
+    t += 45_000;
+    await pollRun(firstRun, deps);
+    await approveRun(engineer, firstRun, undefined, deps);
+    const pr = parsePullUrl("https://github.com/rmtandon1/buy-v-build-cog-demo/pull/990");
+    if (!pr) throw new Error("parse failed");
+    githubShift = 4_001;
+    expect((await github.getPull(pr)).merged).toBe(true);
+    await observeMerge(engineer, getRun(first.runId) ?? firstRun, deps);
+    expect(getRun(first.runId)?.status).toBe("merged");
+    githubShift = 0;
+
+    // A second dispatch in flight must be what getPull reports on, even
+    // though the merged run's pr_url also matches.
+    const second = await dispatchRun(admin, request, deps);
+    const secondRun = getRun(second.runId);
+    if (!secondRun) throw new Error("no second run");
+    const pull = await github.getPull(pr);
+    expect(pull.merged).toBe(false);
+    expect(pull.headRef).toContain(second.runId);
+    expect(await github.fileSha256(pr, pull.headSha, "x")).toBe(secondRun.contextSha256);
   });
 });

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { ulid } from "ulid";
+import { listAuditEvents } from "@console/engine/audit/query";
 import { executeIntent } from "@console/engine/execute-intent";
 import { registerConstants } from "@console/engine/policy/register";
 import type { Actor } from "@console/engine/types";
@@ -99,6 +100,12 @@ describe("GET /api/devin/<runId>", () => {
     const earlyBody = early.body as RunViewPayload;
     expect(earlyBody.mode).toBe("replay");
     expect(earlyBody.sessionUrl).toBeNull();
+    expect(earlyBody.summary).toBe(
+      REFUND_CLUSTERING_HOLD.summaries["IMPLEMENTATION/ADDITION"],
+    );
+    expect(earlyBody.lastAuditId).toBe(
+      listAuditEvents({ recordId: out.runId, limit: 1 }).rows[0]?.id,
+    );
     expect(earlyBody.latest?.structured_output.phase).toBe("intake");
 
     t += 45_000;
@@ -130,5 +137,9 @@ describe("GET /api/devin/<runId>", () => {
     expect(merged.run.status).toBe("merged");
     expect(merged.run.mergeCommit).toMatch(/^[0-9a-f]{40}$/);
     expect(merged.latest?.structured_output.merge_commit).toBe(merged.run.mergeCommit);
+    // The latest audit row is the record_merge intent just applied.
+    expect(merged.lastAuditId).toBe(
+      listAuditEvents({ recordId: out.runId, limit: 1 }).rows[0]?.id,
+    );
   });
 });

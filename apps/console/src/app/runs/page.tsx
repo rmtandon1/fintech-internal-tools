@@ -1,8 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Panel } from "@/components/panel";
 import { RunRow } from "@/components/run-row";
-import { StatusChip } from "@console/ui/status-chip";
 import {
   Table,
   TableBody,
@@ -10,7 +8,6 @@ import {
   TableHeader,
   TableRow,
 } from "@console/ui/table";
-import { formatRelative } from "@console/ui/format";
 import type { Actor } from "@console/engine/types";
 import {
   AUTOMATION_ROLES,
@@ -95,47 +92,9 @@ export default async function RunsPage() {
           {runs.map((run) => (
             <RunRow
               key={run.id}
-              runId={run.id}
+              run={run}
+              statuses={automationTool.statuses}
               reversalOffer={reversalOffer(run.id, actor, deps)}
-              cells={[
-                <span key="k" className="font-mono text-[11px]">
-                  {run.kind}
-                </span>,
-                <span key="i" className="block max-w-64 truncate">
-                  {run.intent}
-                </span>,
-                <span key="r">{run.requestedByRole}</span>,
-                <StatusChip key="s" value={run.status} statuses={automationTool.statuses} />,
-                run.prUrl ? (
-                  <a
-                    key="p"
-                    href={run.prUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="font-mono text-[11px] hover:underline"
-                  >
-                    #{run.prUrl.match(/pull\/(\d+)/)?.[1] ?? "pr"}
-                  </a>
-                ) : (
-                  "—"
-                ),
-                run.reverses ? (
-                  <Link
-                    key="v"
-                    href={`/t/automation/${run.reverses}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="font-mono text-[11px] hover:underline"
-                  >
-                    {run.reverses.slice(-6)}
-                  </Link>
-                ) : (
-                  "—"
-                ),
-                <span key="t" className="text-muted-foreground">
-                  {formatRelative(run.requestedAt)}
-                </span>,
-              ]}
             />
           ))}
         </TableBody>

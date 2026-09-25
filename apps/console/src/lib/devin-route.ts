@@ -1,11 +1,14 @@
 import { DEMO_ACTORS } from "@console/engine/actor";
+import { listAuditEvents } from "@console/engine/audit/query";
 import type { Actor } from "@console/engine/types";
 import {
   AUTOMATION_ROLES,
   type DevinRun,
   getRun,
+  getSpec,
   IN_FLIGHT_STATUSES,
   type ReplayFrame,
+  type RunKind,
   type RunStatus,
 } from "@console/tool-automation";
 import { observeMerge, pollRun, readReplay } from "@console/tool-automation/bridge";
@@ -50,6 +53,10 @@ export interface RunViewPayload {
   frames: ReplayFrame[];
   latest: ReplayFrame | null;
   sessionUrl: string | null;
+  /** The business sentence for what the run changes once merged. */
+  summary: string;
+  /** The id of the run's latest audit row, or null before the first intent. */
+  lastAuditId: string | null;
   offers: RunOffers;
 }
 
@@ -89,6 +96,8 @@ export async function handleGet(
       deps.mode === "live" && run.sessionId
         ? `https://app.devin.ai/sessions/${run.sessionId}`
         : null,
+    summary: getSpec(run.spec)?.summaries?.[run.kind as RunKind] ?? run.intent,
+    lastAuditId: listAuditEvents({ recordId: run.id, limit: 1 }).rows[0]?.id ?? null,
     offers: runOffers(run, actor, deps, latest?.structured_output ?? null),
   };
   return { status: 200, body: payload };

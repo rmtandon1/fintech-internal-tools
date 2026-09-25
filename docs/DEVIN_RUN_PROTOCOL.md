@@ -5,7 +5,7 @@
 - A business rule in this console is code. Devin adds, changes or removes it in a run, and a person approves every merge.
 - Feature specs (`REFUND_CLUSTERING_HOLD.md`, `PRIVILEGED_ACTION_JUSTIFICATION.md`) supply each run's intent, scope and acceptance tests.
 - Starting a run is a governed write, like any other action. Each run appears in the audit chain four times, when it is requested, picked up, approved, and merged.
-- The console hands Devin a context file with the live settings and evidence, without customer data. Devin commits its plan before its first edit, and security checks in CI hold the diff to that plan.
+- The console hands Devin a context file with the live settings and evidence, without customer data. Devin commits its plan before its first edit, so the reviewing engineer sees the commitment before the edits and checks the diff against that plan.
 - An engineer approves, then Devin merges.
 - A reversal removes one earlier change from the code as it is now, keeping everything merged since.
 - Switching a rule off is a setting change on `/admin/policy`, in seconds, with no run.
@@ -116,7 +116,7 @@ Devin's VM runs a freshly seeded database. It cannot see `apps/console/data/cons
 ```
 
 - **Evidence rows carry no PII.** Emails and card numbers are dropped, not masked. Devin needs the amounts, merchant, reason and timing to write a regression test. It doesn't need the customer.
-- **`scope` is the spec's Scope list as path globs.** The console copies it from the spec at dispatch (engine scope adds the paths from § Scope). It is what makes the plan checkable in CI: every `plan.json` path is matched against these globs, rather than parsing the spec's prose.
+- **`scope` is the spec's Scope list as path globs.** The console copies it from the spec at dispatch (engine scope adds the paths from § Scope). It is what makes the plan checkable: the reviewing engineer matches every `plan.json` path against these globs, rather than parsing the spec's prose.
 - **The dispatch audit row stores the SHA-256 of this file.** The `approve_pr` rule checks that the file committed on the branch hashes to the same value, so what Devin worked from is provably what the console sent. CI cannot do this check, because it cannot read the console's SQLite.
 - **For a REVERSAL**, `reverses` names the IMPLEMENTATION's run id and merge commit. `constants` then carries both the values at that IMPLEMENTATION's dispatch and the values now.
 
@@ -147,9 +147,9 @@ Each phase passes or stops the run. There is no "continue with warnings".
 | Merge        | After an engineer's `approve_pr`, Devin merges (squash) and reports `merge_commit`                                                                           | Report why (checks re-running, conflict with a newer merge) and wait. Rebase inside the plan if the base moved |
 
 
-The plan is Devin's own, committed before any edit. The spec gives a scope the plan must stay inside. Committing first is what makes scope checkable: CI compares the diff with a list Devin wrote before it knew what the diff would be.
+The plan is Devin's own, committed before any edit. The spec gives a scope the plan must stay inside. Committing first is what makes scope checkable: the reviewing engineer compares the diff with a list Devin wrote before it knew what the diff would be.
 
-`plan.json` holds `files[]` (path, `create | modify | delete`, one-line reason), `reuses[]` (existing modules the change builds on, each with a one-line reason), `acceptance[]` (the spec's acceptance test names it will make pass) and, for `IMPLEMENTATION/REMOVAL` and `REVERSAL`, `removed_tests[]` of `{ file, name }`: each test the run will delete because it asserts the rule being taken out. CI permits exactly those removals and no others; for other kinds the array is absent or empty. `reuses[]` is informational and not a scope boundary.
+`plan.json` holds `files[]` (path, `create | modify | delete`, one-line reason), `reuses[]` (existing modules the change builds on, each with a one-line reason), `acceptance[]` (the spec's acceptance test names it will make pass) and, for `IMPLEMENTATION/REMOVAL` and `REVERSAL`, `removed_tests[]` of `{ file, name }`: each test the run will delete because it asserts the rule being taken out. The reviewer permits exactly those removals and no others; for other kinds the array is absent or empty. `reuses[]` is informational and not a scope boundary.
 
 ## Progress
 
@@ -174,10 +174,10 @@ The Devin API doesn't stream sub-steps. The session's `structured_output` is the
     { "path": "tools/kyc/src/index.ts", "op": "modify", "additions": 12, "deletions": 1, "reason": "linked_refund_hold on approve" }
   ],
   "verify_steps": [
-    { "name": "lint", "pass": true },
-    { "name": "typecheck", "pass": true },
-    { "name": "boundaries", "pass": true },
-    { "name": "tests", "pass": null, "before": 68, "after": null }
+    { "name": "Lint", "pass": true },
+    { "name": "Typecheck", "pass": true },
+    { "name": "Boundaries", "pass": true },
+    { "name": "Test", "pass": null, "before": 68, "after": null }
   ],
   "conflicts": [],
   "pr_url": null,

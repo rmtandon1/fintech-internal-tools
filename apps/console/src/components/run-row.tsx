@@ -1,30 +1,85 @@
 "use client";
 
+import type { ComponentProps } from "react";
+import Link from "next/link";
 import { TableCell, TableRow } from "@console/ui/table";
 import { Button } from "@console/ui/button";
+import { StatusChip } from "@console/ui/status-chip";
+import { formatRelative } from "@console/ui/format";
 import { useWorkspace } from "@/components/workspace";
 import type { HandoffOffer } from "@/lib/handoff";
 
+/** The /runs row's fields, plain data so they cross the server boundary. */
+export interface RunRowData {
+  id: string;
+  kind: string;
+  intent: string;
+  requestedByRole: string;
+  status: string;
+  prUrl: string | null;
+  reverses: string | null;
+  requestedAt: number;
+}
+
 /** A /runs row: clicking focuses the run in the agent column. */
 export function RunRow({
-  runId,
-  cells,
+  run,
+  statuses,
   reversalOffer,
 }: {
-  runId: string;
-  cells: React.ReactNode[];
+  run: RunRowData;
+  statuses: ComponentProps<typeof StatusChip>["statuses"];
   /** Built server-side when this merged IMPLEMENTATION may be reversed. */
   reversalOffer: HandoffOffer | null;
 }) {
   const { setAgentFocus } = useWorkspace();
+  const prNumber = run.prUrl?.match(/pull\/(\d+)/)?.[1];
   return (
     <TableRow
       className="cursor-pointer hover:bg-accent/40"
-      onClick={() => setAgentFocus({ kind: "run", runId })}
+      onClick={() => setAgentFocus({ kind: "run", runId: run.id })}
     >
-      {cells.map((cell, i) => (
-        <TableCell key={i}>{cell}</TableCell>
-      ))}
+      <TableCell>
+        <span className="font-mono text-[11px]">{run.kind}</span>
+      </TableCell>
+      <TableCell>
+        <span className="block max-w-64 truncate">{run.intent}</span>
+      </TableCell>
+      <TableCell>{run.requestedByRole}</TableCell>
+      <TableCell>
+        <StatusChip value={run.status} statuses={statuses} />
+      </TableCell>
+      <TableCell>
+        {run.prUrl ? (
+          <a
+            href={run.prUrl}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="font-mono text-[11px] hover:underline"
+          >
+            #{prNumber ?? "pr"}
+          </a>
+        ) : (
+          "—"
+        )}
+      </TableCell>
+      <TableCell>
+        {run.reverses ? (
+          <Link
+            href={`/t/automation/${run.reverses}`}
+            onClick={(e) => e.stopPropagation()}
+            className="font-mono text-[11px] hover:underline"
+          >
+            {run.reverses.slice(-6)}
+          </Link>
+        ) : (
+          "—"
+        )}
+      </TableCell>
+      <TableCell>
+        <span className="text-muted-foreground">{formatRelative(run.requestedAt)}</span>
+      </TableCell>
       <TableCell>
         {reversalOffer ? (
           <Button

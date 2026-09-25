@@ -133,7 +133,8 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
           ))}
         </ul>
         <p className="mt-1 text-[11px] text-muted-foreground">
-          CI fails anything outside the plan · Approval: an engineer who did not request the run
+          The PR&rsquo;s checks: Lint · Typecheck · Boundaries · Test. Approval: an engineer who did
+          not request the run
         </p>
       </Group>
 

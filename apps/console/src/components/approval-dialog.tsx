@@ -56,6 +56,8 @@ export function ApprovalDialog({
 }) {
   const [stage, setStage] = useState<Stage>("idle");
   const [failure, setFailure] = useState<string | null>(null);
+  const [approveAuditId, setApproveAuditId] = useState<string | null>(null);
+  const [mergeAuditId, setMergeAuditId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [note, setNote] = useState("");
 
@@ -74,6 +76,7 @@ export function ApprovalDialog({
     setFailure(null);
     startTransition(async () => {
       const result = await approveAutomationRun(runId, note);
+      setApproveAuditId(result.auditId ?? null);
       if (!result.ok) {
         setStage("failed");
         setFailure(`${result.title}: ${result.detail ?? ""}`);
@@ -92,6 +95,7 @@ export function ApprovalDialog({
       if (!res?.ok) return;
       const body = (await res.json()) as RunViewPayload;
       if (body.run.status === "merged") {
+        setMergeAuditId(body.lastAuditId);
         setStage("merged");
         clearInterval(timer);
       }
@@ -101,8 +105,10 @@ export function ApprovalDialog({
 
   const auditLabel =
     stage === "merged"
-      ? `Audit row · record_merge · ${payload?.run.mergeCommit?.slice(0, 12) ?? ""}`
-      : "Audit row · record_merge";
+      ? `Audit row ${mergeAuditId ?? payload?.lastAuditId ?? "…"}`
+      : approveAuditId
+        ? `Audit row ${approveAuditId}`
+        : "Audit row";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -222,7 +228,8 @@ export function ApprovalDialog({
               <Row
                 mark="console"
                 label={auditLabel}
-                state={stage === "merged" ? "done" : "waiting"}
+                detail={stage === "merged" ? "record_merge" : "approve_pr"}
+                state={stage === "approving" ? "waiting" : "done"}
               />
             </div>
           )}

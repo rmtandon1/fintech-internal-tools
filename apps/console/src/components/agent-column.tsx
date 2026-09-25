@@ -69,6 +69,19 @@ function Body({
   className,
   ...props
 }: AgentColumnProps & { className?: string }) {
+  const { agentFocus } = useWorkspace();
+  const focusRunId = agentFocus?.kind === "run" ? agentFocus.runId : null;
+  const runId = focusRunId ?? props.inFlight?.id ?? null;
+  const source =
+    agentFocus?.kind === "handoff"
+      ? "context preview"
+      : runId === null
+        ? "none"
+        : runId === props.inFlight?.id
+          ? props.mode === "live"
+            ? "session"
+            : "scripted replay"
+          : "default branch";
   return (
     <Panel
       title="Devin"
@@ -82,7 +95,7 @@ function Body({
           >
             {MODE_LABEL[props.mode]}
           </span>
-          source: {props.mode === "live" ? "session" : "replay.json / default branch"}
+          source: {source}
         </span>
       }
       className={cn("min-h-0", className)}
