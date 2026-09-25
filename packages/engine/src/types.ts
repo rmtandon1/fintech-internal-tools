@@ -264,6 +264,12 @@ export interface ClusterGroup {
   /** Look-back window the group was computed over, in days. */
   windowDays?: number;
   recordIds: string[];
+  /** One plain sentence naming the pattern, shown as the alert and drawer title. */
+  headline?: string;
+  /** Why the pattern matters, in plain words. */
+  detail?: string;
+  /** The line each record sits under on its own, if the pattern is about one. */
+  limit?: { usdMinor: number; label: string };
 }
 
 export interface ClusterDecl {
