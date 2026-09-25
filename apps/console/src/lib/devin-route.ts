@@ -94,8 +94,18 @@ export async function handleGet(
     const observed = await observeRun(requester, run, deps).catch(() => null);
     if (observed) {
       outcome = observed.poll;
-      await observeSessionEnd(requester, run, observed.poll, deps).catch(() => null);
-      run = getRun(runId) ?? run;
+      // A merge that landed before the session wound down must win over the
+      // session-end stop, so check GitHub first.
+      if (run.status === "approved") {
+        const approver =
+          Object.values(DEMO_ACTORS).find((a) => a.id === run?.approvedBy) ?? actor;
+        await observeMerge(approver, run, deps).catch(() => null);
+        run = getRun(runId) ?? run;
+      }
+      if (IN_FLIGHT_STATUSES.includes(run.status as RunStatus)) {
+        await observeSessionEnd(requester, run, observed.poll, deps).catch(() => null);
+        run = getRun(runId) ?? run;
+      }
     }
   }
   // An approved run may have merged since; observe it as the approver.
