@@ -15,7 +15,6 @@ import {
 import { maskRecord } from "@console/engine/pii/mask";
 import { previewActions } from "@console/engine/policy/preview";
 import type { Actor, ClusterDecl, ClusterGroup, ToolDeclaration } from "@console/engine/types";
-import { formatFieldValue } from "@console/ui/format";
 import { ClusterDrawer, type ClusterRow } from "@/components/cluster-drawer";
 import type { DispatchOffer } from "@/components/dispatch-control";
 import { ReconcileRuns } from "@/components/reconcile-runs";
@@ -165,27 +164,33 @@ export default async function ToolQueuePage({
         }
         bodyClassName="flex flex-col"
       >
+        {clusters.flatMap(({ cluster, groups }) =>
+          groups.map((group) => (
+            <Link
+              key={`${cluster.id}:${group.key}`}
+              href={href({ inspect: `${cluster.id}:${group.key}` })}
+              data-testid="cluster-alert"
+              className="group m-3 mb-0 flex items-center gap-3 rounded-md border border-amber-500/40 bg-amber-500/[0.07] p-3 transition-colors hover:border-amber-500/70 hover:bg-amber-500/[0.12]"
+            >
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-400">
+                <Icon name="TriangleAlert" className="size-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium text-foreground">
+                  {group.headline ?? chipLabel(group)}
+                </span>
+                {group.detail ? (
+                  <span className="mt-0.5 block text-xs text-muted-foreground">{group.detail}</span>
+                ) : null}
+              </span>
+              <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-amber-400 px-3 text-xs font-medium text-black group-hover:bg-amber-300">
+                Take a look
+                <Icon name="ArrowRight" className="size-3.5" />
+              </span>
+            </Link>
+          )),
+        )}
         <StatStrip decl={decl} actor={actor} />
-        {clusters.length ? (
-          <div
-            className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2"
-            data-testid="cluster-strip"
-          >
-            {clusters.flatMap(({ cluster, groups }) =>
-              groups.map((group) => (
-                <Link
-                  key={`${cluster.id}:${group.key}`}
-                  href={href({ inspect: `${cluster.id}:${group.key}` })}
-                  title={cluster.label}
-                  className="inline-flex h-6 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 text-[11px] font-medium text-amber-300 tabular-nums hover:bg-amber-500/20"
-                >
-                  <Icon name="Layers" className="size-3" />
-                  {chipLabel(group)}
-                </Link>
-              )),
-            )}
-          </div>
-        ) : null}
         <Table>
           <TableHeader>
             <TableRow>
@@ -273,11 +278,10 @@ export default async function ToolQueuePage({
       {open ? (
         <ClusterDrawer
           label={open.group.label}
-          clusterLabel={open.cluster.label}
-          count={open.group.count}
-          qualifier={open.group.qualifier}
+          headline={open.group.headline ?? chipLabel(open.group)}
+          detail={open.group.detail}
+          limit={open.group.limit}
           totalUsdMinor={open.group.totalUsdMinor}
-          windowDays={open.group.windowDays}
           traceAction={open.cluster.traceAction}
           statuses={decl.statuses}
           rows={clusterRows(decl, open.cluster, open.group, actor)}
@@ -365,19 +369,17 @@ function chipLabel(group: ClusterGroup): string {
   return parts.join(" · ");
 }
 
-/** Rows behind a group, masked for the actor, each with its live policy trace. */
+/** Rows behind a group, each with its live policy trace. */
 function clusterRows(
   decl: ToolDeclaration,
   cluster: ClusterDecl,
   group: ClusterGroup,
   actor: Actor,
 ): ClusterRow[] {
-  const piiFields = decl.fields.filter((f) => f.isPII);
   const currencyField = decl.fields.find((f) => f.type === "currency" && f.currencyField);
   return group.recordIds.flatMap((id) => {
     const record = decl.get(id);
     if (!record) return [];
-    const masked = maskRecord(decl, record, actor);
     const preview = cluster.traceAction
       ? previewActions(decl, record, actor).find((p) => p.action === cluster.traceAction)
       : undefined;
@@ -396,10 +398,6 @@ function clusterRows(
         currency: typeof currency === "string" ? currency : "USD",
         usdMinor: typeof record.usdMinor === "number" ? record.usdMinor : 0,
         requestedAt: typeof record.requestedAt === "number" ? record.requestedAt : null,
-        identity: piiFields.map((field) => ({
-          label: field.label,
-          value: formatFieldValue(field, masked.values),
-        })),
         trace: decision?.trace ?? null,
         pendingApproval: decision?.effect === "require_approval",
       },
