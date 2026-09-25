@@ -152,7 +152,7 @@ Every scenario keeps a human gate. In a regulated fintech the gates are the sell
 
 Speaker notes: 
 
-- **Open on today's two options.** A rule change is either fast and unreviewed, or reviewed and slow. Then open `/t/kyc`, click a mid-risk case, and point at the policy trace: `risk_tier_approval 68 < 70` is the engine's own reason string, not UI copy.
+- **Open on today's two options.** A rule change is either fast and unreviewed, or reviewed and slow.
 - **Show the pattern.** On `/t/refunds`, open the Kestrel chip. Say it plainly: each refund is clean, and together they are split around the $500 line. Send `rfnd_0012` to the processor. Nothing stops it. Tell the viewer to remember that click.
 - **Make the request.** Click **Ask Devin for a rule** and read the one-sentence request aloud, as the refunds manager would. Note what it leaves out. Point at the evidence panel: this is everything Devin sees, and no customer emails or card numbers are in it.
 - **Pause on the finished run.** Point down it: Devin didn't just add a threshold. It wrote `clustering_hold`, placed it after `goodwill_approval` so the trace reads in order, added a window setting with an off value, added `linked_refund_hold` to KYC, built a regression test from the four Kestrel amounts, and ran `pnpm verify`. Each is a row on screen with its file and lines changed, and each guard check is green by name. Point at the plan commit: CI fails any file outside it.
