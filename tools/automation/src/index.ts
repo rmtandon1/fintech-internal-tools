@@ -223,6 +223,20 @@ const contextMatchesDispatch: RunRule<ApproveInput> = ({ record, input }) =>
       }
     : { type: "allow", rule: "context_matches_dispatch" };
 
+/** A manager touches only runs against their own domain; admin and engineer see all. */
+const actorOwnsRunDomain: RunRule<unknown> = ({ actor, record }) => {
+  const meta = ROLE_META[actor.role];
+  const spec = record ? getSpec(record.spec) : undefined;
+  const ok = meta.level !== "manager" || (spec !== undefined && spec.domain === meta.domain);
+  return ok
+    ? { type: "allow", rule: "actor_owns_run_domain" }
+    : {
+        type: "deny",
+        rule: "actor_owns_run_domain",
+        reason: `${meta.label} may not act on a ${record?.tool ?? ""} run`,
+      };
+};
+
 const RecordSessionInput = z.union([
   z.object({ sessionId: z.string().min(1) }),
   z.object({ error: z.string().min(1).max(1000) }),
@@ -389,7 +403,7 @@ export const automationTool = defineTool<DevinRun>({
       allowedRoles: ["refunds_manager", "kyc_manager", "admin"],
       input: RecordSessionInput,
       fromStatus: ["dispatched"],
-      rules: [allow("session_recorded_once")],
+      rules: [actorOwnsRunDomain],
       decide: ({ input }) =>
         "sessionId" in input
           ? {
@@ -449,7 +463,7 @@ export const automationTool = defineTool<DevinRun>({
       input: StopInput,
       fromStatus: ["dispatched", "running", "approved"],
       tone: "destructive",
-      rules: [allow("stop_is_always_available")],
+      rules: [actorOwnsRunDomain],
       decide: ({ input }) => ({
         summary: `Stopped: ${input.reason}`,
         patch: { status: "stopped", note: input.reason },

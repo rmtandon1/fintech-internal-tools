@@ -200,6 +200,14 @@ describe("dispatch rules", () => {
     deniedBy(dispatch(refundsManager, { evidenceIds: [] }), "implementation_carries_evidence");
   });
 
+  it("actor_owns_run_domain: a manager of another domain cannot record or stop a refunds run", () => {
+    const run = applied(dispatch(refundsManager));
+    deniedBy(act(kycManager, "record_session", run.id, { sessionId: "devin-x" }), "actor_owns_run_domain");
+    deniedBy(act(kycManager, "stop", run.id, { reason: "not mine" }), "actor_owns_run_domain");
+    expect(getRun(run.id)?.status).toBe("dispatched");
+    stop(run, refundsManager);
+  });
+
   it("audits the context SHA and spec, never the context body", () => {
     const run = applied(dispatch(refundsManager));
     const [row] = auditRowsFor(run.id);
@@ -278,6 +286,33 @@ describe("context.json", () => {
     }
     expect(json).not.toMatch(/email|card|last4|@/i);
     expect(ContextFile.parse(context)).toEqual(context);
+  });
+
+  it("refuses evidence ids the live cluster does not contain", () => {
+    expect(() =>
+      buildContext({
+        runId: "run_stray",
+        kind: "IMPLEMENTATION/ADDITION",
+        spec: REFUND_CLUSTERING_HOLD,
+        scope: "rule",
+        intent: "x",
+        requestedBy: "admin",
+        clusterKey: "Kestrel Outdoors",
+        evidenceIds: [...KESTREL, "rfnd_0001"],
+      }),
+    ).toThrow(/not in cluster Kestrel Outdoors: rfnd_0001/);
+    expect(() =>
+      buildContext({
+        runId: "run_nogroup",
+        kind: "IMPLEMENTATION/ADDITION",
+        spec: REFUND_CLUSTERING_HOLD,
+        scope: "rule",
+        intent: "x",
+        requestedBy: "admin",
+        clusterKey: "No Such Merchant",
+        evidenceIds: KESTREL,
+      }),
+    ).toThrow(/has no group No Such Merchant/);
   });
 
   it("snapshots the spec's constants, the scope globs, the base commit and the audit head", () => {
