@@ -1,17 +1,11 @@
 import { PHASES, type StructuredOutput } from "@console/tool-automation/run-files";
 import type { z } from "zod";
+import type { ChecklistState } from "@/lib/checklist-glyph";
+
+export { CHECKLIST_GLYPH, type ChecklistState } from "@/lib/checklist-glyph";
 
 type Output = z.infer<typeof StructuredOutput>;
 type Phase = (typeof PHASES)[number];
-
-export type ChecklistState = "done" | "running" | "waiting" | "failed";
-
-export const CHECKLIST_GLYPH: Record<ChecklistState, string> = {
-  done: "✓",
-  running: "●",
-  waiting: "○",
-  failed: "✗",
-};
 
 export interface ChecklistLine {
   /** The `structured_output` field this line is read from. */

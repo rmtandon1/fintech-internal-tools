@@ -5,6 +5,8 @@ import { DispatchControl } from "@/components/dispatch-control";
 import { Panel } from "@/components/panel";
 import { requesterLabel } from "@/components/run-summary";
 import { bridgeDeps } from "@/lib/bridge";
+import { devinMode } from "@/lib/devin-status";
+import { simulationsFor } from "@/lib/simulation";
 import { currentActor } from "@/lib/session";
 import {
   automationTool,
@@ -69,6 +71,7 @@ function reversalOffer(run: DevinRun, actor: Actor) {
     evidenceIds: [],
     kinds: [{ kind: "REVERSAL", intent }],
     reverses: run.id,
+    simulations: devinMode() === "simulation" ? simulationsFor(spec.file, ["REVERSAL"]) : null,
   };
 }
 

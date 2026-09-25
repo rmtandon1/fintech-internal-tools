@@ -20,7 +20,9 @@ import { ClusterDrawer, type ClusterRow } from "@/components/cluster-drawer";
 import type { DispatchOffer } from "@/components/dispatch-control";
 import { ReconcileRuns } from "@/components/reconcile-runs";
 import { getSpec, kindsStartableBy } from "@console/tool-automation";
+import { devinMode } from "@/lib/devin-status";
 import { currentActor } from "@/lib/session";
+import { simulationsFor } from "@/lib/simulation";
 import { cn } from "@console/ui/utils";
 import { getTool } from "@/registry";
 
@@ -324,7 +326,14 @@ function dispatchOffer(
     .filter((kind) => kind !== "REVERSAL")
     .map((kind) => ({ kind, intent: spec.intents[kind] ?? "" }));
   if (kinds.length === 0) return null;
-  return { spec: spec.file, clusterKey: group.key, evidenceIds: group.recordIds, kinds };
+  return {
+    spec: spec.file,
+    clusterKey: group.key,
+    evidenceIds: group.recordIds,
+    kinds,
+    simulations:
+      devinMode() === "simulation" ? simulationsFor(spec.file, kinds.map((k) => k.kind)) : null,
+  };
 }
 
 function resolveGroup(

@@ -1,9 +1,9 @@
 import { Panel } from "@/components/panel";
-import { CHECKLIST_GLYPH, type ChecklistLine } from "@/lib/run-checklist";
+import { ChecklistList } from "@/components/checklist-list";
+import type { ChecklistLine } from "@/lib/run-checklist";
 import { automationTool, type DevinRun, getSpec, RUN_KINDS } from "@console/tool-automation";
 import { ROLES, roleLabel, type Role } from "@console/permissions";
 import { StatusChip } from "@console/ui/status-chip";
-import { cn } from "@console/ui/utils";
 
 const ROLE_NAMES: readonly string[] = ROLES;
 
@@ -75,28 +75,7 @@ export function RunSummary({
         ) : null}
       </dl>
       {checklist.length > 0 ? (
-        <ol className="mt-3 space-y-1 border-t border-border pt-2" data-testid="run-checklist">
-          {checklist.map((line, i) => (
-            <li key={`${line.field}:${i}`} className="flex items-baseline gap-2">
-              <span
-                aria-label={line.state}
-                className={cn(
-                  "w-3 shrink-0 text-center font-mono",
-                  line.state === "done" && "text-emerald-400",
-                  line.state === "running" && "text-amber-400",
-                  line.state === "waiting" && "text-muted-foreground",
-                  line.state === "failed" && "text-red-400",
-                )}
-              >
-                {CHECKLIST_GLYPH[line.state]}
-              </span>
-              <span className={cn(line.state === "waiting" && "text-muted-foreground")}>{line.label}</span>
-              {line.detail ? (
-                <span className="min-w-0 truncate font-mono text-muted-foreground">{line.detail}</span>
-              ) : null}
-            </li>
-          ))}
-        </ol>
+        <ChecklistList lines={checklist} className="mt-3 border-t border-border pt-2" />
       ) : (
         <p className="mt-3 border-t border-border pt-2 text-muted-foreground">
           The session has not reported structured output yet.

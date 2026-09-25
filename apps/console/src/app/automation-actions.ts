@@ -16,6 +16,7 @@ import {
   syncMergedRun,
 } from "@console/tool-automation/bridge";
 import { bridgeDeps } from "@/lib/bridge";
+import { devinMode } from "@/lib/devin-status";
 import { currentActor } from "@/lib/session";
 
 /**
@@ -72,6 +73,15 @@ export async function dispatchAutomationRun(form: FormData): Promise<BridgeResul
   });
   if (!parsed.success) {
     return { ok: false, title: "Invalid dispatch", detail: parsed.error.issues[0]?.message };
+  }
+  // Simulation mode shows a pre-written run in the dialog; a run that never
+  // happened must not reach devin_runs or the audit chain.
+  if (devinMode() === "simulation") {
+    return {
+      ok: false,
+      title: "Simulation mode",
+      detail: "DEVIN_API_KEY is not set, so nothing was dispatched or recorded",
+    };
   }
   const actor = await currentActor();
   try {
