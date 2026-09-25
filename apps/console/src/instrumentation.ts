@@ -1,10 +1,10 @@
 export async function register() {
-  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { registerConstants } = await import("@console/engine/policy/register");
+    const { TOOLS } = await import("@/registry");
 
-  const { registerConstants } = await import("@console/engine/policy/register");
-  const { TOOLS } = await import("@/registry");
-
-  for (const tool of TOOLS) {
-    if (tool.constants?.length) registerConstants(tool.constants);
+    for (const tool of TOOLS) {
+      if (tool.constants?.length) registerConstants(tool.constants);
+    }
   }
 }
