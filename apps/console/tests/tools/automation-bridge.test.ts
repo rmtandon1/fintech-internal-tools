@@ -27,13 +27,17 @@ import {
   approveRun,
   type BridgeDeps,
   dispatchRun,
+  isMergeLocal,
   observeMerge,
   pollRun,
   readReplay,
+  reconcileRuns,
   stopRun,
+  syncMergedRun,
 } from "@console/tool-automation/bridge";
 import { kycTool } from "@console/tool-kyc";
 import { refundTool } from "@console/tool-refunds";
+import { fakeGit } from "../helpers/fake-git";
 import { admin, refundsAgent, refundsManager, setupHarness } from "../helpers/harness";
 
 const engineer: Actor = { id: "usr_engineer", name: "Engineer", role: "engineer" };
@@ -401,6 +405,162 @@ describe("observeMerge and stopRun", () => {
     expect(out.stop.outcome.status).not.toBe("applied");
     expect(devin.calls).toEqual([]);
     expect(getRun(run.id)?.status).toBe("approved");
+  });
+});
+
+describe("syncMergedRun", () => {
+  async function merged() {
+    stopAll();
+    const out = await dispatchRun(admin, request, deps({ devin: fakeDevin({}).client }));
+    let run = getRun(out.runId);
+    if (!run) throw new Error("no run");
+    await pollRun(
+      run,
+      deps({
+        devin: fakeDevin({
+          snapshot: { status: "working", statusDetail: null, structuredOutput: output({ pr_url: PR }) },
+        }).client,
+      }),
+    );
+    await approveRun(engineer, run, undefined, deps({ github: fakeGitHub({ contextSha: run.contextSha256 }).client }));
+    run = getRun(run.id);
+    if (!run) throw new Error("no run");
+    const observed = await observeMerge(admin, run, deps({ github: fakeGitHub({ merged: true }).client }));
+    expect(observed.kind).toBe("merged");
+    const after = getRun(run.id);
+    if (!after || after.status !== "merged") throw new Error("run did not merge");
+    return after;
+  }
+
+  const BEFORE = "a".repeat(40);
+  const AFTER = "b".repeat(40);
+
+  it("skips when no git runner is configured", async () => {
+    const run = await merged();
+    const out = await syncMergedRun(run, deps({}));
+    expect(out).toEqual({ kind: "skipped", reason: "git sync not configured" });
+  });
+
+  it("skips a run that is not merged", async () => {
+    stopAll();
+    const out = await dispatchRun(admin, request, deps({ devin: fakeDevin({}).client }));
+    const run = getRun(out.runId);
+    if (!run) throw new Error("no run");
+    const fake = fakeGit({});
+    const sync = await syncMergedRun(run, deps({ git: fake.git }));
+    expect(sync.kind).toBe("skipped");
+    expect(fake.calls).toEqual([]);
+  });
+
+  it("skips when the checkout is not on the sync branch", async () => {
+    const run = await merged();
+    const fake = fakeGit({ branch: "devin/run" });
+    const sync = await syncMergedRun(run, deps({ git: fake.git }));
+    expect(sync).toEqual({ kind: "skipped", reason: "checkout is not on cognition-dashboard-devin-integration" });
+    expect(fake.calls).not.toContain("clean");
+  });
+
+  it("skips a dirty working tree so uncommitted edits are never clobbered", async () => {
+    const run = await merged();
+    const fake = fakeGit({ clean: false });
+    const sync = await syncMergedRun(run, deps({ git: fake.git }));
+    expect(sync).toEqual({ kind: "skipped", reason: "working tree has uncommitted changes" });
+    expect(fake.calls.some((c) => c.startsWith("pull:"))).toBe(false);
+  });
+
+  it("fails when the pulled HEAD does not contain the merge commit", async () => {
+    const run = await merged();
+    const fake = fakeGit({ before: BEFORE, after: AFTER, ancestors: [] });
+    const sync = await syncMergedRun(run, deps({ git: fake.git }));
+    expect(sync.kind).toBe("failed");
+    if (sync.kind === "failed") expect(sync.reason).toContain(MERGE.slice(0, 12));
+  });
+
+  it("pulls, verifies the merge commit, and runs db:migrate only when drizzle changed", async () => {
+    const run = await merged();
+    const fake = fakeGit({
+      before: BEFORE,
+      after: AFTER,
+      ancestors: [MERGE],
+      changed: ["apps/console/drizzle/0002_run.sql", "tools/refunds/src/index.ts"],
+    });
+    const migrated: string[] = [];
+    const sync = await syncMergedRun(
+      run,
+      deps({ git: fake.git, migrate: async (cwd) => void migrated.push(cwd) }),
+    );
+    expect(sync).toEqual({ kind: "synced", before: BEFORE, after: AFTER, migrated: true });
+    expect(migrated).toEqual([repoRoot]);
+    expect(await isMergeLocal(run, deps({ git: fake.git }))).toBe(true);
+
+    const clean = fakeGit({ before: BEFORE, after: AFTER, ancestors: [MERGE], changed: ["tools/refunds/src/x.ts"] });
+    const migratedAgain: string[] = [];
+    const second = await syncMergedRun(
+      run,
+      deps({ git: clean.git, migrate: async (cwd) => void migratedAgain.push(cwd) }),
+    );
+    expect(second).toEqual({ kind: "synced", before: BEFORE, after: AFTER, migrated: false });
+    expect(migratedAgain).toEqual([]);
+  });
+
+  it("reports unchanged when the pull advances nothing", async () => {
+    const run = await merged();
+    const fake = fakeGit({ before: BEFORE, ancestors: [MERGE] });
+    const sync = await syncMergedRun(run, deps({ git: fake.git }));
+    expect(sync).toEqual({ kind: "unchanged", head: BEFORE });
+  });
+});
+
+describe("reconcileRuns", () => {
+  async function approved() {
+    stopAll();
+    const out = await dispatchRun(admin, request, deps({ devin: fakeDevin({}).client }));
+    const run = getRun(out.runId);
+    if (!run) throw new Error("no run");
+    await pollRun(
+      run,
+      deps({
+        devin: fakeDevin({
+          snapshot: { status: "working", statusDetail: null, structuredOutput: output({ pr_url: PR }) },
+        }).client,
+      }),
+    );
+    await approveRun(engineer, run, undefined, deps({ github: fakeGitHub({ contextSha: run.contextSha256 }).client }));
+    const after = getRun(run.id);
+    if (!after || after.status !== "approved") throw new Error("run not approved");
+    return after;
+  }
+
+  it("records nothing while GitHub says the PR is open", async () => {
+    const run = await approved();
+    const fake = fakeGit({ ancestors: [MERGE] });
+    const out = await reconcileRuns(engineer, deps({ github: fakeGitHub({ merged: false }).client, git: fake.git }));
+    expect(out).toEqual({ checked: 1, merged: 0, sync: null });
+    expect(getRun(run.id)?.status).toBe("approved");
+    expect(fake.calls).toEqual([]);
+  });
+
+  it("records one record_merge per merged run and pulls once", async () => {
+    const run = await approved();
+    const fake = fakeGit({ after: "b".repeat(40), ancestors: [MERGE] });
+    const out = await reconcileRuns(engineer, deps({ github: fakeGitHub({ merged: true }).client, git: fake.git }));
+    expect(out.checked).toBe(1);
+    expect(out.merged).toBe(1);
+    expect(out.sync?.kind).toBe("synced");
+    const after = getRun(run.id);
+    if (!after) throw new Error("no run");
+    expect(after.status).toBe("merged");
+    expect(after.mergeCommit).toBe(MERGE);
+    expect(fake.calls.some((c) => c.startsWith("pull:origin/cognition-dashboard-devin-integration"))).toBe(true);
+
+    // A second look at the same merge replays the idempotent intent instead of writing again.
+    const again = await observeMerge(engineer, after, deps({ github: fakeGitHub({ merged: true }).client }));
+    expect(again).toMatchObject({ kind: "merged" });
+    if (again.kind === "merged") expect(again.record.replayed).toBe(true);
+
+    // And a second reconcile has nothing approved left to check.
+    const second = await reconcileRuns(engineer, deps({ github: fakeGitHub({ merged: true }).client, git: fake.git }));
+    expect(second).toEqual({ checked: 0, merged: 0, sync: null });
   });
 });
 

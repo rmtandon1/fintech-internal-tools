@@ -18,6 +18,7 @@ import type { Actor, ClusterDecl, ClusterGroup, ToolDeclaration } from "@console
 import { formatFieldValue } from "@console/ui/format";
 import { ClusterDrawer, type ClusterRow } from "@/components/cluster-drawer";
 import type { DispatchOffer } from "@/components/dispatch-control";
+import { ReconcileRuns } from "@/components/reconcile-runs";
 import { getSpec, kindsStartableBy } from "@console/tool-automation";
 import { currentActor } from "@/lib/session";
 import { cn } from "@console/ui/utils";
@@ -154,7 +155,12 @@ export default async function ToolQueuePage({
             {decl.displayName} · <span className="tabular-nums">{total}</span>
           </span>
         }
-        actions={filterRow}
+        actions={
+          <span className="flex items-center gap-2">
+            {decl.name === "automation" && actor.role === "engineer" ? <ReconcileRuns /> : null}
+            {filterRow}
+          </span>
+        }
         bodyClassName="flex flex-col"
       >
         <StatStrip decl={decl} actor={actor} />

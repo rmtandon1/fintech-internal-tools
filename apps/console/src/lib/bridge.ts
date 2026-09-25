@@ -1,6 +1,11 @@
+import { execFile } from "node:child_process";
 import { resolve } from "node:path";
+import { promisify } from "node:util";
 import { httpDevinClient, httpGitHubClient } from "@console/tool-automation";
 import type { BridgeDeps } from "@console/tool-automation/bridge";
+import { execFileGitRunner } from "@console/tool-automation/git";
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Credentials for the Devin and GitHub APIs are read here, on the server,
@@ -20,6 +25,12 @@ export function bridgeDeps(): BridgeDeps {
         : null,
     github: token ? httpGitHubClient(token, fetchImpl, process.env.GITHUB_API_BASE) : null,
     repoRoot: process.env.REPO_ROOT ?? resolve(process.cwd(), "../.."),
+    git: execFileGitRunner(),
+    migrate: async (cwd) => {
+      await execFileAsync("pnpm", ["db:migrate"], { cwd });
+    },
+    syncRemote: process.env.SYNC_REMOTE,
+    syncBranch: process.env.SYNC_BRANCH,
     playbookId: process.env.DEVIN_PLAYBOOK_ID,
   };
 }

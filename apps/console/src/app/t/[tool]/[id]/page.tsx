@@ -14,7 +14,7 @@ import { StatusChip } from "@console/ui/status-chip";
 import { previewActions } from "@console/engine/policy/preview";
 import type { Actor } from "@console/engine/types";
 import { automationTool, getRun } from "@console/tool-automation";
-import { currentPrUrl, readContextJson, readReplay } from "@console/tool-automation/bridge";
+import { currentPrUrl, isMergeLocal, readContextJson, readReplay } from "@console/tool-automation/bridge";
 import { bridgeDeps } from "@/lib/bridge";
 import { currentActor } from "@/lib/session";
 import { getTool } from "@/registry";
@@ -25,7 +25,10 @@ import { getTool } from "@/registry";
  * gets a form for them. The offers below gate the buttons with the same
  * policy preview the generic bar uses; the server re-evaluates on click.
  */
-function runSurface(id: string, actor: Actor): { offer: RunOffer; files: React.ReactNode } | null {
+async function runSurface(
+  id: string,
+  actor: Actor,
+): Promise<{ offer: RunOffer; files: React.ReactNode } | null> {
   const run = getRun(id);
   if (!run) return null;
   const deps = bridgeDeps();
@@ -52,6 +55,8 @@ function runSurface(id: string, actor: Actor): { offer: RunOffer; files: React.R
       poll: inFlight && run.sessionId !== null,
       approve: prUrl ? approve : { offered: false, reason: approve.reason ?? "No pull request reported yet" },
       merge: run.status === "approved" && gate("record_merge").offered,
+      sync:
+        run.status === "merged" && deps.git !== undefined && !(await isMergeLocal(run, deps)),
       stop: gate("stop"),
     },
     files: (
@@ -80,7 +85,7 @@ export default async function RecordPage({
 
   const activity = decl.linkedActivity?.(record, actor) ?? null;
   const linked = activity ? getTool(activity.tool) : undefined;
-  const run = decl.name === automationTool.name ? runSurface(id, actor) : null;
+  const run = decl.name === automationTool.name ? await runSurface(id, actor) : null;
 
   const panel = (
     <Panel

@@ -6,6 +6,7 @@ import { previewActions } from "@console/engine/policy/preview";
 import type { Actor, IntentResult } from "@console/engine/types";
 import { buildContext } from "./context";
 import type { DevinClient } from "./devin-api";
+import { SYNC_BRANCH, SYNC_REMOTE, type GitRunner } from "./git";
 import { type GitHubClient, parsePullUrl } from "./github-api";
 import { automationTool, getRun, type DevinRun } from "./index";
 import { ReplayFile, type ReplayFrame, STRUCTURED_OUTPUT_JSON_SCHEMA, StructuredOutput } from "./run-files";
@@ -27,6 +28,13 @@ export interface BridgeDeps {
   github: GitHubClient | null;
   /** Repository root: `runs/<id>/` is written under it and git is read from it. */
   repoRoot: string;
+  /** Checkout access for the merge sync; absent in tests that do not pull. */
+  git?: GitRunner;
+  /** Runs the console's own migration script; absent skips it like a missing drizzle diff. */
+  migrate?: (cwd: string) => Promise<void>;
+  /** Remote and branch the merge sync pulls; default to `SYNC_REMOTE` / `SYNC_BRANCH`. */
+  syncRemote?: string;
+  syncBranch?: string;
   playbookId?: string;
   maxAcuLimit?: number;
   now?: () => number;
@@ -318,6 +326,115 @@ export async function observeMerge(actor: Actor, run: DevinRun, deps: BridgeDeps
     idempotencyKey: key(run.id, `record_merge:${pull.mergeCommit}`),
   });
   return { kind: "merged", record, mergeCommit: pull.mergeCommit };
+}
+
+export type SyncOutcome =
+  | { kind: "synced"; before: string; after: string; migrated: boolean }
+  | { kind: "unchanged"; head: string }
+  | { kind: "skipped"; reason: string }
+  | { kind: "failed"; reason: string };
+
+/** One line for a toast: what the pull into the local checkout did. */
+export function describeSync(sync: SyncOutcome): string {
+  switch (sync.kind) {
+    case "synced":
+      return `pulled ${sync.before.slice(0, 7)} → ${sync.after.slice(0, 7)}${sync.migrated ? " · db migrated" : ""}`;
+    case "unchanged":
+      return `checkout already at ${sync.head.slice(0, 7)}`;
+    case "skipped":
+      return `pull skipped: ${sync.reason}`;
+    case "failed":
+      return `pull failed: ${sync.reason}`;
+  }
+}
+
+/**
+ * Serialised through `syncQueue` so two clicks never run two pulls. Only a
+ * `merged` run pulls: the checkout must sit on the sync branch with a clean
+ * tree, the pull is `--ff-only`, and the run's merge commit must land on
+ * HEAD. A drizzle diff additionally runs `pnpm db:migrate` — never
+ * `db:setup`/`db:seed`, which re-seed the live database (MERGE_SYNC.md).
+ */
+export function syncMergedRun(run: DevinRun, deps: BridgeDeps): Promise<SyncOutcome> {
+  const next = syncQueue.then(() => syncMergedRunInner(run, deps));
+  syncQueue = next.then(
+    () => undefined,
+    () => undefined,
+  );
+  return next;
+}
+
+let syncQueue: Promise<unknown> = Promise.resolve();
+
+async function syncMergedRunInner(run: DevinRun, deps: BridgeDeps): Promise<SyncOutcome> {
+  const git = deps.git;
+  if (!git) return { kind: "skipped", reason: "git sync not configured" };
+  if (run.status !== "merged") return { kind: "skipped", reason: `run is ${run.status}, not merged` };
+  if (!run.mergeCommit) return { kind: "skipped", reason: "run has no merge commit" };
+  const cwd = deps.repoRoot;
+  const branch = deps.syncBranch ?? SYNC_BRANCH;
+  try {
+    if ((await git.currentBranch(cwd)) !== branch) {
+      return { kind: "skipped", reason: `checkout is not on ${branch}` };
+    }
+    if (!(await git.isClean(cwd))) {
+      return { kind: "skipped", reason: "working tree has uncommitted changes" };
+    }
+    const before = await git.head(cwd);
+    await git.pullFfOnly(cwd, deps.syncRemote ?? SYNC_REMOTE, branch);
+    const after = await git.head(cwd);
+    if (!(await git.isAncestor(cwd, run.mergeCommit, "HEAD"))) {
+      return { kind: "failed", reason: `${run.mergeCommit.slice(0, 12)} is not on HEAD after the pull` };
+    }
+    if (after === before) return { kind: "unchanged", head: after };
+    const paths = await git.changedPaths(cwd, before, after);
+    let migrated = false;
+    if (deps.migrate && paths.some((p) => p.startsWith("apps/console/drizzle/"))) {
+      await deps.migrate(cwd);
+      migrated = true;
+    }
+    return { kind: "synced", before, after, migrated };
+  } catch (error) {
+    return { kind: "failed", reason: errorText(error) };
+  }
+}
+
+/** True when the local checkout already contains the run's merge commit. */
+export async function isMergeLocal(run: DevinRun, deps: BridgeDeps): Promise<boolean> {
+  if (!deps.git || !run.mergeCommit) return false;
+  return deps.git.isAncestor(deps.repoRoot, run.mergeCommit, "HEAD");
+}
+
+export interface ReconcileOutcome {
+  /** Approved runs whose PR was read on GitHub. */
+  checked: number;
+  /** How many of those GitHub reported merged. */
+  merged: number;
+  /** The pull for the newest merge, or null when nothing merged. */
+  sync: SyncOutcome | null;
+}
+
+/**
+ * Reads every `approved` run's PR on GitHub and records the merges. State
+ * stays in `devin_runs`: GitHub is consulted to confirm, never to rebuild.
+ * One pull follows for the newest merge.
+ */
+export async function reconcileRuns(actor: Actor, deps: BridgeDeps): Promise<ReconcileOutcome> {
+  const { rows } = automationTool.list({ filters: { status: "approved" }, limit: 100, offset: 0 });
+  let merged = 0;
+  let newest: DevinRun | null = null;
+  for (const row of rows) {
+    const run = getRun(row.id);
+    if (!run) continue;
+    const outcome = await observeMerge(actor, run, deps);
+    if (outcome.kind !== "merged") continue;
+    const after = getRun(run.id);
+    if (!after || after.status !== "merged") continue;
+    merged += 1;
+    if (!newest || after.updatedAt >= newest.updatedAt) newest = after;
+  }
+  const sync = newest ? await syncMergedRun(newest, deps) : null;
+  return { checked: rows.length, merged, sync };
 }
 
 export interface StopOutcome {

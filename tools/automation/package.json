@@ -9,7 +9,8 @@
     "./specs": "./src/specs.ts",
     "./run-files": "./src/run-files.ts",
     "./context": "./src/context.ts",
-    "./bridge": "./src/bridge.ts"
+    "./bridge": "./src/bridge.ts",
+    "./git": "./src/git.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

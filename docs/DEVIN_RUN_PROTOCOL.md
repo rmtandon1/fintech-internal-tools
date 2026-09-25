@@ -267,9 +267,11 @@ Demo setup: the engineer's GitHub token sits in the server environment next to `
 ## After merge
 
 1. The console writes `record_merge` with the merge commit Devin reports. That closes the run in the audit chain.
-2. The local checkout pulls the default branch (`git pull --ff-only`). `next dev` reloads the changed modules.
+2. The local checkout pulls the integration branch (`git pull --ff-only origin cognition-dashboard-devin-integration`) when **Check merge** records the merge, or later through **Pull merged code** or **Reconcile** on `/t/automation`. The pull is refused on another branch or a dirty tree, and `pnpm db:migrate` runs only when the diff touched `apps/console/drizzle/`. `next dev` reloads the changed modules; a migrated pull triggers a full reload so `registerConstants` runs again. See `MERGE_SYNC.md`.
 3. Constants a run declares must exist in the live database without a re-seed, so the app registers declared constants on start. `registerConstants` already skips existing keys. Today it only runs from `apps/console/scripts/seed.ts`.
 4. The next matching record goes through the new rule. That moment is the demo.
+
+`db:migrate` here is the console migrating its own database after a merge, not a Devin session writing live data. The **No live writes** guard still forbids `db:setup`, `db:seed` and `db:tamper` for the session; the merge sync never invokes them.
 
 
 

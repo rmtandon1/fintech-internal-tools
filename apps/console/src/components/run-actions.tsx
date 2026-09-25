@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
@@ -8,6 +9,7 @@ import {
   observeAutomationMerge,
   pollAutomationRun,
   stopAutomationRun,
+  syncAutomationRun,
 } from "@/app/automation-actions";
 import { Button } from "@console/ui/button";
 import {
@@ -29,10 +31,13 @@ export interface RunOffer {
   poll: boolean;
   approve: { offered: boolean; reason?: string };
   merge: boolean;
+  /** The run merged but the local checkout does not have its merge commit yet. */
+  sync: boolean;
   stop: { offered: boolean; reason?: string };
 }
 
 export function RunActions({ offer }: { offer: RunOffer }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [approveOpen, setApproveOpen] = useState(false);
   const [stopOpen, setStopOpen] = useState(false);
@@ -43,7 +48,19 @@ export function RunActions({ offer }: { offer: RunOffer }) {
       if (result.ok) toast.success(result.title, { description: result.detail });
       else toast.error(result.title, { description: result.detail });
       if (result.ok) close?.();
+      if (result.reloadFull) location.reload();
+      else if (result.reload) router.refresh();
     });
+  }
+
+  /** Devin merges tens of seconds after approve_pr: retry while the server says so. */
+  async function checkMerge(): Promise<BridgeResult> {
+    let result = await observeAutomationMerge(offer.runId);
+    for (let attempt = 1; result.retry && attempt < 10; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      result = await observeAutomationMerge(offer.runId);
+    }
+    return result;
   }
 
   return (
@@ -109,9 +126,21 @@ export function RunActions({ offer }: { offer: RunOffer }) {
           variant="secondary"
           className="h-7 text-xs"
           disabled={pending}
-          onClick={() => run(() => observeAutomationMerge(offer.runId))}
+          onClick={() => run(checkMerge)}
         >
           Check merge
+        </Button>
+      ) : null}
+
+      {offer.sync ? (
+        <Button
+          size="sm"
+          variant="secondary"
+          className="h-7 text-xs"
+          disabled={pending}
+          onClick={() => run(() => syncAutomationRun(offer.runId))}
+        >
+          Pull merged code
         </Button>
       ) : null}
 
