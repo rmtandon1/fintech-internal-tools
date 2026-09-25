@@ -10,6 +10,7 @@ import type {
   SortOption,
 } from "@console/engine/types";
 import { rolesFor } from "@console/permissions";
+import { refundsForCase } from "./linked-activity";
 import { kycCases } from "./schema";
 import { seedKycCases } from "./seed";
 
@@ -290,6 +291,7 @@ export const kycTool = defineTool<KycCase>({
   openStatuses: OPEN_STATUSES,
   attention: (r, now) =>
     OPEN_STATUSES.includes(r.status) && r.dueAt < now ? "overdue" : null,
+  linkedActivity: refundsForCase,
   constants: [
     {
       key: MANAGER_REVIEW_SCORE_KEY,

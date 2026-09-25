@@ -186,6 +186,32 @@ export interface ConstantDefinition {
   tool: string;
 }
 
+/** PII-free aggregate of another tool's records tied to this one. */
+export interface LinkedActivitySummary {
+  count: number;
+  /** Formatted total across the rows. */
+  total: string;
+  /** Distinct categorical codes across the rows, e.g. reason codes. */
+  codes: string[];
+  /** Rows with a pending approval request against them. */
+  held: number;
+}
+
+export interface LinkedActivity {
+  /** Tool the rows belong to; its declaration masks them at the read boundary. */
+  tool: string;
+  title: string;
+  summary: LinkedActivitySummary;
+  /** Raw rows, empty when the actor may not see the linked tool. */
+  rows: GovernedRecord[];
+  /** Fields of the linked tool to show per row. */
+  rowFields: string[];
+  /** Ids of rows that carry a pending approval request. */
+  heldIds: string[];
+  /** Where the linked tool opens this cluster; null when the actor cannot open it. */
+  href: string | null;
+}
+
 export interface ToolDeclaration<TRecord extends GovernedRecord = GovernedRecord> {
   name: string;
   displayName: string;
@@ -214,10 +240,40 @@ export interface ToolDeclaration<TRecord extends GovernedRecord = GovernedRecord
   openStatuses?: string[];
   /** Returns a short marker (e.g. "overdue") when a record needs attention, else null. */
   attention?: (record: TRecord, now: number) => string | null;
+  /**
+   * Records of another tool tied to this one. Runs on the server with the
+   * read client; rows are only returned to actors who may see the other tool.
+   */
+  linkedActivity?: (record: TRecord, actor: Actor) => LinkedActivity | null;
   /** Default policy thresholds installed when the database is seeded. */
   constants?: ConstantDefinition[];
   /** Installs demo records. Must be safe to run twice. */
   seed?: () => void;
+  /** Named groupings an operator can open from the queue and act on. */
+  clusters?: ClusterDecl[];
+}
+
+/** One group within a cluster: an aggregate over records, carrying no PII. */
+export interface ClusterGroup {
+  key: string;
+  label: string;
+  count: number;
+  /** What the count counts, e.g. a reason code; shown after the count. */
+  qualifier?: string;
+  totalUsdMinor: number;
+  /** Look-back window the group was computed over, in days. */
+  windowDays?: number;
+  recordIds: string[];
+}
+
+export interface ClusterDecl {
+  id: string;
+  label: string;
+  groups: () => ClusterGroup[];
+  /** The action whose policy trace is shown for each row in the group. */
+  traceAction?: string;
+  /** The spec a Devin run for this cluster would follow, if any. */
+  handoffSpec?: string;
 }
 
 export interface ListOptions {
