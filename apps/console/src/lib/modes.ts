@@ -31,8 +31,8 @@ export interface OpsMode {
 export const OPS_MODES: OpsMode[] = [
   {
     id: "kyc",
-    name: "KYC review queue",
-    description: "Customer due diligence cases awaiting a decision.",
+    name: "KYC review",
+    description: "Approve or reject new customers after their identity checks.",
     icon: "IdCard",
     roles: rolesFor("kyc", "agent"),
     actions: ["approve", "reject", "request_info"],
@@ -43,7 +43,7 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "refunds",
     name: "Refunds",
-    description: "Refund requests against captured payments.",
+    description: "Pay or reject customer refund requests.",
     icon: "Undo2",
     roles: rolesFor("refunds", "agent"),
     actions: ["request_refund", "approve", "reject", "execute"],
@@ -54,7 +54,7 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "flags",
     name: "Feature flags",
-    description: "Runtime configuration and kill switches by environment.",
+    description: "Switch features on or off, and choose who sees them.",
     icon: "ToggleLeft",
     roles: MANAGER_ROLES,
     actions: ["enable", "disable"],
@@ -65,7 +65,7 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "automation",
     name: "Rule changes",
-    description: "Rule changes Devin is making, each reviewed by an engineer before it goes live.",
+    description: "Rules Devin writes, reviewed by an engineer before they go live.",
     icon: "Bot",
     roles: ["refunds_manager", "kyc_manager", "engineer", "admin"],
     actions: ["dispatch", "approve_pr", "stop"],
@@ -77,7 +77,7 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "aml_alerts",
     name: "Transaction monitoring",
-    description: "AML rule and model alerts triaged into escalations.",
+    description: "Review suspicious-activity alerts and escalate the real ones.",
     icon: "Radar",
     roles: rolesFor("kyc", "agent"),
     actions: ["triage", "escalate", "close"],
@@ -88,7 +88,7 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "sanctions",
     name: "Sanctions screening",
-    description: "Name-screening hits requiring true/false positive calls.",
+    description: "Clear or confirm matches against sanctions lists.",
     icon: "ShieldAlert",
     roles: rolesFor("kyc", "agent"),
     actions: ["clear", "confirm_match", "freeze_account"],
@@ -98,8 +98,8 @@ export const OPS_MODES: OpsMode[] = [
   },
   {
     id: "sar_filing",
-    name: "SAR / STR filing",
-    description: "Suspicious activity reports from draft to filed.",
+    name: "SAR filing",
+    description: "Draft, review and file suspicious activity reports.",
     icon: "FileWarning",
     roles: rolesFor("kyc", "manager"),
     actions: ["draft", "review", "file"],
@@ -109,8 +109,8 @@ export const OPS_MODES: OpsMode[] = [
   },
   {
     id: "wire_release",
-    name: "Wire release queue",
-    description: "High-value outbound payments held for dual control.",
+    name: "Wire release",
+    description: "Release or hold large outgoing payments, with two sign-offs.",
     icon: "Banknote",
     roles: rolesFor("refunds", "agent"),
     actions: ["release", "hold", "cancel"],
@@ -120,8 +120,8 @@ export const OPS_MODES: OpsMode[] = [
   },
   {
     id: "chargebacks",
-    name: "Chargebacks & disputes",
-    description: "Disputes, evidence packs and representment deadlines.",
+    name: "Chargebacks",
+    description: "Accept or fight card disputes before the deadline.",
     icon: "Gavel",
     roles: rolesFor("refunds", "agent"),
     actions: ["accept", "represent", "submit_evidence"],
@@ -132,7 +132,7 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "remittances",
     name: "Remittances",
-    description: "Cross-border payouts, corridor limits and repairs.",
+    description: "Fix and retry stuck international transfers.",
     icon: "Globe2",
     roles: rolesFor("refunds", "agent"),
     actions: ["repair", "retry", "refund_sender"],
@@ -143,7 +143,7 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "ledger_adjustments",
     name: "Ledger adjustments",
-    description: "Manual credits, write-offs and goodwill postings.",
+    description: "Post manual credits and write-offs.",
     icon: "BookOpenCheck",
     roles: rolesFor("refunds", "manager"),
     actions: ["post_credit", "write_off"],
@@ -154,7 +154,7 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "card_ops",
     name: "Card operations",
-    description: "Reissue, freeze and spend controls on issued cards.",
+    description: "Freeze, replace and set limits on customer cards.",
     icon: "CreditCard",
     roles: ALL_ROLES,
     actions: ["freeze", "unfreeze", "reissue", "set_limit"],
@@ -165,7 +165,7 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "account_closure",
     name: "Offboarding",
-    description: "Account closure, exit reasons and balance return.",
+    description: "Close accounts and return what's left in them.",
     icon: "DoorOpen",
     roles: MANAGER_ROLES,
     actions: ["initiate_closure", "approve_closure"],
@@ -176,7 +176,7 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "complaints",
     name: "Complaints",
-    description: "Regulated complaint handling with response clocks.",
+    description: "Answer customer complaints within the regulator's deadlines.",
     icon: "MessageSquareWarning",
     roles: ALL_ROLES,
     actions: ["acknowledge", "resolve", "escalate"],
@@ -186,8 +186,8 @@ export const OPS_MODES: OpsMode[] = [
   },
   {
     id: "dsar",
-    name: "Data subject requests",
-    description: "GDPR access, rectification and erasure requests.",
+    name: "Data requests",
+    description: "Handle customers' requests to see or delete their data.",
     icon: "FileLock2",
     roles: MANAGER_ROLES,
     actions: ["fulfil", "reject"],
@@ -198,7 +198,7 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "merchant_onboarding",
     name: "Business onboarding",
-    description: "KYB for business clients: UBOs, documents, risk tier.",
+    description: "Check and approve new business customers.",
     icon: "Building2",
     roles: rolesFor("kyc", "agent"),
     actions: ["approve", "reject", "request_info"],
@@ -208,8 +208,8 @@ export const OPS_MODES: OpsMode[] = [
   },
   {
     id: "pricing",
-    name: "Pricing & rates",
-    description: "FX spreads, APY and fee schedule changes.",
+    name: "Pricing",
+    description: "Change fees, FX spreads and interest rates.",
     icon: "Percent",
     roles: MANAGER_ROLES,
     actions: ["propose", "publish"],
@@ -219,8 +219,8 @@ export const OPS_MODES: OpsMode[] = [
   },
   {
     id: "plans",
-    name: "Plans & entitlements",
-    description: "Paid tiers, entitlements and bespoke overrides.",
+    name: "Plans",
+    description: "Manage customer plans and what each one includes.",
     icon: "Layers",
     roles: MANAGER_ROLES,
     actions: ["grant", "revoke"],
@@ -231,7 +231,7 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "model_risk",
     name: "Model overrides",
-    description: "Risk model versions, thresholds and manual overrides.",
+    description: "Approve risk model updates and manual score overrides.",
     icon: "Brain",
     roles: ["admin"],
     actions: ["promote_model", "override_score"],
@@ -241,8 +241,8 @@ export const OPS_MODES: OpsMode[] = [
   },
   {
     id: "reconciliation",
-    name: "Reconciliation breaks",
-    description: "Unmatched ledger and scheme settlement entries.",
+    name: "Reconciliation",
+    description: "Match ledger entries that don't agree with bank settlements.",
     icon: "Scale",
     roles: rolesFor("refunds", "agent"),
     actions: ["match", "write_off", "escalate"],
@@ -253,7 +253,7 @@ export const OPS_MODES: OpsMode[] = [
   {
     id: "collections",
     name: "Collections",
-    description: "Arrears, forbearance plans and recovery actions.",
+    description: "Set up payment plans for customers who are behind.",
     icon: "HandCoins",
     roles: ALL_ROLES,
     actions: ["plan", "pause", "escalate"],

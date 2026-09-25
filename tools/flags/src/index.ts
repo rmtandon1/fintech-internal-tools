@@ -150,7 +150,7 @@ function order(sort?: SortOption) {
 export const flagTool = defineTool<FeatureFlag>({
   name: "flags",
   displayName: "Feature flags",
-  description: "Turn features on or off, and control how many customers see them.",
+  description: "Switch features on or off, and choose who sees them.",
   icon: "ToggleRight",
   group: "Platform",
   recordType: "feature_flag",

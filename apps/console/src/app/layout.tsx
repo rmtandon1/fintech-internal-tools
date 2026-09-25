@@ -15,13 +15,14 @@ import { verifyChain } from "@console/engine/audit/verify";
 import { automationTool } from "@console/tool-automation";
 import { devinMode } from "@/lib/devin-status";
 import { modesFor } from "@/lib/modes";
+import { BRAND } from "@/lib/brand";
 import { chosenRole, currentActor } from "@/lib/session";
 import { toolsForRole } from "@/registry";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Fintech Tools",
-  description: "Governed internal operations console",
+  title: BRAND.name,
+  description: BRAND.tagline,
 };
 
 export const dynamic = "force-dynamic";

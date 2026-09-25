@@ -308,7 +308,7 @@ function order(sort?: SortOption) {
 export const automationTool = defineTool<DevinRun>({
   name: "automation",
   displayName: "Rule changes",
-  description: "Rule changes Devin is making or has made, each reviewed by an engineer before it goes live.",
+  description: "Rules Devin writes, reviewed by an engineer before they go live.",
   icon: "Bot",
   group: "Platform",
   recordType: "devin_run",

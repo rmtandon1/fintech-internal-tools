@@ -129,7 +129,7 @@ function order(sort?: SortOption) {
 export const refundTool = defineTool<Refund>({
   name: "refunds",
   displayName: "Refunds",
-  description: "Refund requests to send to the payment processor, approve or reject.",
+  description: "Pay or reject customer refund requests.",
   icon: "Undo2",
   group: "Money Movement",
   recordType: "refund",

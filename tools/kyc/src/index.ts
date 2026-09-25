@@ -132,8 +132,8 @@ function order(sort?: SortOption) {
 
 export const kycTool = defineTool<KycCase>({
   name: "kyc",
-  displayName: "KYC review queue",
-  description: "New customers waiting for an identity check decision.",
+  displayName: "KYC review",
+  description: "Approve or reject new customers after their identity checks.",
   icon: "IdCard",
   group: "Risk & Compliance",
   recordType: "kyc_case",
