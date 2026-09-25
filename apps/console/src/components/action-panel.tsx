@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ulid } from "ulid";
-import { submitIntent } from "@/app/actions";
+import { submitIntent, type SubmitResult } from "@/app/actions";
+import { ActionOutcome } from "@/components/action-outcome";
 import { Button } from "@console/ui/button";
 import {
   Dialog,
@@ -18,6 +19,12 @@ import { Textarea } from "@console/ui/textarea";
 import type { ActionPreview } from "@console/engine/policy/preview";
 import { titleCase } from "@console/ui/format";
 
+interface Submission {
+  action: string;
+  idempotencyKey: string;
+  result: SubmitResult;
+}
+
 export function ActionBar({
   tool,
   recordId,
@@ -27,6 +34,9 @@ export function ActionBar({
   recordId: string | null;
   previews: ActionPreview[];
 }) {
+  // The last outcome stays docked here until the next action or navigation.
+  const [last, setLast] = useState<Submission | null>(null);
+
   if (previews.length === 0) {
     return (
       <p className="px-3 py-2 text-xs text-muted-foreground">
@@ -35,16 +45,28 @@ export function ActionBar({
     );
   }
   return (
-    <>
-      {previews.map((preview) => (
-        <ActionButton
-          key={preview.action}
+    <div className="flex w-full flex-col gap-2">
+      {last && last.result.outcome.status !== "error" ? (
+        <ActionOutcome
+          result={last.result}
           tool={tool}
+          action={last.action}
           recordId={recordId}
-          preview={preview}
+          idempotencyKey={last.idempotencyKey}
         />
-      ))}
-    </>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        {previews.map((preview) => (
+          <ActionButton
+            key={preview.action}
+            tool={tool}
+            recordId={recordId}
+            preview={preview}
+            onSubmitted={setLast}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -57,18 +79,32 @@ function approvalTier(preview: ActionPreview): string {
     : "approval";
 }
 
+/** The submitted input fields, in a stable order, as the engine will hash them. */
+function payloadOf(form: FormData): string {
+  const entries = Array.from(form.entries())
+    .filter(([key]) => key.startsWith("input:"))
+    .map(([key, value]) => [key, String(value)] as const)
+    .sort(([a], [b]) => a.localeCompare(b));
+  return JSON.stringify(entries);
+}
+
 function ActionButton({
   tool,
   recordId,
   preview,
+  onSubmitted,
 }: {
   tool: string;
   recordId: string | null;
   preview: ActionPreview;
+  onSubmitted: (submission: Submission) => void;
 }) {
   const [pending, startTransition] = useTransition();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState(() => ulid());
+  // The last completed submission, so the same payload sent again replays it
+  // while a changed payload goes out under a fresh key.
+  const [completed, setCompleted] = useState<{ key: string; payload: string } | null>(null);
 
   const denied = preview.decision?.effect === "deny";
   const needsApproval = preview.decision?.effect === "require_approval";
@@ -91,23 +127,20 @@ function ActionButton({
 
   function onSubmit(form: FormData) {
     startTransition(async () => {
+      const payload = payloadOf(form);
+      const key = completed?.payload === payload ? completed.key : idempotencyKey;
+      form.set("idempotencyKey", key);
       const result = await submitIntent(form);
-      setIdempotencyKey(ulid());
       const outcome = result.outcome;
+      onSubmitted({ action: preview.action, idempotencyKey: key, result });
       // Only a completed submission closes the dialog; on a denial the
       // entered values stay put so the operator can fix and retry.
       if (outcome.status === "applied" || outcome.status === "pending_approval") {
         setDialogOpen(false);
+        setCompleted({ key, payload });
       }
-      if (outcome.status === "applied") {
-        toast.success(outcome.summary, {
-          description: result.replayed ? "Replayed from idempotency key" : undefined,
-        });
-      } else if (outcome.status === "pending_approval") {
-        toast.info("Sent for approval", { description: outcome.reason });
-      } else if (outcome.status === "denied") {
-        toast.error("Denied by policy", { description: outcome.reason });
-      } else {
+      setIdempotencyKey(ulid());
+      if (outcome.status === "error") {
         toast.error(titleCase(outcome.code), { description: outcome.message });
       }
     });

@@ -112,7 +112,14 @@ export function RecordView({
       </details>
 
       <div className="mt-auto flex shrink-0 items-center gap-2 border-t border-border px-3 py-2">
-        {actions ?? <ActionBar tool={decl.name} recordId={record.id} previews={previews} />}
+        {actions ?? (
+          <ActionBar
+            key={`${decl.name}:${record.id}`}
+            tool={decl.name}
+            recordId={record.id}
+            previews={previews}
+          />
+        )}
       </div>
     </div>
   );
