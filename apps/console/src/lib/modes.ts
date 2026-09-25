@@ -2,6 +2,9 @@ import type { Role } from "@console/engine/types";
 import { getTool } from "@/registry";
 import { ALL_ROLES, MANAGER_ROLES, rolesFor } from "@console/permissions";
 
+export const MODE_AREAS = ["Compliance", "Money movement", "Customers", "Platform"] as const;
+export type ModeArea = (typeof MODE_AREAS)[number];
+
 export interface OpsMode {
   /** Matches a registered tool's `name` where one is registered. */
   id: string;
@@ -12,6 +15,9 @@ export interface OpsMode {
   roles: Role[];
   actions: string[];
   segment: "consumer" | "business" | "both" | "platform";
+  area: ModeArea;
+  /** Column headings for the sample queue on a pending mode's preview page. */
+  columns?: string[];
 }
 
 /**
@@ -27,6 +33,7 @@ export const OPS_MODES: OpsMode[] = [
     roles: rolesFor("kyc", "agent"),
     actions: ["approve", "reject", "request_info"],
     segment: "both",
+    area: "Compliance",
   },
   {
     id: "refunds",
@@ -36,6 +43,7 @@ export const OPS_MODES: OpsMode[] = [
     roles: rolesFor("refunds", "agent"),
     actions: ["request_refund", "approve", "reject", "execute"],
     segment: "both",
+    area: "Money movement",
   },
   {
     id: "flags",
@@ -45,6 +53,7 @@ export const OPS_MODES: OpsMode[] = [
     roles: MANAGER_ROLES,
     actions: ["enable", "disable"],
     segment: "platform",
+    area: "Platform",
   },
   {
     id: "aml_alerts",
@@ -54,6 +63,8 @@ export const OPS_MODES: OpsMode[] = [
     roles: rolesFor("kyc", "agent"),
     actions: ["triage", "escalate", "close"],
     segment: "both",
+    area: "Compliance",
+    columns: ["Alert", "Customer", "Rule", "Amount", "Score"],
   },
   {
     id: "sanctions",
@@ -63,6 +74,8 @@ export const OPS_MODES: OpsMode[] = [
     roles: rolesFor("kyc", "agent"),
     actions: ["clear", "confirm_match", "freeze_account"],
     segment: "both",
+    area: "Compliance",
+    columns: ["Hit", "Name", "List", "Match", "Status"],
   },
   {
     id: "sar_filing",
@@ -72,6 +85,8 @@ export const OPS_MODES: OpsMode[] = [
     roles: rolesFor("kyc", "manager"),
     actions: ["draft", "review", "file"],
     segment: "both",
+    area: "Compliance",
+    columns: ["Report", "Subject", "Typology", "Amount", "Due"],
   },
   {
     id: "wire_release",
@@ -81,6 +96,8 @@ export const OPS_MODES: OpsMode[] = [
     roles: rolesFor("refunds", "agent"),
     actions: ["release", "hold", "cancel"],
     segment: "business",
+    area: "Money movement",
+    columns: ["Wire", "Beneficiary", "Country", "Amount", "Held"],
   },
   {
     id: "chargebacks",
@@ -90,6 +107,8 @@ export const OPS_MODES: OpsMode[] = [
     roles: rolesFor("refunds", "agent"),
     actions: ["accept", "represent", "submit_evidence"],
     segment: "both",
+    area: "Money movement",
+    columns: ["Dispute", "Merchant", "Reason", "Amount", "Deadline"],
   },
   {
     id: "remittances",
@@ -99,6 +118,8 @@ export const OPS_MODES: OpsMode[] = [
     roles: rolesFor("refunds", "agent"),
     actions: ["repair", "retry", "refund_sender"],
     segment: "consumer",
+    area: "Money movement",
+    columns: ["Transfer", "Corridor", "Sender", "Amount", "Status"],
   },
   {
     id: "ledger_adjustments",
@@ -108,6 +129,8 @@ export const OPS_MODES: OpsMode[] = [
     roles: rolesFor("refunds", "manager"),
     actions: ["post_credit", "write_off"],
     segment: "both",
+    area: "Money movement",
+    columns: ["Posting", "Account", "Type", "Amount", "Requested"],
   },
   {
     id: "card_ops",
@@ -117,6 +140,8 @@ export const OPS_MODES: OpsMode[] = [
     roles: ALL_ROLES,
     actions: ["freeze", "unfreeze", "reissue", "set_limit"],
     segment: "consumer",
+    area: "Customers",
+    columns: ["Card", "Customer", "Product", "Limit", "Status"],
   },
   {
     id: "account_closure",
@@ -126,6 +151,8 @@ export const OPS_MODES: OpsMode[] = [
     roles: MANAGER_ROLES,
     actions: ["initiate_closure", "approve_closure"],
     segment: "both",
+    area: "Customers",
+    columns: ["Account", "Customer", "Reason", "Balance", "Requested"],
   },
   {
     id: "complaints",
@@ -135,6 +162,8 @@ export const OPS_MODES: OpsMode[] = [
     roles: ALL_ROLES,
     actions: ["acknowledge", "resolve", "escalate"],
     segment: "both",
+    area: "Customers",
+    columns: ["Complaint", "Customer", "Category", "Received", "Clock"],
   },
   {
     id: "dsar",
@@ -144,6 +173,8 @@ export const OPS_MODES: OpsMode[] = [
     roles: MANAGER_ROLES,
     actions: ["fulfil", "reject"],
     segment: "consumer",
+    area: "Customers",
+    columns: ["Request", "Subject", "Type", "Received", "Due"],
   },
   {
     id: "merchant_onboarding",
@@ -153,6 +184,8 @@ export const OPS_MODES: OpsMode[] = [
     roles: rolesFor("kyc", "agent"),
     actions: ["approve", "reject", "request_info"],
     segment: "business",
+    area: "Compliance",
+    columns: ["Business", "Country", "Owners", "Risk tier", "Status"],
   },
   {
     id: "pricing",
@@ -162,6 +195,8 @@ export const OPS_MODES: OpsMode[] = [
     roles: MANAGER_ROLES,
     actions: ["propose", "publish"],
     segment: "both",
+    area: "Platform",
+    columns: ["Change", "Product", "Current", "Proposed", "Effective"],
   },
   {
     id: "plans",
@@ -171,6 +206,8 @@ export const OPS_MODES: OpsMode[] = [
     roles: MANAGER_ROLES,
     actions: ["grant", "revoke"],
     segment: "both",
+    area: "Customers",
+    columns: ["Customer", "Plan", "Entitlement", "Override", "Expires"],
   },
   {
     id: "model_risk",
@@ -180,6 +217,8 @@ export const OPS_MODES: OpsMode[] = [
     roles: ["admin"],
     actions: ["promote_model", "override_score"],
     segment: "platform",
+    area: "Platform",
+    columns: ["Model", "Version", "Metric", "Threshold", "Status"],
   },
   {
     id: "reconciliation",
@@ -189,6 +228,8 @@ export const OPS_MODES: OpsMode[] = [
     roles: rolesFor("refunds", "agent"),
     actions: ["match", "write_off", "escalate"],
     segment: "platform",
+    area: "Money movement",
+    columns: ["Break", "Source", "Counterparty", "Amount", "Age"],
   },
   {
     id: "collections",
@@ -198,6 +239,8 @@ export const OPS_MODES: OpsMode[] = [
     roles: ALL_ROLES,
     actions: ["plan", "pause", "escalate"],
     segment: "consumer",
+    area: "Customers",
+    columns: ["Account", "Customer", "Arrears", "Days late", "Plan"],
   },
 ];
 
@@ -206,5 +249,32 @@ export function liveModes(actorRole: Role): OpsMode[] {
   return OPS_MODES.filter((mode) => {
     const decl = getTool(mode.id);
     return decl !== undefined && decl.visibleTo.includes(actorRole);
+  });
+}
+
+export interface ModeEntry extends OpsMode {
+  live: boolean;
+  href: string;
+}
+
+/**
+ * Every mode this role may open, with the tool's own declaration taking over
+ * where one is registered. A registered tool this role cannot see has no page
+ * at all; roadmap only exists for unregistered modes, so the entry is omitted.
+ */
+export function modesFor(actorRole: Role): ModeEntry[] {
+  return OPS_MODES.flatMap((mode) => {
+    const decl = getTool(mode.id);
+    if (decl !== undefined && !decl.visibleTo.includes(actorRole)) return [];
+    const live = decl !== undefined;
+    return [{
+      ...mode,
+      name: decl?.displayName ?? mode.name,
+      description: decl?.description ?? mode.description,
+      icon: decl?.icon ?? mode.icon,
+      actions: decl ? decl.actions.map((a) => a.name) : mode.actions,
+      live,
+      href: live ? `/t/${mode.id}` : `/roadmap/${mode.id}`,
+    }];
   });
 }
