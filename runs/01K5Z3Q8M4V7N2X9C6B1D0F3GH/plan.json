@@ -1,0 +1,7 @@
+{
+  "files": [
+    { "path": "tools/refunds/src/clustering-hold.ts", "op": "create", "reason": "clustering_hold rule" }
+  ],
+  "reuses": [],
+  "acceptance": ["holds clustered refunds"]
+}

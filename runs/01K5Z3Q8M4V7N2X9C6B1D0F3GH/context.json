@@ -1,0 +1,13 @@
+{
+  "run_id": "01K5Z3Q8M4V7N2X9C6B1D0F3GH",
+  "kind": "IMPLEMENTATION/ADDITION",
+  "spec": "REFUND_CLUSTERING_HOLD.md",
+  "intent": "Hold a merchant's not-received refunds once together they pass the manager line.",
+  "requested_by": "refunds_manager",
+  "base": { "branch": "cognition-dashboard-devin-integration", "commit": "f7f246311bbbf2c11e8eac478097d26fcc6316e8" },
+  "scope": ["tools/refunds/**", "apps/console/tests/tools/refunds*.test.ts", "runs/01K5Z3Q8M4V7N2X9C6B1D0F3GH/**"],
+  "constants": { "refunds.manager_approval_usd_minor": 50000 },
+  "evidence": { "cluster": "merchant_not_received:Kestrel Outdoors", "rows": [] },
+  "reverses": null,
+  "audit_head": { "seq": 214, "rowHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" }
+}
