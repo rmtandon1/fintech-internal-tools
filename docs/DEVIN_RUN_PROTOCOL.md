@@ -87,7 +87,7 @@ Devin's VM runs a freshly seeded database. It cannot see `apps/console/data/cons
   "spec": "REFUND_CLUSTERING_HOLD.md",
   "intent": "Hold a merchant's not-received refunds once together they pass the manager line, and send those customers' KYC approvals to a manager.",
   "requested_by": "refunds_manager",
-  "base": { "branch": "demo-dashboard-devin-integration", "commit": "1a67f60…" },
+  "base": { "branch": "cognition-dashboard-devin-integration", "commit": "1a67f60…" },
   "constants": {
     "refunds.manager_approval_usd_minor": 50000,
     "kyc.manager_review_score": 70
@@ -130,7 +130,7 @@ Each phase passes or stops the run. There is no "continue with warnings".
 | Plan         | `runs/<run_id>/context.json` (verbatim) and `runs/<run_id>/plan.json` (the files Devin will touch, and why) are committed alone as the branch's first commit | Stop. Delete the branch                                                                                        |
 | Edit         | Only files in the plan change                                                                                                                                | Reset to the plan commit and stop                                                                              |
 | Verify       | `pnpm verify` is green. The spec's acceptance tests pass. Test counts per file are at or above baseline                                                      | Two fix attempts inside the plan, then reset and stop                                                          |
-| Pull request | A PR is opened against `demo-dashboard-devin-integration`                                                                                                    | Leave the branch pushed and report                                                                             |
+| Pull request | A PR is opened against `cognition-dashboard-devin-integration`                                                                                                    | Leave the branch pushed and report                                                                             |
 | Merge        | After an engineer's `approve_pr`, Devin merges (squash) and reports `merge_commit`                                                                           | Report why (checks re-running, conflict with a newer merge) and wait. Rebase inside the plan if the base moved |
 
 
@@ -246,7 +246,7 @@ Humans approve. Devin merges. The control a regulated change process needs is se
 4. Devin merges and reports `merge_commit` in `structured_output`.
 5. The console writes `record_merge` for the same engineer, with the PR URL and merge commit.
 
-Enforcement lives in GitHub, not the guard script. `run-guard.ts` checks a diff and can't see who merged. Branch protection on `demo-dashboard-devin-integration` requires one approving review, all guard checks, and no bypass for Devin's GitHub account. Devin's docs recommend exactly this: branch protection "to ensure all required checks pass before Devin can merge changes" (docs.devin.ai, GitHub integration). A security profile can also restrict the session's git and GitHub CLI access (docs.devin.ai, Security Profiles).
+Enforcement lives in GitHub, not the guard script. `run-guard.ts` checks a diff and can't see who merged. Branch protection on `cognition-dashboard-devin-integration` requires one approving review, all guard checks, and no bypass for Devin's GitHub account. Devin's docs recommend exactly this: branch protection "to ensure all required checks pass before Devin can merge changes" (docs.devin.ai, GitHub integration). A security profile can also restrict the session's git and GitHub CLI access (docs.devin.ai, Security Profiles).
 
 Demo setup: the engineer's GitHub token sits in the server environment next to `DEVIN_API_KEY`. In replay, steps 3–5 play from the fixture.
 
