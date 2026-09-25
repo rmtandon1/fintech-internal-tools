@@ -4,7 +4,7 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 
 ## Setup Commands
 - Install dependencies: `pnpm install`
-- Migrate and seed the local database (`apps/console/data/console.db`): `pnpm setup`
+- Migrate and seed the local database (`apps/console/data/console.db`): `pnpm db:setup`
 - Start development server (port 3001): `pnpm dev`
 - Run tests: `pnpm test` (watch mode: `pnpm test:watch`)
 - Lint / typecheck: `pnpm lint` / `pnpm typecheck`

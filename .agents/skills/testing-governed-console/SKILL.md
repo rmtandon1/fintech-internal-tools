@@ -4,7 +4,7 @@ description: Browser smoke testing for the Meridian governed-write-path console,
 ---
 
 # Local setup
-- Use pnpm from the repo root. Run `pnpm setup`, then `pnpm dev`; the console listens on http://localhost:3001. Root scripts forward to the workspace app in `apps/console`; the default database is `apps/console/data/console.db` and `DATABASE_PATH` overrides it.
+- Use pnpm from the repo root. Run `pnpm db:setup`, then `pnpm dev`; the console listens on http://localhost:3001. Root scripts forward to the workspace app in `apps/console`; the default database is `apps/console/data/console.db` and `DATABASE_PATH` overrides it.
 - When switching from a pre-workspace branch, stop any old dev server before starting the workspace app. On Linux check the listening PID with `ss -ltnp` and its cwd with `readlink /proc/<pid>/cwd`.
 - Capture dev-server output to a file to check server-action failures after UI testing.
 - Do not assume seeding resets existing records. Check initial status before selecting a mutation scenario; preserve any pre-existing local work.
