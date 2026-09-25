@@ -25,7 +25,7 @@ Switching a rule off uses the existing constant editor. The rule's spec names wh
 
 ## The handoff panel
 
-It opens in the agent column (`apps/console/src/components/agent-column.tsx`; controls in `CONSOLE_ROLE_VIEWS.md`) and holds:
+It opens in the Devin window (`apps/console/src/components/agent-window.tsx`; controls in `CONSOLE_ROLE_VIEWS.md`) and holds:
 
 - **Intent**: one sentence, prefilled from the spec and editable. This is the only free text in the flow.
 - **Evidence**: what goes into `context.json`: cluster rows with PII dropped, the live constants the rule depends on, and the base commit. It is shown so the requester sees exactly what Devin will see.

@@ -17,14 +17,8 @@ The only run control in the console today is "Ask Devin for a rule" in the refun
 
 The join is KYC `email` = refunds `customerEmail`, run on the server with the read client so no unmasked email reaches the browser. Covered by `apps/console/tests/tools/kyc-linked-activity.test.ts`.
 
-## Agent column controls
+## Devin window controls
 
-Implemented in `apps/console/src/components/workspace.tsx` on `packages/ui/src/resizable.tsx` (`react-resizable-panels`).
+Devin's work opens in a centred modal (`apps/console/src/components/agent-window.tsx`, on `@console/ui/dialog`), not a column. The header's Devin button or `]` toggles it (`[` toggles the sidebar); Esc or the close button also closes it. There is no resizable pane and no persisted layout; the same window opens at every viewport width.
 
-- Minimum width 280px; dragging below it collapses the column.
-- `]` toggles the column (`[` toggles the sidebar); the header's Devin button does the same.
-- Double-click on the seam restores the default split.
-- The split is saved in the `console-workspace-layout` cookie (`apps/console/src/lib/workspace-layout.ts`) so the server renders the last layout without a jump.
-- Below `lg` the seam is hidden and the header button opens the column as a sheet.
-
-The column is a shell: `AgentColumnBody` (`apps/console/src/components/agent-column.tsx`) renders "source: none" and "No runs yet". The planned data flow (live session while a run is in flight, `runs/<run_id>/` on the default branch after merge) is specified in `AGENT_TRIGGER_SURFACE.md` and is not wired up.
+The window is a shell: it renders "source: none" and "No runs yet". The planned data flow (live session while a run is in flight, `runs/<run_id>/` on the default branch after merge) is specified in `AGENT_TRIGGER_SURFACE.md` and is not wired up.
