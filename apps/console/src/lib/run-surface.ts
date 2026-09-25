@@ -10,7 +10,7 @@ import {
   type RunKind,
   type StructuredOutput,
 } from "@console/tool-automation";
-import { currentPrUrl, type BridgeDeps } from "@console/tool-automation/bridge";
+import { currentPrUrl, isSynced, type BridgeDeps } from "@console/tool-automation/bridge";
 
 /**
  * What the run surface may offer this actor for `run`, computed with the
@@ -24,15 +24,17 @@ export interface RunOffers {
   reply: boolean;
   /** A merged IMPLEMENTATION the admin may undo. */
   reverse: { offered: boolean; reason?: string };
+  /** The merge landed but the local checkout does not have it yet. */
+  sync: boolean;
 }
 
-export function runOffers(
+export async function runOffers(
   run: DevinRun,
   actor: Actor,
   deps: BridgeDeps,
   latest?: StructuredOutput | null,
-): RunOffers {
-  const prUrl = currentPrUrl(run, deps);
+): Promise<RunOffers> {
+  const prUrl = await currentPrUrl(run, deps).catch(() => null);
   const previews = previewActions(automationTool, run, actor, {
     approve_pr: {
       prUrl: prUrl ?? "https://github.com/owner/repo/pull/0",
@@ -67,5 +69,10 @@ export function runOffers(
     stop: gate("stop"),
     reply: latest?.phase_status === "waiting_for_user",
     reverse,
+    sync:
+      actor.role === "engineer" &&
+      run.status === "merged" &&
+      deps.git !== undefined &&
+      !(await isSynced(run, deps).catch(() => false)),
   };
 }

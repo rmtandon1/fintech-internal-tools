@@ -98,7 +98,7 @@ export async function handleGet(
         : null,
     summary: getSpec(run.spec)?.summaries?.[run.kind as RunKind] ?? run.intent,
     lastAuditId: listAuditEvents({ recordId: run.id, limit: 1 }).rows[0]?.id ?? null,
-    offers: runOffers(run, actor, deps, latest?.structured_output ?? null),
+    offers: await runOffers(run, actor, deps, latest?.structured_output ?? null),
   };
   return { status: 200, body: payload };
 }
