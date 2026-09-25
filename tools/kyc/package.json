@@ -1,0 +1,20 @@
+{
+  "name": "@console/tool-kyc",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts",
+    "./seed": "./src/seed.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@console/db": "workspace:*",
+    "@console/engine": "workspace:*",
+    "@console/permissions": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "zod": "^4.6.5"
+  }
+}

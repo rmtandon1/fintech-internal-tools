@@ -1,0 +1,13 @@
+# Review gates by folder. Turn on "Require review from Code Owners" in branch
+# protection to make these binding.
+
+# Governed write path and the packages that hold a write handle.
+/packages/engine/    @rmtandon1
+/packages/db-write/  @rmtandon1
+/packages/db-core/   @rmtandon1
+/packages/db/        @rmtandon1
+/packages/permissions/ @rmtandon1
+
+# The boundary script is part of the governance surface.
+/scripts/check-boundaries.ts @rmtandon1
+/.github/CODEOWNERS @rmtandon1
