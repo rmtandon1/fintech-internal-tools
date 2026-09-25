@@ -105,7 +105,7 @@ Density pass: 13px base, `font-variant-numeric: tabular-nums` on amounts and ids
 
 ```bash
 pnpm verify
-pnpm setup && pnpm dev
+pnpm db:setup && pnpm dev
 ```
 
 - As analyst, drawer rows are masked with no reveal control, and approve is absent.

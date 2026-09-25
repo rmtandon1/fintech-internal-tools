@@ -201,7 +201,7 @@ The playbook states these as prose, and `scripts/run-guard.ts` (in `pnpm verify`
 | **Seed is not state**     | A seed file changes to fake a demo outcome. Seeds may gain rows the spec asks for                                                                                                                     |
 | **Humans approve**        | The session merges without an approving review from someone other than itself, force-pushes, or pushes to the default branch                                                                          |
 | **Engine owner approves** | Scope `engine` only. A change under `packages/engine/`, `packages/db/`, `packages/db-core/`, `packages/db-write/`, `packages/permissions/` or `apps/console/drizzle/` merges without an approving review from the engine owner in CODEOWNERS, in addition to `approve_pr`                        |
-| **No live writes**        | The session runs `pnpm setup`, `db:seed` or `db:tamper`, or writes SQL against anything but a test database                                                                                           |
+| **No live writes**        | The session runs `pnpm db:setup`, `db:seed` or `db:tamper`, or writes SQL against anything but a test database                                                                                        |
 
 
 `runs/` and the guard sit under CODEOWNERS, so changing either needs a human reviewer.

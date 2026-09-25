@@ -11,15 +11,15 @@ Requires Node 24 and pnpm. Everything runs on localhost against a local SQLite f
 git clone https://github.com/rmtandon1/buy-v-build-cog-demo.git
 cd buy-v-build-cog-demo
 pnpm install
-pnpm setup      # migrate + seed apps/console/data/console.db
+pnpm db:setup   # migrate + seed apps/console/data/console.db
 pnpm dev        # serves http://localhost:3001 and opens a browser
 ```
 
-`pnpm dev` fails to render until `pnpm setup` has created the database. To start over at
-any point, delete the file and re-seed:
+`pnpm dev` fails to render until `pnpm db:setup` has created the database. To start over at
+any point, delete the data folder and re-seed:
 
 ```bash
-rm -rf apps/console/data/console.db* && pnpm setup
+rm -rf apps/console/data && pnpm db:setup
 ```
 
 Role switching is a signed cookie (no auth), chosen from the header. Roles are
@@ -73,20 +73,23 @@ pnpm db:tamper prev_mismatch   # rewrites a row's prev hash
 pnpm db:tamper seq_gap         # deletes a row mid-chain
 ```
 
-The verify page names the break type and the row it starts at. `rm -rf apps/console/data/console.db* &&
-pnpm setup` puts the demo back.
+The verify page names the break type and the row it starts at. `rm -rf apps/console/data &&
+pnpm db:setup` puts the demo back.
 
 ## Scripts
 
 | Script | |
 | --- | --- |
-| `pnpm setup` | `db:migrate` then `db:seed` |
+| `pnpm db:setup` | `db:migrate` then `db:seed` (not `pnpm setup`, which pnpm reserves for its own shell setup) |
 | `pnpm db:generate` | regenerate migrations from `apps/console/src/schema.ts` |
 | `pnpm db:tamper` | corrupt an audit row for the chain-break demo (local only) |
+| `pnpm db:scenario courier-outage` | insert 60 `not_received` Fernhill Home refunds and submit each through `executeIntent` as the refunds agent; idempotent, local only. Today every refund applies; once the clustering hold merges most go to the manager inbox |
 | `pnpm test` | engine and tool tests |
 | `pnpm check:boundaries` | engine must not name a tool; no relative imports across packages; only the engine may depend on `db-write` |
 | `pnpm verify` | lint + typecheck + boundaries + tests |
 | `pnpm build` | production build |
+
+CI (`.github/workflows/verify.yml`, job `verify`) runs `pnpm verify` on every PR to `cognition-dashboard-devin-integration`.
 
 ## Layout
 

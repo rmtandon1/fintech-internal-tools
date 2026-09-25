@@ -12,6 +12,7 @@ export const DEMO_ACTORS: Record<Role, Actor> = {
   kyc_manager: { id: "usr_kyc_manager", name: ROLE_META.kyc_manager.label, role: "kyc_manager" },
   refunds_agent: { id: "usr_refunds_agent", name: ROLE_META.refunds_agent.label, role: "refunds_agent" },
   refunds_manager: { id: "usr_refunds_manager", name: ROLE_META.refunds_manager.label, role: "refunds_manager" },
+  engineer: { id: "usr_engineer", name: ROLE_META.engineer.label, role: "engineer" },
   admin: { id: "usr_admin", name: ROLE_META.admin.label, role: "admin" },
 };
 

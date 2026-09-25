@@ -167,7 +167,7 @@ export function CommandPaletteProvider({
                   </span>
                   {!mode.live ? (
                     <span className="ml-auto shrink-0 text-[10px] uppercase text-muted-foreground">
-                      not built
+                      pending
                     </span>
                   ) : null}
                 </button>

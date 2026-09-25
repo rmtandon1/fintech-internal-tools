@@ -9,6 +9,7 @@ export const ROLES = [
   "kyc_manager",
   "refunds_agent",
   "refunds_manager",
+  "engineer",
   "admin",
 ] as const;
 
@@ -16,7 +17,7 @@ export type Role = (typeof ROLES)[number];
 
 export type RoleDomain = "kyc" | "refunds";
 
-export type RoleLevel = "agent" | "manager" | "admin";
+export type RoleLevel = "engineer" | "agent" | "manager" | "admin";
 
 export const ROLE_META: Record<
   Role,
@@ -30,10 +31,16 @@ export const ROLE_META: Record<
     domain: "refunds",
     level: "manager",
   },
+  engineer: { label: "Engineer", domain: null, level: "engineer" },
   admin: { label: "Admin", domain: null, level: "admin" },
 };
 
-const LEVEL_RANK: Record<RoleLevel, number> = { agent: 0, manager: 1, admin: 2 };
+const LEVEL_RANK: Record<RoleLevel, number> = {
+  engineer: -1,
+  agent: 0,
+  manager: 1,
+  admin: 2,
+};
 
 /** Roles allowed to act in `domain` at `level` or above; admin is always included. */
 export function rolesFor(domain: RoleDomain, level: RoleLevel): Role[] {
@@ -58,5 +65,5 @@ export function roleLabel(role: Role): string {
 
 /** Agents request; managers and admins may also decide approvals. */
 export function canApprove(role: Role): boolean {
-  return ROLE_META[role].level !== "agent";
+  return ROLE_META[role].level === "manager" || ROLE_META[role].level === "admin";
 }

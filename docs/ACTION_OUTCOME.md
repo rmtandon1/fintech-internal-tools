@@ -88,7 +88,7 @@ Render `ActionOutcome` for applied, pending, denied and replayed results. Keep t
 
 ```bash
 pnpm verify
-pnpm setup && pnpm dev
+pnpm db:setup && pnpm dev
 ```
 
 - As `kyc_reviewer`, approve a case under the manager line. The panel shows `v1 → v2`, and its `#seq` and hash match the row at `/audit`.
