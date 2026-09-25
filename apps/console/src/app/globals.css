@@ -88,4 +88,23 @@
     @apply bg-background text-foreground;
     font-size: 13px;
   }
+  /* Density: figures line up in columns, rows sit at 28px, identifiers read as code. */
+  table,
+  .tabular-nums,
+  .font-mono {
+    font-variant-numeric: tabular-nums;
+  }
+  tbody tr {
+    height: 28px;
+  }
+  td,
+  th {
+    padding-top: 0;
+    padding-bottom: 0;
+    vertical-align: middle;
+  }
+  code,
+  kbd {
+    font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
 }

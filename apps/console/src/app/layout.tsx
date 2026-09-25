@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Toaster } from "@console/ui/sonner";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
+import { AgentColumn, AgentColumnSheet } from "@/components/agent-column";
 import {
   CommandPaletteProvider,
   type PaletteMode,
@@ -62,8 +63,14 @@ export default async function RootLayout({
                 actor={actor}
                 chainOk={chain.ok}
                 chainLength={chain.length}
+                agent={<AgentColumnSheet />}
               />
-              <main className="min-h-0 flex-1 overflow-hidden p-3">{children}</main>
+              <div className="flex min-h-0 flex-1">
+                <main className="min-h-0 min-w-0 flex-1 overflow-hidden p-3">
+                  {children}
+                </main>
+                <AgentColumn />
+              </div>
             </div>
           </div>
         </CommandPaletteProvider>

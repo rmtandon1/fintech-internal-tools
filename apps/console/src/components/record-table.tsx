@@ -40,6 +40,10 @@ export function columnIsNumeric(decl: ToolDeclaration, column: ColumnDecl): bool
   );
 }
 
+function columnIsId(column: { field: string }): boolean {
+  return column.field === "id" || /Id$/.test(column.field);
+}
+
 /** A dense record table: first `columnCount` listColumns, mono ids, h-7 rows. */
 export function RecordTable({
   decl,
@@ -69,6 +73,7 @@ export function RecordTable({
                   className={cn(
                     "whitespace-nowrap px-2 align-middle",
                     columnIsNumeric(decl, column) && "text-right tabular-nums",
+                    columnIsId(column) && "font-mono",
                   )}
                 >
                   {index === 0 ? (
