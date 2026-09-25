@@ -40,6 +40,8 @@ export interface BridgeDeps {
   syncRemote?: string;
   syncBranch?: string;
   playbookId?: string;
+  /** Looks the playbook up when `playbookId` is not configured; null when there is none. */
+  resolvePlaybookId?: () => Promise<string | null>;
   maxAcuLimit?: number;
   now?: () => number;
 }
@@ -176,17 +178,21 @@ export async function dispatchRun(
     sessionInput = { error: "Devin API is not configured: set DEVIN_API_KEY and DEVIN_ORG_ID on the server" };
   } else {
     try {
+      // A missing playbook is not fatal: the prompt names the protocol file too.
+      const playbookId =
+        deps.playbookId ?? (await deps.resolvePlaybookId?.().catch(() => null)) ?? undefined;
       const created = await deps.devin.createSession({
         prompt: [
           req.intent,
           `Kind: ${req.kind}. Spec: ${spec.file}. Run: ${runId}.`,
           `Work from the attached runs/${runId}/context.json; commit it unchanged on your branch.`,
+          "Follow .devin/run-protocol.playbook.md and docs/DEVIN_RUN_PROTOCOL.md.",
         ].join("\n"),
         title: `${req.kind} ${spec.file} (${runId})`,
         tags: [`run:${runId}`, `kind:${req.kind}`],
         attachment: { name: "context.json", body: built.json },
         structuredOutputSchema: STRUCTURED_OUTPUT_JSON_SCHEMA,
-        playbookId: deps.playbookId,
+        playbookId,
         maxAcuLimit: deps.maxAcuLimit,
       });
       sessionInput = { sessionId: created.sessionId };

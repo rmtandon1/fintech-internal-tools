@@ -4,8 +4,8 @@ Internal operations console demo.
 
 ## Setup
 
-Requires Node 24 and pnpm. Everything runs on localhost against a local SQLite file
-(`apps/console/data/console.db`); there are no external services, keys or network calls.
+Requires Node 24 and pnpm. The console runs on localhost against a local SQLite file
+(`apps/console/data/console.db`). The only outside service is Devin, and only when a key is set.
 
 ```bash
 git clone https://github.com/rmtandon1/buy-v-build-cog-demo.git
@@ -14,6 +14,25 @@ pnpm install
 pnpm db:setup   # migrate + seed apps/console/data/console.db
 pnpm dev        # serves http://localhost:3001 and opens a browser
 ```
+
+### Devin key
+
+Devin needs one variable. Put it in a `.env` file at the repository root; `.env` is
+gitignored, and the key is read on the server only.
+
+```bash
+cp .env.example .env   # then set DEVIN_API_KEY=cog_…
+```
+
+The organisation comes from the key (`GET /v3/self`), and the run playbook is found by its
+title, so `DEVIN_ORG_ID` and `DEVIN_PLAYBOOK_ID` are optional overrides. `GITHUB_TOKEN` is
+needed only for **Review and approve** and the merge check. `GET /api/devin/status` reports
+the mode, the organisation and whether the key works; it never returns the key.
+
+**Simulation mode.** Without `DEVIN_API_KEY` the console still runs. The Devin window and the
+dispatch dialog show pre-written lines for what a finished run would report, under a
+Simulation banner, and the header's Devin button shows `SIM`. Nothing is dispatched and
+nothing is written to `devin_runs` or the audit chain.
 
 `pnpm dev` fails to render until `pnpm db:setup` has created the database. To start over at
 any point, delete the data folder and re-seed:
@@ -39,6 +58,8 @@ rejected by the engine, not by the UI.
 | `/audit/verify` | walks the hash chain and names the first break |
 | `/admin/policy` | runtime policy constants (admin) |
 | `/roadmap/<mode>` | the modes not built yet |
+| `/runs`, `/t/automation/<id>` | Devin runs and each run's view |
+| `/api/devin/status` | Devin mode (`live` or `simulation`), organisation and key check |
 
 ## Demo walkthrough
 
@@ -87,7 +108,7 @@ pnpm db:setup` puts the demo back.
 | `pnpm test` | engine and tool tests |
 | `pnpm check:boundaries` | engine must not name a tool; no relative imports across packages; only the engine may depend on `db-write` |
 | `pnpm check:run` | check run PR diffs against the committed context and plan; no-op on ordinary PRs |
-| `pnpm devin:playbook` | create or update the org run playbook with `DEVIN_API_KEY` and `DEVIN_ORG_ID`; copy the printed id into `DEVIN_PLAYBOOK_ID` for the console |
+| `pnpm devin:playbook` | create or update the org run playbook from `.devin/run-protocol.playbook.md`, using `DEVIN_API_KEY` from `.env`; dispatch finds it by title |
 | `pnpm verify` | lint + typecheck + boundaries + run guard + tests |
 | `pnpm build` | production build |
 

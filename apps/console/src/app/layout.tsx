@@ -4,6 +4,7 @@ import { Toaster } from "@console/ui/sonner";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
 import { AgentWindow } from "@/components/agent-window";
+import { DevinWindowBody } from "@/components/devin-window-body";
 import {
   CommandPaletteProvider,
   type PaletteMode,
@@ -11,6 +12,7 @@ import {
 import { countPendingFor } from "@console/engine/approvals";
 import { verifyChain } from "@console/engine/audit/verify";
 import { automationTool } from "@console/tool-automation";
+import { devinMode } from "@/lib/devin-status";
 import { OPS_MODES } from "@/lib/modes";
 import { currentActor } from "@/lib/session";
 import { getTool, toolsForRole } from "@/registry";
@@ -35,6 +37,7 @@ export default async function RootLayout({
   const runs = visible.some((t) => t.name === automationTool.name);
   const pending = countPendingFor(actor);
   const chain = verifyChain();
+  const mode = devinMode();
 
   const modes: PaletteMode[] = OPS_MODES.flatMap((mode) => {
     const decl = getTool(mode.id);
@@ -65,7 +68,14 @@ export default async function RootLayout({
                 actor={actor}
                 chainOk={chain.ok}
                 chainLength={chain.length}
-                agent={<AgentWindow />}
+                agent={
+                  <AgentWindow
+                    mode={mode}
+                    source={mode === "simulation" ? "source: simulation (pre-written)" : "source: devin_runs"}
+                  >
+                    <DevinWindowBody actor={actor} mode={mode} />
+                  </AgentWindow>
+                }
               />
               <main className="min-h-0 flex-1 overflow-hidden p-3">{children}</main>
             </div>

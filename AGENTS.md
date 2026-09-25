@@ -10,7 +10,8 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 - Lint / typecheck: `pnpm lint` / `pnpm typecheck`
 - Architecture boundary check: `pnpm check:boundaries`
 - Devin run guard (`docs/DEVIN_RUN_PROTOCOL.md` § Guard checks): `pnpm check:run`; prints "No run on this branch" unless the branch adds one `runs/<run_id>/plan.json`
-- Register the Devin run playbook: `pnpm devin:playbook` (requires `DEVIN_API_KEY` and `DEVIN_ORG_ID`)
+- Devin credentials: `DEVIN_API_KEY` in a gitignored repo-root `.env` (see `.env.example`); the org is resolved from the key. Without it the console runs in simulation mode and dispatch writes nothing. Never commit `.env` or print the key
+- Register the Devin run playbook: `pnpm devin:playbook` (reads `DEVIN_API_KEY` from `.env`)
 - Full gate (lint + typecheck + boundaries + run guard + tests): `pnpm verify`
 - Build for production: `pnpm build`
 - Regenerate Drizzle migrations after schema changes: `pnpm db:generate`
