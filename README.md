@@ -1,6 +1,6 @@
 # fintech-internal-tools
 
-Governed internal tools platform for fintech operations teams, with a Devin API integration that turns operator requests into plan-guarded code changes and pull requests.
+Internal tools platform for fintech operations and governance, with Devin API automation.
 
 ## Setup
 
