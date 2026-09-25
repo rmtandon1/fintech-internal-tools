@@ -83,6 +83,7 @@ pnpm db:setup` puts the demo back.
 | `pnpm db:setup` | `db:migrate` then `db:seed` (not `pnpm setup`, which pnpm reserves for its own shell setup) |
 | `pnpm db:generate` | regenerate migrations from `apps/console/src/schema.ts` |
 | `pnpm db:tamper` | corrupt an audit row for the chain-break demo (local only) |
+| `pnpm db:scenario courier-outage` | insert 60 `not_received` Fernhill Home refunds and submit each through `executeIntent` as the refunds agent; idempotent, local only. Today every refund applies; once the clustering hold merges most go to the manager inbox |
 | `pnpm test` | engine and tool tests |
 | `pnpm check:boundaries` | engine must not name a tool; no relative imports across packages; only the engine may depend on `db-write` |
 | `pnpm verify` | lint + typecheck + boundaries + tests |
