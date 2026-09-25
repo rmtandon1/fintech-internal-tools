@@ -264,7 +264,7 @@ export interface ClusterGroup {
   /** Look-back window the group was computed over, in days. */
   windowDays?: number;
   recordIds: string[];
-  /** One plain sentence naming the pattern, e.g. "4 refunds from X add up to $1,880". */
+  /** One plain sentence naming the pattern, shown as the alert and drawer title. */
   headline?: string;
   /** Why the pattern matters, in plain words. */
   detail?: string;
