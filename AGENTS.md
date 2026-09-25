@@ -37,13 +37,6 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 - Cover new policy rules, approval paths, and idempotency behaviour with tests
 - Run `pnpm verify` before committing
 
-## Git Workflow
-- Integration branch: `cognition-dashboard-devin-integration`; never commit to it directly
-- Do feature work on short-lived `devin/<slug>` branches cut from the integration branch; use a short, descriptive slug (e.g. `devin/inbox-bulk-approve`)
-- Open one PR per change, targeting the integration branch; delete the feature branch after merge
-- Commit at meaningful checkpoints: each commit is a coherent step that builds and passes tests; fold small touch-ups into the related commit
-- Tests are required: new or changed behaviour ships with tests, and `pnpm verify` must pass before a PR is opened
-
 ## Project Structure
 - `src/app` - Next.js routes (inbox, audit, admin/policy, roadmap, `t/[tool]` tool views) and server actions
 - `src/components` - App components; `src/components/ui` holds shadcn primitives
@@ -57,7 +50,10 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 - `data` - Local SQLite database (gitignored)
 
 ## Development Workflow
-- Branch from `demo-dashboard-devin-integration` (the default branch); there is no `main`
-- Open a pull request for review; PR descriptions use the sections Summary, Updates since last revision, Local testing results, Review and Testing Checklist
-- Keep `pnpm verify` green before requesting review
+- Integration branch: `cognition-dashboard-devin-integration`; there is no `main`, and nothing is committed to it directly
+- Do feature work on short-lived `devin/<slug>` branches cut from the integration branch; use a short, descriptive slug (e.g. `devin/inbox-bulk-approve`)
+- Open one PR per change, targeting the integration branch; delete the feature branch after merge
+- PR descriptions use the sections Summary, Updates since last revision, Local testing results, Review and Testing Checklist
+- Commit at meaningful checkpoints: each commit is a coherent step that builds and passes tests; fold small touch-ups into the related commit
+- Tests are required: new or changed behaviour ships with tests, and `pnpm verify` must pass before a PR is opened
 - Update `AGENTS.md`/docs when commands, structure, or architecture rules change
