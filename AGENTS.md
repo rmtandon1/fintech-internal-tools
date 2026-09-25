@@ -9,9 +9,7 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 - Run tests: `pnpm test` (watch mode: `pnpm test:watch`)
 - Lint / typecheck: `pnpm lint` / `pnpm typecheck`
 - Architecture boundary check: `pnpm check:boundaries`
-- Run PR guard: `pnpm check:run`
-- Register the Devin run playbook: `pnpm devin:playbook` (requires `DEVIN_API_KEY` and `DEVIN_ORG_ID`)
-- Full gate (lint + typecheck + boundaries + run guard + tests): `pnpm verify`
+- Full gate (lint + typecheck + boundaries + tests): `pnpm verify`
 - Build for production: `pnpm build`
 - Regenerate Drizzle migrations after schema changes: `pnpm db:generate`
 
@@ -33,7 +31,7 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 - Tools are workspace packages in `tools/<tool>/` (`src/index.ts`, `src/schema.ts`, `src/seed.ts`, `package.json`), registered in `apps/console/src/registry.ts` and their tables re-exported from `apps/console/src/schema.ts`; a tool that depends on another tool declares it in its `package.json`. Queue stats are declared on the tool (`stats: StatDecl[]`, see `docs/QUEUE_STATS_STRIP.md`) and rendered by `apps/console/src/components/stat-strip.tsx`; every count is a query, never a stored number
 - The role catalog is `packages/permissions/src/roles.ts`; it may name tools, the engine may not
 - Audit rows are hash-chained and appended in the same transaction as the effect; never write audit rows outside the engine
-- `.github/CODEOWNERS` gates `packages/engine`, `packages/db*`, `packages/permissions`, the boundary and run guard scripts, `.devin/` and `runs/`
+- `.github/CODEOWNERS` gates `packages/engine`, `packages/db*`, `packages/permissions`, the boundary script and `runs/`
 
 ## Testing Guidelines
 - Vitest (`apps/console/vitest.config.ts`), Node environment, tests in `apps/console/tests/**/*.test.ts`
@@ -53,9 +51,6 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 - `packages/db-write` - Write handle (`transact`, `writeDb`, `WriteHandle`)
 - `tools/{kyc,refunds,flags}` - Tool declarations
 - `scripts/check-boundaries.ts` - Cross-package rules pnpm cannot express
-- `.devin/run-protocol.playbook.md` - Phased instructions for governed Devin runs
-- `scripts/register-playbook.ts` - Org playbook registration through the Devin v3 API
-- `scripts/run-guard.ts` - Run PR checks against the committed context and plan
 - `docs/` - Product specs and run protocol for the demo; `docs/MIGRATION.md` maps old `src/` paths to new ones
 
 ## Git Workflow

@@ -242,7 +242,7 @@ Demo setup: the engineer's GitHub token sits in the server environment next to `
 3. Constants a run declares must exist in the live database without a re-seed. `registerToolConstants` (`registerConstants`, which skips existing keys) runs on server start via `instrumentation.ts`, and again in-process right after the merge sync's `db:migrate`, so a merged rule works without a browser reload or restart. A production build still needs a rebuild to serve new source.
 4. The next matching record goes through the new rule. That moment is the demo.
 
-`db:migrate` here is the console migrating its own database after a merge, not a Devin session writing live data. The **No live writes** guard still forbids `db:setup`, `db:seed` and `db:tamper` for the session; the merge sync never invokes them.
+`db:migrate` here is the console migrating its own database after a merge, not a Devin session writing live data. `db:setup`, `db:seed` and `db:tamper` remain off limits for the session; the merge sync never invokes them.
 
 ## Credentials
 

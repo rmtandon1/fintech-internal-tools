@@ -86,9 +86,7 @@ pnpm db:setup` puts the demo back.
 | `pnpm db:scenario courier-outage` | insert 60 `not_received` Fernhill Home refunds and submit each through `executeIntent` as the refunds agent; idempotent, local only. Today every refund applies; once the clustering hold merges most go to the manager inbox |
 | `pnpm test` | engine and tool tests |
 | `pnpm check:boundaries` | engine must not name a tool; no relative imports across packages; only the engine may depend on `db-write` |
-| `pnpm check:run` | check run PR diffs against the committed context and plan; no-op on ordinary PRs |
-| `pnpm devin:playbook` | create or update the org run playbook with `DEVIN_API_KEY` and `DEVIN_ORG_ID`; copy the printed id into `DEVIN_PLAYBOOK_ID` for the console |
-| `pnpm verify` | lint + typecheck + boundaries + run guard + tests |
+| `pnpm verify` | lint + typecheck + boundaries + tests |
 | `pnpm build` | production build |
 
 CI (`.github/workflows/verify.yml`, job `verify`) runs `pnpm verify` on every PR to `cognition-dashboard-devin-integration`.
