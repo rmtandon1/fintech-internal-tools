@@ -66,6 +66,8 @@ export interface RunnableSpec {
   scope: RunScope;
   allowedPaths: readonly string[];
   intents: Partial<Record<RunKind, string>>;
+  /** One operator-facing line per kind: what changes once the run's PR is merged. */
+  outcomes: Partial<Record<RunKind, string>>;
   constantKeys: readonly string[];
   evidence: EvidenceSource;
 }
@@ -88,6 +90,12 @@ export const REFUND_CLUSTERING_HOLD: RunnableSpec = {
       "Hold a merchant's not-received refunds once together they pass the manager line, and send those customers' KYC approvals to a manager.",
     REVERSAL:
       "Reverse the clustering hold: remove the refund rule, the KYC link rule and the window constant, and keep everything merged since.",
+  },
+  outcomes: {
+    "IMPLEMENTATION/ADDITION":
+      "Refunds for a merchant whose not-received claims together pass the manager line are held for a manager, and those customers' KYC approvals route to a manager.",
+    REVERSAL:
+      "The clustering hold rule, the KYC link rule and the window constant are removed; refunds and KYC approvals route as they did before the hold.",
   },
   constantKeys: [MANAGER_APPROVAL_USD_KEY, MANAGER_REVIEW_SCORE_KEY],
   evidence: { cluster: "merchant_not_received", tool: "refunds" },

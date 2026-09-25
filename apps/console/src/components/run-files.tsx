@@ -1,6 +1,7 @@
 import { Panel } from "@/components/panel";
+import { ReplayBadge } from "@/components/replay-badge";
 import { formatRelative } from "@console/ui/format";
-import type { DevinRun } from "@console/tool-automation";
+import type { BridgeMode, DevinRun } from "@console/tool-automation";
 import type { ReplayFrame } from "@console/tool-automation/run-files";
 
 /**
@@ -9,18 +10,28 @@ import type { ReplayFrame } from "@console/tool-automation/run-files";
  */
 export function RunFiles({
   run,
+  mode,
   contextPresent,
   frames,
   prUrl,
 }: {
   run: DevinRun;
+  mode: BridgeMode;
   contextPresent: boolean;
   frames: ReplayFrame[];
   prUrl: string | null;
 }) {
   const latest = frames[frames.length - 1];
   return (
-    <Panel title="Run files" className="mx-3 mb-3" bodyClassName="p-3 text-xs">
+    <Panel
+      title={
+        <span className="flex items-center gap-2">
+          Run files <ReplayBadge mode={mode} />
+        </span>
+      }
+      className="mx-3 mb-3"
+      bodyClassName="p-3 text-xs"
+    >
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
         <dt className="text-muted-foreground">context.json</dt>
         <dd className="font-mono break-all">
@@ -31,6 +42,7 @@ export function RunFiles({
         <dd className="tabular-nums">
           {frames.length} frame{frames.length === 1 ? "" : "s"}
           {latest ? ` · last ${formatRelative(latest.at_ms)}` : ""}
+          {mode === "replay" && frames.length > 0 ? " · replayed from a fixture" : ""}
         </dd>
         <dt className="text-muted-foreground">Pull request</dt>
         <dd className="font-mono break-all">

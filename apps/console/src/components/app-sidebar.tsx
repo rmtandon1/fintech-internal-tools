@@ -39,10 +39,13 @@ function isEditable(target: EventTarget | null): boolean {
 export function AppSidebar({
   actor,
   tools,
+  runs,
   pendingApprovals,
 }: {
   actor: Actor;
   tools: ToolLink[];
+  /** Whether this role sees the `automation` tool, and so the RUNS list. */
+  runs: boolean;
   pendingApprovals: number;
 }) {
   const pathname = usePathname();
@@ -57,6 +60,16 @@ export function AppSidebar({
       icon: tool.icon,
       active: pathname.startsWith(`/t/${tool.name}`),
     })),
+    ...(runs
+      ? [
+          {
+            href: "/runs",
+            label: "Runs",
+            icon: "Bot",
+            active: pathname.startsWith("/runs") || pathname.startsWith("/t/automation"),
+          },
+        ]
+      : []),
     ...(canApprove(actor.role)
       ? [
           {

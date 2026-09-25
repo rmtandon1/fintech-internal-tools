@@ -8,7 +8,8 @@ import { buildContext } from "./context";
 import type { DevinClient } from "./devin-api";
 import { type GitHubClient, parsePullUrl } from "./github-api";
 import { automationTool, getRun, type DevinRun } from "./index";
-import { ReplayFile, type ReplayFrame, STRUCTURED_OUTPUT_JSON_SCHEMA, StructuredOutput } from "./run-files";
+import type { BridgeMode } from "./replay";
+import { ContextFile, ReplayFile, type ReplayFrame, STRUCTURED_OUTPUT_JSON_SCHEMA, StructuredOutput } from "./run-files";
 import { getSpec, type RunKind, type RunScope } from "./specs";
 
 /**
@@ -27,6 +28,8 @@ export interface BridgeDeps {
   github: GitHubClient | null;
   /** Repository root: `runs/<id>/` is written under it and git is read from it. */
   repoRoot: string;
+  /** `replay` when the clients play a fixture instead of calling Devin and GitHub. */
+  mode?: BridgeMode;
   playbookId?: string;
   maxAcuLimit?: number;
   now?: () => number;
@@ -50,6 +53,10 @@ export interface DispatchOutcome {
   sessionUrl: string | null;
 }
 
+export function bridgeMode(deps: BridgeDeps): BridgeMode {
+  return deps.mode ?? "live";
+}
+
 export function runDir(repoRoot: string, runId: string): string {
   return join(repoRoot, "runs", runId);
 }
@@ -64,6 +71,16 @@ export function readReplay(repoRoot: string, runId: string): ReplayFrame[] {
   if (!existsSync(path)) return [];
   const parsed = ReplayFile.safeParse(JSON.parse(readFileSync(path, "utf8")));
   return parsed.success ? parsed.data : [];
+}
+
+/** The cluster a merged run was dispatched from, so its reversal names the same one. */
+function contextClusterKey(repoRoot: string, runId: string): string | null {
+  const raw = readContextJson(repoRoot, runId);
+  if (!raw) return null;
+  const parsed = ContextFile.safeParse(JSON.parse(raw));
+  if (!parsed.success) return null;
+  const at = parsed.data.evidence.cluster.indexOf(":");
+  return at < 0 ? null : parsed.data.evidence.cluster.slice(at + 1) || null;
 }
 
 function key(runId: string, step: string): string {
@@ -108,10 +125,12 @@ export async function dispatchRun(
   const runId = ulid();
 
   let reverses: { runId: string; mergeCommit: string } | null = null;
+  let clusterKey = req.clusterKey;
   if (req.reverses) {
     const target = getRun(req.reverses);
     if (!target?.mergeCommit) throw new Error(`${req.reverses} has no merge commit to reverse`);
     reverses = { runId: target.id, mergeCommit: target.mergeCommit };
+    if (!clusterKey) clusterKey = contextClusterKey(deps.repoRoot, target.id) ?? "";
   }
 
   const built = buildContext({
@@ -121,7 +140,7 @@ export async function dispatchRun(
     scope: req.scope,
     intent: req.intent,
     requestedBy: actor.role,
-    clusterKey: req.clusterKey,
+    clusterKey,
     evidenceIds: req.evidenceIds,
     reverses,
     repoRoot: deps.repoRoot,
@@ -221,7 +240,19 @@ export async function pollRun(run: DevinRun, deps: BridgeDeps): Promise<PollOutc
   };
   const dir = runDir(deps.repoRoot, run.id);
   mkdirSync(dir, { recursive: true });
-  const frames = [...readReplay(deps.repoRoot, run.id), frame];
+  const existing = readReplay(deps.repoRoot, run.id);
+  // A replayed session is polled on every render; the fixture frame already
+  // on disk is the same observation, so it is not appended again.
+  const last = existing[existing.length - 1];
+  if (
+    bridgeMode(deps) === "replay" &&
+    last &&
+    last.status === frame.status &&
+    JSON.stringify(last.structured_output) === JSON.stringify(frame.structured_output)
+  ) {
+    return { kind: "frame", frame: last };
+  }
+  const frames = [...existing, frame];
   writeFileSync(join(dir, "replay.json"), JSON.stringify(frames, null, 2) + "\n");
   return { kind: "frame", frame };
 }

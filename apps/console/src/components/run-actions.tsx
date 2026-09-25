@@ -23,11 +23,13 @@ import { Textarea } from "@console/ui/textarea";
 /**
  * Which bridge steps the server offers this actor for this run. Approval
  * carries no checks or digest fields: the server reads those from GitHub.
+ * `approve.visible` is true only for an engineer who did not request the
+ * run; other actors never see the review control.
  */
 export interface RunOffer {
   runId: string;
   poll: boolean;
-  approve: { offered: boolean; reason?: string };
+  approve: { visible: boolean; offered: boolean; reason?: string };
   merge: boolean;
   stop: { offered: boolean; reason?: string };
 }
@@ -60,48 +62,50 @@ export function RunActions({ offer }: { offer: RunOffer }) {
         </Button>
       ) : null}
 
-      <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
-        <DialogTrigger asChild>
-          <Button
-            size="sm"
-            className="h-7 text-xs"
-            disabled={pending || !offer.approve.offered}
-            title={offer.approve.reason}
-            data-testid="approve-pr"
-          >
-            Approve PR
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-sm">Approve the run&apos;s pull request</DialogTitle>
-          </DialogHeader>
-          <form
-            action={(form) =>
-              run(
-                () => approveAutomationRun(offer.runId, String(form.get("note") ?? "")),
-                () => setApproveOpen(false),
-              )
-            }
-            className="space-y-3"
-          >
-            <p className="text-xs text-muted-foreground">
-              The server reads the head&apos;s checks and the branch&apos;s{" "}
-              <span className="font-mono">context.json</span> digest from GitHub. The review is
-              submitted only once the approval is recorded here.
-            </p>
-            <div className="space-y-1">
-              <Label htmlFor="approve-note" className="text-[11px] text-muted-foreground">
-                Note (optional)
-              </Label>
-              <Textarea id="approve-note" name="note" rows={2} className="text-xs" />
-            </div>
-            <Button type="submit" size="sm" className="h-7 text-xs" disabled={pending}>
-              {pending ? "Checking GitHub…" : "Approve"}
+      {offer.approve.visible ? (
+        <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
+          <DialogTrigger asChild>
+            <Button
+              size="sm"
+              className="h-7 text-xs"
+              disabled={pending || !offer.approve.offered}
+              title={offer.approve.reason}
+              data-testid="approve-pr"
+            >
+              Review and approve
             </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-sm">Review and approve the run&apos;s pull request</DialogTitle>
+            </DialogHeader>
+            <form
+              action={(form) =>
+                run(
+                  () => approveAutomationRun(offer.runId, String(form.get("note") ?? "")),
+                  () => setApproveOpen(false),
+                )
+              }
+              className="space-y-3"
+            >
+              <p className="text-xs text-muted-foreground">
+                The server reads the head&apos;s checks and the branch&apos;s{" "}
+                <span className="font-mono">context.json</span> digest from GitHub. The review is
+                submitted only once the approval is recorded here.
+              </p>
+              <div className="space-y-1">
+                <Label htmlFor="approve-note" className="text-[11px] text-muted-foreground">
+                  Note (optional)
+                </Label>
+                <Textarea id="approve-note" name="note" rows={2} className="text-xs" />
+              </div>
+              <Button type="submit" size="sm" className="h-7 text-xs" disabled={pending}>
+                {pending ? "Checking GitHub…" : "Approve"}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
       {offer.merge ? (
         <Button

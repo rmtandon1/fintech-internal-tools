@@ -9,12 +9,15 @@ import {
 import { Panel } from "@/components/panel";
 import { RecordView } from "@/components/record-view";
 import { RunActions, type RunOffer } from "@/components/run-actions";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { RunFiles } from "@/components/run-files";
+import { RunSummary } from "@/components/run-summary";
+import { runChecklist } from "@/lib/run-checklist";
 import { StatusChip } from "@console/ui/status-chip";
 import { previewActions } from "@console/engine/policy/preview";
 import type { Actor } from "@console/engine/types";
-import { automationTool, getRun } from "@console/tool-automation";
-import { currentPrUrl, readContextJson, readReplay } from "@console/tool-automation/bridge";
+import { automationTool, getRun, isInFlight } from "@console/tool-automation";
+import { bridgeMode, currentPrUrl, pollRun, readContextJson, readReplay } from "@console/tool-automation/bridge";
 import { bridgeDeps } from "@/lib/bridge";
 import { currentActor } from "@/lib/session";
 import { getTool } from "@/registry";
@@ -24,11 +27,20 @@ import { getTool } from "@/registry";
  * digest inputs are read from GitHub on the server, so the browser never
  * gets a form for them. The offers below gate the buttons with the same
  * policy preview the generic bar uses; the server re-evaluates on click.
+ * An in-flight run is polled once per render, so the summary's checklist
+ * reflects the session's latest structured output.
  */
-function runSurface(id: string, actor: Actor): { offer: RunOffer; files: React.ReactNode } | null {
+async function runSurface(
+  id: string,
+  actor: Actor,
+): Promise<{ offer: RunOffer; files: React.ReactNode } | null> {
   const run = getRun(id);
   if (!run) return null;
   const deps = bridgeDeps();
+  const inFlight = isInFlight(run.status) && run.sessionId !== null;
+  if (inFlight) await pollRun(run, deps).catch(() => undefined);
+  const frames = readReplay(deps.repoRoot, run.id);
+  const latest = frames[frames.length - 1] ?? null;
   const prUrl = currentPrUrl(run, deps);
   const previews = previewActions(automationTool, run, actor, {
     approve_pr: {
@@ -45,22 +57,37 @@ function runSurface(id: string, actor: Actor): { offer: RunOffer; files: React.R
     return { offered: true };
   };
   const approve = gate("approve_pr");
-  const inFlight = run.status === "running" || run.status === "approved";
+  const reviewer = actor.role === "engineer" && actor.id !== run.requestedBy;
   return {
     offer: {
       runId: run.id,
-      poll: inFlight && run.sessionId !== null,
-      approve: prUrl ? approve : { offered: false, reason: approve.reason ?? "No pull request reported yet" },
+      poll: inFlight,
+      approve: {
+        visible: reviewer,
+        ...(prUrl ? approve : { offered: false, reason: approve.reason ?? "No pull request reported yet" }),
+      },
       merge: run.status === "approved" && gate("record_merge").offered,
       stop: gate("stop"),
     },
     files: (
-      <RunFiles
-        run={run}
-        contextPresent={readContextJson(deps.repoRoot, run.id) !== null}
-        frames={readReplay(deps.repoRoot, run.id)}
-        prUrl={prUrl}
-      />
+      <>
+        {inFlight ? <AutoRefresh everyMs={5000} /> : null}
+        <RunSummary
+          run={run}
+          mode={bridgeMode(deps)}
+          checklist={runChecklist(latest?.structured_output ?? null)}
+          phaseLine={
+            latest ? `${latest.structured_output.phase} · ${latest.structured_output.phase_status}` : null
+          }
+        />
+        <RunFiles
+          run={run}
+          mode={bridgeMode(deps)}
+          contextPresent={readContextJson(deps.repoRoot, run.id) !== null}
+          frames={frames}
+          prUrl={prUrl}
+        />
+      </>
     ),
   };
 }
@@ -80,7 +107,7 @@ export default async function RecordPage({
 
   const activity = decl.linkedActivity?.(record, actor) ?? null;
   const linked = activity ? getTool(activity.tool) : undefined;
-  const run = decl.name === automationTool.name ? runSurface(id, actor) : null;
+  const run = decl.name === automationTool.name ? await runSurface(id, actor) : null;
 
   const panel = (
     <Panel

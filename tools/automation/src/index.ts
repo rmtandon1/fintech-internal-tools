@@ -30,6 +30,7 @@ export * from "./run-files";
 export { buildContext, type BuiltContext, type ContextRequest } from "./context";
 export * from "./devin-api";
 export * from "./github-api";
+export * from "./replay";
 
 export interface DevinRun extends GovernedRecord {
   id: string;
@@ -547,4 +548,14 @@ function transition(
 
 export function getRun(id: string): DevinRun | null {
   return db.select().from(devinRuns).where(eq(devinRuns.id, id)).get() ?? null;
+}
+
+/** Every run, newest request first. */
+export function listRuns(limit = 100): DevinRun[] {
+  return db.select().from(devinRuns).orderBy(desc(devinRuns.requestedAt)).limit(limit).all();
+}
+
+/** Whether a stored status string is one of the in-flight statuses. */
+export function isInFlight(status: string): boolean {
+  return IN_FLIGHT_STATUSES.some((s) => s === status);
 }
