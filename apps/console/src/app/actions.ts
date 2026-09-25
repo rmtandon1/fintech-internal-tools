@@ -11,7 +11,12 @@ import { setConstant } from "@console/engine/policy/set-constant";
 import { revealField } from "@console/engine/pii/reveal";
 import type { IntentResult, Role } from "@console/engine/types";
 import { ROLES } from "@console/permissions";
+import { readOutcomeAudit, type OutcomeAudit } from "@/lib/outcome-audit";
 import { currentActor } from "@/lib/session";
+
+export interface SubmitResult extends IntentResult {
+  audit?: OutcomeAudit;
+}
 
 export async function switchRole(role: string): Promise<void> {
   if (!ROLES.includes(role as Role)) return;
@@ -25,7 +30,7 @@ export async function switchRole(role: string): Promise<void> {
   revalidatePath("/", "layout");
 }
 
-export async function submitIntent(form: FormData): Promise<IntentResult> {
+export async function submitIntent(form: FormData): Promise<SubmitResult> {
   const actor = await currentActor();
   const tool = String(form.get("tool"));
   const action = String(form.get("action"));
@@ -50,7 +55,8 @@ export async function submitIntent(form: FormData): Promise<IntentResult> {
 
   const result = executeIntent(actor, { tool, action, recordId, input, idempotencyKey });
   revalidatePath("/", "layout");
-  return result;
+  const audit = readOutcomeAudit(result, actor);
+  return audit ? { ...result, audit } : result;
 }
 
 export async function approveRequest(id: string, note: string): Promise<IntentResult> {
