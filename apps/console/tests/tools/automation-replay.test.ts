@@ -89,6 +89,13 @@ describe("scriptedFrames", () => {
     const test = last?.structured_output.verify_steps.find((s) => s.name === "Test");
     expect(test).toMatchObject({ pass: true, before: 68, after: 76 });
   });
+
+  it("flips the checks 4s apart so a 2s UI poll sees each one", () => {
+    const frames = scriptedFrames("IMPLEMENTATION/ADDITION", "run_1", SHA, BASE);
+    const flips = frames.filter((f) => f.status_detail?.startsWith("pnpm verify:"));
+    expect(flips.map((f) => f.at_ms)).toEqual([28_000, 32_000, 36_000]);
+    expect(frames.at(-1)?.at_ms).toBe(44_000);
+  });
 });
 
 describe("replay clients", () => {

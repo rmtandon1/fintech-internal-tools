@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { usePathname } from "next/navigation";
 import { useCommandPalette } from "@/components/command-palette";
 import { Icon } from "@console/ui/icon";
 import {
@@ -29,6 +30,7 @@ export function AppHeader({
 }) {
   const [pending, startTransition] = useTransition();
   const palette = useCommandPalette();
+  const pathname = usePathname();
 
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-3">
@@ -74,7 +76,7 @@ export function AppHeader({
         <Select
           value={actor.role}
           disabled={pending}
-          onValueChange={(role) => startTransition(() => switchRole(role))}
+          onValueChange={(role) => startTransition(() => switchRole(role, pathname))}
         >
           <SelectTrigger size="sm" className="h-7 w-[130px] text-xs sm:w-[150px]">
             <SelectValue />

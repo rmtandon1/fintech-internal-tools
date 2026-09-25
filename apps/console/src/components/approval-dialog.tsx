@@ -112,7 +112,7 @@ export function ApprovalDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="text-foreground sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-sm">
             Approve PR {prNumber ? `#${prNumber}` : ""} · {payload?.run.spec}

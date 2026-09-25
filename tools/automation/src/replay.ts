@@ -155,7 +155,8 @@ const REUSES = [
 /**
  * A compressed timeline for `kind`, paced for camera: intake 0–2s, baseline
  * to 6s, plan lands at 12s, edits to 26s, the four CI checks flip one per
- * ~2s inside verify, and the PR is open by 40s.
+ * 4s inside verify — slow enough that a 2s UI poll sees each one — and the
+ * PR is open by 44s.
  */
 export function scriptedFrames(
   kind: RunKind,
@@ -257,7 +258,7 @@ export function scriptedFrames(
     ),
     ...[0, 1, 2].map((i) =>
       frame(
-        28_000 + i * 2_000,
+        28_000 + i * 4_000,
         "running",
         `pnpm verify: ${CI_CHECKS[i]} green`,
         out({
@@ -272,7 +273,7 @@ export function scriptedFrames(
       ),
     ),
     frame(
-      36_000,
+      40_000,
       "running",
       "Opening the pull request",
       out({
@@ -296,7 +297,7 @@ export function scriptedFrames(
       }),
     ),
     frame(
-      40_000,
+      44_000,
       "blocked",
       "blocked_on_approval",
       out({

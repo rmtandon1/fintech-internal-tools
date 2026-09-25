@@ -3,6 +3,7 @@
 import "@/app/bootstrap";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { ulid } from "ulid";
 import { ACTOR_COOKIE, signRole } from "@console/engine/actor";
 import * as approvals from "@console/engine/approvals";
@@ -11,14 +12,16 @@ import { setConstant } from "@console/engine/policy/set-constant";
 import { revealField } from "@console/engine/pii/reveal";
 import type { IntentResult, Role } from "@console/engine/types";
 import { ROLES } from "@console/permissions";
+import { AUTOMATION_ROLES } from "@console/tool-automation";
 import { readOutcomeAudit, type OutcomeAudit } from "@/lib/outcome-audit";
+import { getTool } from "@/registry";
 import { currentActor } from "@/lib/session";
 
 export interface SubmitResult extends IntentResult {
   audit?: OutcomeAudit;
 }
 
-export async function switchRole(role: string): Promise<void> {
+export async function switchRole(role: string, pathname?: string): Promise<void> {
   if (!ROLES.includes(role as Role)) return;
   const store = await cookies();
   store.set(ACTOR_COOKIE, signRole(role as Role), {
@@ -28,6 +31,12 @@ export async function switchRole(role: string): Promise<void> {
     path: "/",
   });
   revalidatePath("/", "layout");
+  // A tool page the new role can't see would 404; land somewhere useful.
+  const tool = pathname?.match(/^\/t\/([^/]+)/)?.[1];
+  const decl = tool ? getTool(tool) : undefined;
+  if (decl && !decl.visibleTo.includes(role as Role)) {
+    redirect(AUTOMATION_ROLES.includes(role as Role) ? "/runs" : "/");
+  }
 }
 
 export async function submitIntent(form: FormData): Promise<SubmitResult> {

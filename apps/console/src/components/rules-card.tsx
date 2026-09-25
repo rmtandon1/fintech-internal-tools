@@ -26,19 +26,24 @@ export function RulesCard({ rows }: { rows: RuleRow[] }) {
           <span className="font-mono text-xs">{row.spec}</span>
           <span className="ml-auto flex gap-2">
             {row.actions.map((action) => (
-              <Button
-                key={action.kind}
-                size="sm"
-                variant="secondary"
-                className="h-7 text-xs"
-                disabled={!action.enabled}
-                title={action.enabled ? undefined : action.reason}
-                onClick={() =>
-                  action.offer && setAgentFocus({ kind: "handoff", offer: action.offer })
-                }
-              >
-                {action.label}
-              </Button>
+              <span key={action.kind} className="flex flex-col items-end gap-0.5">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="h-7 text-xs"
+                  disabled={!action.enabled}
+                  onClick={() =>
+                    action.offer && setAgentFocus({ kind: "handoff", offer: action.offer })
+                  }
+                >
+                  {action.label}
+                </Button>
+                {!action.enabled && action.reason ? (
+                  <span className="max-w-56 text-right text-[10px] text-muted-foreground">
+                    {action.reason}
+                  </span>
+                ) : null}
+              </span>
             ))}
           </span>
         </div>

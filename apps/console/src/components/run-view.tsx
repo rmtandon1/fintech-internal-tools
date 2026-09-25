@@ -153,6 +153,9 @@ function elapsed(ms: number): string {
 }
 
 function Detail({ frames }: { frames: ReplayFrame[] }) {
+  // Scripted frames are offsets from 0; live-poll frames are epoch stamps.
+  // Either way the first frame is t=0.
+  const t0 = frames[0]?.at_ms ?? 0;
   const latest = frames.at(-1)?.structured_output ?? null;
   if (!latest) return null;
   return (
@@ -186,7 +189,7 @@ function Detail({ frames }: { frames: ReplayFrame[] }) {
           .map((f) => (
             <li key={f.at_ms} className="flex items-baseline gap-2 py-0.5">
               <span className="font-mono text-muted-foreground tabular-nums">
-                {elapsed(f.at_ms)}
+                {elapsed(f.at_ms - t0)}
               </span>
               <span className="font-mono">{f.structured_output.phase}</span>
               <span className="min-w-0 flex-1 truncate text-muted-foreground">

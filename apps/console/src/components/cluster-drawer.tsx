@@ -163,7 +163,10 @@ export function ClusterDrawer({
                 size="sm"
                 className="h-7 text-xs"
                 data-testid="dispatch-run"
-                onClick={() => setAgentFocus({ kind: "handoff", offer: dispatch[0] })}
+                onClick={() => {
+                  setAgentFocus({ kind: "handoff", offer: dispatch[0] });
+                  close();
+                }}
               >
                 Ask Devin for a rule
               </Button>
