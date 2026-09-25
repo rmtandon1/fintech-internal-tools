@@ -263,6 +263,7 @@ export const flagTool = defineTool<FeatureFlag>({
       source: { kind: "audit", event: "constant_changed", sinceHours: 24 * 7 },
     },
   ],
+  toggle: { field: "enabled", on: "enable", off: "disable", groupBy: "environment" },
   sections: [
     { title: "Flag", fields: ["key", "description", "flagType", "environment"] },
     { title: "State", fields: ["enabled", "rolloutPercent", "customerFacing"] },

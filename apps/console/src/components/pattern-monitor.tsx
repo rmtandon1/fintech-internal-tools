@@ -78,10 +78,10 @@ export function PatternMonitor({
       <button
         type="button"
         onClick={() => setState("open")}
-        className="fixed right-4 bottom-4 z-40 flex items-center gap-2 rounded-full border border-amber-500/50 bg-card px-4 py-2 text-sm font-medium shadow-lg hover:border-amber-500"
+        className="fixed right-4 bottom-4 z-40 flex items-center gap-2 rounded-full border border-warning/50 bg-card px-4 py-2 text-sm font-medium shadow-lg hover:border-warning"
         data-testid="pattern-monitor-pill"
       >
-        <span className="size-2 rounded-full bg-amber-400" />
+        <span className="size-2 rounded-full bg-warning" />
         {findings.length === 1 ? "1 pattern found" : `${findings.length} patterns found`}
       </button>
     );
@@ -97,7 +97,7 @@ export function PatternMonitor({
         <span
           className={cn(
             "size-2 rounded-full",
-            done ? "bg-amber-400" : "animate-pulse bg-emerald-400",
+            done ? "bg-warning" : "animate-pulse bg-success",
           )}
         />
         <span className="text-sm font-medium text-white">Pattern monitor</span>
@@ -118,7 +118,7 @@ export function PatternMonitor({
       <ol className="space-y-1.5 px-4 py-3 font-mono text-[13px] leading-5">
         {lines.slice(0, shown).map((line) => (
           <li key={line} className="flex gap-2 text-white/75 animate-in fade-in duration-300">
-            <span className="text-emerald-400">✓</span>
+            <span className="text-success">✓</span>
             {line}
           </li>
         ))}
@@ -135,7 +135,7 @@ export function PatternMonitor({
           {findings.map((finding) => (
             <div key={finding.key} className="space-y-2">
               <div className="flex items-start gap-2">
-                <Icon name="TriangleAlert" className="mt-0.5 size-4 shrink-0 text-amber-400" />
+                <Icon name="TriangleAlert" className="mt-0.5 size-4 shrink-0 text-warning" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-white">{finding.headline}</p>
                   {finding.detail ? (
@@ -151,7 +151,7 @@ export function PatternMonitor({
                   writeSeen(storageKey);
                   setState("minimised");
                 }}
-                className="ml-6 inline-flex h-8 items-center gap-1.5 rounded-md bg-amber-400 px-3 text-sm font-medium text-black hover:bg-amber-300"
+                className="ml-6 inline-flex h-8 items-center gap-1.5 rounded-md bg-warning px-3 text-sm font-medium text-warning-foreground hover:bg-warning/90"
               >
                 Take a look
                 <Icon name="ArrowRight" className="size-4" />

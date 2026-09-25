@@ -4,11 +4,11 @@ import { humanize } from "./format";
 import { cn } from "./utils";
 
 const TONE: Record<RuleOutcome["type"], { icon: string; className: string; word: string }> = {
-  allow: { icon: "Check", className: "text-emerald-400", word: "Passed" },
-  deny: { icon: "Ban", className: "text-red-400", word: "Blocked" },
+  allow: { icon: "Check", className: "text-success", word: "Passed" },
+  deny: { icon: "Ban", className: "text-destructive", word: "Blocked" },
   require_approval: {
     icon: "UserCheck",
-    className: "text-amber-400",
+    className: "text-warning",
     word: "Needs approval",
   },
 };

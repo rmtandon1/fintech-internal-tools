@@ -12,6 +12,7 @@ import {
 } from "@/components/command-palette";
 import { countPendingFor } from "@console/engine/approvals";
 import { verifyChain } from "@console/engine/audit/verify";
+import type { ConsoleStatus } from "@/lib/connection";
 import { automationTool } from "@console/tool-automation";
 import { devinMode } from "@/lib/devin-status";
 import { modesFor } from "@/lib/modes";
@@ -45,6 +46,12 @@ export default async function RootLayout({
   const pending = countPendingFor(actor);
   const chain = verifyChain();
   const mode = devinMode();
+  // First paint; the header then polls /api/status for Devin's reachability.
+  const status: ConsoleStatus = {
+    devin: { mode, error: null },
+    audit: { ok: chain.ok, length: chain.length },
+    checkedAt: Date.now(),
+  };
 
   const modes: PaletteMode[] = modesFor(actor.role).map((mode) => ({
     id: mode.id,
@@ -67,8 +74,7 @@ export default async function RootLayout({
               <AppHeader
                 actor={actor}
                 roleChosen={role !== null}
-                chainOk={chain.ok}
-                chainLength={chain.length}
+                status={status}
                 agent={
                   // Keyed: an element built here and rendered among the header's
                   // children otherwise trips React's list-key warning in dev.
@@ -81,7 +87,7 @@ export default async function RootLayout({
                   </AgentWindow>
                 }
               />
-              <main className="min-h-0 flex-1 overflow-hidden p-3">{children}</main>
+              <main className="min-h-0 flex-1 overflow-hidden p-4">{children}</main>
             </div>
           </div>
         </CommandPaletteProvider>

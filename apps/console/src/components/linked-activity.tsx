@@ -22,7 +22,7 @@ export function LinkedActivitySummaryLine({ activity }: { activity: LinkedActivi
       {summary.held > 0 ? (
         <>
           <span aria-hidden>·</span>
-          <span className="flex items-center gap-1 text-amber-400">
+          <span className="flex items-center gap-1 text-warning">
             <Icon name="Flag" className="size-3" />
             <span className="tabular-nums">{summary.held}</span> waiting for approval
           </span>
@@ -63,7 +63,7 @@ export function LinkedActivityBody({
         <dt className="text-muted-foreground">Reasons</dt>
         <dd>{activity.summary.codes.map(humanize).join(", ") || "—"}</dd>
         <dt className="text-muted-foreground">Waiting for approval</dt>
-        <dd className={cn("tabular-nums", activity.summary.held > 0 && "text-amber-400")}>
+        <dd className={cn("tabular-nums", activity.summary.held > 0 && "text-warning")}>
           {activity.summary.held > 0 ? activity.summary.held : "None"}
         </dd>
       </dl>
@@ -124,7 +124,7 @@ export function LinkedActivityBody({
                   <td className="px-2 text-right">
                     {held ? (
                       <span
-                        className="inline-flex items-center gap-1 text-[11px] text-amber-400"
+                        className="inline-flex items-center gap-1 text-[11px] text-warning"
                         title="Awaiting approval"
                       >
                         <Icon name="Flag" className="size-3" /> waiting

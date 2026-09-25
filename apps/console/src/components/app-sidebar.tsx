@@ -186,7 +186,7 @@ export function AppSidebar({
                 >
                   <Icon name={item.icon} className="size-4" />
                   {item.badge ? (
-                    <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-400 px-1 text-[9px] font-semibold tabular-nums text-black">
+                    <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-warning px-1 text-[9px] font-semibold tabular-nums text-warning-foreground">
                       {item.badge}
                     </span>
                   ) : null}
@@ -223,7 +223,7 @@ export function AppSidebar({
                 <Icon name={item.icon} className="size-4 shrink-0" />
                 <span className="truncate">{item.label}</span>
                 {item.badge ? (
-                  <span className="ml-auto text-[11px] tabular-nums text-amber-400">
+                  <span className="ml-auto text-[11px] tabular-nums text-warning">
                     {item.badge}
                   </span>
                 ) : null}

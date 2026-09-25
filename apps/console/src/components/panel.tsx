@@ -20,14 +20,14 @@ export function Panel({
   return (
     <section
       className={cn(
-        "flex min-h-0 flex-col overflow-hidden rounded-md border border-border bg-card",
+        "flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-xs",
         className,
       )}
     >
       <header className="flex min-h-11 shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2 text-sm font-semibold text-foreground">
         <span className="min-w-0 truncate">{title}</span>
         {actions ? (
-          <span className="ml-auto flex flex-wrap items-center gap-2 normal-case tracking-normal">
+          <span className="ml-auto flex flex-wrap items-center gap-2 font-normal">
             {actions}
           </span>
         ) : null}

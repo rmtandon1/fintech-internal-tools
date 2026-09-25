@@ -9,13 +9,13 @@ import { auditEventLabel } from "@/lib/audit-events";
 import { getTool } from "@/registry";
 
 const EVENT_ICONS: Record<string, { icon: string; className: string }> = {
-  applied: { icon: "Check", className: "text-emerald-400" },
-  denied: { icon: "Ban", className: "text-red-400" },
-  approval_requested: { icon: "UserCheck", className: "text-amber-400" },
-  approval_granted: { icon: "ShieldCheck", className: "text-emerald-400" },
-  approval_rejected: { icon: "ShieldX", className: "text-red-400" },
-  pii_revealed: { icon: "Eye", className: "text-sky-400" },
-  constant_changed: { icon: "SlidersHorizontal", className: "text-sky-400" },
+  applied: { icon: "Check", className: "text-success" },
+  denied: { icon: "Ban", className: "text-destructive" },
+  approval_requested: { icon: "UserCheck", className: "text-warning" },
+  approval_granted: { icon: "ShieldCheck", className: "text-success" },
+  approval_rejected: { icon: "ShieldX", className: "text-destructive" },
+  pii_revealed: { icon: "Eye", className: "text-info" },
+  constant_changed: { icon: "SlidersHorizontal", className: "text-info" },
 };
 
 export function AuditTimeline({

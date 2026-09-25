@@ -29,7 +29,7 @@ export function DevinWindowBody({ actor, mode }: { actor: Actor; mode: DevinMode
   return (
     <div className="space-y-4 p-5 text-sm">
       <p className="flex items-center gap-2 text-muted-foreground">
-        <span className="size-2 rounded-full bg-emerald-400" />
+        <span className="size-2 rounded-full bg-success" />
         Connected to Devin.
         <a
           href="/api/devin/status"

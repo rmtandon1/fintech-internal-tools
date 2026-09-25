@@ -26,7 +26,7 @@ export default async function VerifyPage() {
         <span className="flex items-center gap-2 normal-case tracking-normal">
           <Icon
             name={result.ok ? "ShieldCheck" : "ShieldX"}
-            className={cn("size-3.5", result.ok ? "text-emerald-400" : "text-red-400")}
+            className={cn("size-3.5", result.ok ? "text-success" : "text-destructive")}
           />
           {result.ok
             ? `Audit log verified: all ${result.length} entries are intact`
@@ -36,8 +36,8 @@ export default async function VerifyPage() {
       bodyClassName="space-y-3 p-3 text-xs"
     >
       {result.firstBreak ? (
-        <div className="space-y-1 rounded-md border border-red-500/30 bg-red-500/5 p-3">
-          <div className="text-sm font-medium text-red-400">
+        <div className="space-y-1 rounded-md border border-destructive/30 bg-destructive/5 p-3">
+          <div className="text-sm font-medium text-destructive">
             {BREAK_EXPLANATIONS[result.firstBreak.type] ?? result.firstBreak.type}
           </div>
           <p className="font-mono text-[11px]">{result.firstBreak.detail}</p>

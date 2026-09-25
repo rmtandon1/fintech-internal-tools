@@ -73,6 +73,13 @@ export interface StatDecl {
     | { kind: "audit"; event: "denied" | "constant_changed"; sinceHours: number };
 }
 
+export interface ToggleDecl {
+  field: string;
+  on: string;
+  off: string;
+  groupBy?: string;
+}
+
 export interface SectionDecl {
   title: string;
   fields: string[];
@@ -229,6 +236,12 @@ export interface ToolDeclaration<TRecord extends GovernedRecord = GovernedRecord
   filters: FilterDecl[];
   /** Role-scoped counts rendered above the queue; omit for no strip. */
   stats?: StatDecl[];
+  /**
+   * Shows the queue as compact on/off switches: a record is on when `field`
+   * is truthy, and flipping a switch runs the `on` or `off` action through
+   * the write path. `groupBy` names a field to section the switches by.
+   */
+  toggle?: ToggleDecl;
   sections: SectionDecl[];
   statuses: StatusDecl[];
   statusField: string;

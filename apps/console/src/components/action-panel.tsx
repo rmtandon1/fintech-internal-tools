@@ -113,7 +113,7 @@ export function ActionBar({
           {notes.map((note) => (
             <li
               key={note.action}
-              className={note.tone === "approval" ? "text-amber-400" : "text-red-400"}
+              className={note.tone === "approval" ? "text-warning" : "text-destructive"}
             >
               {note.text}
             </li>
@@ -294,7 +294,7 @@ function ActionDialog({
             </div>
           ))}
           {needsApproval ? (
-            <p className="text-sm text-amber-400">
+            <p className="text-sm text-warning">
               This goes to a{tier === "admin" ? "n" : ""} {tier} for approval:{" "}
               {preview.decision?.reason}.
             </p>

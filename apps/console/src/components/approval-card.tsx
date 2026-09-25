@@ -143,7 +143,7 @@ export function ApprovalCard({
               </div>
             </div>
           ) : (
-            <p className="text-sm text-amber-400">{gate.reason}</p>
+            <p className="text-sm text-warning">{gate.reason}</p>
           )
         ) : (
           <p className="text-sm text-muted-foreground">

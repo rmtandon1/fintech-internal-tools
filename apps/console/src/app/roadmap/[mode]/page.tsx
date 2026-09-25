@@ -49,7 +49,7 @@ export default async function RoadmapPage({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-semibold">{mode.name}</h1>
-            <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-400">
+            <span className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-warning">
               Coming soon
             </span>
           </div>
@@ -109,7 +109,7 @@ export default async function RoadmapPage({
           <ul className="flex flex-col">
             {INHERITED.map((item) => (
               <li key={item.name} className="flex gap-3 border-b border-border/50 px-3 py-2.5 last:border-0">
-                <Icon name="Check" className="mt-0.5 size-3.5 shrink-0 text-emerald-400" />
+                <Icon name="Check" className="mt-0.5 size-3.5 shrink-0 text-success" />
                 <div>
                   <div className="text-xs font-medium text-foreground">{item.name}</div>
                   <div className="text-[11px] text-muted-foreground">{item.detail}</div>

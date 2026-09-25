@@ -86,7 +86,7 @@ function LimitChart({
           <span className="mb-1 text-center text-base font-semibold tabular-nums text-foreground">
             {usd(totalUsdMinor)}
           </span>
-          <div className="rounded-t-[4px] bg-amber-400" style={{ height: pct(totalUsdMinor) }} />
+          <div className="rounded-t-[4px] bg-warning" style={{ height: pct(totalUsdMinor) }} />
         </div>
       </div>
       <figcaption className="mt-1.5 flex gap-3 text-center">
@@ -188,17 +188,17 @@ export function ClusterDrawer({
                       {row.trace ? (
                         passed ? (
                           <>
-                            <Icon name="CircleCheck" className="size-3.5 text-emerald-400" />
+                            <Icon name="CircleCheck" className="size-3.5 text-success" />
                             Passed all {checks} checks, no manager needed
                           </>
                         ) : row.pendingApproval ? (
                           <>
-                            <Icon name="Clock" className="size-3.5 text-amber-400" />
+                            <Icon name="Clock" className="size-3.5 text-warning" />
                             Needs a manager
                           </>
                         ) : (
                           <>
-                            <Icon name="CircleX" className="size-3.5 text-red-400" />
+                            <Icon name="CircleX" className="size-3.5 text-destructive" />
                             Blocked by a rule
                           </>
                         )

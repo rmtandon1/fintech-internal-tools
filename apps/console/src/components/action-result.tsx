@@ -20,10 +20,10 @@ interface Step {
 }
 
 const TONE: Record<Tone, { icon: string; className: string }> = {
-  pass: { icon: "Check", className: "text-emerald-400" },
-  approval: { icon: "UserCheck", className: "text-amber-400" },
-  block: { icon: "Ban", className: "text-red-400" },
-  info: { icon: "RotateCcw", className: "text-sky-400" },
+  pass: { icon: "Check", className: "text-success" },
+  approval: { icon: "UserCheck", className: "text-warning" },
+  block: { icon: "Ban", className: "text-destructive" },
+  info: { icon: "RotateCcw", className: "text-info" },
 };
 
 /**
@@ -223,9 +223,9 @@ function Banner({
   children?: React.ReactNode;
 }) {
   const styles = {
-    pass: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-    approval: "border-amber-500/30 bg-amber-500/10 text-amber-300",
-    block: "border-red-500/30 bg-red-500/10 text-red-300",
+    pass: "border-success/30 bg-success/10 text-success",
+    approval: "border-warning/30 bg-warning/10 text-warning",
+    block: "border-destructive/30 bg-destructive/10 text-destructive",
   }[tone];
   return (
     <div className={cn("rounded-lg border px-4 py-3", styles)}>

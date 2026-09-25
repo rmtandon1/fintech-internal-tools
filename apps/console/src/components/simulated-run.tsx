@@ -5,7 +5,7 @@ import type { SimulatedRun } from "@/lib/simulation";
 export function SimulationBanner({ children }: { children?: React.ReactNode }) {
   return (
     <div
-      className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-200"
+      className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-2.5 text-sm text-warning"
       data-testid="simulation-banner"
     >
       <span className="font-semibold">Preview.</span> Devin isn&apos;t connected here, so this
@@ -30,7 +30,7 @@ export function SimulatedRunView({ run }: { run: SimulatedRun }) {
         <ol className="space-y-2.5">
           {run.sentences.map((sentence, index) => (
             <li key={sentence} className="flex gap-3">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-xs font-semibold text-emerald-400">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-success/15 text-xs font-semibold text-success">
                 {index + 1}
               </span>
               <span className="pt-0.5 leading-relaxed">{sentence}</span>

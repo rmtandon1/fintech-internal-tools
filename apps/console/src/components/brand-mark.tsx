@@ -22,7 +22,7 @@ export function Wordmark({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "bg-gradient-to-r from-indigo-200 via-violet-300 to-fuchsia-300 bg-clip-text font-semibold tracking-tight text-transparent",
+        "bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600 bg-clip-text font-semibold tracking-tight text-transparent",
         className,
       )}
     >

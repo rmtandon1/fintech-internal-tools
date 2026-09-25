@@ -43,15 +43,15 @@ export function AgentWindow({
         aria-pressed={open}
         title={mode === "simulation" ? "Devin (preview: not connected)" : "Devin"}
         className={cn(
-          "flex h-8 items-center gap-1.5 rounded-md border border-input px-3 text-sm",
-          open ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground",
+          "flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-sm shadow-xs transition-colors",
+          open ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-accent",
         )}
       >
         <Icon name="Bot" className="size-4" />
         Devin
         {mode === "simulation" ? (
           <span
-            className="rounded-sm bg-amber-500/15 px-1.5 text-[10px] font-medium text-amber-300"
+            className="rounded-sm bg-warning/15 px-1.5 text-[10px] font-medium text-warning"
             data-testid="devin-simulation-chip"
           >
             Preview

@@ -20,6 +20,7 @@ import { ClusterDrawer, type ClusterRow } from "@/components/cluster-drawer";
 import { PatternMonitor } from "@/components/pattern-monitor";
 import type { DispatchOffer } from "@/components/dispatch-control";
 import { ReconcileRuns } from "@/components/reconcile-runs";
+import { ToggleGrid } from "@/components/toggle-grid";
 import { getSpec, kindsStartableBy, runKindLabel } from "@console/tool-automation";
 import { devinMode } from "@/lib/devin-status";
 import { currentActor } from "@/lib/session";
@@ -60,6 +61,9 @@ export default async function ToolQueuePage({
   const direction: "asc" | "desc" = query.dir === "asc" ? "asc" : "desc";
   const sort = sortField ? { field: sortField, direction } : undefined;
 
+  // A tool with switches opens on them; `view=table` shows the full columns.
+  const view = decl.toggle && query.view !== "table" ? "toggles" : "table";
+
   const requestedPage = Number(query.page);
   const page = Number.isSafeInteger(requestedPage) && requestedPage >= 1 ? requestedPage : 1;
 
@@ -81,6 +85,7 @@ export default async function ToolQueuePage({
     const next = new URLSearchParams();
     for (const [key, value] of Object.entries(filters)) next.set(key, value);
     if (search) next.set("q", search);
+    if (view === "table" && decl.toggle) next.set("view", "table");
     if (sortField) {
       next.set("sort", sortField);
       next.set("dir", direction);
@@ -105,7 +110,7 @@ export default async function ToolQueuePage({
   const filterRow = (
     <form
       key={new URLSearchParams({ ...filters, q: search ?? "" }).toString()}
-      className="flex items-center gap-2"
+      className="flex flex-wrap items-center gap-2 font-normal"
     >
       {decl.filters.map((filter) =>
         filter.type === "enum" ? (
@@ -114,7 +119,7 @@ export default async function ToolQueuePage({
             name={filter.field}
             defaultValue={filters[filter.field] ?? "all"}
             title={filter.label}
-            className="h-8 rounded-md border border-input bg-transparent px-2 text-sm text-foreground"
+            className="h-8 rounded-md border border-input bg-card px-2 text-sm text-foreground shadow-xs"
           >
             <option value="all">{filter.label}</option>
             {filter.options?.map((option) => (
@@ -129,21 +134,22 @@ export default async function ToolQueuePage({
             name={filter.field}
             defaultValue={filters[filter.field] ?? ""}
             placeholder={filter.label}
-            className="h-8 w-32 rounded-md border border-input bg-transparent px-2 text-sm text-foreground"
+            className="h-8 w-32 rounded-md border border-input bg-card px-2 text-sm text-foreground shadow-xs"
           />
         ),
       )}
       {sortField ? <input type="hidden" name="sort" value={sortField} /> : null}
       {sortField ? <input type="hidden" name="dir" value={direction} /> : null}
+      {view === "table" && decl.toggle ? <input type="hidden" name="view" value="table" /> : null}
       <input
         name="q"
         defaultValue={search ?? ""}
         placeholder="Search"
-        className="h-8 w-44 rounded-md border border-input bg-transparent px-2 text-sm text-foreground"
+        className="h-8 w-44 rounded-md border border-input bg-card px-2 text-sm text-foreground shadow-xs"
       />
       <button
         type="submit"
-        className="h-8 rounded-md border border-input px-2 text-sm hover:bg-accent"
+        className="h-8 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground shadow-xs hover:bg-primary/90"
       >
         Filter
       </button>
@@ -151,23 +157,51 @@ export default async function ToolQueuePage({
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <Panel
-        className="min-h-0 flex-1"
-        title={
-          <span>
-            {decl.displayName} · <span className="tabular-nums">{total}</span>
-          </span>
-        }
-        actions={
-          <span className="flex items-center gap-2">
-            {decl.name === "automation" && actor.role === "engineer" ? <ReconcileRuns /> : null}
-            {filterRow}
-          </span>
-        }
-        bodyClassName="flex flex-col"
-      >
-        <StatStrip decl={decl} actor={actor} />
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <div className="flex shrink-0 flex-wrap items-center gap-3">
+        <span className="flex size-10 items-center justify-center rounded-lg border border-border bg-card shadow-xs">
+          <Icon name={decl.icon} className="size-5 text-muted-foreground" />
+        </span>
+        <div className="min-w-0">
+          <h1 className="flex items-center gap-2 text-lg font-semibold leading-tight tracking-tight">
+            {decl.displayName}
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+              {total}
+            </span>
+          </h1>
+          <p className="truncate text-sm text-muted-foreground">{decl.description}</p>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          {decl.name === "automation" && actor.role === "engineer" ? <ReconcileRuns /> : null}
+          {decl.toggle ? (
+            <div className="flex h-8 items-center rounded-md border border-border bg-card p-0.5 text-sm shadow-xs">
+              {(["toggles", "table"] as const).map((option) => (
+                <Link
+                  key={option}
+                  href={href({ view: option, page: "1" })}
+                  aria-current={view === option ? "page" : undefined}
+                  className={cn(
+                    "flex h-full items-center gap-1.5 rounded-[5px] px-2.5",
+                    view === option
+                      ? "bg-accent font-medium text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Icon name={option === "toggles" ? "ToggleRight" : "Table"} className="size-3.5" />
+                  {option === "toggles" ? "Switches" : "Table"}
+                </Link>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <StatStrip decl={decl} actor={actor} />
+
+      <Panel className="min-h-0 flex-1" title={filterRow} bodyClassName="flex flex-col">
+        {view === "toggles" && decl.toggle ? (
+          <ToggleGrid decl={decl} toggle={decl.toggle} rows={rows} actor={actor} />
+        ) : (
         <Table>
           <TableHeader>
             <TableRow>
@@ -250,6 +284,7 @@ export default async function ToolQueuePage({
             ) : null}
           </TableBody>
         </Table>
+        )}
       </Panel>
 
       {clusters.length > 0 ? (

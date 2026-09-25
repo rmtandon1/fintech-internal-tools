@@ -15,27 +15,27 @@ import { getTool } from "@/registry";
 const AREA: Record<ModeArea, { icon: string; tile: string; glow: string; hover: string }> = {
   Compliance: {
     icon: "ShieldCheck",
-    tile: "bg-sky-500/15 text-sky-300 ring-sky-400/30",
-    glow: "from-sky-500/[0.14]",
-    hover: "hover:border-sky-400/60",
+    tile: "bg-sky-500/10 text-sky-700 ring-sky-500/25",
+    glow: "from-sky-500/[0.08]",
+    hover: "hover:border-sky-500/50",
   },
   "Money movement": {
     icon: "Banknote",
-    tile: "bg-emerald-500/15 text-emerald-300 ring-emerald-400/30",
-    glow: "from-emerald-500/[0.14]",
-    hover: "hover:border-emerald-400/60",
+    tile: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/25",
+    glow: "from-emerald-500/[0.08]",
+    hover: "hover:border-emerald-500/50",
   },
   Customers: {
     icon: "Users",
-    tile: "bg-rose-500/15 text-rose-300 ring-rose-400/30",
-    glow: "from-rose-500/[0.14]",
-    hover: "hover:border-rose-400/60",
+    tile: "bg-rose-500/10 text-rose-700 ring-rose-500/25",
+    glow: "from-rose-500/[0.08]",
+    hover: "hover:border-rose-500/50",
   },
   Platform: {
     icon: "Cpu",
-    tile: "bg-amber-500/15 text-amber-300 ring-amber-400/30",
-    glow: "from-amber-500/[0.14]",
-    hover: "hover:border-amber-400/60",
+    tile: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
+    glow: "from-amber-500/[0.08]",
+    hover: "hover:border-amber-500/50",
   },
 };
 
@@ -95,8 +95,8 @@ export default function HomePage() {
         <section className="flex flex-col gap-5">
           <h2 className="flex items-center gap-2.5 text-xl font-semibold tracking-tight">
             <span className="relative flex size-2.5">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-              <span className="relative inline-flex size-2.5 rounded-full bg-emerald-400" />
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-success opacity-60" />
+              <span className="relative inline-flex size-2.5 rounded-full bg-success" />
             </span>
             Live
           </h2>
@@ -135,9 +135,9 @@ function Status({
   label: string;
 }) {
   const styles = {
-    good: { chip: "border-emerald-500/30 bg-emerald-500/[0.08] text-emerald-200", dot: "bg-emerald-400" },
-    attention: { chip: "border-amber-500/30 bg-amber-500/[0.08] text-amber-200", dot: "bg-amber-400" },
-    bad: { chip: "border-red-500/40 bg-red-500/10 text-red-200", dot: "bg-red-400" },
+    good: { chip: "border-success/30 bg-success/[0.08] text-success", dot: "bg-success" },
+    attention: { chip: "border-warning/30 bg-warning/[0.08] text-warning", dot: "bg-warning" },
+    bad: { chip: "border-destructive/40 bg-destructive/10 text-destructive", dot: "bg-destructive" },
     neutral: { chip: "border-border bg-card text-muted-foreground", dot: "bg-muted-foreground/60" },
   }[tone];
   return (
@@ -164,7 +164,7 @@ function LiveApp({ mode, now }: { mode: ModeEntry; now: number }) {
         type="submit"
         className={cn(
           "group relative flex min-h-56 flex-col overflow-hidden rounded-xl border border-border bg-card p-5 text-left transition-all duration-200",
-          "hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/40",
+          "shadow-xs hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/[0.06]",
           area.hover,
         )}
       >

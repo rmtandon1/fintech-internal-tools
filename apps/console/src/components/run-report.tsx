@@ -25,8 +25,8 @@ export function RunReport({ output }: { output: StructuredOutput }) {
           aside={
             <span className="tabular-nums">
               {output.files.length} {output.files.length === 1 ? "file" : "files"} ·{" "}
-              <span className="text-emerald-400">+{additions}</span>{" "}
-              <span className="text-red-400">−{deletions}</span>
+              <span className="text-success">+{additions}</span>{" "}
+              <span className="text-destructive">−{deletions}</span>
             </span>
           }
         >
@@ -44,7 +44,7 @@ export function RunReport({ output }: { output: StructuredOutput }) {
             {output.conflicts.map((conflict) => (
               <li
                 key={conflict.file}
-                className="rounded-lg border border-amber-500/30 bg-amber-500/[0.06] px-4 py-3"
+                className="rounded-lg border border-warning/30 bg-warning/[0.06] px-4 py-3"
               >
                 <Path path={conflict.file} />
                 <p className="mt-1 text-muted-foreground">
@@ -123,7 +123,7 @@ function Timeline({ output }: { output: StructuredOutput }) {
               <div
                 className={cn(
                   "h-1.5 rounded-full",
-                  current ? "animate-pulse bg-amber-400" : i <= at ? "bg-emerald-400/80" : "bg-muted",
+                  current ? "animate-pulse bg-warning" : i <= at ? "bg-success/80" : "bg-muted",
                 )}
               />
               <div className="text-xs leading-tight">
@@ -187,7 +187,7 @@ function Checks({ output }: { output: StructuredOutput }) {
             <span
               className={cn(
                 "text-xs",
-                guardsFailed > 0 ? "text-red-400" : "text-muted-foreground",
+                guardsFailed > 0 ? "text-destructive" : "text-muted-foreground",
               )}
             >
               {guardsFailed > 0
@@ -202,10 +202,10 @@ function Checks({ output }: { output: StructuredOutput }) {
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs",
                   guard.pass === false
-                    ? "border-red-500/40 bg-red-500/10 text-red-300"
+                    ? "border-destructive/40 bg-destructive/10 text-destructive"
                     : guard.pass === null
                       ? "border-border text-muted-foreground"
-                      : "border-emerald-500/30 bg-emerald-500/[0.07] text-emerald-200",
+                      : "border-success/30 bg-success/[0.07] text-success",
                 )}
               >
                 <Status pass={guard.pass} small />
@@ -220,9 +220,9 @@ function Checks({ output }: { output: StructuredOutput }) {
 }
 
 const OP = {
-  create: { label: "Added", className: "bg-emerald-500/15 text-emerald-300" },
-  modify: { label: "Edited", className: "bg-sky-500/15 text-sky-300" },
-  delete: { label: "Removed", className: "bg-red-500/15 text-red-300" },
+  create: { label: "Added", className: "bg-success/15 text-success" },
+  modify: { label: "Edited", className: "bg-info/15 text-info" },
+  delete: { label: "Removed", className: "bg-destructive/15 text-destructive" },
 } as const;
 
 function FileRow({ file }: { file: StructuredOutput["files"][number] }) {
@@ -243,8 +243,8 @@ function FileRow({ file }: { file: StructuredOutput["files"][number] }) {
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1 text-xs tabular-nums">
         <span>
-          <span className="text-emerald-400">+{file.additions}</span>{" "}
-          <span className="text-red-400">−{file.deletions}</span>
+          <span className="text-success">+{file.additions}</span>{" "}
+          <span className="text-destructive">−{file.deletions}</span>
         </span>
         <DiffBar additions={file.additions} deletions={file.deletions} />
       </div>
@@ -267,7 +267,7 @@ function DiffBar({ additions, deletions }: { additions: number; deletions: numbe
           key={i}
           className={cn(
             "size-2 rounded-[2px]",
-            total === 0 ? "bg-muted" : i < added ? "bg-emerald-400" : "bg-red-400",
+            total === 0 ? "bg-muted" : i < added ? "bg-success" : "bg-destructive",
           )}
         />
       ))}
@@ -288,9 +288,9 @@ function Path({ path }: { path: string }) {
 
 function Status({ pass, small }: { pass: boolean | null; small?: boolean }) {
   const size = small ? "size-3.5" : "size-4";
-  if (pass === true) return <Icon name="CircleCheck" className={cn(size, "text-emerald-400")} />;
-  if (pass === false) return <Icon name="CircleX" className={cn(size, "text-red-400")} />;
-  return <Icon name="Loader2" className={cn(size, "animate-spin text-amber-400")} />;
+  if (pass === true) return <Icon name="CircleCheck" className={cn(size, "text-success")} />;
+  if (pass === false) return <Icon name="CircleX" className={cn(size, "text-destructive")} />;
+  return <Icon name="Loader2" className={cn(size, "animate-spin text-warning")} />;
 }
 
 /** Where to find the work: branch, commits and pull request. */
