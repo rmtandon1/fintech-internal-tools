@@ -117,6 +117,7 @@ A modal over the run view. It is where the human gate becomes visible, so it get
 │  ✓ ⌥GH  Approving review submitted · engineer                │
 │  ◌ ◆D   Devin merging · squash into demo-dashboard-devin-…   │
 │  ✓ ◆D   Merged · a3f9c21                                     │
+│  ✓      Pulled into local checkout · 0883eda → a3f9c21       │
 │  ✓      Audit row #231 · record_merge                        │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -161,7 +162,7 @@ Revisit if operators need to ask for rules with no record to start from, such as
 
 ## `/runs`
 
-A list of every run: kind, intent, requester, status, PR, and the run it reversed, if any. It reads `devin_runs` for state, and `runs/<run_id>/` on the default branch for merged history. **Reverse this change** lives on merged IMPLEMENTATION rows.
+A list of every run: kind, intent, requester, status, PR, and the run it reversed, if any. It reads `devin_runs` for state, and `runs/<run_id>/` on the default branch for merged history. **Reverse this change** lives on merged IMPLEMENTATION rows. For the `engineer` role, **Reconcile** re-reads every approved run's PR on GitHub, writes `record_merge` for the ones that landed, then pulls the newest merge into the local checkout (`MERGE_SYNC.md`).
 
 ## Changes by file
 
