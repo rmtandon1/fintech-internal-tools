@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { ulid } from "ulid";
 import { db } from "@console/db";
-import { approvalRequests } from "@console/db-core/engine-schema";
+import { auditLog } from "@console/db-core/engine-schema";
 import { DEMO_ACTORS } from "@console/engine/actor";
 import { executeIntent } from "@console/engine/execute-intent";
 import { configureEngine } from "@console/engine/registry";
@@ -18,8 +18,10 @@ import { toolRegistry } from "@/registry";
  * courier-outage — a courier failure at Fernhill Home produces 60 genuine
  * `not_received` refund requests (rfnd_1001–rfnd_1060), which are then
  * submitted one by one as the demo refunds agent. Re-running inserts nothing
- * that already exists and resubmits nothing that has already moved on or is
- * waiting on an approval.
+ * that already exists and resubmits nothing the engine has already seen: any
+ * refund with an `execute` audit row (applied, denied or awaiting approval) is
+ * skipped, and a scenario id held by some other merchant's refund is reported
+ * as a collision rather than submitted.
  *
  * Today every one of these refunds applies: each sits under the manager
  * threshold and no rule looks across requests. Once the clustering hold merges
@@ -108,6 +110,7 @@ export interface ScenarioSummary {
   pendingApproval: number;
   denied: number;
   errors: number;
+  collisions: string[];
   firstDenialReason: string | null;
 }
 
@@ -130,36 +133,40 @@ export function courierOutage(now = Date.now()): ScenarioSummary {
     inserted++;
   }
 
-  const awaitingDecision = new Set(
+  const alreadySubmitted = new Set(
     db
-      .select({ recordId: approvalRequests.recordId })
-      .from(approvalRequests)
+      .select({ recordId: auditLog.recordId })
+      .from(auditLog)
       .where(
         and(
-          eq(approvalRequests.tool, "refunds"),
-          eq(approvalRequests.status, "pending"),
-          inArray(approvalRequests.recordId, ids),
+          eq(auditLog.tool, "refunds"),
+          eq(auditLog.action, "execute"),
+          inArray(auditLog.recordId, ids),
         ),
       )
       .all()
       .map((r) => r.recordId),
   );
-  const stillRequested = db
-    .select({ id: refunds.id })
+  const collisions: string[] = [];
+  const stillRequested: string[] = [];
+  for (const r of db
+    .select({ id: refunds.id, merchant: refunds.merchant, status: refunds.status })
     .from(refunds)
-    .where(and(inArray(refunds.id, ids), eq(refunds.status, "requested")))
-    .all()
-    .map((r) => r.id)
-    .filter((id) => !awaitingDecision.has(id));
+    .where(inArray(refunds.id, ids))
+    .all()) {
+    if (r.merchant !== COURIER_OUTAGE.merchant) collisions.push(r.id);
+    else if (r.status === "requested" && !alreadySubmitted.has(r.id)) stillRequested.push(r.id);
+  }
 
   const summary: ScenarioSummary = {
     inserted,
     submitted: 0,
-    skipped: ids.length - stillRequested.length,
+    skipped: ids.length - stillRequested.length - collisions.length,
     applied: 0,
     pendingApproval: 0,
     denied: 0,
     errors: 0,
+    collisions,
     firstDenialReason: null,
   };
 
@@ -189,6 +196,11 @@ function printSummary(name: ScenarioName, s: ScenarioSummary): void {
   console.log(`  applied ${s.applied} / sent to approval ${s.pendingApproval} / denied ${s.denied}`);
   if (s.errors) console.log(`  errors ${s.errors}`);
   if (s.firstDenialReason) console.log(`  first denial: ${s.firstDenialReason}`);
+  if (s.collisions.length) {
+    console.error(
+      `  ${s.collisions.length} id(s) belong to another merchant's refund and were left alone: ${s.collisions.join(", ")}`,
+    );
+  }
 }
 
 function isScenarioName(name: string): name is ScenarioName {
@@ -204,7 +216,9 @@ function main(): void {
     process.exit(1);
   }
   configureEngine({ tools: toolRegistry });
-  printSummary(requested, SCENARIOS[requested]());
+  const summary = SCENARIOS[requested]();
+  printSummary(requested, summary);
+  if (summary.errors || summary.collisions.length) process.exit(1);
 }
 
 if (process.argv[1]?.endsWith("scenario.ts")) main();

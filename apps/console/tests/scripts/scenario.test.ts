@@ -76,4 +76,19 @@ describe("courier-outage scenario", () => {
     expect(scenarioRows()).toEqual(rowsBefore);
     expect(db.select({ id: auditLog.id }).from(auditLog).all().length).toBe(auditBefore);
   });
+
+  it("leaves another merchant's refund alone when it holds a scenario id", () => {
+    db.update(refunds)
+      .set({ merchant: "Northwind Freight", status: "requested" })
+      .where(eq(refunds.id, "rfnd_1060"))
+      .run();
+    const auditBefore = auditRowsFor("rfnd_1060").length;
+
+    const summary = courierOutage();
+
+    expect(summary.collisions).toEqual(["rfnd_1060"]);
+    expect(summary.submitted).toBe(0);
+    expect(refundTool.get("rfnd_1060")?.status).toBe("requested");
+    expect(auditRowsFor("rfnd_1060")).toHaveLength(auditBefore);
+  });
 });
