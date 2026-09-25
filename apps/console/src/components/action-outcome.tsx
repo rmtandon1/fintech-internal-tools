@@ -75,7 +75,7 @@ export function ActionOutcome({
       <dl className="px-3 py-1.5">
         {audit ? (
           <Line mark="✓" label="Permission">
-            {audit.actorRole} may {action} {tool}
+            {audit.actorRole} is allowed to {action} in {tool}
           </Line>
         ) : null}
 
@@ -102,13 +102,13 @@ export function ActionOutcome({
         ) : null}
 
         {outcome.status === "pending_approval" ? (
-          <Line mark="✓" label="Frozen">
-            payload, trace{frozenVersion !== null ? ` and v${frozenVersion}` : ""} held ·
-            approval {shortId(outcome.approvalId)}
+          <Line mark="✓" label="Held">
+            request {shortId(outcome.approvalId)} keeps the input
+            {frozenVersion !== null ? ` and v${frozenVersion}` : ""} until a decision
           </Line>
         ) : audit ? (
-          <Line mark="✓" label="Decision">
-            {audit.actorId} · {utc(audit.ts)}
+          <Line mark="✓" label="Recorded">
+            by {audit.actorId} at {utc(audit.ts)}
           </Line>
         ) : null}
 
@@ -127,13 +127,13 @@ export function ActionOutcome({
           >
             #{audit.seq}
             {audit.event !== "applied" ? ` ${audit.event}` : ""} · {shortHash(audit.rowHash)}{" "}
-            · chain {audit.chainOk ? "✓" : "✗"}
+            · chain {audit.chainOk ? "intact" : "broken"}
           </Line>
         ) : null}
 
         {result.replayed ? (
-          <Line mark="↺" label="Replayed" tone="approval">
-            no second write · key {idempotencyKey}
+          <Line mark="↺" label="Duplicate" tone="approval">
+            input already received, nothing written again · key {idempotencyKey}
           </Line>
         ) : null}
       </dl>
@@ -204,11 +204,11 @@ function headline(
 ): string {
   switch (status) {
     case "applied":
-      return newStatus ?? "applied";
+      return newStatus ?? "done";
     case "pending_approval":
-      return `sent to ${tier ?? "approver"}`;
+      return `waiting for ${tier ?? "approver"}`;
     case "denied":
-      return "denied";
+      return "not allowed";
     case "error":
       return "";
   }
@@ -222,9 +222,9 @@ function statusLine(
   if (status === "applied") {
     if (before && after && before !== after) return `${before} → ${after}`;
     if (!after) return null;
-    return before ? `still ${after}` : after;
+    return before ? `${after} unchanged` : after;
   }
-  return before ? `still ${before}` : status === "denied" ? "unchanged" : null;
+  return before ? `${before} unchanged` : status === "denied" ? "unchanged" : null;
 }
 
 function versionLine(before: number | null, after: number | null): string | null {
@@ -241,8 +241,8 @@ function policyLine(
 ): string {
   const routed = denial ?? approval;
   if (routed && routed.type !== "allow") return `${routed.rule}: ${routed.reason}`;
-  if (trace.length === 0) return "no rules declared";
-  return `${trace.length} ${trace.length === 1 ? "rule" : "rules"} · all allow`;
+  if (trace.length === 0) return "no rules apply";
+  return `${trace.length} ${trace.length === 1 ? "rule" : "rules"} checked, all passed`;
 }
 
 function isApproval(o: RuleOutcome): o is Extract<RuleOutcome, { type: "require_approval" }> {
