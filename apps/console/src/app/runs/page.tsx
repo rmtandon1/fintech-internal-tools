@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { DispatchControl } from "@/components/dispatch-control";
 import { Panel } from "@/components/panel";
@@ -81,7 +81,7 @@ export default async function RunsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const actor = await currentActor();
-  if (!automationTool.visibleTo.includes(actor.role)) notFound();
+  if (!automationTool.visibleTo.includes(actor.role)) redirect("/");
 
   const total = countRuns();
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));

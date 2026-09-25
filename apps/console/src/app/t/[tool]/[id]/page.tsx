@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Icon } from "@console/ui/icon";
 import { ContextDrawer } from "@/components/context-drawer";
 import {
@@ -96,7 +96,8 @@ export default async function RecordPage({
   const { tool, id } = await params;
   const decl = getTool(tool);
   const actor = await currentActor();
-  if (!decl || !decl.visibleTo.includes(actor.role)) notFound();
+  if (!decl) notFound();
+  if (!decl.visibleTo.includes(actor.role)) redirect("/");
 
   const record = decl.get(id);
   if (!record) notFound();
