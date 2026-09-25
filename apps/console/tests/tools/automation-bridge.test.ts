@@ -29,6 +29,7 @@ import {
   type BridgeDeps,
   dispatchRun,
   observeMerge,
+  observeRun,
   pollRun,
   stopRun,
 } from "@console/tool-automation/bridge";
@@ -274,6 +275,60 @@ describe("pollRun", () => {
     const run = await running();
     const out = await pollRun(run, deps({}));
     expect(out).toEqual({ kind: "unavailable", reason: "Devin API is not configured" });
+  });
+});
+
+describe("observeRun", () => {
+  async function running() {
+    stopAll();
+    const out = await dispatchRun(admin, request, deps({ devin: fakeDevin({}).client }));
+    const run = getRun(out.runId);
+    if (!run) throw new Error("no run");
+    return run;
+  }
+
+  it("records the reported pull request once, then keeps it through a poll that omits it", async () => {
+    const run = await running();
+    const first = await observeRun(admin, run, deps({ devin: reportingPr().client }));
+    expect(first.poll.kind).toBe("output");
+    expect(first.record?.outcome.status).toBe("applied");
+
+    const recorded = getRun(run.id);
+    expect(recorded?.status).toBe("running");
+    expect(recorded?.prUrl).toBe(PR);
+    expect(recorded?.version).toBe(run.version + 1);
+    expect(auditTrailFor("devin_run", run.id).map((row) => row.action)).toEqual([
+      "record_pr",
+      "record_session",
+      "dispatch",
+    ]);
+    if (!recorded) throw new Error("no run");
+
+    const again = await observeRun(admin, recorded, deps({ devin: reportingPr().client }));
+    expect(again.record).toBeNull();
+    const silent = fakeDevin({ snapshot: { status: "working", statusDetail: null, structuredOutput: null } });
+    const third = await observeRun(admin, recorded, deps({ devin: silent.client }));
+    expect(third.poll.kind).toBe("no_output");
+    expect(third.record).toBeNull();
+    expect(getRun(run.id)?.prUrl).toBe(PR);
+    expect(getRun(run.id)?.version).toBe(run.version + 1);
+  });
+
+  it("records nothing while the session reports no pull request", async () => {
+    const run = await running();
+    const devin = fakeDevin({ snapshot: { status: "working", statusDetail: null, structuredOutput: output() } });
+    const out = await observeRun(refundsManager, run, deps({ devin: devin.client }));
+    expect(out.poll.kind).toBe("output");
+    expect(out.record).toBeNull();
+    expect(getRun(run.id)?.version).toBe(run.version);
+  });
+
+  it("denies a manager outside the run's domain and leaves the run untouched", async () => {
+    const run = await running();
+    const kycManager: Actor = { id: "usr_kyc_mgr", name: "KYC manager", role: "kyc_manager" };
+    const out = await observeRun(kycManager, run, deps({ devin: reportingPr().client }));
+    expect(out.record?.outcome.status).toBe("denied");
+    expect(getRun(run.id)?.prUrl).toBeNull();
   });
 });
 

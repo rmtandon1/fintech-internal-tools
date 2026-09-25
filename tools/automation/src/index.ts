@@ -257,6 +257,19 @@ const RecordSessionInput = z.union([
 ]);
 type RecordSessionInput = z.infer<typeof RecordSessionInput>;
 
+const RecordPrInput = z.object({ prUrl: z.string().url() });
+type RecordPrInput = z.infer<typeof RecordPrInput>;
+
+/** The session names its pull request once; a later, different URL is a new run's business. */
+const prNotYetRecorded: RunRule<RecordPrInput> = ({ record, input }) =>
+  record?.prUrl && record.prUrl !== input.prUrl
+    ? {
+        type: "deny",
+        rule: "pr_not_yet_recorded",
+        reason: `Run already has pull request ${record.prUrl}`,
+      }
+    : { type: "allow", rule: "pr_not_yet_recorded" };
+
 const RecordMergeInput = z.object({
   mergeCommit: z.string().regex(/^[0-9a-f]{7,40}$/),
   prUrl: z.string().url(),
@@ -430,6 +443,21 @@ export const automationTool = defineTool<DevinRun>({
               patch: { status: "dispatch_failed", note: input.error },
               nextStatus: "dispatch_failed",
             },
+      apply: (ctx, decision) => transition(ctx, decision.patch),
+    }),
+    defineAction<DevinRun, typeof RecordPrInput, Transition>({
+      name: "record_pr",
+      label: "Record pull request",
+      description: "Store the pull request the session reports, so it survives a poll that omits it.",
+      allowedRoles: AUTOMATION_ROLES,
+      input: RecordPrInput,
+      fromStatus: ["running"],
+      rules: [actorOwnsRunDomain, prNotYetRecorded],
+      decide: ({ input }) => ({
+        summary: `Pull request opened: ${input.prUrl}`,
+        patch: { status: "running", prUrl: input.prUrl },
+        nextStatus: "running",
+      }),
       apply: (ctx, decision) => transition(ctx, decision.patch),
     }),
     defineAction<DevinRun, typeof ApproveInput, Transition>({

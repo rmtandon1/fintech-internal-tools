@@ -16,7 +16,8 @@ import { getSpec, type RunKind, type RunScope } from "./specs";
  * Every database change here is an `executeIntent` call; the Devin and GitHub
  * calls happen strictly after the intent they depend on has committed, or
  * strictly before the intent that records what they returned. Polled session
- * progress is read from the session and never written to `devin_runs`
+ * progress is read from the session and never written to `devin_runs`; the
+ * one exception is the pull request URL, recorded once through `record_pr`
  * (DEVIN_RUN_PROTOCOL.md § Progress).
  */
 
@@ -214,7 +215,32 @@ export async function pollRun(run: DevinRun, deps: BridgeDeps): Promise<PollOutc
   };
 }
 
-/** The PR a run is working on: the audited one once approved, else the one the session reports now. */
+export interface ObserveOutcome {
+  poll: PollOutcome;
+  /** The `record_pr` result; null when the run already names its PR or the session reports none. */
+  record: IntentResult | null;
+}
+
+/**
+ * Polls the session and, the first time it reports a pull request, records
+ * that URL on the run through `record_pr`, so a later poll without it does
+ * not lose the PR.
+ */
+export async function observeRun(actor: Actor, run: DevinRun, deps: BridgeDeps): Promise<ObserveOutcome> {
+  const poll = await pollRun(run, deps);
+  const prUrl = poll.kind === "output" ? poll.structuredOutput.pr_url : null;
+  if (!prUrl || run.prUrl || run.status !== "running") return { poll, record: null };
+  const record = executeIntent(actor, {
+    tool: "automation",
+    action: "record_pr",
+    recordId: run.id,
+    input: { prUrl },
+    idempotencyKey: key(run.id, `record_pr:${prUrl}`),
+  });
+  return { poll, record };
+}
+
+/** The PR a run is working on: the recorded one when present, else the one the session reports now. */
 export async function currentPrUrl(run: DevinRun, deps: BridgeDeps): Promise<string | null> {
   if (run.prUrl) return run.prUrl;
   if (!deps.devin || !run.sessionId) return null;
