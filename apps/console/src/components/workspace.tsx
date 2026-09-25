@@ -74,7 +74,9 @@ export function WorkspaceProvider({
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "]" && !isEditable(event.target)) toggleAgent();
+      if (event.key !== "]" || isEditable(event.target)) return;
+      if (!window.matchMedia("(min-width: 64rem)").matches) return;
+      toggleAgent();
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
