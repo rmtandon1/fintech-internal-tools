@@ -170,6 +170,32 @@ export interface ConstantDefinition {
   tool: string;
 }
 
+/** PII-free aggregate of another tool's records tied to this one. */
+export interface LinkedActivitySummary {
+  count: number;
+  /** Formatted total across the rows. */
+  total: string;
+  /** Distinct categorical codes across the rows, e.g. reason codes. */
+  codes: string[];
+  /** Rows with a pending approval request against them. */
+  held: number;
+}
+
+export interface LinkedActivity {
+  /** Tool the rows belong to; its declaration masks them at the read boundary. */
+  tool: string;
+  title: string;
+  summary: LinkedActivitySummary;
+  /** Raw rows, empty when the actor may not see the linked tool. */
+  rows: GovernedRecord[];
+  /** Fields of the linked tool to show per row. */
+  rowFields: string[];
+  /** Ids of rows that carry a pending approval request. */
+  heldIds: string[];
+  /** Where the linked tool opens this cluster; null when the actor cannot open it. */
+  href: string | null;
+}
+
 export interface ToolDeclaration<TRecord extends GovernedRecord = GovernedRecord> {
   name: string;
   displayName: string;
@@ -196,6 +222,11 @@ export interface ToolDeclaration<TRecord extends GovernedRecord = GovernedRecord
   openStatuses?: string[];
   /** Returns a short marker (e.g. "overdue") when a record needs attention, else null. */
   attention?: (record: TRecord, now: number) => string | null;
+  /**
+   * Records of another tool tied to this one. Runs on the server with the
+   * read client; rows are only returned to actors who may see the other tool.
+   */
+  linkedActivity?: (record: TRecord, actor: Actor) => LinkedActivity | null;
   /** Default policy thresholds installed when the database is seeded. */
   constants?: ConstantDefinition[];
   /** Installs demo records. Must be safe to run twice. */
