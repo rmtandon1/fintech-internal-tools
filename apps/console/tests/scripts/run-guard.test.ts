@@ -199,6 +199,15 @@ describe("run-guard", () => {
     expect(result.stdout).not.toContain("No run on this branch");
   });
 
+  it("does not fall back to the integration branch when an explicit base is missing", () => {
+    const f = fixture().startRun().editInPlan();
+    for (const env of [{ args: ["--base", "devin/parent"], extra: {} }, { args: [], extra: { RUN_GUARD_BASE: "devin/parent" } }]) {
+      const result = spawnSync(TSX, [GUARD, ...env.args], { cwd: f.dir, encoding: "utf8", env: { ...GIT_ENV, ...env.extra } });
+      expect(result.status).toBe(1);
+      expect(result.stdout).toMatch(/^FAIL {2}Base ref .*devin\/parent/m);
+    }
+  });
+
   it("fails when a run's plan.json is added and later deleted", () => {
     const f = fixture().startRun().editInPlan();
     f.remove(`${RUN_DIR}/plan.json`);
@@ -237,6 +246,15 @@ describe("run-guard", () => {
       const { status, out } = f.guard();
       expect(status).toBe(1);
       expect(line(out, "Stays in plan")).toMatch(/^FAIL.*tools\/kyc\/src\/index\.ts/);
+    });
+
+    it("fails when a planned modify is actually a delete", () => {
+      const f = fixture().startRun();
+      f.remove(TOOL_FILE);
+      f.commit("delete tool");
+      const { status, out } = f.guard();
+      expect(status).toBe(1);
+      expect(line(out, "Stays in plan")).toMatch(/^FAIL.*wrong op: tools\/refunds\/src\/index\.ts \(delete, planned modify\)/);
     });
 
     it("allows other files under runs/<run_id>/", () => {
@@ -388,7 +406,19 @@ describe("run-guard", () => {
       f.commit("skip");
       const { status, out } = f.guard();
       expect(status).toBe(1);
-      expect(line(out, "Tests never shrink")).toMatch(/^FAIL.*adds \.skip\/\.only\/\.todo/);
+      expect(line(out, "Tests never shrink")).toMatch(/^FAIL.*adds \.skip\("holds large refunds"\)/);
+    });
+
+    it("fails when an existing .skip turns into .only", () => {
+      const f = fixture();
+      f.write({ [TEST_FILE]: BASE_TEST.replace('it("holds large refunds"', 'it.skip("holds large refunds"') });
+      f.commit("skip on base");
+      f.startRun();
+      f.write({ [TEST_FILE]: BASE_TEST.replace('it("holds large refunds"', 'it.only("holds large refunds"') });
+      f.commit("focus");
+      const { status, out } = f.guard();
+      expect(status).toBe(1);
+      expect(line(out, "Tests never shrink")).toMatch(/^FAIL.*adds \.only\("holds large refunds"\)/);
     });
 
     it("lets a REMOVAL delete exactly the tests listed in plan.removed_tests", () => {

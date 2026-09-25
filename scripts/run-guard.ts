@@ -16,7 +16,8 @@ import { ENGINE_SCOPE_PATHS } from "@console/tool-automation/specs";
  *
  * Checks implemented here, each reported by name:
  *
- *   Stays in plan        every changed path is in `plan.files[]` or under `runs/<run_id>/`
+ *   Stays in plan        every changed path is in `plan.files[]` with the op git observed
+ *                        (create/modify/delete; a rename is delete + create) or under `runs/<run_id>/`
  *   Plan stays in scope  every `plan.files[].path` matches a glob in `context.scope`
  *   Context untouched    the plan commit (the first commit on the branch) adds exactly
  *                        `context.json` and `plan.json`, and no later commit touches
@@ -76,7 +77,7 @@ const DELEGATED = [
 const TEST_FILE_RE = /\.test\.tsx?$/;
 const TEST_CALL_RE = /(?<![.\w$])(?:it|test)\s*\(/g;
 const TEST_NAME_RE = /(?<![.\w$])(?:it|test)\s*\(\s*(["'`])((?:\\.|(?!\1).)*)\1/g;
-const TEST_MODIFIER_RE = /(?<![.\w$])(?:it|test|describe)\.(?:skip|only|todo)\b/g;
+const TEST_MODIFIER_RE = /(?<![.\w$])(?:it|test|describe)\.(skip|only|todo)\b(?:\s*\(\s*(["'`])((?:\\.|(?!\2).)*)\2)?/g;
 const SOURCE_FILE_RE = /\.(?:ts|tsx|js|mjs|cjs)$/;
 const TYPE_ESCAPE_RES: Array<{ re: RegExp; label: string }> = [
   { re: /(?:[:<,(=|&]|\bas|\bextends)\s*any\b(?!\w)/, label: "any" },
@@ -134,12 +135,13 @@ function runGuard(opts: { cwd: string; base?: string }): GuardReport {
     }
   };
 
-  const baseRef = resolveBase(opts.base, tryGit);
+  const explicit = opts.base ?? process.env.RUN_GUARD_BASE;
+  const baseRef = resolveBase(explicit, tryGit);
   if (!baseRef) {
-    return {
-      run: null,
-      checks: [{ name: "Base ref", pass: false, reason: `base ref not found (tried origin/${INTEGRATION_BRANCH}); fetch it or pass --base` }],
-    };
+    const reason = explicit
+      ? `base ref ${explicit} (from ${opts.base ? "--base" : "RUN_GUARD_BASE"}) not found; fetch it`
+      : `base ref not found (tried origin/${INTEGRATION_BRANCH}); fetch it or pass --base`;
+    return { run: null, checks: [{ name: "Base ref", pass: false, reason }] };
   }
   const mergeBase = tryGit("merge-base", baseRef, "HEAD");
   if (!mergeBase) {
@@ -217,13 +219,31 @@ interface RunContext {
   scope: "rule" | "engine";
 }
 
+/** Each changed path must be planned with the operation git observed; a rename is a delete plus a create. */
 function staysInPlan({ plan, runDir, changes }: RunContext): CheckResult {
-  const planned = new Set(plan.files.map((f) => f.path));
-  const allowed = (p: string) => planned.has(p) || p.startsWith(runDir);
-  const outside = changes.flatMap((c) => [c.path, ...(c.from ? [c.from] : [])]).filter((p) => !allowed(p));
-  return outside.length === 0
-    ? { name: "Stays in plan", pass: true, reason: `${changes.length} changed path(s), all in plan.json or ${runDir}` }
-    : { name: "Stays in plan", pass: false, reason: `outside plan.json: ${list(outside)}` };
+  const planned = new Map(plan.files.map((f) => [f.path, f.op]));
+  const OPS: Record<string, Plan["files"][number]["op"]> = { A: "create", M: "modify", D: "delete", T: "modify" };
+  const expected = changes.flatMap((c): Array<[string, Plan["files"][number]["op"]]> => {
+    if (c.from !== undefined) return [[c.from, "delete"], [c.path, "create"]];
+    const op = OPS[c.status];
+    return op ? [[c.path, op]] : [[c.path, "modify"]];
+  });
+  const outside: string[] = [];
+  const wrongOp: string[] = [];
+  for (const [p, op] of expected) {
+    if (p.startsWith(runDir)) continue;
+    const plannedOp = planned.get(p);
+    if (plannedOp === undefined) outside.push(p);
+    else if (plannedOp !== op) wrongOp.push(`${p} (${op}, planned ${plannedOp})`);
+  }
+  if (outside.length === 0 && wrongOp.length === 0) {
+    return { name: "Stays in plan", pass: true, reason: `${changes.length} changed path(s), all in plan.json or ${runDir}` };
+  }
+  const parts = [
+    ...(outside.length > 0 ? [`outside plan.json: ${list(outside)}`] : []),
+    ...(wrongOp.length > 0 ? [`wrong op: ${list(wrongOp)}`] : []),
+  ];
+  return { name: "Stays in plan", pass: false, reason: parts.join("; ") };
 }
 
 function planStaysInScope({ plan, context }: RunContext): CheckResult {
@@ -318,8 +338,9 @@ function testsNeverShrink({ tryGit, mergeBase, plan, context, changes }: RunCont
       problems.push(`${c.path}: ${beforeCount} → ${afterCount}, only ${allowedLoss} removal(s) listed in plan.removed_tests`);
     }
 
-    if (count(after, TEST_MODIFIER_RE) > count(before, TEST_MODIFIER_RE)) {
-      problems.push(`${c.path}: adds .skip/.only/.todo`);
+    const newModifiers = subtract(modifiers(after), modifiers(before));
+    if (newModifiers.length > 0) {
+      problems.push(`${c.path}: adds ${list(newModifiers)}`);
     }
   }
 
@@ -356,16 +377,17 @@ function noTypeEscapes({ git, mergeBase, runDir, changes }: RunContext): CheckRe
     : { name: "No type escapes", pass: false, reason: list(hits) };
 }
 
-function resolveBase(arg: string | undefined, tryGit: (...argv: string[]) => string | null): string | null {
+/** An explicit ref (`--base` or `RUN_GUARD_BASE`) must resolve; only the implicit chain falls through. */
+function resolveBase(explicit: string | undefined, tryGit: (...argv: string[]) => string | null): string | null {
+  const resolves = (ref: string) => tryGit("rev-parse", "--verify", "--quiet", `${ref}^{commit}`) !== null;
+  if (explicit !== undefined) return resolves(explicit) ? explicit : null;
   const candidates = [
-    arg,
-    process.env.RUN_GUARD_BASE,
     process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : undefined,
     `origin/${INTEGRATION_BRANCH}`,
     INTEGRATION_BRANCH,
   ];
   for (const ref of candidates) {
-    if (ref && tryGit("rev-parse", "--verify", "--quiet", `${ref}^{commit}`) !== null) return ref;
+    if (ref && resolves(ref)) return ref;
   }
   return null;
 }
@@ -421,6 +443,22 @@ function testNames(source: string): string[] {
 
 function count(source: string, re: RegExp): number {
   return Array.from(source.matchAll(re)).length;
+}
+
+/** Each `.skip`/`.only`/`.todo` as `.only("name")`, so swapping one modifier for another counts as new. */
+function modifiers(source: string): string[] {
+  return Array.from(source.matchAll(TEST_MODIFIER_RE), (m) => `.${m[1]}(${m[3] !== undefined ? JSON.stringify(m[3]) : ""})`);
+}
+
+/** Multiset difference: occurrences in `a` not matched by one in `b`. */
+function subtract(a: string[], b: string[]): string[] {
+  const pool = [...b];
+  return a.filter((x) => {
+    const i = pool.indexOf(x);
+    if (i === -1) return true;
+    pool.splice(i, 1);
+    return false;
+  });
 }
 
 function list(items: string[]): string {
