@@ -86,7 +86,10 @@ export default async function ToolQueuePage({
     });
 
   const filterRow = (
-    <form className="flex items-center gap-2">
+    <form
+      key={new URLSearchParams({ ...filters, q: search ?? "" }).toString()}
+      className="flex items-center gap-2"
+    >
       {decl.filters.map((filter) =>
         filter.type === "enum" ? (
           <select
