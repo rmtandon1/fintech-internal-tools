@@ -40,7 +40,6 @@ export function AgentWindow({ children }: { children?: React.ReactNode }) {
       >
         <Icon name="Bot" className="size-3.5" />
         Devin
-        <kbd className="font-mono text-[10px] opacity-70">]</kbd>
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-xl gap-0 p-0 overflow-hidden">
