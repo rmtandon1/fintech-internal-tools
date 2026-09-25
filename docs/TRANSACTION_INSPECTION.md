@@ -61,12 +61,14 @@ export interface ClusterDecl {
   groups: () => ClusterGroup[];
   /** The spec a Devin run for this cluster would follow, if any. */
   handoffSpec?: string;
+  /** The action whose policy trace each drawer row shows, e.g. "execute". */
+  traceAction?: string;
 }
 ```
 
 ### `tools/refunds/src/clusters.ts` (new)
 
-One read-only function, `notReceivedByMerchant()`. It filters to `reasonCode = 'not_received'`, groups by `merchant`, and keeps groups where every row is below `refunds.manager_approval_usd_minor` and the sum is at or above it. It reads the window from `refunds.clustering_window_days` once that constant exists, and uses 14 until then. It reads only, through `@console/db`.
+One read-only function, `notReceivedByMerchant()`. It filters to `reasonCode = 'not_received'`, groups by `merchant`, and keeps groups where every row is below `refunds.manager_approval_usd_minor` and the sum is at or above it. It reads the window from `refunds.clustering_window_days`, and falls back to 14 days when the constant is missing or ≤ 0. The constant at 0 switches the hold off (`REFUND_CLUSTERING_HOLD.md` § KILL_SWITCH); it does not switch the inspection off, so the strip keeps showing the pattern while nothing is held. It reads only, through `@console/db`.
 
 After the hold merges, the cluster still shows, but each row now carries its held status. The strip is how the operator sees the rule working.
 
@@ -81,6 +83,7 @@ Declare the cluster:
       label: "Stacked under the manager line",
       groups: () => notReceivedByMerchant(),
       handoffSpec: "REFUND_CLUSTERING_HOLD.md",
+      traceAction: "execute",
     },
   ],
 ```
@@ -92,7 +95,7 @@ Declare the cluster:
 
 ### `apps/console/src/components/cluster-drawer.tsx` (new)
 
-Client component on `@console/ui/sheet`. It opens when the `inspect` search param is present and closes by removing it. It renders rows, totals and each row's policy trace with the existing `PolicyTrace` component. The handoff button opens the panel described in `AGENT_TRIGGER_SURFACE.md`.
+Client component on `@console/ui/sheet`. It opens when the `inspect` search param is present and closes by removing it. It renders rows, totals and each row's policy trace with the existing `PolicyTrace` component. The trace shown per row is the one for the action named by the cluster's `traceAction` (`execute` for refunds); a cluster without `traceAction` shows rows and totals only. The handoff button opens the panel described in `AGENT_TRIGGER_SURFACE.md`.
 
 ### `apps/console/src/app/t/[tool]/page.tsx`
 

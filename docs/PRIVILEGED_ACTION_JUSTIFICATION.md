@@ -47,6 +47,7 @@ The `engine` scope in `DEVIN_RUN_PROTOCOL.md` › Scope, plus each tool's declar
 A run is worth publishing only if Devin could have got it wrong on its own. Check these before dispatch:
 
 - **The base carries no answer key.** This file's reviewer checklist, `CUSTOMER_FRAMING.md` and `DEVIN_RUN_PROTOCOL.md` all name the entry points or the fix, and they are on the default branch. Dispatch from `36b0dbc`, the last commit before they were added. Check: `git grep -n "revealField\|appendAudit\|hashableFields" <base> -- '*.md'` returns nothing.
+- **The three stress runs use a throwaway repo.** This doc lives on the default branch, so a session cloned from this repo can read the reviewer-only sections whatever base commit the run names. Push `36b0dbc` to a separate throwaway repository as its default branch and dispatch the three runs against that, so the base Devin clones carries none of the reviewer-only sections. The PRs open there; the best one is re-applied here after scoring.
 - **Devin gets only the parts marked "sent to Devin".** The intent, the decided items and the acceptance tests go into the prompt. Nothing from "Reviewer checklist" down is sent.
 - **`AGENTS.md` stays as it is** (see Intent).
 
