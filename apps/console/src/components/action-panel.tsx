@@ -164,13 +164,7 @@ function ActionButton({
   }
 
   return (
-    <Dialog
-      open={dialogOpen}
-      onOpenChange={(open) => {
-        if (open) setIdempotencyKey(ulid());
-        setDialogOpen(open);
-      }}
-    >
+    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
       <DialogTrigger asChild>
         <Button
           size="sm"
