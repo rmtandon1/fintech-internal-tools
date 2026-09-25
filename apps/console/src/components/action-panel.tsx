@@ -79,6 +79,15 @@ function approvalTier(preview: ActionPreview): string {
     : "approval";
 }
 
+/** The submitted input fields, in a stable order, as the engine will hash them. */
+function payloadOf(form: FormData): string {
+  const entries = Array.from(form.entries())
+    .filter(([key]) => key.startsWith("input:"))
+    .map(([key, value]) => [key, String(value)] as const)
+    .sort(([a], [b]) => a.localeCompare(b));
+  return JSON.stringify(entries);
+}
+
 function ActionButton({
   tool,
   recordId,
@@ -93,6 +102,9 @@ function ActionButton({
   const [pending, startTransition] = useTransition();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState(() => ulid());
+  // The last completed submission, so the same payload sent again replays it
+  // while a changed payload goes out under a fresh key.
+  const [completed, setCompleted] = useState<{ key: string; payload: string } | null>(null);
 
   const denied = preview.decision?.effect === "deny";
   const needsApproval = preview.decision?.effect === "require_approval";
@@ -115,7 +127,9 @@ function ActionButton({
 
   function onSubmit(form: FormData) {
     startTransition(async () => {
-      const key = String(form.get("idempotencyKey"));
+      const payload = payloadOf(form);
+      const key = completed?.payload === payload ? completed.key : idempotencyKey;
+      form.set("idempotencyKey", key);
       const result = await submitIntent(form);
       const outcome = result.outcome;
       onSubmitted({ action: preview.action, idempotencyKey: key, result });
@@ -123,13 +137,9 @@ function ActionButton({
       // entered values stay put so the operator can fix and retry.
       if (outcome.status === "applied" || outcome.status === "pending_approval") {
         setDialogOpen(false);
+        setCompleted({ key, payload });
       }
-      // A denial or error may be retried with a different payload, which needs
-      // a fresh key. A completed submission keeps its key so an identical
-      // resubmit replays the stored result instead of writing twice.
-      if (outcome.status === "denied" || outcome.status === "error") {
-        setIdempotencyKey(ulid());
-      }
+      setIdempotencyKey(ulid());
       if (outcome.status === "error") {
         toast.error(titleCase(outcome.code), { description: outcome.message });
       }

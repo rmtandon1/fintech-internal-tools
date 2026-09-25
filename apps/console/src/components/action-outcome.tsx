@@ -36,6 +36,7 @@ export function ActionOutcome({
   const statusAfter = statusField ? stringOf(after?.[statusField]) : null;
   const versionBefore = numberOf(before?.version);
   const versionAfter = numberOf(after?.version);
+  const frozenVersion = audit?.frozenVersion ?? versionBefore;
   const approval = outcome.trace.find(isApproval);
   const denial = outcome.trace.find(isDenial);
   const subject = recordId ?? (outcome.status === "applied" ? outcome.recordId : null);
@@ -102,7 +103,7 @@ export function ActionOutcome({
 
         {outcome.status === "pending_approval" ? (
           <Line mark="✓" label="Frozen">
-            payload, trace{versionBefore !== null ? ` and v${versionBefore}` : ""} held ·
+            payload, trace{frozenVersion !== null ? ` and v${frozenVersion}` : ""} held ·
             approval {shortId(outcome.approvalId)}
           </Line>
         ) : audit ? (
