@@ -283,7 +283,6 @@ export default async function ToolQueuePage({
           detail={open.group.detail}
           limit={open.group.limit}
           totalUsdMinor={open.group.totalUsdMinor}
-          traceAction={open.cluster.traceAction}
           statuses={decl.statuses}
           rows={clusterRows(decl, open.cluster, open.group, actor)}
           canRequestRule={decl.revealRoles.includes(actor.role)}
