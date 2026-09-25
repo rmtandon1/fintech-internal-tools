@@ -10,7 +10,7 @@ import {
   describeSync,
   dispatchRun,
   observeMerge,
-  pollRun,
+  observeRun,
   reconcileRuns,
   stopRun,
   syncMergedRun,
@@ -92,10 +92,11 @@ export async function dispatchAutomationRun(form: FormData): Promise<BridgeResul
 }
 
 export async function pollAutomationRun(runId: string): Promise<BridgeResult> {
+  const actor = await currentActor();
   const run = getRun(runId);
   if (!run) return { ok: false, title: "Run not found" };
   try {
-    const outcome = await pollRun(run, bridgeDeps());
+    const { poll: outcome, record } = await observeRun(actor, run, bridgeDeps());
     revalidatePath(`/t/automation/${runId}`);
     revalidatePath("/runs");
     switch (outcome.kind) {
@@ -103,7 +104,12 @@ export async function pollAutomationRun(runId: string): Promise<BridgeResult> {
         return {
           ok: true,
           title: `Session ${outcome.status}`,
-          detail: `${outcome.structuredOutput.phase} · ${outcome.structuredOutput.phase_status}`,
+          detail: [
+            `${outcome.structuredOutput.phase} · ${outcome.structuredOutput.phase_status}`,
+            record ? describeIntent(record) : null,
+          ]
+            .filter((s) => s !== null)
+            .join(" · "),
         };
       case "no_output":
         return { ok: true, title: `Session ${outcome.status}`, detail: outcome.statusDetail ?? "No structured output yet" };

@@ -4,7 +4,7 @@
 
 - A business rule in this console is code. Devin adds, changes or removes it in a run, and a person approves every merge.
 - Feature specs (`REFUND_CLUSTERING_HOLD.md`, `PRIVILEGED_ACTION_JUSTIFICATION.md`) supply each run's intent, scope and acceptance tests.
-- Starting a run is a governed write, like any other action. Each run appears in the audit chain four times, when it is requested, picked up, approved, and merged.
+- Starting a run is a governed write, like any other action. Each run appears in the audit chain five times, when it is requested, picked up, opens its pull request, is approved, and merges.
 - The console hands Devin a context file with the live settings and evidence, without customer data. Devin commits its plan before its first edit, and security checks in CI hold the diff to that plan.
 - An engineer approves, then Devin merges.
 - A reversal removes one earlier change from the code as it is now, keeping everything merged since.
@@ -53,7 +53,7 @@ Policy rules use constants, and product flags such as `payments.card_network_fai
 
 ## Starting a run is a governed write
 
-Dispatch goes through `executeIntent` like every other write. A small `automation` tool (`tools/automation/`) owns a `devin_runs` table and five actions: `dispatch`, `record_session`, `approve_pr`, `record_merge` and `stop`.
+Dispatch goes through `executeIntent` like every other write. A small `automation` tool (`tools/automation/`) owns a `devin_runs` table and six actions: `dispatch`, `record_session`, `record_pr`, `approve_pr`, `record_merge` and `stop`.
 
 `dispatch` rules:
 
@@ -64,7 +64,7 @@ Dispatch goes through `executeIntent` like every other write. A small `automatio
 
 The effect writes the run row and the audit row in one transaction. The HTTP call to Devin happens after the commit, never inside it. `record_session` then stores the session id. If the call fails, the run row is marked `dispatch_failed` through the same intent path.
 
-Polled run state is never written to `devin_runs`. Phase, `status_detail` and `structured_output` come from the session poll and are held in memory, not persisted. Only audited transitions touch the table: `dispatch`, `record_session`, `approve_pr`, `record_merge` and `stop`. That keeps a run at four audit rows on the normal path (dispatch, record_session, approve_pr, record_merge), with `stop` or `dispatch_failed` replacing the later rows when a run ends early.
+Polled run state is never written to `devin_runs`. Phase, `status_detail` and `structured_output` come from the session poll and are held in memory, not persisted. The one fact a poll does record is the pull request: the first time the session reports `pr_url`, the console submits `record_pr`, so a later poll that omits it cannot lose the PR. Only audited transitions touch the table: `dispatch`, `record_session`, `record_pr`, `approve_pr`, `record_merge` and `stop`. That keeps a run at five audit rows on the normal path (dispatch, record_session, record_pr, approve_pr, record_merge), with `stop` or `dispatch_failed` replacing the later rows when a run ends early.
 
 `stop` also records terminal session failure. When a poll reports the session `failed` (or a phase stopped the run, § Phases), the console submits `stop` with the reported reason, so the row leaves the in-flight state and the "no other run in flight against the same tool" rule releases the tool. Without that, a failed run would block the next `dispatch` until someone pressed **Stop run**. A `stop` row names whether it was an operator's click or a reported failure.
 
@@ -77,7 +77,7 @@ Polled run state is never written to `devin_runs`. Phase, `status_detail` and `s
 
 Its effect submits an approving review to GitHub as the engineer, then messages the Devin session to merge. See § Approval and merge.
 
-Every run therefore appears in the hash chain four times: when it was asked for, when Devin picked it up, when an engineer approved it, and when it merged.
+Every run therefore appears in the hash chain five times: when it was asked for, when Devin picked it up, when it opened its pull request, when an engineer approved it, and when it merged.
 
 ## What the console hands Devin
 
