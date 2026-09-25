@@ -1,0 +1,23 @@
+{
+  "name": "@console/engine",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@console/db": "workspace:*",
+    "@console/db-core": "workspace:*",
+    "@console/db-write": "workspace:*",
+    "@console/permissions": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "ulid": "^3.0.2",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20"
+  }
+}

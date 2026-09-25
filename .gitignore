@@ -1,10 +1,10 @@
-/node_modules
-/.next/
-/out/
+node_modules/
+.next/
+out/
 /coverage
 
 # local sqlite database
-/data
+data/
 *.db
 *.db-shm
 *.db-wal
