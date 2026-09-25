@@ -92,7 +92,7 @@ pnpm setup` puts the demo back.
 
 pnpm workspace. Each folder is a package; a package can only import what its
 `package.json` lists, so the dependency direction below is enforced by the
-package manager (see `docs/MIGRATION.md` for the old `src/` → new path map).
+package manager.
 
 ```
 apps/console/          the Next app: routes, server actions, tool registry, migrations, tests

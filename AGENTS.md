@@ -51,10 +51,10 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 - `packages/db-write` - Write handle (`transact`, `writeDb`, `WriteHandle`)
 - `tools/{kyc,refunds,flags}` - Tool declarations
 - `scripts/check-boundaries.ts` - Cross-package rules pnpm cannot express
-- `docs/` - Product specs and run protocol for the demo; `docs/MIGRATION.md` maps old `src/` paths to new ones
+- `docs/` - Product specs and run protocol for the demo
 
 ## Git Workflow
-- Integration branch: `cognition-dashboard-devin-integration`; never commit to it directly. There is no `main`
+- Integration branch: `cognition-dashboard-devin-integration`. There is no `main`
 - Do feature work on short-lived `devin/<slug>` branches cut from the integration branch; use a short, descriptive slug (e.g. `devin/inbox-bulk-approve`)
 - Open one PR per change, targeting the integration branch; PR descriptions use the sections Summary, Updates since last revision, Local testing results, Review and Testing Checklist
 - Squash-merge; the PR title becomes the commit title. Delete the feature branch after merge
@@ -62,3 +62,42 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 - Tests are required: new or changed behaviour ships with tests, and `pnpm verify` must pass before a PR is opened
 - The `demo-start` tag marks the accepted baseline; do not move or delete it
 - Update `AGENTS.md`/docs when commands, structure, or architecture rules change
+
+## Documentation Requirement
+
+After completing any non-trivial coding task (new feature, integration,
+bug fix, or workflow change), create a markdown file in `docs/` summarizing
+the work using the scaffold below. Name the file descriptively in
+SCREAMING_SNAKE_CASE, suffixed if necessary with `_COMPLETE.md` for finished work or
+`_GUIDE.md` for how-to/setup documentation (e.g. `docs/STRIPE_WEBHOOK_COMPLETE.md`), or _UPDATE, or _FIX. Use your judgement
+
+### Required scaffold
+
+````markdown
+# <Feature/Change Title> - Implementation Complete
+
+## What Was Implemented
+<1-3 sentence summary of the goal and what now works>
+
+## Technical Changes
+### File: <path>
+<bullet list of what changed and why>
+
+## How It Works
+<brief walkthrough of the flow/architecture, diagrams if useful>
+
+## Testing Steps
+<how to verify the change manually or via test suite>
+
+## Next Steps
+<remaining follow-ups, optional enhancements, or manual steps the human
+must take, e.g. "Add API key to config">
+
+## Summary
+<checklist of what's done, using ✅ markers>
+````
+
+### Rules
+- Do not skip the `## Next Steps` section, even if empty — write "None" explicitly.
+- Keep `## Technical Changes` scoped to files you actually touched, with real paths.
+- If the task modifies an existing documented feature, update the existing doc in `docs/` instead of creating a new one, unless the change is large enough to warrant its own file.
