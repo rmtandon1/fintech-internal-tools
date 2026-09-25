@@ -34,13 +34,13 @@ export function ContextDrawer({
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           className={cn(
-            "flex h-7 min-w-0 shrink-0 items-center gap-2 border-t border-border bg-card px-3 text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground",
+            "flex h-10 min-w-0 shrink-0 items-center gap-2 border-t border-border bg-card px-4 text-sm font-medium text-muted-foreground hover:text-foreground",
             open && "invisible",
           )}
         >
           <Icon name="ChevronRight" className="size-3 shrink-0" />
           <span className="truncate">{title}</span>
-          <span className="ml-auto hidden shrink-0 normal-case tracking-normal sm:block">{summary}</span>
+          <span className="ml-auto hidden shrink-0 sm:block">{summary}</span>
         </button>
         {container ? (
           <SheetContent
@@ -52,12 +52,12 @@ export function ContextDrawer({
             onOpenAutoFocus={(e) => e.preventDefault()}
             className="absolute inset-x-0 bottom-0 max-h-[60%] gap-0 rounded-b-md border border-border bg-card shadow-none data-[state=open]:duration-200"
           >
-            <div className="flex h-7 min-w-0 shrink-0 items-center gap-2 border-b border-border px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            <div className="flex h-10 min-w-0 shrink-0 items-center gap-2 border-b border-border px-4 text-sm font-medium text-muted-foreground">
               <Icon name="ChevronDown" className="size-3 shrink-0" />
-              <SheetTitle className="truncate text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <SheetTitle className="truncate text-sm font-semibold text-foreground">
                 {title}
               </SheetTitle>
-              <span className="ml-auto hidden shrink-0 normal-case tracking-normal sm:block">{summary}</span>
+              <span className="ml-auto hidden shrink-0 sm:block">{summary}</span>
               <button
                 type="button"
                 onClick={() => setOpen(false)}

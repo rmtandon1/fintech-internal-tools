@@ -95,7 +95,7 @@ export function DispatchControl({
           {label}
         </Button>
       </DialogTrigger>
-      <DialogContent className={simulated ? "max-h-[85vh] overflow-auto sm:max-w-xl" : "sm:max-w-lg"}>
+      <DialogContent className={simulated ? "max-h-[88vh] overflow-auto sm:max-w-3xl" : "sm:max-w-lg"}>
         <DialogHeader>
           <DialogTitle className="text-base">
             {reversal ? "Undo this rule change" : "Ask Devin for a new rule"}

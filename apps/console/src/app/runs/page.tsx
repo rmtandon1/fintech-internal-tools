@@ -126,13 +126,13 @@ export default async function RunsPage({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="text-[11px]">Type</TableHead>
-              <TableHead className="text-[11px]">Request</TableHead>
-              <TableHead className="hidden text-[11px] md:table-cell">Asked by</TableHead>
-              <TableHead className="text-[11px]">Status</TableHead>
-              <TableHead className="hidden text-[11px] lg:table-cell">Pull request</TableHead>
-              <TableHead className="hidden text-[11px] lg:table-cell">Undoes</TableHead>
-              <TableHead className="text-[11px]" />
+              <TableHead>Type</TableHead>
+              <TableHead>Request</TableHead>
+              <TableHead className="hidden md:table-cell">Asked by</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="hidden lg:table-cell">Pull request</TableHead>
+              <TableHead className="hidden lg:table-cell">Undoes</TableHead>
+              <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>

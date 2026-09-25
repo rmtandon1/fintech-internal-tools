@@ -12,7 +12,7 @@ import { RunActions, type RunOffer } from "@/components/run-actions";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { RunFiles } from "@/components/run-files";
 import { RunSummary } from "@/components/run-summary";
-import { phaseLine, runChecklist } from "@/lib/run-checklist";
+import { phaseLine } from "@/lib/run-checklist";
 import { StatusChip } from "@console/ui/status-chip";
 import { previewActions } from "@console/engine/policy/preview";
 import type { Actor } from "@console/engine/types";
@@ -27,7 +27,7 @@ import { getTool } from "@/registry";
  * digest inputs are read from GitHub on the server, so the browser never
  * gets a form for them. The offers below gate the buttons with the same
  * policy preview the generic bar uses; the server re-evaluates on click.
- * An in-flight run is polled once per render, so the summary's checklist
+ * An in-flight run is polled once per render, so the summary's report
  * reflects the session's latest structured output.
  */
 async function runSurface(
@@ -75,7 +75,7 @@ async function runSurface(
         {inFlight ? <AutoRefresh everyMs={5000} /> : null}
         <RunSummary
           run={run}
-          checklist={runChecklist(output)}
+          output={output}
           phaseLine={phaseLine(output)}
         />
         <RunFiles

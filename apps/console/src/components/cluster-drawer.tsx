@@ -160,7 +160,7 @@ export function ClusterDrawer({
         <div className="min-h-0 flex-1 overflow-auto">
           {limit ? <LimitChart rows={rows} totalUsdMinor={totalUsdMinor} limit={limit} /> : null}
 
-          <h3 className="px-4 pt-4 pb-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          <h3 className="px-4 pt-4 pb-1 text-sm font-semibold text-foreground">
             The {rows.length} refunds
           </h3>
           <ol className="divide-y divide-border">

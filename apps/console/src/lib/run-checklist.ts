@@ -1,6 +1,7 @@
 import { PHASES, type StructuredOutput } from "@console/tool-automation/run-files";
 import type { z } from "zod";
 import type { ChecklistState } from "@/lib/checklist-glyph";
+import { PHASE_LABELS, PHASE_STATUS_LABELS } from "@/lib/run-phases";
 
 export { CHECKLIST_GLYPH, type ChecklistState } from "@/lib/checklist-glyph";
 
@@ -126,23 +127,6 @@ export function runChecklist(out: Output | null): ChecklistLine[] {
 
   return lines;
 }
-
-const PHASE_LABELS: Record<Phase, string> = {
-  intake: "Reading the request",
-  baseline: "Running the existing tests",
-  plan: "Planning the change",
-  edit: "Making the change",
-  verify: "Testing the change",
-  pull_request: "Ready for review",
-  merge: "Going live",
-};
-
-const PHASE_STATUS_LABELS: Record<Output["phase_status"], string> = {
-  running: "in progress",
-  done: "done",
-  stopped: "stopped",
-  waiting_for_user: "waiting for an engineer",
-};
 
 /** Where the session says it is, in words: `Testing the change · in progress`. */
 export function phaseLine(out: Output | null): string | null {

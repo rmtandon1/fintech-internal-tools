@@ -19,6 +19,8 @@ export interface SimulatedRun {
   sentences: string[];
   /** The run view's checklist for the finished run, from the same projection a live run uses. */
   checklist: ChecklistLine[];
+  /** The finished run's structured output, which the run report lays out. */
+  output: StructuredOutput;
 }
 
 const SIM_CONTEXT_SHA = "5e".repeat(32);
@@ -120,6 +122,7 @@ const SIMULATIONS: SimulatedRun[] = [
       "Every check passes. The change is waiting for an engineer to review and approve it.",
     ],
     checklist: runChecklist(ADDITION),
+    output: ADDITION,
   },
   {
     spec: REFUND_CLUSTERING_HOLD.file,
@@ -134,6 +137,7 @@ const SIMULATIONS: SimulatedRun[] = [
       "Listed what code can't undo: refunds still waiting in the manager inbox, and the window setting an admin set to 0.",
     ],
     checklist: runChecklist(REVERSAL),
+    output: REVERSAL,
   },
 ];
 

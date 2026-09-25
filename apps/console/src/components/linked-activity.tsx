@@ -71,7 +71,7 @@ export function LinkedActivityBody({
       {rows.length > 0 && linked ? (
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            <tr className="text-xs text-muted-foreground">
               <th className="px-2 text-left font-medium">ID</th>
               {fields.map((field) => (
                 <th

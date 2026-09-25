@@ -1,6 +1,6 @@
 import { Panel } from "@/components/panel";
-import { ChecklistList } from "@/components/checklist-list";
-import type { ChecklistLine } from "@/lib/run-checklist";
+import { RunReport } from "@/components/run-report";
+import type { StructuredOutput } from "@console/tool-automation/run-files";
 import { automationTool, type DevinRun, getSpec, RUN_KINDS, runKindLabel } from "@console/tool-automation";
 import { ROLES, roleLabel, type Role } from "@console/permissions";
 import { StatusChip } from "@console/ui/status-chip";
@@ -26,61 +26,60 @@ export function onceMerged(run: DevinRun): string | null {
 /**
  * What an operator needs before touching a run: what was asked, by whom,
  * what kind of change it is, where it stands and what merging it does. Under
- * that, the checklist projected from the session's last structured output.
+ * that, the full report from the session's last structured output.
  */
 export function RunSummary({
   run,
-  checklist,
+  output,
   phaseLine,
 }: {
   run: DevinRun;
-  checklist: ChecklistLine[];
-  /** The session's `phase · phase_status`, when it has reported one. */
+  output: StructuredOutput | null;
+  /** Where the session says it is, when it has reported. */
   phaseLine: string | null;
 }) {
   const outcome = onceMerged(run);
   return (
-    <Panel
-      title="Summary"
-      className="mx-3 mb-3"
-      bodyClassName="p-3 text-sm"
-    >
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-        <dt className="text-muted-foreground">Request</dt>
-        <dd className="whitespace-pre-wrap break-words">{run.intent}</dd>
-        <dt className="text-muted-foreground">Asked by</dt>
-        <dd>{requesterLabel(run)}</dd>
-        <dt className="text-muted-foreground">Type</dt>
-        <dd>{runKindLabel(run.kind)}</dd>
-        <dt className="text-muted-foreground">Status</dt>
-        <dd className="flex flex-wrap items-center gap-2">
-          <StatusChip value={run.status} statuses={automationTool.statuses} />
-          {phaseLine ? <span className="text-muted-foreground">{phaseLine}</span> : null}
-        </dd>
-        {outcome ? (
-          <>
-            <dt className="text-muted-foreground">Once live</dt>
-            <dd className="break-words">{outcome}</dd>
-          </>
-        ) : null}
-        {run.reverses ? (
-          <>
-            <dt className="text-muted-foreground">Undoes</dt>
-            <dd>
+    <Panel title="Summary" className="mx-5 mb-5" bodyClassName="space-y-6 p-5 text-sm">
+      <div className="space-y-4">
+        <div className="rounded-lg border border-border bg-muted/20 px-4 py-3">
+          <div className="text-xs font-medium text-muted-foreground">{runKindLabel(run.kind)}</div>
+          <p className="mt-1 text-[15px] leading-relaxed whitespace-pre-wrap break-words">
+            {run.intent}
+          </p>
+        </div>
+        <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
+          <Fact label="Asked by">{requesterLabel(run)}</Fact>
+          <Fact label="Status">
+            <span className="flex flex-wrap items-center gap-2">
+              <StatusChip value={run.status} statuses={automationTool.statuses} />
+              {phaseLine ? <span className="text-muted-foreground">{phaseLine}</span> : null}
+            </span>
+          </Fact>
+          {outcome ? <Fact label="Once live">{outcome}</Fact> : null}
+          {run.reverses ? (
+            <Fact label="Undoes">
               <a href={`/t/automation/${run.reverses}`} className="font-mono hover:underline">
                 {run.reverses}
               </a>
-            </dd>
-          </>
-        ) : null}
-      </dl>
-      {checklist.length > 0 ? (
-        <ChecklistList lines={checklist} className="mt-3 border-t border-border pt-2" />
+            </Fact>
+          ) : null}
+        </dl>
+      </div>
+      {output ? (
+        <RunReport output={output} />
       ) : (
-        <p className="mt-3 border-t border-border pt-2 text-muted-foreground">
-          Devin hasn&apos;t reported progress yet.
-        </p>
+        <p className="text-muted-foreground">Devin hasn&apos;t reported progress yet.</p>
       )}
     </Panel>
+  );
+}
+
+function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-0.5">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="break-words">{children}</dd>
+    </div>
   );
 }

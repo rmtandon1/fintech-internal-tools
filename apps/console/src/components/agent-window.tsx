@@ -59,12 +59,12 @@ export function AgentWindow({
         ) : null}
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-xl gap-0 p-0 overflow-hidden">
+        <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-3xl">
           <DialogTitle className="sr-only">Devin</DialogTitle>
           <Panel
             title="Devin"
             actions={<span className="mr-6 text-[10px] text-muted-foreground">{source}</span>}
-            className="h-[70vh] border-0 rounded-none"
+            className="h-[80vh] rounded-none border-0"
           >
             {children ?? (
               <div className="flex h-full flex-col items-center justify-center gap-1 px-4 py-8 text-center">

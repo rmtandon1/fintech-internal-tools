@@ -17,7 +17,7 @@ const RECENT = 5;
 export function DevinWindowBody({ actor, mode }: { actor: Actor; mode: DevinMode }) {
   if (mode === "simulation") {
     return (
-      <div className="space-y-3 p-3">
+      <div className="space-y-5 p-5">
         <SimulationBanner />
         <SimulatedRunView run={defaultSimulation()} />
       </div>
@@ -27,7 +27,7 @@ export function DevinWindowBody({ actor, mode }: { actor: Actor; mode: DevinMode
   const canSee = automationTool.visibleTo.includes(actor.role);
   const runs = canSee ? listRuns({ limit: RECENT }) : [];
   return (
-    <div className="space-y-3 p-3 text-sm">
+    <div className="space-y-4 p-5 text-sm">
       <p className="flex items-center gap-2 text-muted-foreground">
         <span className="size-2 rounded-full bg-emerald-400" />
         Connected to Devin.

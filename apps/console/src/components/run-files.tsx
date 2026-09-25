@@ -15,7 +15,7 @@ export function RunFiles({
   prUrl: string | null;
 }) {
   return (
-    <Panel title="Technical details" className="mx-3 mb-3" bodyClassName="p-3 text-xs">
+    <Panel title="Evidence sent to Devin" className="mx-5 mb-5" bodyClassName="p-5 text-sm">
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
         <dt className="text-muted-foreground">Evidence file</dt>
         <dd className="font-mono break-all">

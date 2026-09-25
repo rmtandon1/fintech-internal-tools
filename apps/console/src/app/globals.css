@@ -86,16 +86,16 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-size: 13px;
+    font-size: 14px;
   }
-  /* Density: figures line up in columns, rows sit at 28px, identifiers read as code. */
+  /* Figures line up in columns; rows get room to breathe. */
   table,
   .tabular-nums,
   .font-mono {
     font-variant-numeric: tabular-nums;
   }
   tbody tr {
-    height: 28px;
+    height: 40px;
   }
   td,
   th {

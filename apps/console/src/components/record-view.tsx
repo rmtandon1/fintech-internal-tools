@@ -40,10 +40,10 @@ export function RecordView({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 overflow-auto">
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 xl:grid-cols-3">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-4 p-5 xl:grid-cols-3">
           {decl.sections.map((section) => (
             <div key={section.title} className="contents">
-              <div className="col-span-full mt-2 border-b border-border pb-1 text-[10px] uppercase tracking-wider text-muted-foreground first:mt-0">
+              <div className="col-span-full mt-3 border-b border-border pb-2 text-sm font-semibold text-foreground first:mt-0">
                 {section.title}
               </div>
               {section.fields.map((name) => {
@@ -53,7 +53,7 @@ export function RecordView({
                   field.type === "number" || field.type === "currency";
                 return (
                   <div key={name} className="min-w-0 space-y-0.5">
-                    <div className="text-[11px] text-muted-foreground">
+                    <div className="text-xs text-muted-foreground">
                       {field.label}
                     </div>
                     {field.isPII ? (
@@ -81,7 +81,7 @@ export function RecordView({
                 If you {traced.label.toLowerCase()} now
               </span>
             }
-            className="mx-3 mb-3"
+            className="mx-5 mb-5"
             bodyClassName="py-0.5"
           >
             <PolicyTraceList trace={traced.decision.trace} labels={decl.ruleLabels} />
@@ -94,7 +94,7 @@ export function RecordView({
         open={trail.length <= 3}
         className="shrink-0 border-t border-border"
       >
-        <summary className="flex h-8 cursor-pointer items-center gap-2 border-b border-border px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        <summary className="flex h-10 cursor-pointer items-center gap-2 border-b border-border px-4 text-sm font-semibold text-foreground">
           History · <span className="tabular-nums">{trail.length}</span>
         </summary>
         <div className="max-h-40 overflow-auto py-0.5">
@@ -102,7 +102,7 @@ export function RecordView({
         </div>
       </details>
 
-      <div className="mt-auto flex shrink-0 items-center gap-2 border-t border-border px-3 py-3">
+      <div className="mt-auto flex shrink-0 items-center gap-2 border-t border-border px-5 py-4">
         {actions ?? (
           <ActionBar
             key={`${decl.name}:${record.id}`}
@@ -133,7 +133,7 @@ function FieldValue({
   return (
     <div
       className={cn(
-        "text-xs",
+        "text-sm",
         multiline ? "whitespace-pre-wrap break-words" : "truncate",
         numeric && "tabular-nums",
       )}
