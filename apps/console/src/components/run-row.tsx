@@ -8,21 +8,15 @@ import { StatusChip } from "@console/ui/status-chip";
 import { formatRelative } from "@console/ui/format";
 import { useWorkspace } from "@/components/workspace";
 import type { HandoffOffer } from "@/lib/handoff";
-import { runKindLabel } from "@console/tool-automation";
-import { roleLabel, ROLES, type Role } from "@console/permissions";
-
-const ROLE_NAMES: readonly string[] = ROLES;
-
-function isRole(value: string): value is Role {
-  return ROLE_NAMES.includes(value);
-}
 
 /** The /runs row's fields, plain data so they cross the server boundary. */
 export interface RunRowData {
   id: string;
   kind: string;
+  kindLabel: string;
   intent: string;
   requestedByRole: string;
+  requesterLabel: string;
   status: string;
   prUrl: string | null;
   reverses: string | null;
@@ -48,13 +42,13 @@ export function RunRow({
       onClick={() => setAgentFocus({ kind: "run", runId: run.id })}
     >
       <TableCell>
-        <span className="whitespace-nowrap text-xs">{runKindLabel(run.kind)}</span>
+        <span className="whitespace-nowrap text-xs">{run.kindLabel}</span>
       </TableCell>
       <TableCell>
         <span className="block max-w-64 truncate">{run.intent}</span>
       </TableCell>
       <TableCell>
-        {isRole(run.requestedByRole) ? roleLabel(run.requestedByRole) : run.requestedByRole}
+        {run.requesterLabel}
       </TableCell>
       <TableCell>
         <StatusChip value={run.status} statuses={statuses} />

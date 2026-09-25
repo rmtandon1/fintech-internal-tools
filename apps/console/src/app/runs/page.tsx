@@ -21,13 +21,21 @@ import {
   kindsStartableBy,
   listRuns,
   reversingRun,
+  runKindLabel,
   type RunKind,
 } from "@console/tool-automation";
+import { roleLabel, ROLES, type Role } from "@console/permissions";
 import { type AppBridgeDeps, bridgeDeps } from "@/lib/bridge";
 import { buildHandoffOffer, type HandoffOffer, reversalEvidence } from "@/lib/handoff";
 import { currentActor } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
+
+const ROLE_NAMES: readonly string[] = ROLES;
+
+function requesterLabel(role: string): string {
+  return ROLE_NAMES.includes(role) ? roleLabel(role as Role) : role;
+}
 
 /** A REVERSAL handoff for this row, or null when the row can't be reversed. */
 function reversalOffer(runId: string, actor: Actor, deps: AppBridgeDeps): HandoffOffer | null {
@@ -127,7 +135,11 @@ export default async function RunsPage({
           {runs.map((run) => (
             <RunRow
               key={run.id}
-              run={run}
+              run={{
+                ...run,
+                kindLabel: runKindLabel(run.kind),
+                requesterLabel: requesterLabel(run.requestedByRole),
+              }}
               statuses={automationTool.statuses}
               reversalOffer={reversalOffer(run.id, actor, deps)}
             />
