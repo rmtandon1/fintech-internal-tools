@@ -4,15 +4,8 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@console/ui/dialog";
 import { Icon } from "@console/ui/icon";
 import { Panel } from "@/components/panel";
+import { shouldToggleAgentWindow } from "@/lib/agent-window-shortcut";
 import { cn } from "@console/ui/utils";
-
-function isEditable(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  return (
-    target.isContentEditable ||
-    ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)
-  );
-}
 
 /**
  * Devin's work shows in a centred modal window rather than a column. The
@@ -25,7 +18,8 @@ export function AgentWindow({ children }: { children?: React.ReactNode }) {
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== "]" || isEditable(event.target)) return;
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      if (!shouldToggleAgentWindow(event.key, target)) return;
       setOpen((o) => !o);
     }
     document.addEventListener("keydown", onKeyDown);
