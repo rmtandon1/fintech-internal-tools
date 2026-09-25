@@ -101,6 +101,16 @@ describe("run playbook contract", () => {
     expect(corrected.stdout).toContain("Run dir frozen: PASS");
     expect(corrected.stdout).toContain("Plan stays in scope: PASS");
 
+    rmSync(resolve(root, "tools/refunds/src/rule.ts"));
+    commit(root, "delete modified file");
+    const deleted = spawnSync(resolve(repo, "node_modules/.bin/tsx"), [
+      resolve(repo, "scripts/run-guard.ts"), "--base", base,
+    ], { cwd: root, encoding: "utf8" });
+    expect(deleted.status).toBe(1);
+    expect(deleted.stdout).toContain("Stays in plan: FAIL");
+    write(root, "tools/refunds/src/rule.ts", "export const rule = 2;\n");
+    commit(root, "restore modified file");
+
     const plan = resolve(root, "runs/run-1/plan.json");
     writeFileSync(plan, `${readFileSync(plan, "utf8")}\n`);
     commit(root, "mutate plan");
@@ -109,5 +119,56 @@ describe("run playbook contract", () => {
     ], { cwd: root, encoding: "utf8" });
     expect(mutated.status).toBe(1);
     expect(mutated.stdout).toContain("Run dir frozen: FAIL");
+  });
+
+  it("requires a reversal to change the target while preserving later edits", () => {
+    const root = mkdtempSync(join(tmpdir(), "run-reversal-"));
+    directories.push(root);
+    git(root, "init");
+    write(root, "tools/refunds/src/rule.ts", "export const rule = old;\n");
+    commit(root, "original rule");
+    write(root, "tools/refunds/src/rule.ts", "export const rule = hold;\n");
+    commit(root, "implementation");
+    const target = git(root, "rev-parse", "HEAD");
+    write(root, "tools/refunds/src/rule.ts", "export const rule = hold || partialDelivery;\n");
+    commit(root, "later work");
+    const base = git(root, "rev-parse", "HEAD");
+    write(root, "runs/run-2/context.json", JSON.stringify({
+      run_id: "run-2",
+      kind: "REVERSAL",
+      spec: "RULE.md",
+      intent: "Undo hold",
+      requested_by: "admin",
+      base: { branch: "integration", commit: base },
+      scope: ["tools/refunds/**"],
+      constants: {},
+      evidence: { cluster: "example", rows: [] },
+      reverses: { run_id: "run-1", merge_commit: target, constants_at_dispatch: null },
+      audit_head: { seq: 1, rowHash: "a" },
+    }));
+    write(root, "runs/run-2/plan.json", JSON.stringify({
+      files: [
+        { path: "tools/refunds/src/rule.ts", op: "modify", reason: "undo the hold" },
+        { path: "tools/refunds/src/unrelated.ts", op: "create", reason: "extra edit" },
+      ],
+      reuses: [],
+      acceptance: [],
+    }));
+    commit(root, "plan");
+
+    const check = () => spawnSync(resolve(repo, "node_modules/.bin/tsx"), [
+      resolve(repo, "scripts/run-guard.ts"), "--base", base,
+    ], { cwd: root, encoding: "utf8" });
+    expect(check().stdout).toContain("Only undo: FAIL (tools/refunds/src/rule.ts)");
+
+    write(root, "tools/refunds/src/rule.ts", "export const rule = old || partialDelivery;\n");
+    commit(root, "undo hold and keep later work");
+    const valid = check();
+    expect(valid.status).toBe(0);
+    expect(valid.stdout).toContain("Only undo: PASS");
+
+    write(root, "tools/refunds/src/unrelated.ts", "export const unrelated = true;\n");
+    commit(root, "add unrelated behavior");
+    expect(check().stdout).toContain("Only undo: FAIL (tools/refunds/src/unrelated.ts)");
   });
 });

@@ -60,6 +60,16 @@ function readAt(root: string, commit: string, path: string): string {
   }
 }
 
+function existsAt(root: string, commit: string, path: string): boolean {
+  return git(root, "ls-tree", "--name-only", commit, "--", path) === path;
+}
+
+function sameAt(root: string, left: string, right: string, path: string): boolean {
+  const leftExists = existsAt(root, left, path);
+  if (leftExists !== existsAt(root, right, path)) return false;
+  return !leftExists || readAt(root, left, path) === readAt(root, right, path);
+}
+
 function check(name: Result["name"], pass: boolean, detail?: string): Result {
   return { name, pass, ...(!pass && detail ? { detail } : {}) };
 }
@@ -86,7 +96,8 @@ export function runGuard(root: string, base = `origin/${process.env.GITHUB_BASE_
   const context = ContextFile.parse(JSON.parse(readFileSync(resolve(root, contextPath), "utf8")));
   const plan = PlanFile.parse(JSON.parse(readFileSync(resolve(root, planPath), "utf8")));
   if (context.run_id !== runId) throw new Error("Context run_id does not match its directory");
-  const planPaths = new Set(plan.files.map((file) => file.path));
+  const planned = new Map(plan.files.map((file) => [file.path, file.op]));
+  const planPaths = new Set(planned.keys());
   const commits = git(root, "rev-list", "--reverse", `${baseCommit}..HEAD`).split("\n");
   const planCommit = commits[0];
   const firstPaths = changedPaths(root, `${planCommit}^..${planCommit}`);
@@ -96,8 +107,12 @@ export function runGuard(root: string, base = `origin/${process.env.GITHUB_BASE_
       !changedPaths(root, `${commit}^..${commit}`).some((path) => path.startsWith(runDir)),
     );
   const results: Result[] = [
-    check("Stays in plan", paths.every((path) => path.startsWith(runDir) || planPaths.has(path)),
-      "The PR changes a path outside its plan or run directory"),
+    check("Stays in plan", paths.every((path) => {
+      if (path.startsWith(runDir)) return true;
+      const before = existsAt(root, baseCommit, path);
+      const after = existsAt(root, "HEAD", path);
+      return planned.get(path) === (before ? (after ? "modify" : "delete") : "create");
+    }), "The PR changes an unplanned path or uses a different file operation"),
     check("Plan stays in scope", plan.files.every((file) => context.scope.some((glob) => matches(glob, file.path))),
       "A planned path is outside the context scope"),
     check("Run dir frozen", frozen, "The first commit must contain only context.json and plan.json; later commits cannot touch the run directory"),
@@ -144,14 +159,17 @@ export function runGuard(root: string, base = `origin/${process.env.GITHUB_BASE_
   if (context.kind === "REVERSAL") {
     const target = context.reverses?.merge_commit;
     if (!target) throw new Error("REVERSAL needs reverses.merge_commit");
-    const original = changedPaths(root, `${target}^..${target}`).filter((path) => !isTest(path));
-    const violations = original.filter((path) => {
-      if (!paths.includes(path)) return false;
-      const targetDiff = lines(root, `${target}^..${target}`, path);
-      const reversal = lines(root, range, path);
-      return reversal.added.some((line) => !targetDiff.removed.includes(line)) ||
-        reversal.removed.some((line) => !targetDiff.added.includes(line));
-    });
+    if (git(root, "merge-base", target, baseCommit) !== git(root, "rev-parse", target)) {
+      throw new Error("REVERSAL target is not an ancestor of the base");
+    }
+    const production = (path: string) => !isTest(path) && !path.startsWith("runs/");
+    const original = changedPaths(root, `${target}^..${target}`).filter(production);
+    const later = new Set(changedPaths(root, `${target}..${baseCommit}`).filter(production));
+    const violations = original.filter((path) =>
+      !sameAt(root, baseCommit, `${target}^`, path) &&
+      (sameAt(root, baseCommit, "HEAD", path) || (!later.has(path) && !sameAt(root, `${target}^`, "HEAD", path))),
+    );
+    violations.push(...paths.filter((path) => production(path) && !original.includes(path) && !later.has(path)));
     results.push(check("Only undo", violations.length === 0, violations.join(", ")));
   }
   return results;
