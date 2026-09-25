@@ -1,6 +1,6 @@
-# buy-v-build-cog-demo
+# fintech-internal-tools
 
-Internal operations console demo. 
+Governed internal tools platform for fintech operations teams, with a Devin API integration that turns operator requests into plan-guarded code changes and pull requests.
 
 ## Setup
 
@@ -8,8 +8,8 @@ Requires Node 24 and pnpm. The console runs on localhost against a local SQLite 
 (`apps/console/data/console.db`). The only outside service is Devin, and only when a key is set.
 
 ```bash
-git clone https://github.com/rmtandon1/buy-v-build-cog-demo.git
-cd buy-v-build-cog-demo
+git clone https://github.com/rmtandon1/fintech-internal-tools.git
+cd fintech-internal-tools
 pnpm install
 pnpm db:setup   # migrate + seed apps/console/data/console.db
 pnpm dev        # serves http://localhost:3001 and opens a browser
