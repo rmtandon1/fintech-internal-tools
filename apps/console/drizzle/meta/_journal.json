@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1789647889614,
+      "tag": "0000_perpetual_molly_hayes",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789650305313,
+      "tag": "0001_noisy_guardian",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789650454851,
+      "tag": "0002_real_nuke",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1789650635074,
+      "tag": "0003_small_talkback",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1790284307845,
+      "tag": "0004_expand_roles",
+      "breakpoints": true
+    }
+  ]
+}

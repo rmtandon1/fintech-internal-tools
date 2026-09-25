@@ -1,0 +1,12 @@
+{
+  "name": "@console/permissions",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    ".": "./src/roles.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {}
+}

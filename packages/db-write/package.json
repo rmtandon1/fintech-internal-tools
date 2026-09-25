@@ -1,0 +1,15 @@
+{
+  "name": "@console/db-write",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@console/db-core": "workspace:*",
+    "drizzle-orm": "^0.45.2"
+  }
+}
