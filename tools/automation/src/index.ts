@@ -260,13 +260,16 @@ type RecordSessionInput = z.infer<typeof RecordSessionInput>;
 const RecordPrInput = z.object({ prUrl: z.string().url() });
 type RecordPrInput = z.infer<typeof RecordPrInput>;
 
-/** The session names its pull request once; a later, different URL is a new run's business. */
+/** A run records its pull request once; a repeat, same URL or not, writes nothing. */
 const prNotYetRecorded: RunRule<RecordPrInput> = ({ record, input }) =>
-  record?.prUrl && record.prUrl !== input.prUrl
+  record?.prUrl
     ? {
         type: "deny",
         rule: "pr_not_yet_recorded",
-        reason: `Run already has pull request ${record.prUrl}`,
+        reason:
+          record.prUrl === input.prUrl
+            ? `Pull request ${record.prUrl} is already recorded`
+            : `Run already has pull request ${record.prUrl}`,
       }
     : { type: "allow", rule: "pr_not_yet_recorded" };
 

@@ -217,25 +217,33 @@ export async function pollRun(run: DevinRun, deps: BridgeDeps): Promise<PollOutc
 
 export interface ObserveOutcome {
   poll: PollOutcome;
-  /** The `record_pr` result; null when the run already names its PR or the session reports none. */
+  /**
+   * The `record_pr` result; null when the run already names its PR, the
+   * session reports none, or the policy would not let this actor record it.
+   */
   record: IntentResult | null;
 }
 
 /**
  * Polls the session and, the first time it reports a pull request, records
  * that URL on the run through `record_pr`, so a later poll without it does
- * not lose the PR.
+ * not lose the PR. The policy is previewed first so an actor the rules would
+ * deny leaves no stored outcome behind for the next poller to replay.
  */
 export async function observeRun(actor: Actor, run: DevinRun, deps: BridgeDeps): Promise<ObserveOutcome> {
   const poll = await pollRun(run, deps);
   const prUrl = poll.kind === "output" ? poll.structuredOutput.pr_url : null;
   if (!prUrl || run.prUrl || run.status !== "running") return { poll, record: null };
+  const preview = previewActions(automationTool, run, actor, { record_pr: { prUrl } }).find(
+    (p) => p.action === "record_pr",
+  );
+  if (preview?.offered !== true || preview.decision?.effect !== "allow") return { poll, record: null };
   const record = executeIntent(actor, {
     tool: "automation",
     action: "record_pr",
     recordId: run.id,
     input: { prUrl },
-    idempotencyKey: key(run.id, `record_pr:${prUrl}`),
+    idempotencyKey: key(run.id, `record_pr:${prUrl}:${actor.id}`),
   });
   return { poll, record };
 }
@@ -256,9 +264,10 @@ export interface ApproveOutcome {
 }
 
 /**
- * Reads the head's checks and the branch's `context.json` digest from GitHub,
- * hands both to `approve_pr` as server-read inputs, and submits the GitHub
- * review only once that intent has committed.
+ * Records the session's pull request if the run does not name one yet, reads
+ * the head's checks and the branch's `context.json` digest from GitHub, hands
+ * both to `approve_pr` as server-read inputs, and submits the GitHub review
+ * only once that intent has committed.
  */
 export async function approveRun(
   actor: Actor,
@@ -267,7 +276,14 @@ export async function approveRun(
   deps: BridgeDeps,
 ): Promise<ApproveOutcome> {
   if (!deps.github) throw new Error("GitHub API is not configured: set GITHUB_TOKEN on the server");
-  const prUrl = await currentPrUrl(run, deps);
+  let prUrl = run.prUrl;
+  if (!prUrl && deps.devin && run.sessionId) {
+    const observed = await observeRun(actor, run, deps);
+    if (observed.record && !applied(observed.record)) {
+      throw new Error(`Could not record the pull request: ${describeIntent(observed.record)}`);
+    }
+    prUrl = observed.poll.kind === "output" ? observed.poll.structuredOutput.pr_url : null;
+  }
   const ref = prUrl ? parsePullUrl(prUrl) : null;
   if (!prUrl || !ref) throw new Error("The session has not reported a pull request yet");
 

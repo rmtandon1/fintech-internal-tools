@@ -323,12 +323,37 @@ describe("observeRun", () => {
     expect(getRun(run.id)?.version).toBe(run.version);
   });
 
-  it("denies a manager outside the run's domain and leaves the run untouched", async () => {
+  it("skips recording for a manager outside the run's domain, so the next poller can still record", async () => {
     const run = await running();
     const kycManager: Actor = { id: "usr_kyc_mgr", name: "KYC manager", role: "kyc_manager" };
     const out = await observeRun(kycManager, run, deps({ devin: reportingPr().client }));
-    expect(out.record?.outcome.status).toBe("denied");
+    expect(out.record).toBeNull();
     expect(getRun(run.id)?.prUrl).toBeNull();
+    expect(getRun(run.id)?.version).toBe(run.version);
+
+    const next = await observeRun(admin, run, deps({ devin: reportingPr().client }));
+    expect(next.record?.outcome.status).toBe("applied");
+    expect(getRun(run.id)?.prUrl).toBe(PR);
+  });
+
+  it("record_pr denies a repeat under a fresh key, same URL or not, without a new version", async () => {
+    const run = await running();
+    await observeRun(admin, run, deps({ devin: reportingPr().client }));
+    const recorded = getRun(run.id);
+    for (const prUrl of [PR, "https://github.com/rmtandon1/buy-v-build-cog-demo/pull/100"]) {
+      const again = executeIntent(admin, {
+        tool: "automation",
+        action: "record_pr",
+        recordId: run.id,
+        input: { prUrl },
+        idempotencyKey: ulid(),
+      });
+      expect(again.outcome.status).toBe("denied");
+    }
+    expect(getRun(run.id)?.prUrl).toBe(PR);
+    expect(getRun(run.id)?.version).toBe(recorded?.version);
+    const rows = auditTrailFor("devin_run", run.id).filter((row) => row.action === "record_pr");
+    expect(rows.map((row) => row.event)).toEqual(["denied", "denied", "applied"]);
   });
 });
 
@@ -365,6 +390,12 @@ describe("approveRun", () => {
     expect(after?.status).toBe("approved");
     expect(after?.prUrl).toBe(PR);
     expect(after?.approvedBy).toBe(engineer.id);
+    expect(auditTrailFor("devin_run", run.id).map((row) => row.action)).toEqual([
+      "approve_pr",
+      "record_pr",
+      "record_session",
+      "dispatch",
+    ]);
   });
 
   it("denies when checks are not green and submits no review", async () => {
