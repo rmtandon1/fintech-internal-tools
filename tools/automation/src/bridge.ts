@@ -283,7 +283,6 @@ export async function pollRun(run: DevinRun, deps: BridgeDeps): Promise<PollOutc
   };
 }
 
-/** The PR a run is working on: the audited one once approved, else the one the session reports now. */
 /**
  * When a poll reports the session has ended without a merge, records the
  * governed `stop` so the run does not sit `running` forever. Stable
@@ -319,6 +318,7 @@ export async function observeSessionEnd(
   });
 }
 
+/** The PR a run is working on: the audited one once approved, else the one the session reports now. */
 export async function currentPrUrl(run: DevinRun, deps: BridgeDeps): Promise<string | null> {
   if (run.prUrl) return run.prUrl;
   if (!deps.devin || !run.sessionId) return null;
