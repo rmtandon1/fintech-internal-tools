@@ -8,85 +8,15 @@ import {
 } from "@/components/linked-activity";
 import { Panel } from "@/components/panel";
 import { RecordView } from "@/components/record-view";
-import { RunActions, type RunOffer } from "@/components/run-actions";
-import { AutoRefresh } from "@/components/auto-refresh";
-import { RunFiles } from "@/components/run-files";
+import { RunView } from "@/components/run-view";
 import { RunSummary } from "@/components/run-summary";
 import { phaseLine } from "@/lib/run-checklist";
 import { StatusChip } from "@console/ui/status-chip";
-import { previewActions } from "@console/engine/policy/preview";
-import type { Actor } from "@console/engine/types";
-import { automationTool, getRun, isInFlight } from "@console/tool-automation";
-import { isSynced, pollRun, readContextJson } from "@console/tool-automation/bridge";
+import { automationTool, getRun } from "@console/tool-automation";
+import { readReplay } from "@console/tool-automation/bridge";
 import { bridgeDeps } from "@/lib/bridge";
 import { currentActor } from "@/lib/session";
 import { getTool } from "@/registry";
-
-/**
- * A Devin run replaces the generic action bar: `approve_pr`'s checks and
- * digest inputs are read from GitHub on the server, so the browser never
- * gets a form for them. The offers below gate the buttons with the same
- * policy preview the generic bar uses; the server re-evaluates on click.
- * An in-flight run is polled once per render, so the summary's report
- * reflects the session's latest structured output.
- */
-async function runSurface(
-  id: string,
-  actor: Actor,
-): Promise<{ offer: RunOffer; files: React.ReactNode } | null> {
-  const run = getRun(id);
-  if (!run) return null;
-  const deps = bridgeDeps();
-  const inFlight = isInFlight(run.status) && run.sessionId !== null;
-  const polled = run.sessionId ? await pollRun(run, deps).catch(() => null) : null;
-  const output = polled?.kind === "output" ? polled.structuredOutput : null;
-  const prUrl = run.prUrl ?? output?.pr_url ?? null;
-  const previews = previewActions(automationTool, run, actor, {
-    approve_pr: {
-      prUrl: prUrl ?? "https://github.com/owner/repo/pull/0",
-      checksGreen: true,
-      branchContextSha256: run.contextSha256,
-    },
-    stop: { reason: "preview" },
-  });
-  const gate = (action: string): { offered: boolean; reason?: string } => {
-    const p = previews.find((x) => x.action === action);
-    if (!p?.offered) return { offered: false, reason: p?.unavailableReason };
-    if (p.decision?.effect === "deny") return { offered: false, reason: p.decision.reason };
-    return { offered: true };
-  };
-  const approve = gate("approve_pr");
-  const reviewer = actor.role === "engineer" && actor.id !== run.requestedBy;
-  return {
-    offer: {
-      runId: run.id,
-      poll: inFlight,
-      approve: {
-        visible: reviewer,
-        ...(prUrl ? approve : { offered: false, reason: approve.reason ?? "No pull request reported yet" }),
-      },
-      merge: run.status === "approved" && gate("record_merge").offered,
-      sync:
-        run.status === "merged" && deps.git !== undefined && !(await isSynced(run, deps)),
-      stop: gate("stop"),
-    },
-    files: (
-      <>
-        {inFlight ? <AutoRefresh everyMs={5000} /> : null}
-        <RunSummary
-          run={run}
-          output={output}
-          phaseLine={phaseLine(output)}
-        />
-        <RunFiles
-          run={run}
-          contextPresent={readContextJson(deps.repoRoot, run.id) !== null}
-          prUrl={prUrl}
-        />
-      </>
-    ),
-  };
-}
 
 export default async function RecordPage({
   params,
@@ -104,7 +34,11 @@ export default async function RecordPage({
 
   const activity = decl.linkedActivity?.(record, actor) ?? null;
   const linked = activity ? getTool(activity.tool) : undefined;
-  const run = decl.name === automationTool.name ? await runSurface(id, actor) : null;
+  const run = decl.name === automationTool.name ? getRun(id) : null;
+  const output = run
+    ? (readReplay(bridgeDeps().repoRoot, run.id, bridgeDeps().replaysDir).at(-1)
+        ?.structured_output ?? null)
+    : null;
 
   const panel = (
     <Panel
@@ -125,8 +59,14 @@ export default async function RecordPage({
         decl={decl}
         record={record}
         actor={actor}
-        actions={run ? <RunActions offer={run.offer} /> : undefined}
-        extra={run ? run.files : undefined}
+        extra={
+          run ? (
+            <>
+              <RunSummary run={run} output={output} phaseLine={phaseLine(output)} />
+              <RunView key={id} runId={id} />
+            </>
+          ) : undefined
+        }
       />
     </Panel>
   );

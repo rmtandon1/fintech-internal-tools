@@ -14,6 +14,7 @@ import { countPendingFor } from "@console/engine/approvals";
 import { verifyChain } from "@console/engine/audit/verify";
 import type { ConsoleStatus } from "@/lib/connection";
 import { automationTool } from "@console/tool-automation";
+import { WorkspaceProvider } from "@/components/workspace";
 import { devinMode } from "@/lib/devin-status";
 import { modesFor } from "@/lib/modes";
 import { BRAND } from "@/lib/brand";
@@ -69,26 +70,28 @@ export default async function RootLayout({
       <body className="h-screen overflow-hidden bg-background font-sans text-foreground antialiased">
         <CommandPaletteProvider modes={modes}>
           <div className="flex h-full">
-            <AppSidebar actor={actor} roleChosen={role !== null} tools={tools} runs={runs} pendingApprovals={pending} />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <AppHeader
-                actor={actor}
-                roleChosen={role !== null}
-                status={status}
-                agent={
-                  // Keyed: an element built here and rendered among the header's
-                  // children otherwise trips React's list-key warning in dev.
-                  <AgentWindow
-                    key="devin-window"
-                    mode={mode}
-                    source={mode === "simulation" ? "Preview" : "Connected"}
-                  >
-                    <DevinWindowBody actor={actor} mode={mode} />
-                  </AgentWindow>
-                }
-              />
-              <main className="min-h-0 flex-1 overflow-hidden p-4">{children}</main>
-            </div>
+            <WorkspaceProvider>
+              <AppSidebar actor={actor} roleChosen={role !== null} tools={tools} runs={runs} pendingApprovals={pending} />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <AppHeader
+                  actor={actor}
+                  roleChosen={role !== null}
+                  status={status}
+                  agent={
+                    // Keyed: an element built here and rendered among the header's
+                    // children otherwise trips React's list-key warning in dev.
+                    <AgentWindow
+                      key="devin-window"
+                      mode={mode}
+                      source={mode === "simulation" ? "Preview" : "Connected"}
+                    >
+                      <DevinWindowBody actor={actor} mode={mode} />
+                    </AgentWindow>
+                  }
+                />
+                <main className="min-h-0 flex-1 overflow-hidden p-4">{children}</main>
+              </div>
+            </WorkspaceProvider>
           </div>
         </CommandPaletteProvider>
         <Toaster position="bottom-right" />

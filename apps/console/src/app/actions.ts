@@ -12,15 +12,17 @@ import { setConstant } from "@console/engine/policy/set-constant";
 import { revealField } from "@console/engine/pii/reveal";
 import type { IntentResult, Role } from "@console/engine/types";
 import { ROLES } from "@console/permissions";
+import { AUTOMATION_ROLES } from "@console/tool-automation";
 import { OPS_MODES } from "@/lib/modes";
 import { readOutcomeAudit, type OutcomeAudit } from "@/lib/outcome-audit";
+import { getTool } from "@/registry";
 import { currentActor } from "@/lib/session";
 
 export interface SubmitResult extends IntentResult {
   audit?: OutcomeAudit;
 }
 
-export async function switchRole(role: string): Promise<void> {
+export async function switchRole(role: string, pathname?: string): Promise<void> {
   if (!ROLES.includes(role as Role)) return;
   const store = await cookies();
   store.set(ACTOR_COOKIE, signRole(role as Role), {
@@ -30,6 +32,12 @@ export async function switchRole(role: string): Promise<void> {
     path: "/",
   });
   revalidatePath("/", "layout");
+  // A tool page the new role can't see would 404; land somewhere useful.
+  const tool = pathname?.match(/^\/t\/([^/]+)/)?.[1];
+  const decl = tool ? getTool(tool) : undefined;
+  if (decl && !decl.visibleTo.includes(role as Role)) {
+    redirect(AUTOMATION_ROLES.includes(role as Role) ? "/runs" : "/");
+  }
 }
 
 /** Opens an app from the home page as the role it is demonstrated with. */

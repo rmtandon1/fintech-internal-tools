@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useTransition } from "react";
+import { usePathname } from "next/navigation";
 import { BrandMark, Wordmark } from "@/components/brand-mark";
 import { useCommandPalette } from "@/components/command-palette";
 import { ConnectionStatus } from "@/components/connection-status";
@@ -36,6 +37,7 @@ export function AppHeader({
 }) {
   const [pending, startTransition] = useTransition();
   const palette = useCommandPalette();
+  const pathname = usePathname();
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-4">
@@ -63,7 +65,7 @@ export function AppHeader({
           value={roleChosen ? actor.role : ""}
           disabled={pending}
           onValueChange={(role) =>
-            startTransition(() => (role === SIGN_OUT ? signOut() : switchRole(role)))
+            startTransition(() => (role === SIGN_OUT ? signOut() : switchRole(role, pathname)))
           }
         >
           <SelectTrigger size="sm" className="h-8 w-[150px] text-sm sm:w-[170px]">

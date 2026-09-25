@@ -11,6 +11,11 @@ import { findPlaybookId } from "@console/tool-automation/playbook-registration";
 import { loadRepoEnv, repoRoot as defaultRepoRoot } from "@/lib/env";
 import { registerToolConstants } from "@/lib/register-tool-constants";
 
+/** Server deps plus the directory live polls record replay frames into. */
+export interface AppBridgeDeps extends BridgeDeps {
+  replaysDir: string;
+}
+
 const execFileAsync = promisify(execFile);
 
 const MigrationJournal = z.object({ entries: z.array(z.object({ when: z.number() })) });
@@ -57,7 +62,7 @@ let playbookLookup: Promise<string | null> | null = null;
  * by title unless `DEVIN_PLAYBOOK_ID` is set. Without the key the Devin client
  * is null and the console runs in simulation mode (`lib/devin-status.ts`).
  */
-export function bridgeDeps(): BridgeDeps {
+export function bridgeDeps(): AppBridgeDeps {
   loadRepoEnv();
   const apiKey = process.env.DEVIN_API_KEY;
   const token = process.env.GITHUB_TOKEN;
@@ -79,6 +84,7 @@ export function bridgeDeps(): BridgeDeps {
     },
     migrationsPending: () => migrationsPending(repoRoot),
     repository: githubRepository(repoRoot, process.env.SYNC_REMOTE ?? "origin"),
+    replaysDir: join(repoRoot, "apps/console/data/replays"),
     syncRemote: process.env.SYNC_REMOTE,
     syncBranch: process.env.SYNC_BRANCH,
     playbookId: process.env.DEVIN_PLAYBOOK_ID || undefined,

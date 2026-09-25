@@ -1,3 +1,7 @@
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { ulid } from "ulid";
 import { sqlite } from "@console/db-core";
@@ -337,6 +341,59 @@ describe("context.json", () => {
     expect(a.json).toBe(JSON.stringify(JSON.parse(a.json)));
     expect(build("run_other").sha256).not.toBe(a.sha256);
   });
+
+  it("a REVERSAL copies the target's saved evidence verbatim, even when today's cluster moved on", () => {
+    const root = mkdtempSync(join(tmpdir(), "ctx-reversal-"));
+    const git = (...args: string[]) =>
+      execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd: root });
+    git("init", "-q", "-b", "devin/test");
+    git("commit", "-q", "--allow-empty", "-m", "init");
+
+    // The original run's context, saved only under the data-dir copy — the
+    // merged branch took the runs/ dir, exactly the fallback path dispatch
+    // leaves behind for later reversals.
+    const target = buildContext({
+      runId: "run_target",
+      kind: "IMPLEMENTATION/ADDITION",
+      spec: REFUND_CLUSTERING_HOLD,
+      scope: "rule",
+      intent: "hold",
+      requestedBy: "admin",
+      clusterKey: "Kestrel Outdoors",
+      evidenceIds: KESTREL,
+      repoRoot: root,
+    });
+    const saved = JSON.parse(target.json) as ContextFile;
+    saved.evidence.rows = [
+      {
+        id: "rfnd_since_deleted",
+        merchant: "Kestrel Outdoors",
+        reasonCode: "not_received",
+        usdMinor: 12345,
+        requestedAt: "2024-01-01T00:00:00.000Z",
+      },
+    ];
+    const dir = join(root, "apps", "console", "data", "runs", "run_target");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "context.json"), JSON.stringify(saved));
+
+    // rfnd_since_deleted is not in today's cluster — a live evidence read
+    // would throw. The reversal must carry the original rows instead.
+    const reversal = buildContext({
+      runId: "run_rev",
+      kind: "REVERSAL",
+      spec: REFUND_CLUSTERING_HOLD,
+      scope: "rule",
+      intent: "undo the hold",
+      requestedBy: "admin",
+      clusterKey: "Kestrel Outdoors",
+      evidenceIds: ["rfnd_since_deleted"],
+      reverses: { runId: "run_target", mergeCommit: "f".repeat(40) },
+      repoRoot: root,
+    });
+    expect(reversal.context.evidence.rows.map((r) => r.id)).toEqual(["rfnd_since_deleted"]);
+    expect(reversal.context.reverses?.constants_at_dispatch).toEqual(saved.constants);
+  });
 });
 
 describe("run files", () => {
@@ -344,7 +401,7 @@ describe("run files", () => {
     expect(STRUCTURED_OUTPUT_JSON_SCHEMA).toMatchObject({ type: "object" });
     const props = (STRUCTURED_OUTPUT_JSON_SCHEMA as { properties: Record<string, unknown> }).properties;
     expect(Object.keys(props)).toEqual(
-      expect.arrayContaining(["phase", "verify_steps", "guards", "conflicts", "pr_url", "stopped_by"]),
+      expect.arrayContaining(["phase", "verify_steps", "conflicts", "pr_url", "stopped_by"]),
     );
     expect(
       StructuredOutput.safeParse({

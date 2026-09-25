@@ -13,18 +13,16 @@ import {
   TableRow,
 } from "@console/ui/table";
 import { maskRecord } from "@console/engine/pii/mask";
-import { formatMinorUnits } from "@console/ui/format";
 import { previewActions } from "@console/engine/policy/preview";
 import type { Actor, ClusterDecl, ClusterGroup, ToolDeclaration } from "@console/engine/types";
 import { ClusterDrawer, type ClusterRow } from "@/components/cluster-drawer";
 import { PatternMonitor } from "@/components/pattern-monitor";
-import type { DispatchOffer } from "@/components/dispatch-control";
 import { ReconcileRuns } from "@/components/reconcile-runs";
 import { ToggleGrid } from "@/components/toggle-grid";
-import { getSpec, kindsStartableBy, runKindLabel } from "@console/tool-automation";
-import { devinMode } from "@/lib/devin-status";
+import { buildHandoffOffer, type HandoffOffer } from "@/lib/handoff";
+import { bridgeDeps } from "@/lib/bridge";
+import { getSpec, kindsStartableBy } from "@console/tool-automation";
 import { currentActor } from "@/lib/session";
-import { simulationsFor } from "@/lib/simulation";
 import { cn } from "@console/ui/utils";
 import { getTool } from "@/registry";
 
@@ -345,35 +343,29 @@ export default async function ToolQueuePage({
   );
 }
 
-/** The run this actor may ask for from the open group, or null when the cluster has no spec or the role may start nothing. */
+/** The handoffs this actor may ask Devin for from the open group. */
 function dispatchOffer(
   decl: ToolDeclaration,
   cluster: ClusterDecl,
   group: ClusterGroup,
   actor: Actor,
-): DispatchOffer | null {
+): HandoffOffer[] | null {
   const spec = cluster.handoffSpec ? getSpec(cluster.handoffSpec) : undefined;
   if (!spec) return null;
-  // Reversals start from the merged run on /runs, not from evidence.
-  const kinds = kindsStartableBy(actor.role, spec)
+  const deps = bridgeDeps();
+  const offers = kindsStartableBy(actor.role, spec)
     .filter((kind) => kind !== "REVERSAL")
-    .map((kind) => ({ kind, label: runKindLabel(kind), intent: spec.intents[kind] ?? "" }));
-  if (kinds.length === 0) return null;
-  return {
-    spec: spec.file,
-    clusterKey: group.key,
-    evidenceIds: group.recordIds,
-    context: group.headline ?? chipLabel(group),
-    evidence: group.recordIds.flatMap((id) => {
-      const record = decl.get(id);
-      if (!record) return [];
-      const usd = typeof record.usdMinor === "number" ? record.usdMinor : null;
-      return [{ id, detail: usd !== null ? formatMinorUnits(usd, "USD") : "" }];
-    }),
-    kinds,
-    simulations:
-      devinMode() === "simulation" ? simulationsFor(spec.file, kinds.map((k) => k.kind)) : null,
-  };
+    .map((kind) =>
+      buildHandoffOffer(
+        spec,
+        kind,
+        actor,
+        { clusterKey: group.key, evidenceIds: group.recordIds },
+        deps,
+      ),
+    )
+    .filter((o): o is HandoffOffer => o !== null);
+  return offers.length > 0 ? offers : null;
 }
 
 function resolveGroup(

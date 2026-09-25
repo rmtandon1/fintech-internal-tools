@@ -43,6 +43,7 @@ export interface BuiltContext {
 export function buildContext(req: ContextRequest): BuiltContext {
   const root = req.repoRoot ?? process.cwd();
   const constants = readConstants(req.spec.constantKeys);
+  const reversed = req.reverses ? readContext(root, req.reverses.runId) : null;
   const context = ContextFile.parse({
     run_id: req.runId,
     kind: req.kind,
@@ -52,11 +53,14 @@ export function buildContext(req: ContextRequest): BuiltContext {
     base: { branch: git(root, "rev-parse", "--abbrev-ref", "HEAD"), commit: git(root, "rev-parse", "HEAD") },
     scope: scopePaths(req.spec, req.scope, req.runId),
     constants,
-    evidence: {
+    // A REVERSAL reproduces the run it undoes: its evidence rows are the
+    // ones the original run carried, verbatim — today's cluster may have
+    // changed since. Constants and the audit head are still live reads.
+    evidence: reversed?.evidence ?? {
       cluster: `${req.spec.evidence.cluster}:${req.clusterKey}`,
       rows: evidenceRows(req.spec, req.clusterKey, req.evidenceIds),
     },
-    reverses: req.reverses ? reversesBlock(root, req.reverses) : null,
+    reverses: req.reverses ? reversesBlock(req.reverses, reversed) : null,
     audit_head: readAuditHead(),
   });
   const json = canonicalJson(context);
@@ -105,14 +109,35 @@ function evidenceRows(spec: RunnableSpec, clusterKey: string, ids: readonly stri
     .map((r) => ({ ...r, requestedAt: new Date(r.requestedAt).toISOString() }));
 }
 
-function reversesBlock(root: string, target: { runId: string; mergeCommit: string }): Reverses {
-  const path = join(root, "runs", target.runId, "context.json");
-  let atDispatch: Record<string, number> | null = null;
-  if (existsSync(path)) {
-    const parsed = ContextFile.safeParse(JSON.parse(readFileSync(path, "utf8")));
-    if (parsed.success) atDispatch = parsed.data.constants;
+/**
+ * `runs/<id>/context.json`, falling back to the data-dir copy a successful
+ * dispatch leaves for later REVERSALs to read.
+ */
+export function readContextJson(repoRoot: string, runId: string): string | null {
+  const candidates = [
+    join(repoRoot, "runs", runId, "context.json"),
+    join(repoRoot, "apps", "console", "data", "runs", runId, "context.json"),
+  ];
+  for (const path of candidates) {
+    if (existsSync(path)) return readFileSync(path, "utf8");
   }
-  return { run_id: target.runId, merge_commit: target.mergeCommit, constants_at_dispatch: atDispatch };
+  return null;
+}
+
+/** The reversed run's context file, or null when it is missing or malformed. */
+function readContext(root: string, runId: string): ContextFile | null {
+  const json = readContextJson(root, runId);
+  if (!json) return null;
+  const parsed = ContextFile.safeParse(JSON.parse(json));
+  return parsed.success ? parsed.data : null;
+}
+
+function reversesBlock(target: { runId: string; mergeCommit: string }, context: ContextFile | null): Reverses {
+  return {
+    run_id: target.runId,
+    merge_commit: target.mergeCommit,
+    constants_at_dispatch: context?.constants ?? null,
+  };
 }
 
 function readAuditHead(): { seq: number; rowHash: string } {

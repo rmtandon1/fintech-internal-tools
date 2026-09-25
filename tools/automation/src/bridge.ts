@@ -5,12 +5,19 @@ import { ulid } from "ulid";
 import { executeIntent } from "@console/engine/execute-intent";
 import { previewActions } from "@console/engine/policy/preview";
 import type { Actor, IntentResult } from "@console/engine/types";
-import { buildContext } from "./context";
+import { buildContext, readContextJson } from "./context";
+export { readContextJson } from "./context";
 import type { DevinClient } from "./devin-api";
 import { SYNC_BRANCH, SYNC_REMOTE, type GitRunner } from "./git";
 import { type GitHubClient, parsePullUrl } from "./github-api";
 import { automationTool, getRun, type DevinRun } from "./index";
-import { ContextFile, STRUCTURED_OUTPUT_JSON_SCHEMA, StructuredOutput } from "./run-files";
+import {
+  ContextFile,
+  STRUCTURED_OUTPUT_JSON_SCHEMA,
+  ReplayFile,
+  type ReplayFrame,
+  StructuredOutput,
+} from "./run-files";
 import { getSpec, type RunKind, type RunScope } from "./specs";
 
 /**
@@ -30,6 +37,11 @@ export interface BridgeDeps {
   github: GitHubClient | null;
   /** Repository root: `runs/<id>/` is written under it and git is read from it. */
   repoRoot: string;
+  /**
+   * Where polled frames are appended in live mode and read back first.
+   * Defaults to `<repoRoot>/apps/console/data/replays` (gitignored).
+   */
+  replaysDir?: string;
   /** Checkout access for the merge sync; absent in tests that do not pull. */
   git?: GitRunner;
   /** Runs the console's own migration script on its database. */
@@ -70,6 +82,29 @@ export function runDir(repoRoot: string, runId: string): string {
   return join(repoRoot, "runs", runId);
 }
 
+export function replaysDir(deps: Pick<BridgeDeps, "repoRoot" | "replaysDir">): string {
+  return deps.replaysDir ?? join(deps.repoRoot, "apps", "console", "data", "replays");
+}
+
+/**
+ * The frames recorded for a run. A live recording in `data/replays/` wins;
+ * `runs/<id>/replay.json` is the fallback for committed recorded runs.
+ */
+export function readReplay(
+  repoRoot: string,
+  runId: string,
+  replayDir?: string,
+): ReplayFrame[] {
+  const dir = replayDir ?? join(repoRoot, "apps", "console", "data", "replays");
+  const candidates = [join(dir, `${runId}.json`), join(runDir(repoRoot, runId), "replay.json")];
+  for (const path of candidates) {
+    if (!existsSync(path)) continue;
+    const parsed = ReplayFile.safeParse(JSON.parse(readFileSync(path, "utf8")));
+    if (parsed.success) return parsed.data;
+  }
+  return [];
+}
+
 /** The cluster a run's `context.json` was built from, or null when it is missing or malformed. */
 function contextClusterKey(repoRoot: string, runId: string): string | null {
   const raw = readContextJson(repoRoot, runId);
@@ -78,11 +113,6 @@ function contextClusterKey(repoRoot: string, runId: string): string | null {
   if (!parsed.success) return null;
   const at = parsed.data.evidence.cluster.indexOf(":");
   return at < 0 ? null : parsed.data.evidence.cluster.slice(at + 1) || null;
-}
-
-export function readContextJson(repoRoot: string, runId: string): string | null {
-  const path = join(runDir(repoRoot, runId), "context.json");
-  return existsSync(path) ? readFileSync(path, "utf8") : null;
 }
 
 function key(runId: string, step: string): string {
@@ -174,6 +204,12 @@ export async function dispatchRun(
     return { runId, dispatch, session: null, sessionUrl: null };
   }
 
+  // Keep a copy outside `runs/` as well, so a REVERSAL can still read the
+  // context after the run dir only exists on the merged branch's checkout.
+  const dataDir = join(deps.repoRoot, "apps", "console", "data", "runs", runId);
+  mkdirSync(dataDir, { recursive: true });
+  writeFileSync(join(dataDir, "context.json"), built.json);
+
   let sessionInput: { sessionId: string } | { error: string };
   let sessionUrl: string | null = null;
   if (!deps.devin) {
@@ -199,6 +235,7 @@ export async function dispatchRun(
         tags: [`run:${runId}`, `kind:${req.kind}`],
         attachment: { name: "context.json", body: built.json },
         structuredOutputSchema: STRUCTURED_OUTPUT_JSON_SCHEMA,
+        runId,
         playbookId,
         maxAcuLimit: deps.maxAcuLimit,
       });
@@ -244,12 +281,69 @@ export async function pollRun(run: DevinRun, deps: BridgeDeps): Promise<PollOutc
       issues: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
     };
   }
+  // The validated frame is appended to the run's recording so the run view
+  // has a timeline to show. The write is a recording, not a transition.
+  // Repeated polls of an unchanged snapshot record nothing — the timeline
+  // shows changes, not poll cadence.
+  const existing = readReplay(deps.repoRoot, run.id, deps.replaysDir);
+  const last = existing.at(-1);
+  const unchanged =
+    last !== undefined &&
+    last.status === snapshot.status &&
+    last.status_detail === snapshot.statusDetail &&
+    JSON.stringify(last.structured_output) === JSON.stringify(parsed.data);
+  if (!unchanged) {
+    const frame: ReplayFrame = {
+      at_ms: (deps.now ?? Date.now)(),
+      status: snapshot.status,
+      status_detail: snapshot.statusDetail,
+      structured_output: parsed.data,
+    };
+    const dir = replaysDir(deps);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, `${run.id}.json`), JSON.stringify([...existing, frame], null, 2) + "\n");
+  }
   return {
     kind: "output",
     structuredOutput: parsed.data,
     status: snapshot.status,
     statusDetail: snapshot.statusDetail,
   };
+}
+
+/**
+ * When a poll reports the session has ended without a merge, records the
+ * governed `stop` so the run does not sit `running` forever. Stable
+ * idempotency key: repeated polls replay rather than write a second row.
+ */
+export async function observeSessionEnd(
+  actor: Actor,
+  run: DevinRun,
+  outcome: PollOutcome,
+  deps: BridgeDeps,
+): Promise<IntentResult | null> {
+  void deps;
+  const sessionEnded =
+    (outcome.kind === "output" ||
+      outcome.kind === "no_output" ||
+      outcome.kind === "invalid_output") &&
+    ["stopped", "expired"].includes(outcome.status.toLowerCase());
+  const outputEnded =
+    outcome.kind === "output" && outcome.structuredOutput.phase_status === "stopped";
+  if (!sessionEnded && !outputEnded) return null;
+  const status = outcome.status;
+  const detail =
+    outcome.kind === "output" || outcome.kind === "no_output" ? outcome.statusDetail : null;
+  const reason = `Devin session ${status}${detail ? `: ${detail}` : ""}`.slice(0, 500);
+  // The session is already over; nothing to terminateSession. The intent is
+  // what lands the run on `stopped`.
+  return executeIntent(actor, {
+    tool: "automation",
+    action: "stop",
+    recordId: run.id,
+    input: { reason },
+    idempotencyKey: key(run.id, `stop:session:${run.sessionId}`),
+  });
 }
 
 export interface ObserveOutcome {
