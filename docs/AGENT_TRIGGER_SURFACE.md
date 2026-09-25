@@ -3,7 +3,7 @@
 ## Summary
 
 - A Devin run starts from the screen that shows why it is needed: the cluster drawer, a rule's row, or a merged run. The request carries that screen's evidence with it.
-- The handoff panel holds one editable sentence, plus the evidence, scope and mode the system fills in. The requester sees exactly what Devin will see.
+- The handoff panel holds one editable sentence, plus the evidence and scope the system fills in. The requester sees exactly what Devin will see.
 - The run view shows the artifacts an engineer would check: planned files, lines changed, test counts and each guard check by name. The finished run is the still the demo pauses on.
 - The approval dialog is where the human gate shows: an engineer who didn't request the run approves, then Devin merges.
 - Run mechanics live in `DEVIN_RUN_PROTOCOL.md`. This file covers the UI around them.
@@ -30,12 +30,11 @@ It opens in the right-hand agent column (`OPERATOR_CONSOLE_LAYOUT.md`) and holds
 - **Intent**: one sentence, prefilled from the spec and editable. This is the only free text in the flow.
 - **Evidence**: what goes into `context.json`: cluster rows with PII dropped, the live constants the rule depends on, and the base commit. It is shown so the requester sees exactly what Devin will see.
 - **Scope**: the files the spec allows, read-only.
-- **Mode**: "Live" when the server has a Devin key, "Replay" otherwise.
 - **Start run**: submits `automation.dispatch`. A policy denial shows in the standard `PolicyTrace`, for example "a run is already in flight on refunds".
 
 Once the run starts, the same column becomes the run view.
 
-**Grouped layout.** The fields sit in four groups: REQUEST (the intent, the one editable field) and three blocks the system fills in: CONTEXT (evidence, constants, base commit, no PII), GUARDRAILS (the allowed files) and EXECUTION (mode, start). It shows without narration that the operator writes one sentence and the system supplies the rest. Two requirements:
+**Grouped layout.** The fields sit in four groups: REQUEST (the intent, the one editable field) and three blocks the system fills in: CONTEXT (evidence, constants, base commit, no PII), GUARDRAILS (the allowed files) and EXECUTION (start). It shows without narration that the operator writes one sentence and the system supplies the rest. Two requirements:
 
 1. The group headers don't push the evidence line below the fold (see On camera).
 2. The GUARDRAILS caption reads "CI fails anything outside the plan", not "outside this scope". CI checks the plan Devin commits. The scope is the outer bound that plan must fall within.
@@ -61,7 +60,7 @@ The run view is the demo's evidence that Devin did real engineering work. It sho
 
 ### Run checklist (between the two)
 
-A glyph checklist that summarises the run in one glance: `✓` done, `●` running, `○` waiting. Every line reads from `structured_output` (`DEVIN_RUN_PROTOCOL.md` § Progress). In live mode a line advances only when the session reports it, never on a timer. Lines are named artifacts, not generic activity:
+A glyph checklist that summarises the run in one glance: `✓` done, `●` running, `○` waiting. Every line reads from `structured_output` (`DEVIN_RUN_PROTOCOL.md` § Progress). A line advances only when the session reports it, never on a timer. Lines are named artifacts, not generic activity:
 
 ```
 ✓ Inspecting architecture         intake · base 1a67f60
@@ -126,7 +125,7 @@ The lower half fills in after **Approve**, each row with its own spinner and che
 
 ### Timing
 
-Live mode shows only what the session reports, as it reports it, with no force-advance. Replay plays a recorded or scripted run on a compressed timer, paced for camera, and says "Replay" wherever it appears.
+The view shows only what the session reports, as it reports it, with no force-advance.
 
 ## Why the request is one sentence
 
@@ -177,9 +176,9 @@ A list of every run: kind, intent, requester, status, PR, and the run it reverse
 
 ### `apps/console/src/app/api/devin/` (new)
 
-A server-only route that dispatches, polls and terminates through the v3 API, reading `DEVIN_API_KEY` and `DEVIN_ORG_ID` from the server environment. The browser calls this route, never Devin. Without a key, it serves the replay fixture from `runs/<run_id>/replay.json`.
+A server-only route that dispatches, polls and terminates through the v3 API, reading `DEVIN_API_KEY` and `DEVIN_ORG_ID` from the server environment. The browser calls this route, never Devin. Without a key, `dispatch` still applies and `record_session` records the missing configuration as the error, so the run lands as `dispatch_failed` and the console shows an ordinary engine error.
 
-In live mode, every poll response (`status`, `status_detail`, `structured_output`, with a timestamp) is also appended to `apps/console/data/replays/<run_id>.json`, shaped exactly like `replay.json`. `apps/console/data/` is gitignored, so this is a local recording, not state: it is never read back into `devin_runs` (`DEVIN_RUN_PROTOCOL.md` § Starting a run is a governed write). Once a real run has finished, the file can be committed by hand as `runs/<run_id>/replay.json`, so the replay the demo plays is a recorded run rather than a scripted one.
+Poll responses (`status`, `status_detail`, `structured_output`) are read from the session each time and never written back into `devin_runs` (`DEVIN_RUN_PROTOCOL.md` § Starting a run is a governed write).
 
 ### Constant registration on start
 
@@ -189,9 +188,9 @@ Call `registerConstants` for every registered tool when the server starts, so co
 
 The build agent must first produce ASCII UI state diagrams for this domain and have them reviewed. Generic active/inactive diagrams don't count. At minimum:
 
-1. **Run lifecycle.** `refused` → `dispatched` → `intake` → `baseline` → `plan` → `edit` → `verify` → `pr_open` → `approved` → `merged` (recorded). Side exits: `stopped`, `waiting_for_user`, `failed` (and at which phase), `dispatch_failed`. Mark which transitions are audited intents and which are observed by polling.
+1. **Run lifecycle.** `refused` → `dispatched` → `intake` → `baseline` → `plan` → `edit` → `verify` → `pr_open` → `approved` → `merged`. Side exits: `stopped`, `waiting_for_user`, `failed` (and at which phase), `dispatch_failed`. Mark which transitions are audited intents and which are observed by polling.
 2. **The rule's lifecycle across the demo.** `absent` → `requested` → `pr_open` → `live` → `killed` (constant at its off value) → `reversal_requested` → `reversal_pr_open` → `absent`. Show that `killed` and `live` are the same code, and that only the REVERSAL removes it.
 3. **Cluster drawer.** `closed` → `open` (no rule covers this) → `run in flight` → `rule live` (rows show held) → `rule killed`, drawn for `refunds_agent` vs `refunds_manager`.
-4. **Agent column by mode.** Live, Replay, and history-only (no run in flight). Each state names its data source. A state with no source is cut, or labelled as simulated.
-5. **Finished run view.** The completed timeline for an IMPLEMENTATION and for a REVERSAL, with every sub-event from `The run view` filled in from the recorded Kestrel run. This is the still the demo pauses on, so draw it at full size.
+4. **Agent column.** Run in flight and history-only (no run in flight). Each state names its data source. A state with no source is cut, or labelled as simulated.
+5. **Finished run view.** The completed timeline for an IMPLEMENTATION and for a REVERSAL, with every sub-event from `The run view` filled in from a completed Kestrel run. This is the still the demo pauses on, so draw it at full size.
 6. **Approval dialog.** Idle, approving, Devin merging, merged, and failed (checks re-running, merge conflict), with each row's owner (GitHub or Devin).

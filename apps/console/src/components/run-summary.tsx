@@ -1,7 +1,6 @@
 import { Panel } from "@/components/panel";
-import { ReplayBadge } from "@/components/replay-badge";
 import { CHECKLIST_GLYPH, type ChecklistLine } from "@/lib/run-checklist";
-import { automationTool, type BridgeMode, type DevinRun, getSpec, RUN_KINDS } from "@console/tool-automation";
+import { automationTool, type DevinRun, getSpec, RUN_KINDS } from "@console/tool-automation";
 import { ROLES, roleLabel, type Role } from "@console/permissions";
 import { StatusChip } from "@console/ui/status-chip";
 import { cn } from "@console/ui/utils";
@@ -32,23 +31,17 @@ export function onceMerged(run: DevinRun): string | null {
 export function RunSummary({
   run,
   checklist,
-  mode,
   phaseLine,
 }: {
   run: DevinRun;
   checklist: ChecklistLine[];
-  mode: BridgeMode;
-  /** The latest frame's `phase · phase_status`, when the session has reported one. */
+  /** The session's `phase · phase_status`, when it has reported one. */
   phaseLine: string | null;
 }) {
   const outcome = onceMerged(run);
   return (
     <Panel
-      title={
-        <span className="flex items-center gap-2">
-          Run summary <ReplayBadge mode={mode} />
-        </span>
-      }
+      title="Run summary"
       className="mx-3 mb-3"
       bodyClassName="p-3 text-xs"
     >

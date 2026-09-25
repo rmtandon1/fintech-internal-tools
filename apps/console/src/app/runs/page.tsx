@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { DispatchControl } from "@/components/dispatch-control";
 import { Panel } from "@/components/panel";
-import { ReplayBadge } from "@/components/replay-badge";
 import { requesterLabel } from "@/components/run-summary";
 import { bridgeDeps } from "@/lib/bridge";
 import { currentActor } from "@/lib/session";
@@ -11,13 +10,13 @@ import {
   automationTool,
   type DevinRun,
   getSpec,
+  countRuns,
   isInFlight,
   kindsStartableBy,
   listRuns,
 } from "@console/tool-automation";
-import { bridgeMode, currentPrUrl, pollRun, readReplay } from "@console/tool-automation/bridge";
+import { type BridgeDeps, pollRun } from "@console/tool-automation/bridge";
 import type { Actor } from "@console/engine/types";
-import type { BridgeDeps } from "@console/tool-automation/bridge";
 import { formatRelative } from "@console/ui/format";
 import { StatusChip } from "@console/ui/status-chip";
 import {
@@ -29,7 +28,7 @@ import {
   TableRow,
 } from "@console/ui/table";
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 50;
 
 interface RowState {
   phase: string | null;
@@ -39,19 +38,22 @@ interface RowState {
 
 /**
  * An in-flight run is polled once per render so its row shows the phase the
- * session last reported. Polling only writes `replay.json`; a failed poll
- * leaves the row on whatever the last frame said.
+ * session last reported. A poll is an observation: it writes nothing, and a
+ * failed one leaves the row on the stored status alone.
  */
 async function rowState(run: DevinRun, deps: BridgeDeps): Promise<RowState> {
-  if (isInFlight(run.status) && run.sessionId) {
-    await pollRun(run, deps).catch(() => undefined);
-  }
-  const frames = readReplay(deps.repoRoot, run.id);
-  const latest = frames[frames.length - 1];
+  if (!isInFlight(run.status) || !run.sessionId) return { phase: null, prUrl: run.prUrl };
+  const polled = await pollRun(run, deps).catch(() => null);
+  const out = polled?.kind === "output" ? polled.structuredOutput : null;
   return {
-    phase: latest ? `${latest.structured_output.phase} · ${latest.structured_output.phase_status}` : null,
-    prUrl: currentPrUrl(run, deps),
+    phase: out ? `${out.phase} · ${out.phase_status}` : null,
+    prUrl: run.prUrl ?? out?.pr_url ?? null,
   };
+}
+
+function pageNumber(raw: string | string[] | undefined): number {
+  const n = Number(Array.isArray(raw) ? raw[0] : raw);
+  return Number.isInteger(n) && n >= 1 ? n : 1;
 }
 
 /** Admins may undo a merged implementation; the spec fixes the intent. */
@@ -70,14 +72,19 @@ function reversalOffer(run: DevinRun, actor: Actor) {
   };
 }
 
-export default async function RunsPage() {
+export default async function RunsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const actor = await currentActor();
   if (!automationTool.visibleTo.includes(actor.role)) notFound();
 
-  const rows = listRuns(PAGE_SIZE);
-  const total = rows.length;
+  const total = countRuns();
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(pageNumber((await searchParams).page), pages);
+  const rows = listRuns({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE });
   const deps = bridgeDeps();
-  const mode = bridgeMode(deps);
   const states = new Map<string, RowState>();
   for (const run of rows) states.set(run.id, await rowState(run, deps));
   const anyInFlight = rows.some((run) => isInFlight(run.status) && run.sessionId);
@@ -86,15 +93,28 @@ export default async function RunsPage() {
     <div className="flex h-full flex-col gap-3 p-3">
       {anyInFlight ? <AutoRefresh everyMs={5000} /> : null}
       <Panel
-        title={
-          <span className="flex items-center gap-2">
-            Runs <ReplayBadge mode={mode} />
-          </span>
-        }
+        title="Runs"
         bodyClassName="p-0"
         actions={
-          <span className="text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-2 text-[11px] text-muted-foreground">
             {total} run{total === 1 ? "" : "s"} · newest first
+            {pages > 1 ? (
+              <span className="flex items-center gap-1">
+                {page > 1 ? (
+                  <Link href={`/runs?page=${page - 1}`} className="hover:text-foreground">
+                    ‹ Newer
+                  </Link>
+                ) : null}
+                <span className="tabular-nums">
+                  {page}/{pages}
+                </span>
+                {page < pages ? (
+                  <Link href={`/runs?page=${page + 1}`} className="hover:text-foreground">
+                    Older ›
+                  </Link>
+                ) : null}
+              </span>
+            ) : null}
           </span>
         }
       >
@@ -147,10 +167,7 @@ export default async function RunsPage() {
                     <span className="flex flex-col gap-0.5">
                       <StatusChip value={run.status} statuses={automationTool.statuses} />
                       {inFlight && phase ? (
-                        <span className="flex items-center gap-1 font-mono text-[10px] text-muted-foreground">
-                          {phase}
-                          <ReplayBadge mode={mode} />
-                        </span>
+                        <span className="font-mono text-[10px] text-muted-foreground">{phase}</span>
                       ) : null}
                     </span>
                   </TableCell>

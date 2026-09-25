@@ -92,11 +92,11 @@ export async function pollAutomationRun(runId: string): Promise<BridgeResult> {
     revalidatePath(`/t/automation/${runId}`);
     revalidatePath("/runs");
     switch (outcome.kind) {
-      case "frame":
+      case "output":
         return {
           ok: true,
-          title: `Session ${outcome.frame.status}`,
-          detail: `${outcome.frame.structured_output.phase} · ${outcome.frame.structured_output.phase_status}`,
+          title: `Session ${outcome.status}`,
+          detail: `${outcome.structuredOutput.phase} · ${outcome.structuredOutput.phase_status}`,
         };
       case "no_output":
         return { ok: true, title: `Session ${outcome.status}`, detail: outcome.statusDetail ?? "No structured output yet" };
