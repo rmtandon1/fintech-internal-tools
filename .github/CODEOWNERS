@@ -11,3 +11,4 @@
 # The boundary script is part of the governance surface.
 /scripts/check-boundaries.ts @rmtandon1
 /.github/CODEOWNERS @rmtandon1
+/.github/workflows/ @rmtandon1

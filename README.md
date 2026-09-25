@@ -88,6 +88,8 @@ pnpm setup` puts the demo back.
 | `pnpm verify` | lint + typecheck + boundaries + tests |
 | `pnpm build` | production build |
 
+CI (`.github/workflows/verify.yml`, job `verify`) runs `pnpm verify` on every PR to `cognition-dashboard-devin-integration`.
+
 ## Layout
 
 pnpm workspace. Each folder is a package; a package can only import what its

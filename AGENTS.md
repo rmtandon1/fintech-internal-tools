@@ -60,5 +60,6 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 - Squash-merge; the PR title becomes the commit title. Delete the feature branch after merge
 - Commit at meaningful checkpoints: each commit is a coherent step that builds and passes tests; fold small touch-ups into the related commit
 - Tests are required: new or changed behaviour ships with tests, and `pnpm verify` must pass before a PR is opened
+- CI (`.github/workflows/verify.yml`, job `verify`) runs `pnpm verify` on every PR; branch protection requires it green
 - The `demo-start` tag marks the accepted baseline; do not move or delete it
 - Update `AGENTS.md`/docs when commands, structure, or architecture rules change
