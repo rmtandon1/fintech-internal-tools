@@ -30,12 +30,11 @@ It opens in the right-hand agent column (`OPERATOR_CONSOLE_LAYOUT.md`) and holds
 - **Intent**: one sentence, prefilled from the spec and editable. This is the only free text in the flow.
 - **Evidence**: what goes into `context.json`: cluster rows with PII dropped, the live constants the rule depends on, and the base commit. It is shown so the requester sees exactly what Devin will see.
 - **Scope**: the files the spec allows, read-only.
-- **Mode**: "Live" when the server has a Devin key, "Replay" otherwise.
 - **Start run**: submits `automation.dispatch`. A policy denial shows in the standard `PolicyTrace`, for example "a run is already in flight on refunds".
 
 Once the run starts, the same column becomes the run view.
 
-**Grouped layout.** The fields sit in four groups: REQUEST (the intent, the one editable field) and three blocks the system fills in: CONTEXT (evidence, constants, base commit, no PII), GUARDRAILS (the allowed files) and EXECUTION (mode, start). It shows without narration that the operator writes one sentence and the system supplies the rest. Two requirements:
+**Grouped layout.** The fields sit in four groups: REQUEST (the intent, the one editable field) and three blocks the system fills in: CONTEXT (evidence, constants, base commit, no PII), GUARDRAILS (the allowed files) and EXECUTION (start). It shows without narration that the operator writes one sentence and the system supplies the rest. Two requirements:
 
 1. The group headers don't push the evidence line below the fold (see On camera).
 2. The GUARDRAILS caption reads "The PR's checks: Lint · Typecheck · Boundaries · Test. Approval: an engineer who did not request the run", not "outside this scope". The four CI checks gate the merge; the scope is the outer bound the plan must fall within.
@@ -61,7 +60,7 @@ The run view is the demo's evidence that Devin did real engineering work. It sho
 
 ### Run checklist (between the two)
 
-A glyph checklist that summarises the run in one glance: `✓` done, `●` running, `○` waiting. Every line reads from `structured_output` (`DEVIN_RUN_PROTOCOL.md` § Progress). In live mode a line advances only when the session reports it, never on a timer. Lines are named artifacts, not generic activity:
+A glyph checklist that summarises the run in one glance: `✓` done, `●` running, `○` waiting. Every line reads from `structured_output` (`DEVIN_RUN_PROTOCOL.md` § Progress). A line advances only when the session reports it, never on a timer. Lines are named artifacts, not generic activity:
 
 ```
 ✓ Inspecting architecture         intake · base 1a67f60
@@ -118,6 +117,7 @@ A modal over the run view. It is where the human gate becomes visible, so it get
 │  ✓ ⌥GH  Approving review submitted · engineer                │
 │  ◌ ◆D   Devin merging · squash into demo-dashboard-devin-…   │
 │  ✓ ◆D   Merged · a3f9c21                                     │
+│  ✓      Pulled into local checkout · 0883eda → a3f9c21       │
 │  ✓      Audit row #231 · record_merge                        │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -126,7 +126,7 @@ The lower half fills in after **Approve**, each row with its own spinner and che
 
 ### Timing
 
-Live mode shows only what the session reports, as it reports it, with no force-advance. Replay plays a recorded or scripted run on a compressed timer, paced for camera, and says "Replay" wherever it appears.
+The view shows only what the session reports, as it reports it, with no force-advance.
 
 ## Why the request is one sentence
 
@@ -162,7 +162,7 @@ Revisit if operators need to ask for rules with no record to start from, such as
 
 ## `/runs`
 
-A list of every run: kind, intent, requester, status, PR, and the run it reversed, if any. It reads `devin_runs` for state, and `runs/<run_id>/` on the default branch for merged history. **Reverse this change** lives on merged IMPLEMENTATION rows.
+A list of every run: kind, intent, requester, status, PR, and the run it reversed, if any. It reads `devin_runs` for state, and `runs/<run_id>/` on the default branch for merged history. **Reverse this change** lives on merged IMPLEMENTATION rows. For the `engineer` role, **Reconcile** re-reads every approved run's PR on GitHub, writes `record_merge` for the ones that landed, then pulls the newest merge into the local checkout (`MERGE_SYNC.md`).
 
 ## Changes by file
 
@@ -189,9 +189,9 @@ Call `registerConstants` for every registered tool when the server starts, so co
 
 The build agent must first produce ASCII UI state diagrams for this domain and have them reviewed. Generic active/inactive diagrams don't count. At minimum:
 
-1. **Run lifecycle.** `refused` → `dispatched` → `intake` → `baseline` → `plan` → `edit` → `verify` → `pr_open` → `approved` → `merged` (recorded). Side exits: `stopped`, `waiting_for_user`, `failed` (and at which phase), `dispatch_failed`. Mark which transitions are audited intents and which are observed by polling.
+1. **Run lifecycle.** `refused` → `dispatched` → `intake` → `baseline` → `plan` → `edit` → `verify` → `pr_open` → `approved` → `merged`. Side exits: `stopped`, `waiting_for_user`, `failed` (and at which phase), `dispatch_failed`. Mark which transitions are audited intents and which are observed by polling.
 2. **The rule's lifecycle across the demo.** `absent` → `requested` → `pr_open` → `live` → `killed` (constant at its off value) → `reversal_requested` → `reversal_pr_open` → `absent`. Show that `killed` and `live` are the same code, and that only the REVERSAL removes it.
 3. **Cluster drawer.** `closed` → `open` (no rule covers this) → `run in flight` → `rule live` (rows show held) → `rule killed`, drawn for `refunds_agent` vs `refunds_manager`.
-4. **Agent column by mode.** Live, Replay, and history-only (no run in flight). Each state names its data source. A state with no source is cut, or labelled as simulated.
-5. **Finished run view.** The completed timeline for an IMPLEMENTATION and for a REVERSAL, with every sub-event from `The run view` filled in from the recorded Kestrel run. This is the still the demo pauses on, so draw it at full size.
+4. **Agent column.** Run in flight and history-only (no run in flight). Each state names its data source. A state with no source is cut, or labelled as simulated.
+5. **Finished run view.** The completed timeline for an IMPLEMENTATION and for a REVERSAL, with every sub-event from `The run view` filled in from a completed Kestrel run. This is the still the demo pauses on, so draw it at full size.
 6. **Approval dialog.** Idle, approving, Devin merging, merged, and failed (checks re-running, merge conflict), with each row's owner (GitHub or Devin).

@@ -9,7 +9,7 @@
 - An engineer approves, then Devin merges.
 - A reversal removes one earlier change from the code as it is now, keeping everything merged since.
 - Switching a rule off is a setting change on `/admin/policy`, in seconds, with no run.
-- Runs are live when the server has a Devin API key, and a labelled replay when it doesn't.
+- The console talks to the Devin v3 API from the server. Without `DEVIN_API_KEY` and `DEVIN_ORG_ID`, a dispatch records `dispatch_failed` and says so.
 
 
 
@@ -64,7 +64,7 @@ Dispatch goes through `executeIntent` like every other write. A small `automatio
 
 The effect writes the run row and the audit row in one transaction. The HTTP call to Devin happens after the commit, never inside it. `record_session` then stores the session id. If the call fails, the run row is marked `dispatch_failed` through the same intent path.
 
-Polled run state is never written to `devin_runs`. Phase, `status_detail` and `structured_output` come from the session poll and are held in memory (and appended to the replay file, `AGENT_TRIGGER_SURFACE.md` § `apps/console/src/app/api/devin/`), not persisted. Only audited transitions touch the table: `dispatch`, `record_session`, `approve_pr`, `record_merge` and `stop`. That keeps a run at four audit rows on the normal path (dispatch, record_session, approve_pr, record_merge), with `stop` or `dispatch_failed` replacing the later rows when a run ends early.
+Polled run state is never written to `devin_runs`. Phase, `status_detail` and `structured_output` come from the session poll and are held in memory, not persisted. Only audited transitions touch the table: `dispatch`, `record_session`, `approve_pr`, `record_merge` and `stop`. That keeps a run at four audit rows on the normal path (dispatch, record_session, approve_pr, record_merge), with `stop` or `dispatch_failed` replacing the later rows when a run ends early.
 
 `stop` also records terminal session failure. When a poll reports the session `failed` (or a phase stopped the run, § Phases), the console submits `stop` with the reported reason, so the row leaves the in-flight state and the "no other run in flight against the same tool" rule releases the tool. Without that, a failed run would block the next `dispatch` until someone pressed **Stop run**. A `stop` row names whether it was an operator's click or a reported failure.
 
@@ -191,7 +191,7 @@ The Devin API doesn't stream sub-steps. The session's `structured_output` is the
 
 The console polls the session (`GET /v3/organizations/{org_id}/sessions/{devin_id}`) and reads `status`, `status_detail` and `structured_output`. `status_detail = waiting_for_user` surfaces as a reply box, and the reply is sent through the messages endpoint. **Stop run** calls the terminate endpoint (`DELETE` on the same path) and marks the run `stopped` through an intent.
 
-Phase names, spinners and timings shown in the UI are copy. They exist to make an asynchronous run legible. In live mode they only ever reflect what the session has reported: no advancing a phase on a timeout. In replay mode the recorded `structured_output` sequence plays on a compressed timer, paced for camera. That is acceptable because the architecture underneath is real. The one rule: a replay says it is a replay.
+Phase names, spinners and timings shown in the UI are copy. They exist to make an asynchronous run legible. They only ever reflect what the session has reported: no advancing a phase on a timeout.
 
 ## Reversal
 
@@ -233,26 +233,17 @@ Humans approve. Devin merges. The control a regulated change process needs is se
 
 Enforcement lives in GitHub. Branch protection on `cognition-dashboard-devin-integration` requires one approving review, the four CI checks — Lint, Typecheck, Boundaries and Test — and no bypass for Devin's GitHub account. Devin's docs recommend exactly this: branch protection "to ensure all required checks pass before Devin can merge changes" (docs.devin.ai, GitHub integration). A security profile can also restrict the session's git and GitHub CLI access (docs.devin.ai, Security Profiles).
 
-Demo setup: the engineer's GitHub token sits in the server environment next to `DEVIN_API_KEY`. In replay, steps 3–5 play from the fixture.
+Demo setup: the engineer's GitHub token sits in the server environment next to `DEVIN_API_KEY`.
 
 ## After merge
 
 1. The console writes `record_merge` with the merge commit Devin reports. That closes the run in the audit chain.
-2. The local checkout pulls the default branch (`git pull --ff-only`). `next dev` reloads the changed modules.
-3. Constants a run declares must exist in the live database without a re-seed, so the app registers declared constants on start. `registerConstants` already skips existing keys. Today it only runs from `apps/console/scripts/seed.ts`.
+2. The local checkout pulls the integration branch (`git pull --ff-only origin cognition-dashboard-devin-integration`) when **Check merge** records the merge, or later through **Pull merged code** or **Reconcile** on `/t/automation` (both `engineer`-only). The pull is refused on another branch or a dirty tree — except an untracked `runs/<id>/context.json` that hashes to the merged run's `contextSha256`, which dispatch itself wrote; that one is deleted and the merge recreates it. `pnpm db:migrate` runs whenever drizzle's journal has entries past `__drizzle_migrations`, and retries on the next sync if it fails. See `MERGE_SYNC.md`.
+3. Constants a run declares must exist in the live database without a re-seed. `registerToolConstants` (`registerConstants`, which skips existing keys) runs on server start via `instrumentation.ts`, and again in-process right after the merge sync's `db:migrate`, so a merged rule works without a browser reload or restart. A production build still needs a rebuild to serve new source.
 4. The next matching record goes through the new rule. That moment is the demo.
 
+`db:migrate` here is the console migrating its own database after a merge, not a Devin session writing live data. The **No live writes** guard still forbids `db:setup`, `db:seed` and `db:tamper` for the session; the merge sync never invokes them.
 
+## Credentials
 
-## Live and replay
-
-
-| Mode   | When                                                     | What the console does                                                                                                          |
-| ------ | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Live   | `DEVIN_API_KEY` and `DEVIN_ORG_ID` are set on the server | Dispatches, polls and terminates through the v3 API. The key never reaches the browser                                         |
-| Replay | No key                                                   | Plays back a run fixture: a `structured_output` sequence, a PR, an approval and a merge. Labelled "Replay" wherever it appears |
-
-
-A replay can be a recorded real run or a scripted one, as long as it is labelled "Replay". Live mode only ever shows what the session reports.
-
-Only a recorded or live run appears on camera. A scripted replay is for building the run view before a real run exists.
+`DEVIN_API_KEY` and `DEVIN_ORG_ID` are read on the server (`apps/console/src/lib/bridge.ts`) and never reach the browser. With both set, the console dispatches, polls and terminates through the v3 API. Without them, `dispatch` still applies and `record_session` records the missing configuration as the error, so the run lands as `dispatch_failed` with its audit rows and the console shows that as an ordinary engine error.

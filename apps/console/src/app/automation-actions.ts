@@ -7,10 +7,13 @@ import { getRun, RUN_KINDS, RUN_SCOPES } from "@console/tool-automation";
 import {
   approveRun,
   describeIntent,
+  describeSync,
   dispatchRun,
   observeMerge,
   pollRun,
+  reconcileRuns,
   stopRun,
+  syncMergedRun,
 } from "@console/tool-automation/bridge";
 import { bridgeDeps } from "@/lib/bridge";
 import { reversalEvidence } from "@/lib/handoff";
@@ -32,6 +35,10 @@ export interface BridgeResult {
   runId?: string;
   /** The audit row the intent wrote, when the outcome carries one. */
   auditId?: string;
+  /** The client should wait and call the action again (merge check retries). */
+  retry?: boolean;
+  /** The sync pulled new code: refresh server components. */
+  reload?: boolean;
 }
 
 const DispatchForm = z.object({
@@ -111,11 +118,11 @@ export async function pollAutomationRun(runId: string): Promise<BridgeResult> {
     const outcome = await pollRun(run, bridgeDeps());
     revalidatePath(`/t/automation/${runId}`);
     switch (outcome.kind) {
-      case "frame":
+      case "output":
         return {
           ok: true,
-          title: `Session ${outcome.frame.status}`,
-          detail: `${outcome.frame.structured_output.phase} · ${outcome.frame.structured_output.phase_status}`,
+          title: `Session ${outcome.status}`,
+          detail: `${outcome.structuredOutput.phase} · ${outcome.structuredOutput.phase_status}`,
         };
       case "no_output":
         return { ok: true, title: `Session ${outcome.status}`, detail: outcome.statusDetail ?? "No structured output yet" };
@@ -164,19 +171,91 @@ export async function observeAutomationMerge(runId: string): Promise<BridgeResul
     const outcome = await observeMerge(actor, run, bridgeDeps());
     revalidatePath("/", "layout");
     switch (outcome.kind) {
-      case "merged":
+      case "merged": {
+        const recorded = outcome.record.outcome.status === "applied";
+        const fresh = getRun(runId);
+        const sync = recorded && fresh ? await syncMergedRun(fresh, bridgeDeps()) : null;
+        revalidatePath("/", "layout");
+        let detail = `${outcome.mergeCommit.slice(0, 12)} · ${describeIntent(outcome.record)}`;
+        if (sync) {
+          detail += ` · ${describeSync(sync)}`;
+          if (sync.kind === "synced" && process.env.NODE_ENV === "production") {
+            detail += " · rebuild required";
+          }
+        }
         return {
-          ok: outcome.record.outcome.status === "applied",
-          title: outcome.record.outcome.status === "applied" ? "Merge recorded" : "Merge seen, not recorded",
-          detail: `${outcome.mergeCommit.slice(0, 12)} · ${describeIntent(outcome.record)}`,
+          ok: recorded,
+          title: recorded ? "Merge recorded" : "Merge seen, not recorded",
+          detail,
+          reload: sync?.kind === "synced",
         };
+      }
       case "open":
-        return { ok: true, title: "Not merged yet", detail: outcome.prUrl };
+        return { ok: true, title: "Not merged yet", detail: outcome.prUrl, retry: true };
       case "unavailable":
         return { ok: false, title: "Cannot check merge", detail: outcome.reason };
     }
   } catch (error) {
     return { ok: false, title: "Merge check failed", detail: message(error) };
+  }
+}
+
+/** Pulls a run's merge into the local checkout; offered once the run is `merged`. */
+export async function syncAutomationRun(runId: string): Promise<BridgeResult> {
+  const actor = await currentActor();
+  if (actor.role !== "engineer") {
+    return { ok: false, title: "Sync denied", detail: "Only the engineer may pull merged code" };
+  }
+  const run = getRun(runId);
+  if (!run) return { ok: false, title: "Run not found" };
+  try {
+    const sync = await syncMergedRun(run, bridgeDeps());
+    revalidatePath("/", "layout");
+    const ok = sync.kind === "synced" || sync.kind === "unchanged";
+    let detail = describeSync(sync);
+    if (sync.kind === "synced" && process.env.NODE_ENV === "production") {
+      detail += " · rebuild required";
+    }
+    return {
+      ok,
+      title: ok ? "Local checkout synced" : "Pull did not run",
+      detail,
+      reload: sync.kind === "synced",
+    };
+  } catch (error) {
+    return { ok: false, title: "Pull failed", detail: message(error) };
+  }
+}
+
+/** Confirms every approved run against GitHub, records merges, then pulls once. */
+export async function reconcileAutomationRuns(): Promise<BridgeResult> {
+  const actor = await currentActor();
+  if (actor.role !== "engineer") {
+    return { ok: false, title: "Reconcile denied", detail: "Only the engineer may reconcile runs" };
+  }
+  const deps = bridgeDeps();
+  if (!deps.github) {
+    return { ok: false, title: "Cannot reconcile", detail: "GitHub API is not configured" };
+  }
+  try {
+    const outcome = await reconcileRuns(actor, deps);
+    revalidatePath("/", "layout");
+    const sync = outcome.sync;
+    let detail = `${outcome.merged} merged`;
+    if (sync) {
+      detail += ` · ${describeSync(sync)}`;
+      if (sync.kind === "synced" && process.env.NODE_ENV === "production") {
+        detail += " · rebuild required";
+      }
+    }
+    return {
+      ok: true,
+      title: `Reconciled ${outcome.checked} approved run(s)`,
+      detail,
+      reload: sync?.kind === "synced",
+    };
+  } catch (error) {
+    return { ok: false, title: "Reconcile failed", detail: message(error) };
   }
 }
 

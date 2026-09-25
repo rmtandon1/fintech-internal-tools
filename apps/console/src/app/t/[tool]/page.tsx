@@ -17,6 +17,7 @@ import { previewActions } from "@console/engine/policy/preview";
 import type { Actor, ClusterDecl, ClusterGroup, ToolDeclaration } from "@console/engine/types";
 import { formatFieldValue } from "@console/ui/format";
 import { ClusterDrawer, type ClusterRow } from "@/components/cluster-drawer";
+import { ReconcileRuns } from "@/components/reconcile-runs";
 import { buildHandoffOffer, type HandoffOffer } from "@/lib/handoff";
 import { bridgeDeps } from "@/lib/bridge";
 import { getSpec, kindsStartableBy } from "@console/tool-automation";
@@ -155,7 +156,12 @@ export default async function ToolQueuePage({
             {decl.displayName} · <span className="tabular-nums">{total}</span>
           </span>
         }
-        actions={filterRow}
+        actions={
+          <span className="flex items-center gap-2">
+            {decl.name === "automation" && actor.role === "engineer" ? <ReconcileRuns /> : null}
+            {filterRow}
+          </span>
+        }
         bodyClassName="flex flex-col"
       >
         <StatStrip decl={decl} actor={actor} />

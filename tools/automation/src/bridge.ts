@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ulid } from "ulid";
@@ -6,9 +7,15 @@ import { previewActions } from "@console/engine/policy/preview";
 import type { Actor, IntentResult } from "@console/engine/types";
 import { buildContext } from "./context";
 import type { DevinClient } from "./devin-api";
+import { SYNC_BRANCH, SYNC_REMOTE, type GitRunner } from "./git";
 import { type GitHubClient, parsePullUrl } from "./github-api";
 import { automationTool, getRun, type DevinRun } from "./index";
-import { ReplayFile, type ReplayFrame, STRUCTURED_OUTPUT_JSON_SCHEMA, StructuredOutput } from "./run-files";
+import {
+  STRUCTURED_OUTPUT_JSON_SCHEMA,
+  ReplayFile,
+  type ReplayFrame,
+  StructuredOutput,
+} from "./run-files";
 import { getSpec, type RunKind, type RunScope } from "./specs";
 
 /**
@@ -16,7 +23,7 @@ import { getSpec, type RunKind, type RunScope } from "./specs";
  * Every database change here is an `executeIntent` call; the Devin and GitHub
  * calls happen strictly after the intent they depend on has committed, or
  * strictly before the intent that records what they returned. Polled session
- * progress goes to `runs/<id>/replay.json`, never to `devin_runs`
+ * progress is read from the session and never written to `devin_runs`
  * (DEVIN_RUN_PROTOCOL.md § Progress).
  */
 
@@ -32,6 +39,15 @@ export interface BridgeDeps {
    * Defaults to `<repoRoot>/apps/console/data/replays` (gitignored).
    */
   replaysDir?: string;
+  /** Checkout access for the merge sync; absent in tests that do not pull. */
+  git?: GitRunner;
+  /** Runs the console's own migration script on its database. */
+  migrate?: (cwd: string) => Promise<void>;
+  /** True when drizzle journal entries postdate the last applied migration. */
+  migrationsPending?: () => Promise<boolean>;
+  /** Remote and branch the merge sync pulls; default to `SYNC_REMOTE` / `SYNC_BRANCH`. */
+  syncRemote?: string;
+  syncBranch?: string;
   playbookId?: string;
   maxAcuLimit?: number;
   now?: () => number;
@@ -227,14 +243,14 @@ export async function dispatchRun(
 }
 
 export type PollOutcome =
-  | { kind: "frame"; frame: ReplayFrame }
+  | { kind: "output"; structuredOutput: StructuredOutput; status: string; statusDetail: string | null }
   | { kind: "no_output"; status: string; statusDetail: string | null }
   | { kind: "invalid_output"; status: string; issues: string }
   | { kind: "unavailable"; reason: string };
 
 /**
- * Reads the session once and appends a validated frame to `replay.json`.
- * Touches no governed table: a poll is an observation, not a transition.
+ * Reads the session once and validates its `structured_output`. Touches no
+ * governed table and writes no file: a poll is an observation, not a transition.
  */
 export async function pollRun(run: DevinRun, deps: BridgeDeps): Promise<PollOutcome> {
   if (!deps.devin) return { kind: "unavailable", reason: "Devin API is not configured" };
@@ -251,28 +267,32 @@ export async function pollRun(run: DevinRun, deps: BridgeDeps): Promise<PollOutc
       issues: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
     };
   }
+  // The validated frame is appended to the run's recording so the run view
+  // has a timeline to show. The write is a recording, not a transition.
   const frame: ReplayFrame = {
     at_ms: (deps.now ?? Date.now)(),
-    structured_output: parsed.data,
     status: snapshot.status,
     status_detail: snapshot.statusDetail,
+    structured_output: parsed.data,
   };
   const dir = replaysDir(deps);
   mkdirSync(dir, { recursive: true });
   const frames = [...readReplay(deps.repoRoot, run.id, deps.replaysDir), frame];
   writeFileSync(join(dir, `${run.id}.json`), JSON.stringify(frames, null, 2) + "\n");
-  return { kind: "frame", frame };
+  return {
+    kind: "output",
+    structuredOutput: parsed.data,
+    status: snapshot.status,
+    statusDetail: snapshot.statusDetail,
+  };
 }
 
-/** The PR a run is working on: the audited one once approved, else the last one the session reported. */
-export function currentPrUrl(run: DevinRun, deps: BridgeDeps): string | null {
+/** The PR a run is working on: the audited one once approved, else the one the session reports now. */
+export async function currentPrUrl(run: DevinRun, deps: BridgeDeps): Promise<string | null> {
   if (run.prUrl) return run.prUrl;
-  const frames = readReplay(deps.repoRoot, run.id, deps.replaysDir);
-  for (let i = frames.length - 1; i >= 0; i--) {
-    const url = frames[i].structured_output.pr_url;
-    if (url) return url;
-  }
-  return null;
+  if (!deps.devin || !run.sessionId) return null;
+  const outcome = await pollRun(run, deps);
+  return outcome.kind === "output" ? outcome.structuredOutput.pr_url : null;
 }
 
 export interface ApproveOutcome {
@@ -293,10 +313,10 @@ export async function approveRun(
   note: string | undefined,
   deps: BridgeDeps,
 ): Promise<ApproveOutcome> {
-  const prUrl = currentPrUrl(run, deps);
+  if (!deps.github) throw new Error("GitHub API is not configured: set GITHUB_TOKEN on the server");
+  const prUrl = await currentPrUrl(run, deps);
   const ref = prUrl ? parsePullUrl(prUrl) : null;
   if (!prUrl || !ref) throw new Error("The session has not reported a pull request yet");
-  if (!deps.github) throw new Error("GitHub API is not configured: set GITHUB_TOKEN on the server");
 
   const pull = await deps.github.getPull(ref);
   const checks = await deps.github.getChecks(ref, pull.headSha);
@@ -356,6 +376,148 @@ export async function observeMerge(actor: Actor, run: DevinRun, deps: BridgeDeps
     idempotencyKey: key(run.id, `record_merge:${pull.mergeCommit}`),
   });
   return { kind: "merged", record, mergeCommit: pull.mergeCommit };
+}
+
+export type SyncOutcome =
+  | { kind: "synced"; before: string; after: string; migrated: boolean }
+  | { kind: "unchanged"; head: string }
+  | { kind: "skipped"; reason: string }
+  | { kind: "failed"; reason: string };
+
+/** One line for a toast: what the pull into the local checkout did. */
+export function describeSync(sync: SyncOutcome): string {
+  switch (sync.kind) {
+    case "synced":
+      return `pulled ${sync.before.slice(0, 7)} → ${sync.after.slice(0, 7)}${sync.migrated ? " · db migrated" : ""}`;
+    case "unchanged":
+      return `checkout already at ${sync.head.slice(0, 7)}`;
+    case "skipped":
+      return `pull skipped: ${sync.reason}`;
+    case "failed":
+      return `pull failed: ${sync.reason}`;
+  }
+}
+
+/**
+ * Serialised through `syncQueue` so two clicks never run two pulls. Only a
+ * `merged` run pulls: the checkout must sit on the sync branch with a clean
+ * tree, the pull is `--ff-only`, and the run's merge commit must land on
+ * HEAD. Pending drizzle migrations run `pnpm db:migrate` — never
+ * `db:setup`/`db:seed`, which re-seed the live database (MERGE_SYNC.md).
+ */
+export function syncMergedRun(run: DevinRun, deps: BridgeDeps): Promise<SyncOutcome> {
+  const next = syncQueue.then(() => syncMergedRunInner(run, deps));
+  syncQueue = next.then(
+    () => undefined,
+    () => undefined,
+  );
+  return next;
+}
+
+let syncQueue: Promise<unknown> = Promise.resolve();
+
+/** dispatchRun writes `runs/<id>/context.json` locally; the same file lands in the merge. */
+const RUN_CONTEXT = /^runs\/([^/]+)\/context\.json$/;
+
+async function syncMergedRunInner(run: DevinRun, deps: BridgeDeps): Promise<SyncOutcome> {
+  const git = deps.git;
+  if (!git) return { kind: "skipped", reason: "git sync not configured" };
+  if (run.status !== "merged") return { kind: "skipped", reason: `run is ${run.status}, not merged` };
+  if (!run.mergeCommit) return { kind: "skipped", reason: "run has no merge commit" };
+  const cwd = deps.repoRoot;
+  const branch = deps.syncBranch ?? SYNC_BRANCH;
+  try {
+    if ((await git.currentBranch(cwd)) !== branch) {
+      return { kind: "skipped", reason: `checkout is not on ${branch}` };
+    }
+    const entries = await git.status(cwd);
+    const isRunContext = (e: { path: string; untracked: boolean }) => e.untracked && RUN_CONTEXT.test(e.path);
+    if (entries.some((e) => !isRunContext(e))) {
+      return { kind: "skipped", reason: "working tree has uncommitted changes" };
+    }
+    // An untracked context.json for this merged run is byte-identical to the
+    // one in the merge: delete it so the pull can recreate it. Any other
+    // untracked context.json stays; a real collision fails the pull below.
+    for (const e of entries.filter(isRunContext)) {
+      const local = getRun(e.path.match(RUN_CONTEXT)?.[1] ?? "");
+      const sha = createHash("sha256").update(readFileSync(join(cwd, e.path))).digest("hex");
+      if (local?.status === "merged" && sha === local.contextSha256) {
+        await git.removePath(cwd, e.path);
+      }
+    }
+    const before = await git.head(cwd);
+    await git.pullFfOnly(cwd, deps.syncRemote ?? SYNC_REMOTE, branch);
+    const after = await git.head(cwd);
+    if (!(await git.isAncestor(cwd, run.mergeCommit, "HEAD"))) {
+      return { kind: "failed", reason: `${run.mergeCommit.slice(0, 12)} is not on HEAD after the pull` };
+    }
+    let migrated = false;
+    if (deps.migrate && deps.migrationsPending && (await deps.migrationsPending())) {
+      try {
+        await deps.migrate(cwd);
+        migrated = true;
+      } catch (error) {
+        return { kind: "failed", reason: `db:migrate failed: ${errorText(error)}` };
+      }
+    }
+    if (after === before && !migrated) return { kind: "unchanged", head: after };
+    return { kind: "synced", before, after, migrated };
+  } catch (error) {
+    return { kind: "failed", reason: errorText(error) };
+  }
+}
+
+/** True when the checkout has the run's merge commit and no pending migrations. */
+export async function isSynced(run: DevinRun, deps: BridgeDeps): Promise<boolean> {
+  if (!deps.git || !run.mergeCommit) return false;
+  if (!(await deps.git.isAncestor(deps.repoRoot, run.mergeCommit, "HEAD"))) return false;
+  if (deps.migrationsPending && (await deps.migrationsPending())) return false;
+  return true;
+}
+
+export interface ReconcileOutcome {
+  /** Approved runs whose PR was read on GitHub. */
+  checked: number;
+  /** How many of those GitHub reported merged. */
+  merged: number;
+  /** The pull for the newest merge, or null when nothing merged. */
+  sync: SyncOutcome | null;
+}
+
+/**
+ * Reads every `approved` run's PR on GitHub and records the merges. State
+ * stays in `devin_runs`: GitHub is consulted to confirm, never to rebuild.
+ * One pull follows for the newest merge.
+ */
+export const RECONCILE_PAGE = 100;
+
+export async function reconcileRuns(
+  actor: Actor,
+  deps: BridgeDeps,
+  pageSize = RECONCILE_PAGE,
+): Promise<ReconcileOutcome> {
+  // Collect every approved id before any transition: observeMerge moves a run
+  // out of `approved`, which would shift later pages.
+  const ids: string[] = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { rows } = automationTool.list({ filters: { status: "approved" }, limit: pageSize, offset });
+    ids.push(...rows.map((row) => row.id));
+    if (rows.length < pageSize) break;
+  }
+  let merged = 0;
+  let newest: DevinRun | null = null;
+  for (const id of ids) {
+    const run = getRun(id);
+    if (!run) continue;
+    const outcome = await observeMerge(actor, run, deps);
+    if (outcome.kind !== "merged") continue;
+    const after = getRun(run.id);
+    if (!after || after.status !== "merged") continue;
+    merged += 1;
+    if (!newest || after.updatedAt >= newest.updatedAt) newest = after;
+  }
+  const sync = newest ? await syncMergedRun(newest, deps) : null;
+  return { checked: ids.length, merged, sync };
 }
 
 export interface StopOutcome {
