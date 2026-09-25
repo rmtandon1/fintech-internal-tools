@@ -53,7 +53,7 @@ export function setConstant(
       .run();
     appendAudit(tx, {
       actor,
-      tool: "policy",
+      tool: row.tool,
       action: "set_constant",
       recordType: "runtime_constant",
       recordId: key,

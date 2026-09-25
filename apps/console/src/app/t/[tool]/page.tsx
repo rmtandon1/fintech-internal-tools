@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Icon } from "@console/ui/icon";
 import { Panel } from "@/components/panel";
 import { RecordCell, columnIsNumeric } from "@/components/record-table";
+import { StatStrip } from "@/components/stat-strip";
 import {
   Table,
   TableBody,
@@ -139,7 +140,9 @@ export default async function ToolQueuePage({
           </span>
         }
         actions={filterRow}
+        bodyClassName="flex flex-col"
       >
+        <StatStrip decl={decl} actor={actor} />
         <Table>
           <TableHeader>
             <TableRow>

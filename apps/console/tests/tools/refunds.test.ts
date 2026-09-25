@@ -13,6 +13,7 @@ import {
   refundsManager,
   setupHarness,
 } from "../helpers/harness";
+import { expectRecordStatsMatchList } from "../helpers/stats";
 
 beforeAll(() => {
   setupHarness();
@@ -151,5 +152,17 @@ describe("refunds", () => {
     expect(first.outcome.status).toBe("applied");
     expect(second.replayed).toBe(true);
     expect(refundTool.get("rfnd_0002")?.version).toBe(2);
+  });
+});
+
+describe("refunds stats", () => {
+  it("declares three stats for each role that can open the queue", () => {
+    for (const role of refundTool.visibleTo) {
+      expect(refundTool.stats?.filter((s) => s.roles.includes(role)).length, role).toBe(3);
+    }
+  });
+
+  it("counts each records stat with the same query its link opens", () => {
+    expectRecordStatsMatchList(refundTool);
   });
 });
