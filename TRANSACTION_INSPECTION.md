@@ -31,7 +31,7 @@ The inspection exists to act on the queue beside it. A drawer keeps the list vis
 
 ### On camera
 
-This is the gap in the Kestrel arc (`DEMO_DECISIONS.md` › Scenario detail), and it replaces the analyst's Excel pivot and one-at-a-time email lookups. The shot that matters is the drawer open over the dimmed queue: four rows, each with a green `amount_approval` trace, and a $1,880 total above them. Each refund is clean. Together they aren't. The viewer should read that from the screen before the presenter says it.
+This is the gap in scenario 1 (`CUSTOMER_FRAMING.md` § 3 › "1. Rules from the queue"), and it replaces the analyst's Excel pivot and one-at-a-time email lookups. The shot that matters is the drawer open over the dimmed queue: four rows, each with a green `amount_approval` trace, and a $1,880 total above them. Each refund is clean. Together they aren't. The viewer should read that from the screen before the presenter says it.
 
 RBAC: every role can open clusters, because aggregates carry no PII. Row emails and card numbers go through `maskRecord`. **Ask Devin for a rule** renders for `refunds_manager` and `admin`. A `refunds_agent` sees the cluster and a note that a refunds manager can request a rule. KYC roles can't open `/t/refunds` at all (`visibleTo` is `rolesFor("refunds", "agent")`).
 
