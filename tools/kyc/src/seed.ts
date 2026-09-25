@@ -215,6 +215,22 @@ const CASES: SeedCase[] = [
     openedHoursAgo: 120,
     lastNote: "Document tampering detected on the uploaded passport page.",
   },
+  {
+    id: "kyc_0013",
+    customerName: "Noor El-Amin",
+    email: "noor.el-amin@example.com",
+    dateOfBirth: "1993-09-08",
+    documentType: "passport",
+    documentNumber: "NL3387455",
+    country: "NL",
+    segment: "consumer",
+    riskScore: 68,
+    sanctionsHit: false,
+    documentsComplete: true,
+    status: "pending_review",
+    openedHoursAgo: 30,
+    lastNote: "Address on file differs from the delivery address on a recent refund.",
+  },
 ];
 
 /**
@@ -262,7 +278,7 @@ function generated(): SeedCase[] {
 
   const cases: SeedCase[] = [];
   for (let i = 0; i < 88; i++) {
-    const id = `kyc_${String(i + 13).padStart(4, "0")}`;
+    const id = `kyc_${String(i + 14).padStart(4, "0")}`;
     const business = next() < 0.22;
     const country = pick(COUNTRIES);
     const riskScore = between(5, 96);

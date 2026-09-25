@@ -200,6 +200,31 @@ export interface ToolDeclaration<TRecord extends GovernedRecord = GovernedRecord
   constants?: ConstantDefinition[];
   /** Installs demo records. Must be safe to run twice. */
   seed?: () => void;
+  /** Named groupings an operator can open from the queue and act on. */
+  clusters?: ClusterDecl[];
+}
+
+/** One group within a cluster: an aggregate over records, carrying no PII. */
+export interface ClusterGroup {
+  key: string;
+  label: string;
+  count: number;
+  /** What the count counts, e.g. a reason code; shown after the count. */
+  qualifier?: string;
+  totalUsdMinor: number;
+  /** Look-back window the group was computed over, in days. */
+  windowDays?: number;
+  recordIds: string[];
+}
+
+export interface ClusterDecl {
+  id: string;
+  label: string;
+  groups: () => ClusterGroup[];
+  /** The action whose policy trace is shown for each row in the group. */
+  traceAction?: string;
+  /** The spec a Devin run for this cluster would follow, if any. */
+  handoffSpec?: string;
 }
 
 export interface ListOptions {
