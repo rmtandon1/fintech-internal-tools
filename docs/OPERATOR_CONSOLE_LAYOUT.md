@@ -57,6 +57,10 @@ What each role sees in the linked-activity drawer on a KYC case. Roles are domai
 
 The join is KYC `email` = refunds `customerEmail`. It runs on the server with the read client, so no unmasked email reaches the browser.
 
+## Resizing and hiding the agent column
+
+The gap between the record column and the agent column is a drag seam (`packages/ui/src/resizable.tsx`, on `react-resizable-panels`). The agent column runs from 280px up to half the workspace and keeps its pixel width when the window resizes. Dragging it below 280px collapses it. The header's Devin button or `]` toggles it, mirroring `[` for the sidebar, and a double-click on the seam restores the default split. The split is saved in the `console-workspace-layout` cookie, so the server renders the last layout without a jump. Below `lg` the seam and column are hidden and the header button opens the column as a sheet.
+
 ## Where the agent column's data comes from
 
 The run view has to work while a run is in flight, when Devin's branch is the only place `runs/<run_id>/` exists. So the column reads the session while the run is live, and the default branch after it has merged.

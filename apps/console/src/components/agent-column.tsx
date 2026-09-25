@@ -11,11 +11,11 @@ import { cn } from "@console/ui/utils";
 /**
  * The right-hand column where Devin's work shows. This shell only knows the
  * "No runs" state; the handoff panel and run view mount into `children`.
- * Beside `main` from `lg` up, behind a header button below it.
+ * A resizable pane beside `main` from `lg` up, behind a header button below it.
  */
 export function AgentColumn({ children }: { children?: React.ReactNode }) {
   return (
-    <aside className="hidden w-80 shrink-0 border-l border-border p-3 pl-0 lg:flex lg:flex-col xl:w-96">
+    <aside className="flex h-full flex-col p-3 pl-0">
       <AgentColumnBody className="flex-1">{children}</AgentColumnBody>
     </aside>
   );

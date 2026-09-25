@@ -8,11 +8,21 @@ import {
   CommandPaletteProvider,
   type PaletteMode,
 } from "@/components/command-palette";
+import {
+  AgentColumnToggle,
+  WorkspacePanes,
+  WorkspaceProvider,
+} from "@/components/workspace";
 import { countPendingFor } from "@console/engine/approvals";
 import { verifyChain } from "@console/engine/audit/verify";
 import { OPS_MODES } from "@/lib/modes";
 import { currentActor } from "@/lib/session";
+import {
+  WORKSPACE_LAYOUT_COOKIE,
+  parseWorkspaceLayout,
+} from "@/lib/workspace-layout";
 import { getTool, toolsForRole } from "@/registry";
+import { cookies } from "next/headers";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -33,6 +43,9 @@ export default async function RootLayout({
   }));
   const pending = countPendingFor(actor);
   const chain = verifyChain();
+  const layout = parseWorkspaceLayout(
+    (await cookies()).get(WORKSPACE_LAYOUT_COOKIE)?.value,
+  );
 
   const modes: PaletteMode[] = OPS_MODES.flatMap((mode) => {
     const decl = getTool(mode.id);
@@ -58,20 +71,24 @@ export default async function RootLayout({
         <CommandPaletteProvider modes={modes}>
           <div className="flex h-full">
             <AppSidebar actor={actor} tools={tools} pendingApprovals={pending} />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <AppHeader
-                actor={actor}
-                chainOk={chain.ok}
-                chainLength={chain.length}
-                agent={<AgentColumnSheet />}
-              />
-              <div className="flex min-h-0 flex-1">
-                <main className="min-h-0 min-w-0 flex-1 overflow-hidden p-3">
+            <WorkspaceProvider initialLayout={layout}>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <AppHeader
+                  actor={actor}
+                  chainOk={chain.ok}
+                  chainLength={chain.length}
+                  agent={
+                    <>
+                      <AgentColumnSheet />
+                      <AgentColumnToggle />
+                    </>
+                  }
+                />
+                <WorkspacePanes initialLayout={layout} agent={<AgentColumn />}>
                   {children}
-                </main>
-                <AgentColumn />
+                </WorkspacePanes>
               </div>
-            </div>
+            </WorkspaceProvider>
           </div>
         </CommandPaletteProvider>
         <Toaster position="bottom-right" />
