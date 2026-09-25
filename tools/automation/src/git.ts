@@ -1,4 +1,6 @@
 import { execFile } from "node:child_process";
+import { rm } from "node:fs/promises";
+import { join } from "node:path";
 import { promisify } from "node:util";
 
 /**
@@ -11,27 +13,47 @@ import { promisify } from "node:util";
 export const SYNC_REMOTE = "origin";
 export const SYNC_BRANCH = "cognition-dashboard-devin-integration";
 
+export interface StatusEntry {
+  path: string;
+  untracked: boolean;
+}
+
 export interface GitRunner {
   currentBranch(cwd: string): Promise<string>;
-  isClean(cwd: string): Promise<boolean>;
+  status(cwd: string): Promise<StatusEntry[]>;
   head(cwd: string): Promise<string>;
   pullFfOnly(cwd: string, remote: string, branch: string): Promise<void>;
   isAncestor(cwd: string, commit: string, ref: string): Promise<boolean>;
-  changedPaths(cwd: string, before: string, after: string): Promise<string[]>;
+  /** Deletes a working-tree file directly; not a git operation. */
+  removePath(cwd: string, relPath: string): Promise<void>;
 }
 
 const execFileAsync = promisify(execFile);
 
 async function git(cwd: string, args: string[]): Promise<string> {
   const { stdout } = await execFileAsync("git", args, { cwd });
-  return String(stdout).trim();
+  return String(stdout);
+}
+
+/** Parses `git status --porcelain --untracked-files=all`: `XY <path>` or `XY <old> -> <new>`. */
+function parseStatus(stdout: string): StatusEntry[] {
+  return stdout
+    .split("\n")
+    .filter((line) => line.length > 3)
+    .map((line) => {
+      const untracked = line.startsWith("??");
+      let path = line.slice(3);
+      const rename = path.indexOf(" -> ");
+      if (rename >= 0) path = path.slice(rename + 4);
+      return { path, untracked };
+    });
 }
 
 export function execFileGitRunner(): GitRunner {
   return {
-    currentBranch: (cwd) => git(cwd, ["rev-parse", "--abbrev-ref", "HEAD"]),
-    isClean: async (cwd) => (await git(cwd, ["status", "--porcelain"])) === "",
-    head: (cwd) => git(cwd, ["rev-parse", "HEAD"]),
+    currentBranch: async (cwd) => (await git(cwd, ["rev-parse", "--abbrev-ref", "HEAD"])).trim(),
+    status: async (cwd) => parseStatus(await git(cwd, ["status", "--porcelain", "--untracked-files=all"])),
+    head: async (cwd) => (await git(cwd, ["rev-parse", "HEAD"])).trim(),
     pullFfOnly: async (cwd, remote, branch) => {
       await git(cwd, ["pull", "--ff-only", remote, branch]);
     },
@@ -43,7 +65,8 @@ export function execFileGitRunner(): GitRunner {
         return false;
       }
     },
-    changedPaths: async (cwd, before, after) =>
-      (await git(cwd, ["diff", "--name-only", before, after])).split("\n").filter((p) => p !== ""),
+    removePath: async (cwd, relPath) => {
+      await rm(join(cwd, relPath), { force: true });
+    },
   };
 }

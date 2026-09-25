@@ -1,4 +1,4 @@
-import type { GitRunner } from "@console/tool-automation/git";
+import type { GitRunner, StatusEntry } from "@console/tool-automation/git";
 
 /**
  * A `GitRunner` that answers from a script and records its calls, so bridge
@@ -7,24 +7,24 @@ import type { GitRunner } from "@console/tool-automation/git";
  */
 export function fakeGit(state: {
   branch?: string;
-  clean?: boolean;
+  /** `git status --porcelain` entries; empty means a clean tree. */
+  status?: StatusEntry[];
   before?: string;
   after?: string;
   /** Commits `isAncestor` reports as already on HEAD. */
   ancestors?: readonly string[];
-  /** Paths `changedPaths` reports between before and after. */
-  changed?: readonly string[];
 }) {
   const calls: string[] = [];
+  const removed: string[] = [];
   let head = state.before ?? "a".repeat(40);
   const git: GitRunner = {
     async currentBranch() {
       calls.push("branch");
       return state.branch ?? "cognition-dashboard-devin-integration";
     },
-    async isClean() {
-      calls.push("clean");
-      return state.clean ?? true;
+    async status() {
+      calls.push("status");
+      return [...(state.status ?? [])];
     },
     async head() {
       calls.push("head");
@@ -38,10 +38,10 @@ export function fakeGit(state: {
       calls.push(`ancestor:${commit.slice(0, 7)}@${ref}`);
       return (state.ancestors ?? []).includes(commit);
     },
-    async changedPaths(_cwd, before, after) {
-      calls.push(`changed:${before.slice(0, 7)}..${after.slice(0, 7)}`);
-      return [...(state.changed ?? [])];
+    async removePath(_cwd, relPath) {
+      calls.push(`remove:${relPath}`);
+      removed.push(relPath);
     },
   };
-  return { git, calls };
+  return { git, calls, removed };
 }

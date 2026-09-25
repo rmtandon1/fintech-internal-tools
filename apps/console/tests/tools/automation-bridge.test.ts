@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -28,14 +28,16 @@ import {
   approveRun,
   type BridgeDeps,
   dispatchRun,
-  isMergeLocal,
+  isSynced,
   observeMerge,
   pollRun,
   reconcileRuns,
   stopRun,
   syncMergedRun,
 } from "@console/tool-automation/bridge";
+import { db } from "@console/db";
 import { kycTool } from "@console/tool-kyc";
+import { devinRuns } from "@console/tool-automation/schema";
 import { refundTool } from "@console/tool-refunds";
 import { fakeGit } from "../helpers/fake-git";
 import { admin, refundsAgent, refundsManager, setupHarness } from "../helpers/harness";
@@ -458,15 +460,57 @@ describe("syncMergedRun", () => {
     const fake = fakeGit({ branch: "devin/run" });
     const sync = await syncMergedRun(run, deps({ git: fake.git }));
     expect(sync).toEqual({ kind: "skipped", reason: "checkout is not on cognition-dashboard-devin-integration" });
-    expect(fake.calls).not.toContain("clean");
+    expect(fake.calls).not.toContain("status");
   });
 
-  it("skips a dirty working tree so uncommitted edits are never clobbered", async () => {
+  it("skips a modified tracked file so uncommitted edits are never clobbered", async () => {
     const run = await merged();
-    const fake = fakeGit({ clean: false });
+    const fake = fakeGit({ status: [{ path: "tools/refunds/src/index.ts", untracked: false }] });
     const sync = await syncMergedRun(run, deps({ git: fake.git }));
     expect(sync).toEqual({ kind: "skipped", reason: "working tree has uncommitted changes" });
     expect(fake.calls.some((c) => c.startsWith("pull:"))).toBe(false);
+  });
+
+  it("skips an unrelated untracked file", async () => {
+    const run = await merged();
+    const fake = fakeGit({ status: [{ path: "notes.txt", untracked: true }] });
+    const sync = await syncMergedRun(run, deps({ git: fake.git }));
+    expect(sync).toEqual({ kind: "skipped", reason: "working tree has uncommitted changes" });
+  });
+
+  it("deletes a merged run's untracked context.json so the pull can land it", async () => {
+    const run = await merged();
+    // dispatchRun already wrote the byte-identical runs/<id>/context.json into repoRoot.
+    const rel = `runs/${run.id}/context.json`;
+    expect(existsSync(join(repoRoot, rel))).toBe(true);
+    const fake = fakeGit({
+      status: [{ path: rel, untracked: true }],
+      before: BEFORE,
+      after: AFTER,
+      ancestors: [MERGE],
+    });
+    const sync = await syncMergedRun(run, deps({ git: fake.git, migrationsPending: async () => false }));
+    expect(sync).toEqual({ kind: "synced", before: BEFORE, after: AFTER, migrated: false });
+    expect(fake.removed).toEqual([rel]);
+  });
+
+  it("leaves an untracked context.json whose bytes do not match the run's digest", async () => {
+    const run = await merged();
+    const rel = `runs/${run.id}/context.json`;
+    writeFileSync(join(repoRoot, rel), "{}", "utf8");
+    const fake = fakeGit({
+      status: [{ path: rel, untracked: true }],
+      before: BEFORE,
+      after: AFTER,
+      ancestors: [MERGE],
+    });
+    const original = readFileSync(join(repoRoot, rel), "utf8");
+    writeFileSync(join(repoRoot, rel), "{}", "utf8");
+    const sync = await syncMergedRun(run, deps({ git: fake.git, migrationsPending: async () => false }));
+    expect(fake.removed).toEqual([]);
+    expect(fake.calls.some((c) => c.startsWith("pull:"))).toBe(true);
+    expect(sync.kind).toBe("synced");
+    writeFileSync(join(repoRoot, rel), original, "utf8");
   });
 
   it("fails when the pulled HEAD does not contain the merge commit", async () => {
@@ -477,38 +521,79 @@ describe("syncMergedRun", () => {
     if (sync.kind === "failed") expect(sync.reason).toContain(MERGE.slice(0, 12));
   });
 
-  it("pulls, verifies the merge commit, and runs db:migrate only when drizzle changed", async () => {
+  it("runs db:migrate only while migrations are pending", async () => {
     const run = await merged();
-    const fake = fakeGit({
-      before: BEFORE,
-      after: AFTER,
-      ancestors: [MERGE],
-      changed: ["apps/console/drizzle/0002_run.sql", "tools/refunds/src/index.ts"],
-    });
     const migrated: string[] = [];
+    let pending = true;
     const sync = await syncMergedRun(
       run,
-      deps({ git: fake.git, migrate: async (cwd) => void migrated.push(cwd) }),
+      deps({
+        git: fakeGit({ before: BEFORE, after: AFTER, ancestors: [MERGE] }).git,
+        migrate: async (cwd) => void migrated.push(cwd),
+        migrationsPending: async () => pending,
+      }),
     );
     expect(sync).toEqual({ kind: "synced", before: BEFORE, after: AFTER, migrated: true });
     expect(migrated).toEqual([repoRoot]);
-    expect(await isMergeLocal(run, deps({ git: fake.git }))).toBe(true);
 
-    const clean = fakeGit({ before: BEFORE, after: AFTER, ancestors: [MERGE], changed: ["tools/refunds/src/x.ts"] });
-    const migratedAgain: string[] = [];
-    const second = await syncMergedRun(
+    pending = false;
+    const again = await syncMergedRun(
       run,
-      deps({ git: clean.git, migrate: async (cwd) => void migratedAgain.push(cwd) }),
+      deps({
+        git: fakeGit({ before: BEFORE, after: AFTER, ancestors: [MERGE] }).git,
+        migrate: async (cwd) => void migrated.push(cwd),
+        migrationsPending: async () => pending,
+      }),
     );
-    expect(second).toEqual({ kind: "synced", before: BEFORE, after: AFTER, migrated: false });
-    expect(migratedAgain).toEqual([]);
+    expect(again).toEqual({ kind: "synced", before: BEFORE, after: AFTER, migrated: false });
+    expect(migrated).toEqual([repoRoot]);
   });
 
-  it("reports unchanged when the pull advances nothing", async () => {
+  it("retries a failed migration on the next call even when the pull advances nothing", async () => {
+    const run = await merged();
+    const migrated: string[] = [];
+    const first = await syncMergedRun(
+      run,
+      deps({
+        git: fakeGit({ before: BEFORE, after: AFTER, ancestors: [MERGE] }).git,
+        migrate: async () => {
+          throw new Error("SQLITE_BUSY");
+        },
+        migrationsPending: async () => true,
+      }),
+    );
+    expect(first.kind).toBe("failed");
+    if (first.kind === "failed") expect(first.reason).toContain("SQLITE_BUSY");
+
+    const second = await syncMergedRun(
+      run,
+      deps({
+        git: fakeGit({ before: AFTER, ancestors: [MERGE] }).git,
+        migrate: async (cwd) => void migrated.push(cwd),
+        migrationsPending: async () => true,
+      }),
+    );
+    expect(second).toEqual({ kind: "synced", before: AFTER, after: AFTER, migrated: true });
+    expect(migrated).toEqual([repoRoot]);
+  });
+
+  it("reports unchanged only when neither HEAD nor migrations moved", async () => {
     const run = await merged();
     const fake = fakeGit({ before: BEFORE, ancestors: [MERGE] });
-    const sync = await syncMergedRun(run, deps({ git: fake.git }));
+    const sync = await syncMergedRun(run, deps({ git: fake.git, migrationsPending: async () => false }));
     expect(sync).toEqual({ kind: "unchanged", head: BEFORE });
+  });
+
+  it("isSynced stays false while migrations are pending", async () => {
+    const run = await merged();
+    let pending = true;
+    const d = deps({
+      git: fakeGit({ ancestors: [MERGE] }).git,
+      migrationsPending: async () => pending,
+    });
+    expect(await isSynced(run, d)).toBe(false);
+    pending = false;
+    expect(await isSynced(run, d)).toBe(true);
   });
 });
 
@@ -559,6 +644,51 @@ describe("reconcileRuns", () => {
     // And a second reconcile has nothing approved left to check.
     const second = await reconcileRuns(engineer, deps({ github: fakeGitHub({ merged: true }).client, git: fake.git }));
     expect(second).toEqual({ checked: 0, merged: 0, sync: null });
+  });
+
+  it("pages through every approved run before transitioning any of them", async () => {
+    stopAll();
+    // One run per tool is in flight, so approved runs past the first come from
+    // direct inserts — the list query is what is under test, not dispatch.
+    const first = await approved();
+    const ids = [first.id];
+    for (let i = 0; i < 2; i++) {
+      const id = ulid();
+      db.insert(devinRuns)
+        .values({
+          id,
+          kind: "IMPLEMENTATION/ADDITION",
+          spec: REFUND_CLUSTERING_HOLD.file,
+          tool: "refunds",
+          scope: "rule",
+          intent: "seeded approved run",
+          contextSha256: "f".repeat(64),
+          sessionId: null,
+          status: "approved",
+          prUrl: PR,
+          mergeCommit: null,
+          reverses: null,
+          requestedBy: admin.id,
+          requestedByRole: admin.role,
+          approvedBy: engineer.id,
+          lastNote: null,
+          requestedAt: 1,
+          updatedAt: 1,
+          version: 1,
+        })
+        .run();
+      ids.push(id);
+    }
+    const fake = fakeGit({ after: "b".repeat(40), ancestors: [MERGE] });
+    const out = await reconcileRuns(
+      engineer,
+      deps({ github: fakeGitHub({ merged: true }).client, git: fake.git }),
+      2,
+    );
+    expect(out.checked).toBe(3);
+    expect(out.merged).toBe(3);
+    expect(out.sync?.kind).toBe("synced");
+    for (const id of ids) expect(getRun(id)?.status).toBe("merged");
   });
 });
 

@@ -14,7 +14,7 @@ import { StatusChip } from "@console/ui/status-chip";
 import { previewActions } from "@console/engine/policy/preview";
 import type { Actor } from "@console/engine/types";
 import { automationTool, getRun } from "@console/tool-automation";
-import { currentPrUrl, isMergeLocal, readContextJson } from "@console/tool-automation/bridge";
+import { currentPrUrl, isSynced, readContextJson } from "@console/tool-automation/bridge";
 import { bridgeDeps } from "@/lib/bridge";
 import { currentActor } from "@/lib/session";
 import { getTool } from "@/registry";
@@ -56,7 +56,7 @@ async function runSurface(
       approve: prUrl ? approve : { offered: false, reason: approve.reason ?? "No pull request reported yet" },
       merge: run.status === "approved" && gate("record_merge").offered,
       sync:
-        run.status === "merged" && deps.git !== undefined && !(await isMergeLocal(run, deps)),
+        run.status === "merged" && deps.git !== undefined && !(await isSynced(run, deps)),
       stop: gate("stop"),
     },
     files: (

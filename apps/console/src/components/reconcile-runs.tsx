@@ -22,8 +22,7 @@ export function ReconcileRuns() {
           const result = await reconcileAutomationRuns();
           if (result.ok) toast.success(result.title, { description: result.detail });
           else toast.error(result.title, { description: result.detail });
-          if (result.reloadFull) location.reload();
-          else if (result.reload) router.refresh();
+          if (result.reload) router.refresh();
         })
       }
     >

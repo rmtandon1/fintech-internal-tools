@@ -34,8 +34,6 @@ export interface BridgeResult {
   retry?: boolean;
   /** The sync pulled new code: refresh server components. */
   reload?: boolean;
-  /** The sync ran db:migrate: reload fully so constants re-register on boot. */
-  reloadFull?: boolean;
 }
 
 const DispatchForm = z.object({
@@ -151,7 +149,6 @@ export async function observeAutomationMerge(runId: string): Promise<BridgeResul
           title: recorded ? "Merge recorded" : "Merge seen, not recorded",
           detail,
           reload: sync?.kind === "synced",
-          reloadFull: sync?.kind === "synced" && sync.migrated,
         };
       }
       case "open":
@@ -166,6 +163,10 @@ export async function observeAutomationMerge(runId: string): Promise<BridgeResul
 
 /** Pulls a run's merge into the local checkout; offered once the run is `merged`. */
 export async function syncAutomationRun(runId: string): Promise<BridgeResult> {
+  const actor = await currentActor();
+  if (actor.role !== "engineer") {
+    return { ok: false, title: "Sync denied", detail: "Only the engineer may pull merged code" };
+  }
   const run = getRun(runId);
   if (!run) return { ok: false, title: "Run not found" };
   try {
@@ -181,7 +182,6 @@ export async function syncAutomationRun(runId: string): Promise<BridgeResult> {
       title: ok ? "Local checkout synced" : "Pull did not run",
       detail,
       reload: sync.kind === "synced",
-      reloadFull: sync.kind === "synced" && sync.migrated,
     };
   } catch (error) {
     return { ok: false, title: "Pull failed", detail: message(error) };
@@ -214,7 +214,6 @@ export async function reconcileAutomationRuns(): Promise<BridgeResult> {
       title: `Reconciled ${outcome.checked} approved run(s)`,
       detail,
       reload: sync?.kind === "synced",
-      reloadFull: sync?.kind === "synced" && sync.migrated,
     };
   } catch (error) {
     return { ok: false, title: "Reconcile failed", detail: message(error) };
