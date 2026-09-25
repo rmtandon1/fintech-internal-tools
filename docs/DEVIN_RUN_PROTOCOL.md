@@ -9,7 +9,7 @@
 - An engineer approves, then Devin merges.
 - A reversal removes one earlier change from the code as it is now, keeping everything merged since.
 - Switching a rule off is a setting change on `/admin/policy`, in seconds, with no run.
-- The console talks to the Devin v3 API from the server. Without `DEVIN_API_KEY` and `DEVIN_ORG_ID`, a dispatch records `dispatch_failed` and says so.
+- The console talks to the Devin v3 API from the server. `DEVIN_API_KEY` is the only setting it needs. Without it the console runs in simulation mode and dispatches nothing.
 
 
 
@@ -276,4 +276,8 @@ Demo setup: the engineer's GitHub token sits in the server environment next to `
 
 ## Credentials
 
-`DEVIN_API_KEY` and `DEVIN_ORG_ID` are read on the server (`apps/console/src/lib/bridge.ts`) and never reach the browser. With both set, the console dispatches, polls and terminates through the v3 API. Without them, `dispatch` still applies and `record_session` records the missing configuration as the error, so the run lands as `dispatch_failed` with its audit rows and the console shows that as an ordinary engine error.
+`DEVIN_API_KEY` is read on the server from a gitignored repo-root `.env` (`apps/console/src/lib/env.ts`, `apps/console/src/lib/bridge.ts`) and never reaches the browser. The organisation comes from `GET /v3/self` unless `DEVIN_ORG_ID` overrides it, and the playbook titled "Governed console run" is looked up unless `DEVIN_PLAYBOOK_ID` names one. A missing playbook doesn't block a run, because the session prompt also names `.devin/run-protocol.playbook.md`. `GET /api/devin/status` reports the mode and organisation and never returns the key.
+
+With the key set, the console dispatches, polls and terminates through the v3 API. If the session can't be created, `dispatch` still applies and `record_session` records the error, so the run lands as `dispatch_failed` with its audit rows.
+
+Without the key, the console runs in **simulation mode** (`apps/console/src/lib/simulation.ts`). The Devin window and the dispatch dialog show a pre-written finished run for the spec and kind, under a Simulation banner. `dispatchAutomationRun` refuses, so a run that never happened never reaches `devin_runs` or the audit chain.
