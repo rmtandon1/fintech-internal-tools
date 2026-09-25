@@ -64,11 +64,16 @@ Dispatch goes through `executeIntent` like every other write. A small `automatio
 
 The effect writes the run row and the audit row in one transaction. The HTTP call to Devin happens after the commit, never inside it. `record_session` then stores the session id. If the call fails, the run row is marked `dispatch_failed` through the same intent path.
 
+Polled run state is never written to `devin_runs`. Phase, `status_detail` and `structured_output` come from the session poll and are held in memory (and appended to the replay file, `AGENT_TRIGGER_SURFACE.md` § `apps/console/src/app/api/devin/`), not persisted. Only audited transitions touch the table: `dispatch`, `record_session`, `approve_pr`, `record_merge` and `stop`. That keeps a run at four audit rows on the normal path (dispatch, record_session, approve_pr, record_merge), with `stop` or `dispatch_failed` replacing the later rows when a run ends early.
+
+`stop` also records terminal session failure. When a poll reports the session `failed` (or a phase stopped the run, § Phases), the console submits `stop` with the reported reason, so the row leaves the in-flight state and the "no other run in flight against the same tool" rule releases the tool. Without that, a failed run would block the next `dispatch` until someone pressed **Stop run**. A `stop` row names whether it was an operator's click or a reported failure.
+
 `approve_pr` rules:
 
 - The actor is an `engineer`. This is a new role, added to `ROLES` and `ROLE_META` in `packages/permissions/src/roles.ts` and `DEMO_ACTORS` in `packages/engine/src/actor.ts` by the build agent, with a level `canApprove` excludes (`AGENT_TRIGGER_SURFACE.md` § Build). It is not a Devin run.
 - The approver is not the run's requester.
 - The PR's required checks are green, including every guard check.
+- **Context untouched**: the branch's `runs/<run_id>/context.json` hashes (SHA-256) to the `contextSha256` stored in the dispatch audit row. This is the one guard the console runs itself, because CI can't read its SQLite.
 
 Its effect submits an approving review to GitHub as the engineer, then messages the Devin session to merge. See § Approval and merge.
 
@@ -88,6 +93,13 @@ Devin's VM runs a freshly seeded database. It cannot see `apps/console/data/cons
   "intent": "Hold a merchant's not-received refunds once together they pass the manager line, and send those customers' KYC approvals to a manager.",
   "requested_by": "refunds_manager",
   "base": { "branch": "cognition-dashboard-devin-integration", "commit": "1a67f60…" },
+  "scope": [
+    "tools/refunds/src/clustering-hold.ts",
+    "tools/refunds/src/index.ts",
+    "tools/kyc/src/index.ts",
+    "apps/console/tests/tools/refunds-clustering-hold.test.ts",
+    "apps/console/tests/tools/kyc.test.ts"
+  ],
   "constants": {
     "refunds.manager_approval_usd_minor": 50000,
     "kyc.manager_review_score": 70
@@ -104,7 +116,8 @@ Devin's VM runs a freshly seeded database. It cannot see `apps/console/data/cons
 ```
 
 - **Evidence rows carry no PII.** Emails and card numbers are dropped, not masked. Devin needs the amounts, merchant, reason and timing to write a regression test. It doesn't need the customer.
-- **The dispatch audit row stores the SHA-256 of this file.** The guard checks that the file committed on the branch hashes to the same value, so what Devin worked from is provably what the console sent.
+- **`scope` is the spec's Scope list as path globs.** The console copies it from the spec at dispatch (engine scope adds the paths from § Scope). It is what makes **Plan stays in scope** checkable: the guard matches every `plan.json` path against these globs, rather than parsing the spec's prose.
+- **The dispatch audit row stores the SHA-256 of this file.** The `approve_pr` rule checks that the file committed on the branch hashes to the same value, so what Devin worked from is provably what the console sent. CI cannot do this check, because it cannot read the console's SQLite (§ Guard checks).
 - **For a REVERSAL**, `reverses` names the IMPLEMENTATION's run id and merge commit. `constants` then carries both the values at that IMPLEMENTATION's dispatch and the values now.
 
 The session itself gets:
@@ -136,7 +149,7 @@ Each phase passes or stops the run. There is no "continue with warnings".
 
 The plan is Devin's own, committed before any edit. The spec gives a scope the plan must stay inside. Committing first is what makes scope checkable: the guard compares the diff with a list Devin wrote before it knew what the diff would be.
 
-`plan.json` holds `files[]` (path, `create | modify | delete`, one-line reason), `reuses[]` (existing modules the change builds on, each with a one-line reason) and `acceptance[]` (the spec's acceptance test names it will make pass). `reuses[]` is informational. No guard checks it, and it is not a scope boundary.
+`plan.json` holds `files[]` (path, `create | modify | delete`, one-line reason), `reuses[]` (existing modules the change builds on, each with a one-line reason), `acceptance[]` (the spec's acceptance test names it will make pass) and, for `IMPLEMENTATION/REMOVAL` and `REVERSAL`, `removed_tests[]` of `{ file, name }`: each test the run will delete because it asserts the rule being taken out. **Tests never shrink** permits exactly those removals and no others; for other kinds the array is absent or empty. `reuses[]` is informational. No guard checks it, and it is not a scope boundary.
 
 ## Progress
 
@@ -193,10 +206,11 @@ The playbook states these as prose, and `scripts/run-guard.ts` (in `pnpm verify`
 | Check                     | Fails when                                                                                                                                                                                            |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Stays in plan**         | A file outside `plan.json ∪ runs/<run_id>/` is created, changed, renamed or deleted                                                                                                                   |
-| **Plan stays in scope**   | `plan.json` names a file outside the spec's scope                                                                                                                                                     |
-| **Context untouched**     | `context.json` doesn't hash to the value in the dispatch audit row, or `runs/<run_id>/` changes after the plan commit                                                                                 |
+| **Plan stays in scope**   | A `plan.json` path matches none of the globs in `context.json`'s `scope`                                                                                                                              |
+| **Run dir frozen**        | Any file under `runs/<run_id>/` changes in a commit after the plan commit                                                                                                                             |
+| **Context untouched**     | `approve_pr` only, not CI. The branch's `runs/<run_id>/context.json` doesn't hash (SHA-256) to `contextSha256` in the dispatch audit row. CI can't read the console's SQLite, so the console's own rule does this check |
 | **Engine untouched**      | Scope `rule` only. Anything under `packages/engine/`, `packages/db/`, `packages/db-core/`, `packages/db-write/`, `packages/permissions/`, `apps/console/drizzle/`, `scripts/check-boundaries.ts`, the guard itself, `AGENTS.md`, `package.json` or `pnpm-lock.yaml` changes                      |
-| **Tests never shrink**    | A test file is deleted, a file's `it(` count drops, or `.skip`, `.only` or `.todo` appears. A REMOVAL or REVERSAL may delete tests that assert the rule it takes out, but only if the plan names them |
+| **Tests never shrink**    | A test file is deleted, a file's `it(` count drops, or `.skip`, `.only` or `.todo` appears. A REMOVAL or REVERSAL may delete tests that assert the rule it takes out, but only those listed in `plan.json`'s `removed_tests[]` by file and name |
 | **No type escapes**       | New `any`, `@ts-ignore`, `eslint-disable` or `as unknown as`                                                                                                                                          |
 | **Seed is not state**     | A seed file changes to fake a demo outcome. Seeds may gain rows the spec asks for                                                                                                                     |
 | **Humans approve**        | The session merges without an approving review from someone other than itself, force-pushes, or pushes to the default branch                                                                          |
