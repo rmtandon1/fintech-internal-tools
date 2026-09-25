@@ -108,3 +108,15 @@
     font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   }
 }
+
+/* Below lg the agent column moves into a header sheet: the workspace is main
+   alone. !important because the panel library sets display and flex inline. */
+@media (width < 64rem) {
+  #workspace > [data-separator],
+  #workspace-agent {
+    display: none !important;
+  }
+  #workspace-main {
+    flex: 1 1 0 !important;
+  }
+}
