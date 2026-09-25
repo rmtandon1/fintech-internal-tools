@@ -1,4 +1,6 @@
 import { execFileSync } from "node:child_process";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { ContextFile, PlanFile, type ContextFile as Context, type PlanFile as Plan } from "@console/tool-automation/run-files";
 import { ENGINE_SCOPE_PATHS } from "@console/tool-automation/specs";
 
@@ -19,11 +21,11 @@ import { ENGINE_SCOPE_PATHS } from "@console/tool-automation/specs";
  *   Stays in plan        every changed path is in `plan.files[]` with the op git observed
  *                        (create/modify/delete; a rename is delete + create) or under `runs/<run_id>/`
  *   Plan stays in scope  every `plan.files[].path` matches a glob in `context.scope`
- *   Context untouched    the plan commit (the first commit on the branch) adds exactly
+ *   Run dir frozen       the plan commit (the first commit on the branch) adds exactly
  *                        `context.json` and `plan.json`, and no later commit touches
  *                        either, even if reverted afterwards. Other files under
- *                        `runs/<run_id>/`, such as `replay.json`, may. The other half
- *                        of this check, comparing `context.json`'s SHA-256 with the
+ *                        `runs/<run_id>/`, such as `replay.json`, may. Its sibling
+ *                        Context untouched, comparing `context.json`'s SHA-256 with the
  *                        dispatch audit row, lives in the automation tool's
  *                        `approve_pr` rule: CI cannot read the console's SQLite
  *   Engine untouched     scope `rule` only. Nothing under the engine paths below changes
@@ -33,20 +35,25 @@ import { ENGINE_SCOPE_PATHS } from "@console/tool-automation/specs";
  *                        `plan.removed_tests[]`
  *   No type escapes      no added line carries `any` as a type, `@ts-ignore`,
  *                        `@ts-expect-error`, `eslint-disable` or `as unknown as`
+ *   Seed is not state    a changed `seed.ts` is planned with a reason naming the rows it
+ *                        adds and its diff removes no lines
+ *   Only undo            REVERSAL only: every production file the reversed merge touched
+ *                        is back to its pre-merge content except for later merged work,
+ *                        and nothing else changes
  *
- * Only undo, Seed is not state, Humans approve, Engine owner approves and No
- * live writes are enforced by review, GitHub branch protection and the
- * playbook, not by this script; they are listed in the report so the PR
- * comment reads as the full table.
+ * Humans approve, Engine owner approves and No live writes are enforced by
+ * review, GitHub branch protection and the playbook, not by this script; they
+ * are listed in the report so the PR comment reads as the full table.
  *
  * Scope is inferred from `context.scope`: the console appends
  * `ENGINE_SCOPE_PATHS` to the globs for an engine-scope run, so a context that
  * carries all of them is engine scope and anything else is rule scope.
  *
- * Usage: tsx scripts/run-guard.ts [--base <ref>] [--markdown]
+ * Usage: tsx scripts/run-guard.ts [--base <ref>] [--markdown] [--list-checks]
  *   --base      ref to diff against (default: RUN_GUARD_BASE, then
  *               origin/$GITHUB_BASE_REF, then origin/cognition-dashboard-devin-integration)
  *   --markdown  print the report as a Markdown table for the PR comment
+ *   --list-checks  print the implemented check names, one per line, and exit
  */
 
 const INTEGRATION_BRANCH = "cognition-dashboard-devin-integration";
@@ -66,13 +73,21 @@ const ENGINE_PATHS = [
   "pnpm-lock.yaml",
 ];
 
-const DELEGATED = [
-  "Only undo",
+export const RUN_GUARD_NAMES = [
+  "Stays in plan",
+  "Plan stays in scope",
+  "Run dir frozen",
+  "Engine untouched",
+  "Tests never shrink",
+  "No type escapes",
   "Seed is not state",
-  "Humans approve",
-  "Engine owner approves",
-  "No live writes",
-];
+  "Only undo",
+] as const;
+
+const DELEGATED = ["Humans approve", "Engine owner approves", "No live writes"];
+
+const SEED_FILE_RE = /(^|\/)seed\.tsx?$/;
+const SEED_REASON_RE = /add.*rows?/i;
 
 const TEST_FILE_RE = /\.test\.tsx?$/;
 const TEST_CALL_RE = /(?<![.\w$])(?:it|test)\s*\(/g;
@@ -108,6 +123,10 @@ interface Change {
 
 function main(): void {
   const args = process.argv.slice(2);
+  if (args.includes("--list-checks")) {
+    process.stdout.write(RUN_GUARD_NAMES.join("\n") + "\n");
+    return;
+  }
   const markdown = args.includes("--markdown");
   const baseIdx = args.indexOf("--base");
   const baseArg = baseIdx >= 0 ? args[baseIdx + 1] : undefined;
@@ -124,7 +143,7 @@ function main(): void {
   process.exit(failed ? 1 : 0);
 }
 
-function runGuard(opts: { cwd: string; base?: string }): GuardReport {
+export function runGuard(opts: { cwd: string; base?: string }): GuardReport {
   const git = (...argv: string[]): string =>
     execFileSync("git", argv, { cwd: opts.cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trimEnd();
   const tryGit = (...argv: string[]): string | null => {
@@ -157,7 +176,10 @@ function runGuard(opts: { cwd: string; base?: string }): GuardReport {
     ),
   );
   if (planAdds.length === 0) {
-    return { run: null, checks: [{ name: "No run on this branch", pass: true, reason: `no runs/<run_id>/plan.json added since ${mergeBase.slice(0, 7)}` }] };
+    const stray = changes.flatMap((c) => [c.path, ...(c.from ? [c.from] : [])]).filter((p) => p.startsWith("runs/"));
+    return stray.length > 0
+      ? { run: null, checks: [{ name: "No run on this branch", pass: false, reason: `runs/ changes without a new plan.json: ${list(stray)}` }] }
+      : { run: null, checks: [{ name: "No run on this branch", pass: true, reason: `no runs/<run_id>/plan.json added since ${mergeBase.slice(0, 7)}` }] };
   }
   if (planAdds.length > 1) {
     return {
@@ -197,10 +219,12 @@ function runGuard(opts: { cwd: string; base?: string }): GuardReport {
   const checks: CheckResult[] = [
     staysInPlan(ctx),
     planStaysInScope(ctx),
-    contextUntouched(ctx),
+    runDirFrozen(ctx),
     engineUntouched(ctx),
     testsNeverShrink(ctx),
     noTypeEscapes(ctx),
+    seedIsNotState(ctx),
+    onlyUndo(ctx),
     ...DELEGATED.map((name) => ({ name, pass: null, reason: "enforced by review/GitHub/playbook" })),
   ];
 
@@ -254,7 +278,7 @@ function planStaysInScope({ plan, context }: RunContext): CheckResult {
     : { name: "Plan stays in scope", pass: false, reason: `not in context.scope: ${list(outside)}` };
 }
 
-function contextUntouched({ git, mergeBase, planCommit, runDir }: RunContext): CheckResult {
+function runDirFrozen({ git, mergeBase, planCommit, runDir }: RunContext): CheckResult {
   const frozen = [`${runDir}context.json`, `${runDir}plan.json`];
   const short = planCommit.slice(0, 7);
 
@@ -266,7 +290,7 @@ function contextUntouched({ git, mergeBase, planCommit, runDir }: RunContext): C
       ...(absent.length > 0 ? [`does not add ${list(absent)}`] : []),
       ...(extra.length > 0 ? [`also changes ${list(extra)}`] : []),
     ];
-    return { name: "Context untouched", pass: false, reason: `plan commit ${short} ${parts.join(" and ")}` };
+    return { name: "Run dir frozen", pass: false, reason: `plan commit ${short} ${parts.join(" and ")}` };
   }
 
   const touched = git("log", "--name-only", "--format=commit %h", `${planCommit}..HEAD`, "--", ...frozen)
@@ -275,9 +299,9 @@ function contextUntouched({ git, mergeBase, planCommit, runDir }: RunContext): C
   if (touched.length > 0) {
     const commits = touched.filter((l) => l.startsWith("commit ")).map((l) => l.slice("commit ".length));
     const files = Array.from(new Set(touched.filter((l) => frozen.includes(l))));
-    return { name: "Context untouched", pass: false, reason: `changed after plan commit ${short}: ${list(files)} in ${list(commits)}` };
+    return { name: "Run dir frozen", pass: false, reason: `changed after plan commit ${short}: ${list(files)} in ${list(commits)}` };
   }
-  return { name: "Context untouched", pass: true, reason: `plan commit ${short} adds only context.json and plan.json; neither changes afterwards` };
+  return { name: "Run dir frozen", pass: true, reason: `plan commit ${short} adds only context.json and plan.json; neither changes afterwards` };
 }
 
 function engineUntouched({ scope, changes }: RunContext): CheckResult {
@@ -378,6 +402,56 @@ function noTypeEscapes({ git, mergeBase, runDir, changes }: RunContext): CheckRe
 }
 
 /** An explicit ref (`--base` or `RUN_GUARD_BASE`) must resolve; only the implicit chain falls through. */
+function seedIsNotState({ git, mergeBase, plan, changes }: RunContext): CheckResult {
+  const seeds = changes.filter((c) => SEED_FILE_RE.test(c.path) || (c.from !== undefined && SEED_FILE_RE.test(c.from)));
+  if (seeds.length === 0) return { name: "Seed is not state", pass: true, reason: "no seed file changed" };
+  const problems: string[] = [];
+  for (const c of seeds) {
+    const planned = plan.files.find((f) => f.path === c.path);
+    if (c.from !== undefined || c.status === "D") problems.push(`${c.from ?? c.path}: seed files may only gain rows, not move or disappear`);
+    else if (!planned) problems.push(`${c.path}: not in plan.json`);
+    else if (!SEED_REASON_RE.test(planned.reason)) problems.push(`${c.path}: plan reason ${JSON.stringify(planned.reason)} does not name added rows`);
+    else if (removedLines(git("diff", "--unified=0", mergeBase, "HEAD", "--", c.path)) > 0) problems.push(`${c.path}: removes lines`);
+  }
+  return problems.length === 0
+    ? { name: "Seed is not state", pass: true, reason: `${seeds.length} seed file(s) only gain planned rows` }
+    : { name: "Seed is not state", pass: false, reason: list(problems) };
+}
+
+/**
+ * For every production file the reversed merge changed, HEAD must differ from the
+ * base unless later merged work already touched it; a file that still carries the
+ * reversed change, or a production change outside those files, is new behaviour.
+ */
+function onlyUndo({ git, tryGit, mergeBase, context, changes }: RunContext): CheckResult {
+  if (context.kind !== "REVERSAL") return { name: "Only undo", pass: true, reason: `not a REVERSAL (${context.kind})` };
+  const target = context.reverses?.merge_commit;
+  if (!target) return { name: "Only undo", pass: false, reason: "REVERSAL context has no reverses.merge_commit" };
+  const targetSha = tryGit("rev-parse", "--verify", "--quiet", `${target}^{commit}`);
+  if (!targetSha) return { name: "Only undo", pass: false, reason: `reverses.merge_commit ${target} not found; fetch it` };
+  if (tryGit("merge-base", "--is-ancestor", targetSha, mergeBase) === null) {
+    return { name: "Only undo", pass: false, reason: `reverses.merge_commit ${target.slice(0, 7)} is not an ancestor of the base` };
+  }
+  const production = (p: string) => !TEST_FILE_RE.test(p) && !p.startsWith("runs/");
+  const pathsIn = (range: string[]) => parseNameStatus(git("diff", "--name-status", "-M", ...range)).flatMap((c) => [c.path, ...(c.from ? [c.from] : [])]);
+  const sameAt = (a: string, b: string, p: string) => tryGit("diff", "--quiet", a, b, "--", p) !== null;
+  const original = Array.from(new Set(pathsIn([`${targetSha}^`, targetSha]).filter(production)));
+  const later = new Set(pathsIn([targetSha, mergeBase]).filter(production));
+  const violations = original.filter(
+    (p) => !sameAt(mergeBase, `${targetSha}^`, p) && (sameAt(mergeBase, "HEAD", p) || (!later.has(p) && !sameAt(`${targetSha}^`, "HEAD", p))),
+  );
+  const extra = Array.from(new Set(changes.flatMap((c) => [c.path, ...(c.from ? [c.from] : [])])))
+    .filter((p) => production(p) && !original.includes(p) && !later.has(p));
+  const all = [...violations, ...extra];
+  return all.length === 0
+    ? { name: "Only undo", pass: true, reason: `${original.length} file(s) from ${target.slice(0, 7)} undone, later work kept` }
+    : { name: "Only undo", pass: false, reason: list(all) };
+}
+
+function removedLines(diff: string): number {
+  return diff.split("\n").filter((l) => l.startsWith("-") && !l.startsWith("---")).length;
+}
+
 function resolveBase(explicit: string | undefined, tryGit: (...argv: string[]) => string | null): string | null {
   const resolves = (ref: string) => tryGit("rev-parse", "--verify", "--quiet", `${ref}^{commit}`) !== null;
   if (explicit !== undefined) return resolves(explicit) ? explicit : null;
@@ -472,8 +546,7 @@ function renderText(report: GuardReport): string {
     lines.push(`Run ${r.id} (${r.kind}, scope ${r.scope}) — base ${r.base.slice(0, 7)}, plan commit ${r.planCommit.slice(0, 7)}`);
   }
   for (const c of report.checks) {
-    const mark = c.pass === null ? "  —  " : c.pass ? "PASS " : "FAIL ";
-    lines.push(`${mark} ${c.name} — ${c.reason}`);
+    lines.push(c.pass === null ? `${c.name}: n/a (${c.reason})` : c.pass ? `${c.name}: PASS — ${c.reason}` : `${c.name}: FAIL (${c.reason})`);
   }
   return lines.join("\n") + "\n";
 }
@@ -499,4 +572,4 @@ function renderMarkdown(report: GuardReport): string {
   return lines.join("\n") + "\n";
 }
 
-main();
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

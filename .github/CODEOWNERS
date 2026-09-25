@@ -13,5 +13,6 @@
 /scripts/check-boundaries.ts @rmtandon1
 /scripts/run-guard.ts @rmtandon1
 /runs/ @rmtandon1
+/.devin/ @rmtandon1
 /.github/CODEOWNERS @rmtandon1
 /.github/workflows/ @rmtandon1

@@ -7,7 +7,7 @@
     "build": "pnpm --filter @console/app build",
     "start": "pnpm --filter @console/app start",
     "lint": "eslint",
-    "typecheck": "pnpm -r typecheck && tsc --noEmit -p scripts/tsconfig.json",
+    "typecheck": "pnpm -r typecheck && tsc -p tsconfig.scripts.json",
     "db:generate": "pnpm --filter @console/app db:generate",
     "db:migrate": "pnpm --filter @console/app db:migrate",
     "db:seed": "pnpm --filter @console/app db:seed",
@@ -15,10 +15,11 @@
     "db:scenario": "pnpm --filter @console/app db:scenario",
     "db:setup": "pnpm --filter @console/app db:setup",
     "check:boundaries": "tsx scripts/check-boundaries.ts",
-    "check:run-guard": "tsx scripts/run-guard.ts",
+    "check:run": "tsx scripts/run-guard.ts",
+    "devin:playbook": "tsx scripts/register-playbook.ts",
     "test": "pnpm --filter @console/app test",
     "test:watch": "pnpm --filter @console/app test:watch",
-    "verify": "pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm test && tsx scripts/run-guard.ts"
+    "verify": "pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm check:run && pnpm test"
   },
   "devDependencies": {
     "@console/tool-automation": "workspace:*",

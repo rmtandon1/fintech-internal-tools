@@ -31,6 +31,7 @@ const GIT_ENV = {
 const TOOL_FILE = "tools/refunds/src/index.ts";
 const TEST_FILE = "apps/console/tests/tools/refunds.test.ts";
 const ENGINE_FILE = "packages/engine/src/policy.ts";
+const SEED_FILE = "tools/refunds/src/seed.ts";
 
 const BASE_TEST = [
   'import { describe, expect, it } from "vitest";',
@@ -46,12 +47,14 @@ const BASE_FILES: Record<string, string> = {
   [TOOL_FILE]: 'export const refundTool = { id: "refunds" };\n',
   [TEST_FILE]: BASE_TEST,
   [ENGINE_FILE]: "export const policy = 1;\n",
+  [SEED_FILE]: 'export const seed = [\n  { id: "r1" },\n];\n',
   "package.json": '{ "name": "fixture" }\n',
 };
 
 interface ContextOverrides {
   kind?: string;
   scope?: string[];
+  reverses?: { run_id: string; merge_commit: string; constants_at_dispatch: null };
 }
 
 interface PlanOverrides {
@@ -73,7 +76,7 @@ function contextJson(o: ContextOverrides = {}): string {
       scope: o.scope ?? DEFAULT_SCOPE,
       constants: { "refunds.manager_approval_usd_minor": 50000 },
       evidence: { cluster: "merchant_not_received:Kestrel Outdoors", rows: [] },
-      reverses: null,
+      reverses: o.reverses ?? null,
       audit_head: { seq: 1, rowHash: "abc" },
     },
     null,
@@ -173,10 +176,13 @@ afterAll(() => {
   for (const f of fixtures) rmSync(f.dir, { recursive: true, force: true });
 });
 
+/** `Name: PASS — reason` / `Name: FAIL (reason)` / `Name: n/a (reason)`, returned as `STATUS  reason`. */
 function line(out: string, check: string): string {
-  const found = out.split("\n").find((l) => l.includes(` ${check} `));
+  const found = out.split("\n").find((l) => l.startsWith(`${check}: `));
   if (!found) throw new Error(`no line for "${check}" in:\n${out}`);
-  return found;
+  const rest = found.slice(check.length + 2);
+  const m = /^(PASS|FAIL|n\/a)\s*(?:—\s*|\()?(.*?)\)?$/.exec(rest);
+  return m ? `${m[1]}  ${m[2]}` : rest;
 }
 
 describe("run-guard", () => {
@@ -195,7 +201,7 @@ describe("run-guard", () => {
     f.git("branch", "-m", BASE_BRANCH, "trunk");
     const result = spawnSync(TSX, [GUARD, "--base", "no/such-branch"], { cwd: f.dir, encoding: "utf8", env: GIT_ENV });
     expect(result.status).toBe(1);
-    expect(result.stdout).toMatch(/^FAIL {2}Base ref/m);
+    expect(result.stdout).toMatch(/^Base ref: FAIL/m);
     expect(result.stdout).not.toContain("No run on this branch");
   });
 
@@ -204,8 +210,33 @@ describe("run-guard", () => {
     for (const env of [{ args: ["--base", "devin/parent"], extra: {} }, { args: [], extra: { RUN_GUARD_BASE: "devin/parent" } }]) {
       const result = spawnSync(TSX, [GUARD, ...env.args], { cwd: f.dir, encoding: "utf8", env: { ...GIT_ENV, ...env.extra } });
       expect(result.status).toBe(1);
-      expect(result.stdout).toMatch(/^FAIL {2}Base ref .*devin\/parent/m);
+      expect(result.stdout).toMatch(/^Base ref: FAIL \(.*devin\/parent/m);
     }
+  });
+
+  it("lists the implemented check names with --list-checks", () => {
+    const result = spawnSync(TSX, [GUARD, "--list-checks"], { cwd: fixture().dir, encoding: "utf8", env: GIT_ENV });
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim().split("\n")).toEqual([
+      "Stays in plan",
+      "Plan stays in scope",
+      "Run dir frozen",
+      "Engine untouched",
+      "Tests never shrink",
+      "No type escapes",
+      "Seed is not state",
+      "Only undo",
+    ]);
+  });
+
+  it("fails when runs/ changes without a new plan.json", () => {
+    const f = fixture();
+    f.git("switch", "-q", "-c", "devin/stray");
+    f.write({ "runs/old/replay.json": "[]\n" });
+    f.commit("stray run file");
+    const { status, out } = f.guard();
+    expect(status).toBe(1);
+    expect(line(out, "No run on this branch")).toMatch(/^FAIL.*runs\/old\/replay\.json/);
   });
 
   it("fails when a run's plan.json is added and later deleted", () => {
@@ -226,16 +257,84 @@ describe("run-guard", () => {
     for (const name of [
       "Stays in plan",
       "Plan stays in scope",
-      "Context untouched",
+      "Run dir frozen",
       "Engine untouched",
       "Tests never shrink",
       "No type escapes",
+      "Seed is not state",
+      "Only undo",
     ]) {
       expect(line(out, name)).toMatch(/^PASS/);
     }
-    for (const name of ["Only undo", "Seed is not state", "Humans approve", "Engine owner approves", "No live writes"]) {
+    for (const name of ["Humans approve", "Engine owner approves", "No live writes"]) {
       expect(line(out, name)).toContain("enforced by review/GitHub/playbook");
     }
+  });
+
+  describe("Seed is not state", () => {
+    const planWithSeed = (reason: string) => ({
+      files: [
+        { path: TOOL_FILE, op: "modify" as const, reason: "register the rule" },
+        { path: TEST_FILE, op: "modify" as const, reason: "assert the rule" },
+        { path: SEED_FILE, op: "modify" as const, reason },
+      ],
+    });
+
+    it("passes when a planned seed only gains rows", () => {
+      const f = fixture().startRun({}, planWithSeed("add two clustered refund rows the spec asks for")).editInPlan();
+      f.write({ [SEED_FILE]: 'export const seed = [\n  { id: "r1" },\n  { id: "r2" },\n];\n' });
+      f.commit("seed rows");
+      const { status, out } = f.guard();
+      expect(status).toBe(0);
+      expect(line(out, "Seed is not state")).toMatch(/^PASS/);
+    });
+
+    it("fails when a seed edit removes lines or its reason does not name rows", () => {
+      const f = fixture().startRun({}, planWithSeed("add two clustered refund rows")).editInPlan();
+      f.write({ [SEED_FILE]: 'export const seed = [\n  { id: "r2" },\n];\n' });
+      f.commit("rewrite seed");
+      expect(line(f.guard().out, "Seed is not state")).toMatch(/^FAIL.*removes lines/);
+
+      const g = fixture().startRun({}, planWithSeed("fake the demo outcome")).editInPlan();
+      g.write({ [SEED_FILE]: 'export const seed = [\n  { id: "r1" },\n  { id: "r2" },\n];\n' });
+      g.commit("seed rows");
+      expect(line(g.guard().out, "Seed is not state")).toMatch(/^FAIL.*does not name added rows/);
+    });
+  });
+
+  describe("Only undo", () => {
+    function reversal(): { f: Fixture; target: string } {
+      const f = fixture();
+      f.write({ [TOOL_FILE]: 'export const refundTool = { id: "refunds", rules: ["clustering_hold"] };\n' });
+      f.commit("implementation");
+      const target = f.git("rev-parse", "HEAD");
+      f.write({ [TOOL_FILE]: 'export const refundTool = { id: "refunds", rules: ["clustering_hold", "partial_delivery"] };\n' });
+      f.commit("later work");
+      f.startRun(
+        { kind: "REVERSAL", reverses: { run_id: "01K5Z3Q8M4V7N2X9C6B1D0F3GG", merge_commit: target, constants_at_dispatch: null } },
+        { files: [{ path: TOOL_FILE, op: "modify", reason: "undo the hold" }, { path: "tools/refunds/src/extra.ts", op: "create", reason: "extra" }] },
+      );
+      return { f, target };
+    }
+
+    it("passes when the target's effect is gone and later work stays", () => {
+      const { f } = reversal();
+      f.write({ [TOOL_FILE]: 'export const refundTool = { id: "refunds", rules: ["partial_delivery"] };\n' });
+      f.commit("undo hold");
+      const { status, out } = f.guard();
+      expect(status).toBe(0);
+      expect(line(out, "Only undo")).toMatch(/^PASS/);
+    });
+
+    it("fails when the target's file is untouched or a new production file appears", () => {
+      const { f } = reversal();
+      expect(line(f.guard().out, "Only undo")).toMatch(/^FAIL.*tools\/refunds\/src\/index\.ts/);
+      f.write({ [TOOL_FILE]: 'export const refundTool = { id: "refunds", rules: ["partial_delivery"] };\n', "tools/refunds/src/extra.ts": "export const extra = 1;\n" });
+      f.commit("undo plus extra");
+      const { status, out } = f.guard();
+      expect(status).toBe(1);
+      expect(line(out, "Only undo")).toMatch(/^FAIL.*tools\/refunds\/src\/extra\.ts/);
+    });
   });
 
   describe("Stays in plan", () => {
@@ -264,7 +363,7 @@ describe("run-guard", () => {
       const { status, out } = f.guard();
       expect(status).toBe(0);
       expect(line(out, "Stays in plan")).toMatch(/^PASS/);
-      expect(line(out, "Context untouched")).toMatch(/^PASS/);
+      expect(line(out, "Run dir frozen")).toMatch(/^PASS/);
     });
   });
 
@@ -286,14 +385,14 @@ describe("run-guard", () => {
     });
   });
 
-  describe("Context untouched", () => {
+  describe("Run dir frozen", () => {
     it("fails when plan.json changes after the plan commit", () => {
       const f = fixture().startRun().editInPlan();
       f.write({ [`${RUN_DIR}/plan.json`]: planJson({ files: [{ path: TOOL_FILE, op: "modify", reason: "x" }, { path: TEST_FILE, op: "modify", reason: "x" }, { path: "tools/kyc/src/index.ts", op: "create", reason: "widened" }] }) });
       f.commit("widen plan");
       const { status, out } = f.guard();
       expect(status).toBe(1);
-      expect(line(out, "Context untouched")).toMatch(/^FAIL.*plan\.json/);
+      expect(line(out, "Run dir frozen")).toMatch(/^FAIL.*plan\.json/);
     });
 
     it("fails when context.json changes after the plan commit", () => {
@@ -302,7 +401,7 @@ describe("run-guard", () => {
       f.commit("widen context");
       const { status, out } = f.guard();
       expect(status).toBe(1);
-      expect(line(out, "Context untouched")).toMatch(/^FAIL.*context\.json/);
+      expect(line(out, "Run dir frozen")).toMatch(/^FAIL.*context\.json/);
     });
 
     it("fails when a post-plan edit to plan.json is reverted before HEAD", () => {
@@ -315,7 +414,7 @@ describe("run-guard", () => {
       expect(f.git("diff", "--name-only", "HEAD~2", "HEAD", "--", `${RUN_DIR}/plan.json`)).toBe("");
       const { status, out } = f.guard();
       expect(status).toBe(1);
-      expect(line(out, "Context untouched")).toMatch(/^FAIL.*plan\.json/);
+      expect(line(out, "Run dir frozen")).toMatch(/^FAIL.*plan\.json/);
     });
 
     it("fails when the plan commit also carries source edits", () => {
@@ -329,7 +428,7 @@ describe("run-guard", () => {
       f.commit("plan and edit together");
       const { status, out } = f.guard();
       expect(status).toBe(1);
-      expect(line(out, "Context untouched")).toMatch(/^FAIL.*plan commit.*also changes tools\/refunds\/src\/index\.ts/);
+      expect(line(out, "Run dir frozen")).toMatch(/^FAIL.*plan commit.*also changes tools\/refunds\/src\/index\.ts/);
     });
   });
 
