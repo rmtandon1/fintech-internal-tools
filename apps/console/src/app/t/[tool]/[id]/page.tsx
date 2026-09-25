@@ -14,7 +14,7 @@ import { StatusChip } from "@console/ui/status-chip";
 import { previewActions } from "@console/engine/policy/preview";
 import type { Actor } from "@console/engine/types";
 import { automationTool, getRun } from "@console/tool-automation";
-import { currentPrUrl, isMergeLocal, readContextJson, readReplay } from "@console/tool-automation/bridge";
+import { currentPrUrl, isMergeLocal, readContextJson } from "@console/tool-automation/bridge";
 import { bridgeDeps } from "@/lib/bridge";
 import { currentActor } from "@/lib/session";
 import { getTool } from "@/registry";
@@ -32,7 +32,7 @@ async function runSurface(
   const run = getRun(id);
   if (!run) return null;
   const deps = bridgeDeps();
-  const prUrl = currentPrUrl(run, deps);
+  const prUrl = await currentPrUrl(run, deps).catch(() => null);
   const previews = previewActions(automationTool, run, actor, {
     approve_pr: {
       prUrl: prUrl ?? "https://github.com/owner/repo/pull/0",
@@ -63,7 +63,6 @@ async function runSurface(
       <RunFiles
         run={run}
         contextPresent={readContextJson(deps.repoRoot, run.id) !== null}
-        frames={readReplay(deps.repoRoot, run.id)}
         prUrl={prUrl}
       />
     ),

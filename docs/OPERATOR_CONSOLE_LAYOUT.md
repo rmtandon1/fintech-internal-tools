@@ -30,7 +30,7 @@ An admin on a KYC case after the clustering hold has merged. The linked-activity
 │ Email       o••••@example.com    [reveal]    │ ✓ plan        5 files               │
 │                                              │ ✓ edit        5 of 5 in plan        │
 │ POLICY TRACE                                 │ ✓ verify      verify ✓  76 tests    │
-│  allow    documents_complete                 │ ✓ PR          #14 merged · recorded │
+│  allow    documents_complete                 │ ✓ PR          #14 merged            │
 │  allow    no_sanctions_hit                   │               [diff] [session]      │
 │  allow    risk_tier_approval   68 < 70       │                                     │
 │  approval linked_refund_hold   manager       │ [Reverse this change]  admin only   │
@@ -67,8 +67,7 @@ The run view has to work while a run is in flight, when Devin's branch is the on
 
 | State | Source | Shown |
 |---|---|---|
-| Run in flight, live mode | `devin_runs` row plus the session's `status`, `status_detail` and `structured_output`, through `apps/console/src/app/api/devin/` | Phases, facts as they arrive, reply box, stop |
-| Run in flight, replay | `runs/<run_id>/replay.json`, a recorded real run | The same view on the recorded timings, labelled "Replay" |
+| Run in flight | `devin_runs` row plus the session's `status`, `status_detail` and `structured_output`, through `apps/console/src/app/api/devin/` | Phases, facts as they arrive, reply box, stop |
 | Run merged | `devin_runs` row plus `runs/<run_id>/` on the default branch | Final phases, PR, merge commit, Reverse button |
 | No runs | Nothing | "No runs yet" |
 
