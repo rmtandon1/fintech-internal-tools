@@ -133,7 +133,7 @@ Accept `tool` (inbox) and `since` (audit) query params so the strip's links land
 
 ```bash
 pnpm verify
-pnpm setup && pnpm dev
+pnpm db:setup && pnpm dev
 ```
 
 - Each role sees three stats on each tool queue, matching the tables above.
@@ -148,7 +148,7 @@ Tests: engine tests for the two approval counters and the audit `since` filter; 
 
 ## Demo note
 
-`dueAt` is set at seed time (`openedAt + 48h` in `tools/kyc/src/seed.ts`), so SLA counts drift as the database ages. A database seeded a few days earlier reads nearly every open case as overdue. Run `pnpm setup` shortly before recording.
+`dueAt` is set at seed time (`openedAt + 48h` in `tools/kyc/src/seed.ts`), so SLA counts drift as the database ages. A database seeded a few days earlier reads nearly every open case as overdue. Run `pnpm db:setup` shortly before recording.
 
 ## On camera
 

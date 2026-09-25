@@ -12,7 +12,7 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:tamper": "tsx scripts/tamper.ts",
-    "setup": "pnpm db:migrate && pnpm db:seed",
+    "db:setup": "pnpm db:migrate && pnpm db:seed",
     "test": "vitest run",
     "test:watch": "vitest"
   },
