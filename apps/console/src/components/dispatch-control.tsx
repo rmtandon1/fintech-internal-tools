@@ -90,7 +90,11 @@ export function DispatchControl({
       }}
     >
       <DialogTrigger asChild>
-        <Button variant={variant} data-testid="dispatch-run">
+        <Button
+          variant={variant}
+          className={variant === "default" ? "agent-action text-white" : undefined}
+          data-testid="dispatch-run"
+        >
           <Icon name="Sparkles" className="size-4" />
           {label}
         </Button>

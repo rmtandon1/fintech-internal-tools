@@ -19,7 +19,7 @@ export function DevinWindowBody({ actor, mode }: { actor: Actor; mode: DevinMode
     return (
       <div className="space-y-5 p-5">
         <SimulationBanner />
-        <SimulatedRunView run={defaultSimulation()} />
+        <SimulatedRunView run={defaultSimulation()} autoPlay={false} />
       </div>
     );
   }

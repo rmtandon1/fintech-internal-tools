@@ -17,6 +17,8 @@ export interface SimulatedRun {
   intent: string;
   /** What the operator would read as the run progresses, in order. */
   sentences: string[];
+  /** The phase each sentence belongs to, one per sentence; the replay lands it there. */
+  beats: StructuredOutput["phase"][];
   /** The run view's checklist for the finished run, from the same projection a live run uses. */
   checklist: ChecklistLine[];
   /** The finished run's structured output, which the run report lays out. */
@@ -121,6 +123,7 @@ const SIMULATIONS: SimulatedRun[] = [
       "Added eight tests built from the four Kestrel refunds.",
       "Every check passes. The change is waiting for an engineer to review and approve it.",
     ],
+    beats: ["intake", "baseline", "plan", "edit", "edit", "edit", "edit", "verify"],
     checklist: runChecklist(ADDITION),
     output: ADDITION,
   },
@@ -136,6 +139,7 @@ const SIMULATIONS: SimulatedRun[] = [
       "Checked that the undo adds nothing new.",
       "Listed what code can't undo: refunds still waiting in the manager inbox, and the window setting an admin set to 0.",
     ],
+    beats: ["intake", "edit", "edit", "verify", "pull_request"],
     checklist: runChecklist(REVERSAL),
     output: REVERSAL,
   },

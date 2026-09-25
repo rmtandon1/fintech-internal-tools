@@ -1,3 +1,4 @@
+import { RunReplay } from "@/components/run-replay";
 import { RunReport } from "@/components/run-report";
 import type { SimulatedRun } from "@/lib/simulation";
 
@@ -15,8 +16,12 @@ export function SimulationBanner({ children }: { children?: React.ReactNode }) {
   );
 }
 
-/** A finished run, as the run view would show it, from a pre-written script. */
-export function SimulatedRunView({ run }: { run: SimulatedRun }) {
+/**
+ * A finished run from a pre-written script, played back as it would have
+ * unfolded, then laid out as the run view would show it. With `autoPlay` off
+ * it opens on the finished run.
+ */
+export function SimulatedRunView({ run, autoPlay = true }: { run: SimulatedRun; autoPlay?: boolean }) {
   return (
     <div className="space-y-6 text-sm" data-testid="simulated-run">
       <div className="rounded-lg border border-border bg-muted/20 px-4 py-3">
@@ -25,20 +30,9 @@ export function SimulatedRunView({ run }: { run: SimulatedRun }) {
           {run.intent}
         </p>
       </div>
-      <section className="space-y-3">
-        <h3 className="text-sm font-semibold">What Devin did</h3>
-        <ol className="space-y-2.5">
-          {run.sentences.map((sentence, index) => (
-            <li key={sentence} className="flex gap-3">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-success/15 text-xs font-semibold text-success">
-                {index + 1}
-              </span>
-              <span className="pt-0.5 leading-relaxed">{sentence}</span>
-            </li>
-          ))}
-        </ol>
-      </section>
-      <RunReport output={run.output} />
+      <RunReplay run={run} autoPlay={autoPlay}>
+        <RunReport output={run.output} />
+      </RunReplay>
     </div>
   );
 }

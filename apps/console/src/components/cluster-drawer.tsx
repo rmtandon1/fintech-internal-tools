@@ -12,6 +12,7 @@ import {
   SheetTitle,
 } from "@console/ui/sheet";
 import { Icon } from "@console/ui/icon";
+import { CountUp } from "@console/ui/motion";
 import { StatusChip } from "@console/ui/status-chip";
 import { DispatchControl, type DispatchOffer } from "@/components/dispatch-control";
 import { formatMinorUnits, formatRelative } from "@console/ui/format";
@@ -58,6 +59,9 @@ function LimitChart({
   const max = Math.max(totalUsdMinor, limit.usdMinor) * 1.2;
   const pct = (minor: number) => `${(minor / max) * 100}%`;
   const bars = [...rows].sort((a, b) => (a.requestedAt ?? 0) - (b.requestedAt ?? 0));
+  // Each refund rises in turn, then the total climbs through the limit line.
+  const step = 110;
+  const togetherDelay = bars.length * step + 250;
 
   return (
     <figure
@@ -73,20 +77,27 @@ function LimitChart({
             {limit.label}
           </span>
         </div>
-        {bars.map((row) => (
+        {bars.map((row, i) => (
           <div
             key={row.id}
-            className="flex-1 rounded-t-[4px] bg-muted-foreground/45"
-            style={{ height: pct(row.usdMinor) }}
+            className="flex-1 origin-bottom rounded-t-[4px] bg-muted-foreground/45 motion-safe:animate-rise"
+            style={{ height: pct(row.usdMinor), animationDelay: `${i * step}ms` }}
             title={`${row.title}: ${usd(row.usdMinor)}`}
           />
         ))}
         <div className="mx-2 h-3/4 self-center border-l border-border" />
         <div className="flex h-full flex-[1.4] flex-col justify-end" title={`Together: ${usd(totalUsdMinor)}`}>
-          <span className="mb-1 text-center text-base font-semibold tabular-nums text-foreground">
-            {usd(totalUsdMinor)}
-          </span>
-          <div className="rounded-t-[4px] bg-warning" style={{ height: pct(totalUsdMinor) }} />
+          <CountUp
+            value={totalUsdMinor / 100}
+            format={{ style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: totalUsdMinor % 100 === 0 ? 0 : 2 }}
+            durationMs={1000}
+            delayMs={togetherDelay}
+            className="mb-1 text-center text-base font-semibold tabular-nums text-foreground"
+          />
+          <div
+            className="origin-bottom rounded-t-[4px] bg-warning shadow-[0_0_28px_-6px] shadow-warning/60 motion-safe:animate-rise motion-safe:[animation-duration:1000ms]"
+            style={{ height: pct(totalUsdMinor), animationDelay: `${togetherDelay}ms` }}
+          />
         </div>
       </div>
       <figcaption className="mt-1.5 flex gap-3 text-center">
