@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -15,6 +15,33 @@ const execFileAsync = promisify(execFile);
 
 const MigrationJournal = z.object({ entries: z.array(z.object({ when: z.number() })) });
 const LastMigration = z.object({ created_at: z.number() });
+
+const REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+
+/**
+ * `owner/repo` from GITHUB_REPOSITORY, else the checkout's GitHub remote,
+ * read on every call so a changed remote is never served stale. Anything
+ * that is not a plain `owner/repo` is dropped: the value goes into the prompt.
+ */
+function githubRepository(repoRoot: string, remote: string): string | undefined {
+  const configured = process.env.GITHUB_REPOSITORY;
+  if (configured !== undefined) return REPOSITORY.test(configured) ? configured : undefined;
+  try {
+    const url = execFileSync("git", ["remote", "get-url", remote], { cwd: repoRoot, encoding: "utf8" });
+    return parseGitHubRepository(url) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** `owner/repo` from an https or ssh remote whose host is github.com, or null. */
+export function parseGitHubRepository(url: string): string | null {
+  const m =
+    /^(?:https:\/\/(?:[^@/\s]+@)?github\.com\/|ssh:\/\/git@github\.com\/|git@github\.com:)([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?\/?$/.exec(
+      url.trim(),
+    );
+  return m ? `${m[1]}/${m[2]}` : null;
+}
 
 /**
  * The playbook found by title, kept once found. A failed lookup, or finding
@@ -51,6 +78,7 @@ export function bridgeDeps(): BridgeDeps {
       registerToolConstants();
     },
     migrationsPending: () => migrationsPending(repoRoot),
+    repository: githubRepository(repoRoot, process.env.SYNC_REMOTE ?? "origin"),
     syncRemote: process.env.SYNC_REMOTE,
     syncBranch: process.env.SYNC_BRANCH,
     playbookId: process.env.DEVIN_PLAYBOOK_ID || undefined,

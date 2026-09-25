@@ -40,6 +40,8 @@ export interface BridgeDeps {
   syncRemote?: string;
   syncBranch?: string;
   playbookId?: string;
+  /** `owner/repo` on GitHub; named in the session prompt so Devin clones the right repository. */
+  repository?: string;
   /** Looks the playbook up when `playbookId` is not configured; null when there is none. */
   resolvePlaybookId?: () => Promise<string | null>;
   maxAcuLimit?: number;
@@ -185,6 +187,11 @@ export async function dispatchRun(
         prompt: [
           req.intent,
           `Kind: ${req.kind}. Spec: ${spec.file}. Run: ${runId}.`,
+          ...(deps.repository
+            ? [
+                `Repository: https://github.com/${deps.repository}. Branch from ${built.context.base.branch} at ${built.context.base.commit.slice(0, 7)} and open the pull request against ${built.context.base.branch}.`,
+              ]
+            : []),
           `Work from the attached runs/${runId}/context.json; commit it unchanged on your branch.`,
           "Follow .devin/run-protocol.playbook.md and docs/DEVIN_RUN_PROTOCOL.md.",
         ].join("\n"),
