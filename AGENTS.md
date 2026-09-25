@@ -36,8 +36,8 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 ## Testing Guidelines
 - Vitest (`apps/console/vitest.config.ts`), Node environment, tests in `apps/console/tests/**/*.test.ts`
 - Each test file owns its own database; file parallelism is disabled, so do not share state across files
-- Use `tests/helpers/harness.ts` and `tests/fixtures/widgets.ts` for engine setup and fixtures; `setupHarness` calls `configureEngine` with the fixture tools layered over the shipped registry
-- Add engine tests under `tests/engine/` and tool tests under `tests/tools/`
+- Use `apps/console/tests/helpers/harness.ts` and `apps/console/tests/fixtures/widgets.ts` for engine setup and fixtures; `setupHarness` calls `configureEngine` with the fixture tools layered over the shipped registry
+- Add engine tests under `apps/console/tests/engine/` and tool tests under `apps/console/tests/tools/`
 - Cover new policy rules, approval paths, and idempotency behaviour with tests
 - Run `pnpm verify` before committing
 
