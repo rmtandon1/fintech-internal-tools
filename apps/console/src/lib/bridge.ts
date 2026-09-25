@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -15,6 +15,28 @@ const execFileAsync = promisify(execFile);
 
 const MigrationJournal = z.object({ entries: z.array(z.object({ when: z.number() })) });
 const LastMigration = z.object({ created_at: z.number() });
+
+/** `owner/repo` from GITHUB_REPOSITORY, else the checkout's GitHub remote. */
+let repository: string | null | undefined;
+
+function githubRepository(repoRoot: string, remote: string): string | undefined {
+  if (process.env.GITHUB_REPOSITORY) return process.env.GITHUB_REPOSITORY;
+  if (repository === undefined) {
+    try {
+      const url = execFileSync("git", ["remote", "get-url", remote], { cwd: repoRoot, encoding: "utf8" });
+      repository = parseGitHubRepository(url);
+    } catch {
+      repository = null;
+    }
+  }
+  return repository ?? undefined;
+}
+
+/** `owner/repo` from an https or ssh GitHub remote URL, or null for any other host. */
+export function parseGitHubRepository(url: string): string | null {
+  const m = /github\.com[:/]([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?\s*$/.exec(url);
+  return m ? `${m[1]}/${m[2]}` : null;
+}
 
 /**
  * The playbook found by title, kept once found. A failed lookup, or finding
@@ -51,6 +73,7 @@ export function bridgeDeps(): BridgeDeps {
       registerToolConstants();
     },
     migrationsPending: () => migrationsPending(repoRoot),
+    repository: githubRepository(repoRoot, process.env.SYNC_REMOTE ?? "origin"),
     syncRemote: process.env.SYNC_REMOTE,
     syncBranch: process.env.SYNC_BRANCH,
     playbookId: process.env.DEVIN_PLAYBOOK_ID || undefined,

@@ -58,7 +58,7 @@ export default async function RootLayout({
   });
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className="h-screen overflow-hidden bg-background text-foreground antialiased">
         <CommandPaletteProvider modes={modes}>
           <div className="flex h-full">

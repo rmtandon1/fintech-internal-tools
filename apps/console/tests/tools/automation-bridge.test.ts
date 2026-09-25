@@ -191,6 +191,16 @@ describe("dispatchRun", () => {
     expect(req.structuredOutputSchema).toHaveProperty("properties");
     expect(req.prompt).toContain(request.intent);
     expect(req.prompt).toContain(".devin/run-protocol.playbook.md");
+    expect(req.prompt).not.toContain("Repository:");
+  });
+
+  it("names the repository and base branch in the prompt when it is known", async () => {
+    stopAll();
+    const devin = fakeDevin({});
+    await dispatchRun(refundsManager, request, deps({ devin: devin.client, repository: "acme/ops-console" }));
+    expect(devin.created[0].prompt).toMatch(
+      /Repository: https:\/\/github\.com\/acme\/ops-console\. Branch from devin\/test at [0-9a-f]{7} and open the pull request against devin\/test\./,
+    );
   });
 
   it("looks the playbook up when none is configured, and prefers a configured one", async () => {
