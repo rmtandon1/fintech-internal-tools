@@ -9,7 +9,8 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 - Run tests: `pnpm test` (watch mode: `pnpm test:watch`)
 - Lint / typecheck: `pnpm lint` / `pnpm typecheck`
 - Architecture boundary check: `pnpm check:boundaries`
-- Full gate (lint + typecheck + boundaries + tests): `pnpm verify`
+- Devin run guard (`docs/DEVIN_RUN_PROTOCOL.md` § Guard checks): `pnpm check:run-guard`; prints "No run on this branch" unless the branch adds one `runs/<run_id>/plan.json`
+- Full gate (lint + typecheck + boundaries + tests + run guard): `pnpm verify`
 - Build for production: `pnpm build`
 - Regenerate Drizzle migrations after schema changes: `pnpm db:generate`
 
@@ -31,7 +32,7 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 - Tools are workspace packages in `tools/<tool>/` (`src/index.ts`, `src/schema.ts`, `src/seed.ts`, `package.json`), registered in `apps/console/src/registry.ts` and their tables re-exported from `apps/console/src/schema.ts`; a tool that depends on another tool declares it in its `package.json`. Queue stats are declared on the tool (`stats: StatDecl[]`, see `docs/QUEUE_STATS_STRIP.md`) and rendered by `apps/console/src/components/stat-strip.tsx`; every count is a query, never a stored number
 - The role catalog is `packages/permissions/src/roles.ts`; it may name tools, the engine may not
 - Audit rows are hash-chained and appended in the same transaction as the effect; never write audit rows outside the engine
-- `.github/CODEOWNERS` gates `packages/engine`, `packages/db*`, `packages/permissions` and the boundary script
+- `.github/CODEOWNERS` gates `packages/engine`, `packages/db*`, `packages/permissions`, the boundary script, the run guard and `runs/`
 
 ## Testing Guidelines
 - Vitest (`apps/console/vitest.config.ts`), Node environment, tests in `apps/console/tests/**/*.test.ts`
@@ -51,6 +52,8 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 - `packages/db-write` - Write handle (`transact`, `writeDb`, `WriteHandle`)
 - `tools/{kyc,refunds,flags}` - Tool declarations
 - `scripts/check-boundaries.ts` - Cross-package rules pnpm cannot express
+- `scripts/run-guard.ts` - Holds a Devin run branch to its committed `runs/<run_id>/plan.json`; `scripts/tsconfig.json` typechecks both scripts
+- `runs/` - One directory per Devin run (`context.json`, `plan.json`), merged with the run's PR
 - `docs/` - Product specs and run protocol for the demo; `docs/MIGRATION.md` maps old `src/` paths to new ones
 
 ## Git Workflow
@@ -60,6 +63,6 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 - Squash-merge; the PR title becomes the commit title. Delete the feature branch after merge
 - Commit at meaningful checkpoints: each commit is a coherent step that builds and passes tests; fold small touch-ups into the related commit
 - Tests are required: new or changed behaviour ships with tests, and `pnpm verify` must pass before a PR is opened
-- CI (`.github/workflows/verify.yml`, job `verify`) runs `pnpm verify` on every PR; it must be green before merge
+- CI (`.github/workflows/verify.yml`) runs `pnpm verify` in job `verify` and the run guard in job `guards`, which posts one PR comment with each check by name; both must be green before merge
 - The `demo-start` tag marks the accepted baseline; do not move or delete it
 - Update `AGENTS.md`/docs when commands, structure, or architecture rules change
