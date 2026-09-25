@@ -87,6 +87,10 @@ describe("kyc linked activity", () => {
     const activity = linked("kyc_0002", admin);
     expect(activity.rows.length).toBe(activity.summary.count);
     expect(activity.href).toMatch(/^\/t\/refunds\?q=/);
+    const search = new URL(activity.href ?? "", "http://x").searchParams.get("q") ?? "";
+    expect(search).not.toContain("@");
+    const opened = refundTool.list({ filters: {}, search, limit: 200, offset: 0 });
+    expect(opened.rows.map((r) => r.id).sort()).toEqual(activity.rows.map((r) => r.id).sort());
     expect(activity.rowFields).toContain("customerEmail");
   });
 

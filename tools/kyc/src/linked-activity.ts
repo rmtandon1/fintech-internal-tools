@@ -26,7 +26,6 @@ export function refundsForCase(record: KycCase, actor: Actor): LinkedActivity | 
   );
   const heldIds = rows.filter((r) => pendingIds.has(r.id)).map((r) => r.id);
   const canOpen = refundTool.visibleTo.includes(actor.role);
-  const anchor = rows.find((r) => heldIds.includes(r.id)) ?? rows[0];
 
   return {
     tool: refundTool.name,
@@ -41,7 +40,7 @@ export function refundsForCase(record: KycCase, actor: Actor): LinkedActivity | 
     rowFields: ["amountMinor", "customerEmail", "cardLast4", "merchant"],
     heldIds,
     href: canOpen
-      ? `/t/${refundTool.name}?q=${encodeURIComponent(anchor.merchant)}`
+      ? `/t/${refundTool.name}?q=${rows.map((r) => r.id).join(",")}`
       : null,
   };
 }

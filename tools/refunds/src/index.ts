@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, like, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@console/db";
 import { defineAction, defineTool } from "@console/engine/declare";
@@ -316,7 +316,7 @@ export const refundTool = defineTool<Refund>({
         or(
           like(refunds.paymentId, `%${search}%`),
           like(refunds.merchant, `%${search}%`),
-          eq(refunds.id, search),
+          inArray(refunds.id, search.split(",").map((s) => s.trim())),
         ),
       );
     }

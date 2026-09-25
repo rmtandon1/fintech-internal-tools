@@ -47,6 +47,7 @@ export function ContextDrawer({
             side="bottom"
             container={container}
             showCloseButton={false}
+            showOverlay={false}
             onInteractOutside={(e) => e.preventDefault()}
             onOpenAutoFocus={(e) => e.preventDefault()}
             className="absolute inset-x-0 bottom-0 max-h-[60%] gap-0 rounded-b-md border border-border bg-card shadow-none data-[state=open]:duration-200"
