@@ -9,12 +9,8 @@ import {
 import { Panel } from "@/components/panel";
 import { RecordView } from "@/components/record-view";
 import { RunView } from "@/components/run-view";
-import { RunSummary } from "@/components/run-summary";
-import { phaseLine } from "@/lib/run-checklist";
 import { StatusChip } from "@console/ui/status-chip";
 import { automationTool, getRun } from "@console/tool-automation";
-import { readReplay } from "@console/tool-automation/bridge";
-import { bridgeDeps } from "@/lib/bridge";
 import { currentActor } from "@/lib/session";
 import { getTool } from "@/registry";
 
@@ -35,10 +31,6 @@ export default async function RecordPage({
   const activity = decl.linkedActivity?.(record, actor) ?? null;
   const linked = activity ? getTool(activity.tool) : undefined;
   const run = decl.name === automationTool.name ? getRun(id) : null;
-  const output = run
-    ? (readReplay(bridgeDeps().repoRoot, run.id, bridgeDeps().replaysDir).at(-1)
-        ?.structured_output ?? null)
-    : null;
 
   const panel = (
     <Panel
@@ -59,14 +51,14 @@ export default async function RecordPage({
         decl={decl}
         record={record}
         actor={actor}
-        extra={
+        actions={
           run ? (
-            <>
-              <RunSummary run={run} output={output} phaseLine={phaseLine(output)} />
-              <RunView key={id} runId={id} />
-            </>
+            <span className="text-[11px] text-muted-foreground">
+              Devin&apos;s controls are in the run view above
+            </span>
           ) : undefined
         }
+        extra={run ? <RunView key={id} runId={id} showSummary /> : undefined}
       />
     </Panel>
   );

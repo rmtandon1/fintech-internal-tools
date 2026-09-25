@@ -1,25 +1,27 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { stopAutomationRun } from "@/app/automation-actions";
+import { stopAutomationRun, syncAutomationRun } from "@/app/automation-actions";
 import { Button } from "@console/ui/button";
 import { Icon } from "@console/ui/icon";
 import { StatusChip } from "@console/ui/status-chip";
 import { ApprovalDialog } from "@/components/approval-dialog";
+import { RunSummary, RUN_STATUS_OPTIONS } from "@/components/run-summary";
+import { phaseLine } from "@/lib/run-checklist";
 import type { RunViewPayload } from "@/lib/devin-route";
 import type { ReplayFrame, StructuredOutput } from "@console/tool-automation";
 
 const TERMINAL = new Set(["merged", "stopped", "dispatch_failed"]);
 
-const RUN_STATUSES = [
-  { value: "dispatched", label: "Dispatched", tone: "info" as const },
-  { value: "dispatch_failed", label: "Dispatch failed", tone: "negative" as const },
-  { value: "running", label: "Running", tone: "info" as const },
-  { value: "approved", label: "Approved", tone: "positive" as const },
-  { value: "merged", label: "Merged", tone: "positive" as const },
-  { value: "stopped", label: "Stopped", tone: "neutral" as const },
-];
+async function fetchRun(runId: string): Promise<RunViewPayload | null> {
+  const res = await fetch(`/api/devin/${runId}`).catch(() => null);
+  if (!res || !res.ok) return null;
+  return (await res.json()) as RunViewPayload;
+}
+
+const RUN_STATUSES = RUN_STATUS_OPTIONS;
 
 const PHASE_LABELS: Record<string, string> = {
   intake: "Read the evidence",
@@ -207,7 +209,17 @@ function Detail({ frames }: { frames: ReplayFrame[] }) {
  * `/api/devin/<id>` every 2s and stops when the run ends. Shared by the
  * agent column and `/t/automation/<id>`.
  */
-export function RunView({ runId, initial }: { runId: string; initial?: RunViewPayload | null }) {
+export function RunView({
+  runId,
+  initial,
+  showSummary = false,
+}: {
+  runId: string;
+  initial?: RunViewPayload | null;
+  /** Render the run summary card above the live view (the record page wants it). */
+  showSummary?: boolean;
+}) {
+  const router = useRouter();
   const [payload, setPayload] = useState<RunViewPayload | null>(initial ?? null);
   const [approveOpen, setApproveOpen] = useState(false);
   const [reply, setReply] = useState("");
@@ -217,10 +229,8 @@ export function RunView({ runId, initial }: { runId: string; initial?: RunViewPa
   useEffect(() => {
     let cancelled = false;
     async function poll() {
-      const res = await fetch(`/api/devin/${runId}`).catch(() => null);
-      if (!res || cancelled) return;
-      if (!res.ok) return;
-      const body = (await res.json()) as RunViewPayload;
+      const body = await fetchRun(runId);
+      if (!body || cancelled) return;
       setPayload(body);
       return !TERMINAL.has(body.run.status);
     }
@@ -261,6 +271,19 @@ export function RunView({ runId, initial }: { runId: string; initial?: RunViewPa
     });
   }
 
+  function pullMerged() {
+    startTransition(async () => {
+      const result = await syncAutomationRun(runId);
+      if (result.ok) toast.success(result.title, { description: result.detail });
+      else toast.error(result.title, { description: result.detail });
+      if (result.reload) {
+        router.refresh();
+        const body = await fetchRun(runId);
+        if (body) setPayload(body);
+      }
+    });
+  }
+
   // A payload fetched for another runId (stale after a focus change) is no
   // better than none: keep showing the loading state until ours arrives.
   if (!payload || payload.run.id !== runId) {
@@ -272,6 +295,15 @@ export function RunView({ runId, initial }: { runId: string; initial?: RunViewPa
 
   return (
     <div className="flex min-h-0 flex-1 flex-col text-xs" data-testid="run-view">
+      {showSummary ? (
+        <RunSummary
+          run={run}
+          output={out}
+          phaseLine={phaseLine(out)}
+          outcome={payload.outcome}
+          kindLabel={payload.kindLabel}
+        />
+      ) : null}
       <section className="border-b border-border px-3 py-2">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="font-mono text-[11px]">{run.kind}</span>
@@ -318,6 +350,16 @@ export function RunView({ runId, initial }: { runId: string; initial?: RunViewPa
             <Icon name="GitPullRequest" className="size-3" />
             PR #{pr.match(/pull\/(\d+)/)?.[1] ?? ""}
           </a>
+        ) : null}
+        {offers.sync ? (
+          <Button
+            size="sm"
+            className="h-7 text-xs"
+            disabled={pending}
+            onClick={pullMerged}
+          >
+            Pull merged code
+          </Button>
         ) : null}
         {offers.approve.offered ? (
           <Button

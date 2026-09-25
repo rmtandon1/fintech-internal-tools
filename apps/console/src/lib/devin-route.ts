@@ -11,6 +11,7 @@ import {
   IN_FLIGHT_STATUSES,
   type ReplayFrame,
   type RunKind,
+  runKindLabel,
   type RunStatus,
 } from "@console/tool-automation";
 import {
@@ -64,6 +65,10 @@ export interface RunViewPayload {
   sessionUrl: string | null;
   /** The business sentence for what the run changes once merged. */
   summary: string;
+  /** The spec's once-merged line for this kind, when it names one. */
+  outcome: string | null;
+  /** The operator-facing name of the run's kind. */
+  kindLabel: string;
   /** The id of the run's latest audit row, or null before the first intent. */
   lastAuditId: string | null;
   offers: RunOffers;
@@ -92,8 +97,18 @@ export async function handleGet(
     const observed = await observeRun(requester, run, deps).catch(() => null);
     if (observed) {
       outcome = observed.poll;
-      await observeSessionEnd(requester, run, observed.poll, deps).catch(() => null);
-      run = getRun(runId) ?? run;
+      // A merge that landed before the session wound down must win over the
+      // session-end stop, so check GitHub first.
+      if (run.status === "approved") {
+        const approver =
+          Object.values(DEMO_ACTORS).find((a) => a.id === run?.approvedBy) ?? actor;
+        await observeMerge(approver, run, deps).catch(() => null);
+        run = getRun(runId) ?? run;
+      }
+      if (IN_FLIGHT_STATUSES.includes(run.status as RunStatus)) {
+        await observeSessionEnd(requester, run, observed.poll, deps).catch(() => null);
+        run = getRun(runId) ?? run;
+      }
     }
   }
   // An approved run may have merged since; observe it as the approver.
@@ -117,6 +132,8 @@ export async function handleGet(
         ? `https://app.devin.ai/sessions/${run.sessionId}`
         : null,
     summary: getSpec(run.spec)?.summaries?.[run.kind as RunKind] ?? run.intent,
+    outcome: getSpec(run.spec)?.outcomes?.[run.kind as RunKind] ?? null,
+    kindLabel: runKindLabel(run.kind),
     lastAuditId: listAuditEvents({ recordId: run.id, limit: 1 }).rows[0]?.id ?? null,
     offers: await runOffers(
       run,
