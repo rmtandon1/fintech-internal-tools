@@ -22,3 +22,11 @@ description: Browser smoke testing for the Meridian governed-write-path console,
 
 # Devin Secrets Needed
 None for local demo-role testing.
+
+# Agent handoff replay testing
+- For scripted Devin/GitHub replay, leave `DEVIN_API_KEY` and `DEVIN_ORG_ID` unset in the dev server process. Confirm the Devin column's Replay badge before dispatching. Do not interpret replay PR links or merge SHAs as real hosted changes.
+- As Refunds manager, open `/t/refunds`, then the Kestrel Outdoors not-received cluster and Ask Devin for a rule.
+- Start run advances the scripted checklist to PR #990 in roughly 40 seconds. Engineer is a separate demo role for approval; the requester should not receive an approval offer. Engineer may not have access to the Refunds route; `/runs` is the role-appropriate run history page.
+- Admin can open a REVERSAL handoff from a merged row in `/runs`. Do not start a reversal unless the test requires it.
+- A replay dispatch writes both SQLite rows and local `runs/<id>` / replay artifacts. Preserve these together while testing approval or reversal; database seeding is not a run reset.
+- `pnpm dev` may open a new browser tab. Ensure console/DOM inspection targets that tab, rather than a stale background tab, before starting the recording.

@@ -3,7 +3,7 @@
 import "@/app/bootstrap";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { getRun, getSpec, RUN_KINDS, RUN_SCOPES } from "@console/tool-automation";
+import { getRun, RUN_KINDS, RUN_SCOPES } from "@console/tool-automation";
 import {
   approveRun,
   describeIntent,
@@ -17,6 +17,7 @@ import {
 } from "@console/tool-automation/bridge";
 import { bridgeDeps } from "@/lib/bridge";
 import { devinMode } from "@/lib/devin-status";
+import { reversalEvidence } from "@/lib/handoff";
 import { currentActor } from "@/lib/session";
 
 /**
@@ -31,35 +32,26 @@ export interface BridgeResult {
   detail?: string;
   /** Where to go next, e.g. the new run's page after a dispatch. */
   href?: string;
+  /** The run a dispatch created, so the caller can focus it in place. */
+  runId?: string;
+  /** The audit row the intent wrote, when the outcome carries one. */
+  auditId?: string;
   /** The client should wait and call the action again (merge check retries). */
   retry?: boolean;
   /** The sync pulled new code: refresh server components. */
   reload?: boolean;
 }
 
-const DispatchForm = z
-  .object({
-    spec: z.string().min(1),
-    kind: z.enum(RUN_KINDS),
-    scope: z.enum(RUN_SCOPES),
-    intent: z.string().min(1).max(500),
-    clusterKey: z.string(),
-    evidenceIds: z.array(z.string().min(1)),
-    reverses: z.string().min(1).nullable(),
-  })
-  .superRefine((form, ctx) => {
-    // A reversal names the merged run; the bridge reuses that run's cluster.
-    // Every other kind is dispatched from a cluster with evidence in hand.
-    if (form.kind === "REVERSAL") {
-      if (!form.reverses) ctx.addIssue({ code: "custom", message: "A reversal names the run it reverses" });
-      if (form.intent !== getSpec(form.spec)?.intents.REVERSAL) {
-        ctx.addIssue({ code: "custom", message: "A reversal uses the spec's reversal intent" });
-      }
-    } else {
-      if (!form.clusterKey) ctx.addIssue({ code: "custom", message: "Dispatch from a cluster" });
-      if (form.evidenceIds.length === 0) ctx.addIssue({ code: "custom", message: "Select evidence rows" });
-    }
-  });
+const DispatchForm = z.object({
+  spec: z.string().min(1),
+  kind: z.enum(RUN_KINDS),
+  scope: z.enum(RUN_SCOPES),
+  intent: z.string().min(1).max(500),
+  /** Optional on a REVERSAL: derived from the reversed run's context.json. */
+  clusterKey: z.string().min(1).optional(),
+  evidenceIds: z.array(z.string().min(1)).default([]),
+  reverses: z.string().min(1).optional(),
+});
 
 export async function dispatchAutomationRun(form: FormData): Promise<BridgeResult> {
   const parsed = DispatchForm.safeParse({
@@ -67,12 +59,22 @@ export async function dispatchAutomationRun(form: FormData): Promise<BridgeResul
     kind: form.get("kind"),
     scope: form.get("scope"),
     intent: form.get("intent"),
-    clusterKey: form.get("clusterKey"),
+    clusterKey: form.get("clusterKey") ?? undefined,
     evidenceIds: form.getAll("evidenceIds").map(String),
-    reverses: form.get("reverses") || null,
+    reverses: form.get("reverses") ?? undefined,
   });
   if (!parsed.success) {
     return { ok: false, title: "Invalid dispatch", detail: parsed.error.issues[0]?.message };
+  }
+  if (parsed.data.kind === "REVERSAL" ? !parsed.data.reverses : !parsed.data.clusterKey || parsed.data.evidenceIds.length === 0) {
+    return {
+      ok: false,
+      title: "Invalid dispatch",
+      detail:
+        parsed.data.kind === "REVERSAL"
+          ? "A REVERSAL must name the run it reverses"
+          : "A run needs a cluster key and evidence ids",
+    };
   }
   // Simulation mode shows a pre-written run in the dialog; a run that never
   // happened must not reach devin_runs or the audit chain.
@@ -85,17 +87,35 @@ export async function dispatchAutomationRun(form: FormData): Promise<BridgeResul
   }
   const actor = await currentActor();
   try {
-    const outcome = await dispatchRun(actor, parsed.data, bridgeDeps());
+    const deps = bridgeDeps();
+    const evidence =
+      parsed.data.kind === "REVERSAL" && parsed.data.reverses
+        ? reversalEvidence(deps.repoRoot, parsed.data.reverses)
+        : { clusterKey: parsed.data.clusterKey ?? "", evidenceIds: parsed.data.evidenceIds };
+    const outcome = await dispatchRun(
+      actor,
+      { ...parsed.data, ...evidence, reverses: parsed.data.reverses ?? null },
+      deps,
+    );
     revalidatePath("/", "layout");
     if (!outcome.session) {
       return { ok: false, title: "Dispatch denied", detail: describeIntent(outcome.dispatch) };
     }
-    const href = `/t/automation/${outcome.runId}`;
     const run = getRun(outcome.runId);
     if (run?.status === "dispatch_failed") {
-      return { ok: false, title: "Devin session not created", detail: run.lastNote ?? undefined, href };
+      return {
+        ok: false,
+        title: "Devin session not created",
+        detail: run.lastNote ?? undefined,
+        runId: outcome.runId,
+      };
     }
-    return { ok: true, title: "Run dispatched", detail: describeIntent(outcome.session), href };
+    return {
+      ok: true,
+      title: "Run dispatched",
+      detail: describeIntent(outcome.session),
+      runId: outcome.runId,
+    };
   } catch (error) {
     return { ok: false, title: "Dispatch failed", detail: message(error) };
   }
@@ -141,17 +161,20 @@ export async function approveAutomationRun(runId: string, note: string): Promise
     const outcome = await approveRun(actor, run, note || undefined, bridgeDeps());
     revalidatePath("/", "layout");
     const status = outcome.approve.outcome.status;
+    const auditId =
+      "auditId" in outcome.approve.outcome ? outcome.approve.outcome.auditId : undefined;
     if (status !== "applied") {
       return {
         ok: false,
         title: status === "denied" ? "Approval denied" : "Approval failed",
         detail: `${describeIntent(outcome.approve)} (${outcome.checks})`,
+        auditId,
       };
     }
     if (outcome.reviewError) {
       return { ok: false, title: "Approved, but GitHub review failed", detail: outcome.reviewError };
     }
-    return { ok: true, title: "PR approved", detail: outcome.checks };
+    return { ok: true, title: "PR approved", detail: outcome.checks, auditId };
   } catch (error) {
     return { ok: false, title: "Approval failed", detail: message(error) };
   }

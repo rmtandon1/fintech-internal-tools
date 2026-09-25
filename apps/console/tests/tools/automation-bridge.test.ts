@@ -32,6 +32,7 @@ import {
   observeMerge,
   observeRun,
   pollRun,
+  readReplay,
   reconcileRuns,
   stopRun,
   syncMergedRun,
@@ -326,6 +327,31 @@ describe("pollRun", () => {
     const run = await running();
     const out = await pollRun(run, deps({}));
     expect(out).toEqual({ kind: "unavailable", reason: "Devin API is not configured" });
+  });
+
+  it("records a frame only when the snapshot changes", async () => {
+    const run = await running();
+    const d = deps({
+      devin: fakeDevin({
+        snapshot: { status: "working", statusDetail: null, structuredOutput: output() },
+      }).client,
+    });
+    await pollRun(run, d);
+    await pollRun(run, d);
+    await pollRun(run, d);
+    expect(readReplay(repoRoot, run.id)).toHaveLength(1);
+
+    const changed = deps({
+      devin: fakeDevin({
+        snapshot: {
+          status: "working",
+          statusDetail: null,
+          structuredOutput: output({ phase: "verify" }),
+        },
+      }).client,
+    });
+    await pollRun(run, changed);
+    expect(readReplay(repoRoot, run.id)).toHaveLength(2);
   });
 });
 

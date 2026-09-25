@@ -12,7 +12,9 @@ import {
   SheetTitle,
 } from "@console/ui/sheet";
 import { StatusChip } from "@console/ui/status-chip";
-import { DispatchControl, type DispatchOffer } from "@/components/dispatch-control";
+import { Button } from "@console/ui/button";
+import { useWorkspace } from "@/components/workspace";
+import type { HandoffOffer } from "@/lib/handoff";
 import { formatMinorUnits, formatRelative } from "@console/ui/format";
 import type { RuleOutcome, StatusDecl } from "@console/engine/types";
 
@@ -56,9 +58,10 @@ export function ClusterDrawer({
   statuses: StatusDecl[];
   rows: ClusterRow[];
   canRequestRule: boolean;
-  /** Set when this actor may dispatch a Devin run for the cluster's spec. */
-  dispatch?: DispatchOffer | null;
+  /** Handoffs this actor may ask Devin for from the cluster's spec. */
+  dispatch?: HandoffOffer[] | null;
 }) {
+  const { setAgentFocus } = useWorkspace();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -154,9 +157,19 @@ export function ClusterDrawer({
         <SheetFooter className="mt-0 flex-row items-center gap-3 border-t border-border text-xs text-muted-foreground">
           {uncovered ? <p>No rule covers this pattern.</p> : null}
           {!canRequestRule ? <p>A refunds manager can ask for a rule.</p> : null}
-          {dispatch ? (
+          {dispatch && dispatch.length > 0 ? (
             <div className="ml-auto">
-              <DispatchControl offer={dispatch} />
+              <Button
+                size="sm"
+                className="h-7 text-xs"
+                data-testid="dispatch-run"
+                onClick={() => {
+                  setAgentFocus({ kind: "handoff", offer: dispatch[0] });
+                  close();
+                }}
+              >
+                Ask Devin for a rule
+              </Button>
             </div>
           ) : null}
         </SheetFooter>

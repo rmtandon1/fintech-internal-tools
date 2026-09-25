@@ -3,8 +3,8 @@
 ## Summary
 
 - A Devin run starts from the screen that shows why it is needed: the cluster drawer, a rule's row, or a merged run. The request carries that screen's evidence with it.
-- The handoff panel holds one editable sentence, plus the evidence and scope the system fills in. The requester sees exactly what Devin will see.
-- The run view shows the artifacts an engineer would check: planned files, lines changed, test counts and each guard check by name. The finished run is the still the demo pauses on.
+- The handoff panel holds one editable sentence, plus the evidence, scope and mode the system fills in. The requester sees exactly what Devin will see.
+- The run view shows the artifacts an engineer would check: planned files, lines changed, test counts and the four CI checks by name. The finished run is the still the demo pauses on.
 - The approval dialog is where the human gate shows: an engineer who didn't request the run approves, then Devin merges.
 - Run mechanics live in `DEVIN_RUN_PROTOCOL.md`. This file covers the UI around them.
 
@@ -37,15 +37,15 @@ Once the run starts, the same column becomes the run view.
 **Grouped layout.** The fields sit in four groups: REQUEST (the intent, the one editable field) and three blocks the system fills in: CONTEXT (evidence, constants, base commit, no PII), GUARDRAILS (the allowed files) and EXECUTION (start). It shows without narration that the operator writes one sentence and the system supplies the rest. Two requirements:
 
 1. The group headers don't push the evidence line below the fold (see On camera).
-2. The GUARDRAILS caption reads "CI fails anything outside the plan", not "outside this scope". CI checks the plan Devin commits. The scope is the outer bound that plan must fall within.
+2. The GUARDRAILS caption reads "The PR's checks: Lint · Typecheck · Boundaries · Test. Approval: an engineer who did not request the run", not "outside this scope". The four CI checks gate the merge; the scope is the outer bound the plan must fall within.
 
 ## On camera
 
 This panel carries three lines of the demo pitch (`CUSTOMER_FRAMING.md` § 4), so it has to make both visible without narration:
 
 - **"This is everything Devin sees."** The evidence block shows the four Kestrel amounts, the $500 and score-70 lines and base commit `1a67f60`, and no email or card number. If the presenter has to scroll to prove the PII is absent, the panel is too long.
-- **"CI fails anything outside the plan."** When the Plan phase lands, the run view lists the five planned paths, not just a count, so the viewer sees the commitment before the first edit.
-- **"Devin didn't just add a threshold."** The finished run view shows every file with its +/− lines, `pnpm verify` split into its four steps, and each guard check passing by name. The presenter points at it instead of listing files from memory.
+- **"The commitment comes before the first edit."** When the Plan phase lands, the run view lists the five planned paths, not just a count, so the viewer sees the commitment before the first edit — and the reviewer checks the diff against it.
+- **"Devin didn't just add a threshold."** The finished run view shows every file with its +/− lines, `pnpm verify` split into its four checks — Lint, Typecheck, Boundaries and Test — each passing. The presenter points at it instead of listing files from memory.
 
 ## The run view
 
@@ -68,7 +68,7 @@ A glyph checklist that summarises the run in one glance: `✓` done, `●` runni
 ✓ Reusing engine intent pipeline  packages/engine/src/execute-intent.ts
 ✓ Reusing manager approval tier   packages/engine/src/approvals.ts
 ● Editing refunds/clustering-hold.ts  +84
-○ Running guards                  Engine untouched · No type escapes · Seed is not state
+○ Verify                          Lint · Typecheck · Boundaries · Test
 ○ Tests                           68 → 76
 ○ Opening pull request
 ```
@@ -110,7 +110,7 @@ A modal over the run view. It is where the human gate becomes visible, so it get
 │                                                              │
 │  5 files · +146 −3                         View diff on  ⌥GH │
 │  Checks   lint ✓ typecheck ✓ boundaries ✓ tests 76 ✓         │
-│  Guards   Stays in plan ✓ Engine untouched ✓ … (8/8)         │
+│  Context  untouched ✓  · checked by approve_pr             │
 │                                                              │
 │                         [ Cancel ]   [ Approve as engineer ] │
 ├──────────────────────────────────────────────────────────────┤
@@ -177,9 +177,9 @@ A list of every run: kind, intent, requester, status, PR, and the run it reverse
 
 ### `apps/console/src/app/api/devin/` (new)
 
-A server-only route that dispatches, polls and terminates through the v3 API, reading `DEVIN_API_KEY` and `DEVIN_ORG_ID` from the server environment. The browser calls this route, never Devin. Without a key, `dispatch` still applies and `record_session` records the missing configuration as the error, so the run lands as `dispatch_failed` and the console shows an ordinary engine error.
+A server-only route that dispatches, polls and terminates through the v3 API, reading `DEVIN_API_KEY` from the server environment; the organisation comes from `GET /v3/self` unless `DEVIN_ORG_ID` overrides it. The browser calls this route, never Devin. Without a key the console runs in simulation mode (`GET /api/devin/status` reports it): the Devin window and the handoff panel's "Simulate run" show a pre-written run (`apps/console/src/lib/simulation.ts`), dispatch is refused before it reaches the bridge, and nothing is written to `devin_runs` or the audit chain.
 
-Poll responses (`status`, `status_detail`, `structured_output`) are read from the session each time and never written back into `devin_runs` (`DEVIN_RUN_PROTOCOL.md` § Starting a run is a governed write).
+In live mode, every poll response (`status`, `status_detail`, `structured_output`, with a timestamp) is appended to `apps/console/data/replays/<run_id>.json`, shaped exactly like `replay.json`; reads try that file first, then `runs/<run_id>/replay.json` for committed recorded runs. `apps/console/data/` is gitignored, so this is a local recording, not state: it is never read back into `devin_runs` (`DEVIN_RUN_PROTOCOL.md` § Starting a run is a governed write). Once a real run has finished, the file can be committed by hand as `runs/<run_id>/replay.json`, so the replay the demo plays is a recorded run rather than a scripted one.
 
 ### Constant registration on start
 

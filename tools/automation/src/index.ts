@@ -30,6 +30,7 @@ export * from "./run-files";
 export { buildContext, type BuiltContext, type ContextRequest } from "./context";
 export * from "./devin-api";
 export * from "./github-api";
+export * from "./run-files";
 
 export interface DevinRun extends GovernedRecord {
   id: string;
@@ -578,6 +579,23 @@ function transition(
 
 export function getRun(id: string): DevinRun | null {
   return db.select().from(devinRuns).where(eq(devinRuns.id, id)).get() ?? null;
+}
+
+export function getRunByPrUrl(prUrl: string): DevinRun | null {
+  return db.select().from(devinRuns).where(eq(devinRuns.prUrl, prUrl)).get() ?? null;
+}
+
+/** The run that reversed `id`, in flight or merged; null when it has not been reversed. */
+export function reversingRun(id: string): DevinRun | null {
+  return (
+    db
+      .select()
+      .from(devinRuns)
+      .where(
+        and(eq(devinRuns.reverses, id), inArray(devinRuns.status, [...IN_FLIGHT_STATUSES, "merged"])),
+      )
+      .get() ?? null
+  );
 }
 
 /** One page of runs, newest request first. */

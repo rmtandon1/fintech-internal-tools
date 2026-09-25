@@ -12,6 +12,7 @@ import {
 import { countPendingFor } from "@console/engine/approvals";
 import { verifyChain } from "@console/engine/audit/verify";
 import { automationTool } from "@console/tool-automation";
+import { WorkspaceProvider } from "@/components/workspace";
 import { devinMode } from "@/lib/devin-status";
 import { OPS_MODES } from "@/lib/modes";
 import { currentActor } from "@/lib/session";
@@ -63,22 +64,24 @@ export default async function RootLayout({
         <CommandPaletteProvider modes={modes}>
           <div className="flex h-full">
             <AppSidebar actor={actor} tools={tools} runs={runs} pendingApprovals={pending} />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <AppHeader
-                actor={actor}
-                chainOk={chain.ok}
-                chainLength={chain.length}
-                agent={
-                  <AgentWindow
-                    mode={mode}
-                    source={mode === "simulation" ? "source: simulation (pre-written)" : "source: devin_runs"}
-                  >
-                    <DevinWindowBody actor={actor} mode={mode} />
-                  </AgentWindow>
-                }
-              />
-              <main className="min-h-0 flex-1 overflow-hidden p-3">{children}</main>
-            </div>
+            <WorkspaceProvider>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <AppHeader
+                  actor={actor}
+                  chainOk={chain.ok}
+                  chainLength={chain.length}
+                  agent={
+                    <AgentWindow
+                      mode={mode}
+                      source={mode === "simulation" ? "source: simulation (pre-written)" : "source: devin_runs"}
+                    >
+                      <DevinWindowBody actor={actor} mode={mode} />
+                    </AgentWindow>
+                  }
+                />
+                <main className="min-h-0 flex-1 overflow-hidden p-3">{children}</main>
+              </div>
+            </WorkspaceProvider>
           </div>
         </CommandPaletteProvider>
         <Toaster position="bottom-right" />

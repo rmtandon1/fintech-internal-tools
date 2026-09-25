@@ -89,6 +89,9 @@ export type PlanFile = z.infer<typeof PlanFile>;
 
 export const PHASES = ["intake", "baseline", "plan", "edit", "verify", "pull_request", "merge"] as const;
 
+/** The PR's required checks: exactly what `pnpm verify` runs. */
+export const CI_CHECKS = ["Lint", "Typecheck", "Boundaries", "Test"] as const;
+
 export const StructuredOutput = z
   .object({
     phase: z.enum(PHASES),
@@ -130,3 +133,16 @@ export type StructuredOutput = z.infer<typeof StructuredOutput>;
 export const STRUCTURED_OUTPUT_JSON_SCHEMA = z.toJSONSchema(StructuredOutput, {
   target: "draft-7",
 });
+
+export const ReplayFrame = z
+  .object({
+    at_ms: z.number().int().nonnegative(),
+    structured_output: StructuredOutput,
+    status: z.string().min(1),
+    status_detail: z.string().nullable(),
+  })
+  .strict();
+export type ReplayFrame = z.infer<typeof ReplayFrame>;
+
+export const ReplayFile = z.array(ReplayFrame);
+export type ReplayFile = z.infer<typeof ReplayFile>;

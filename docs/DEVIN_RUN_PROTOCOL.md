@@ -39,7 +39,7 @@ The kind says what a run does. Its scope says where it may do it, and so how muc
 
 | Scope            | May change                                                                                      | Extra gate                                                                                                                |
 | ---------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `rule` (default) | Tool folders, tests, `runs/`                                                                    | None. **Engine untouched** applies                                                                                        |
+| `rule` (default) | Tool folders, tests, `runs/`                                                                    | None                                                                                                                        |                                                                                        |
 | `engine`         | Also `packages/engine/`, `packages/db/`, `packages/db-core/`, `packages/db-write/`, `packages/permissions/`, `apps/console/drizzle/`, `apps/console/src/app/actions.ts`, shared components, `AGENTS.md` | The engine owner approves as well as the engineer. The reviewer runs `/audit/verify` on a database migrated to the branch |
 
 
@@ -66,14 +66,14 @@ The effect writes the run row and the audit row in one transaction. The HTTP cal
 
 Polled run state is never written to `devin_runs`. Phase, `status_detail` and `structured_output` come from the session poll and are held in memory, not persisted. The one fact a poll does record is the pull request: the first time the session reports `pr_url`, the console submits `record_pr`, so a later poll that omits it cannot lose the PR. Only audited transitions touch the table: `dispatch`, `record_session`, `record_pr`, `approve_pr`, `record_merge` and `stop`. That keeps a run at five audit rows on the normal path (dispatch, record_session, record_pr, approve_pr, record_merge), with `stop` or `dispatch_failed` replacing the later rows when a run ends early.
 
-`stop` also records terminal session failure. When a poll reports the session `failed` (or a phase stopped the run, § Phases), the console submits `stop` with the reported reason, so the row leaves the in-flight state and the "no other run in flight against the same tool" rule releases the tool. Without that, a failed run would block the next `dispatch` until someone pressed **Stop run**. A `stop` row names whether it was an operator's click or a reported failure.
+`stop` also records terminal session failure. When a poll reports the session has ended — `stopped`, `expired` or `failed`, or a phase stopped the run (§ Phases) — the console submits `stop` with the reported reason, so the row leaves the in-flight state and the "no other run in flight against the same tool" rule releases the tool. Without that, a failed run would block the next `dispatch` until someone pressed **Stop run**. A `stop` row names whether it was an operator's click or a reported failure.
 
 `approve_pr` rules:
 
 - The actor is an `engineer`. This is a new role, added to `ROLES` and `ROLE_META` in `packages/permissions/src/roles.ts` and `DEMO_ACTORS` in `packages/engine/src/actor.ts` by the build agent, with a level `canApprove` excludes (`AGENT_TRIGGER_SURFACE.md` § Build). It is not a Devin run.
 - The approver is not the run's requester.
-- The PR's required checks are green, including every guard check.
-- **Context untouched**: the branch's `runs/<run_id>/context.json` hashes (SHA-256) to the `contextSha256` stored in the dispatch audit row. This is the one guard the console runs itself, because CI can't read its SQLite.
+- The PR's required checks are green: Lint, Typecheck, Boundaries and Test (what `pnpm verify` runs).
+- **Context untouched**: the branch's `runs/<run_id>/context.json` hashes (SHA-256) to the `contextSha256` stored in the dispatch audit row. This is the one check the console runs itself, because CI can't read its SQLite.
 
 Its effect submits an approving review to GitHub as the engineer, then messages the Devin session to merge. See § Approval and merge.
 
@@ -116,8 +116,8 @@ Devin's VM runs a freshly seeded database. It cannot see `apps/console/data/cons
 ```
 
 - **Evidence rows carry no PII.** Emails and card numbers are dropped, not masked. Devin needs the amounts, merchant, reason and timing to write a regression test. It doesn't need the customer.
-- **`scope` is the spec's Scope list as path globs.** The console copies it from the spec at dispatch (engine scope adds the paths from § Scope). It is what makes **Plan stays in scope** checkable: the guard matches every `plan.json` path against these globs, rather than parsing the spec's prose.
-- **The dispatch audit row stores the SHA-256 of this file.** The `approve_pr` rule checks that the file committed on the branch hashes to the same value, so what Devin worked from is provably what the console sent. CI cannot do this check, because it cannot read the console's SQLite (§ Guard checks).
+- **`scope` is the spec's Scope list as path globs.** The console copies it from the spec at dispatch (engine scope adds the paths from § Scope). It is what makes the plan checkable: the reviewing engineer matches every `plan.json` path against these globs, rather than parsing the spec's prose.
+- **The dispatch audit row stores the SHA-256 of this file.** The `approve_pr` rule checks that the file committed on the branch hashes to the same value, so what Devin worked from is provably what the console sent. CI cannot do this check, because it cannot read the console's SQLite.
 - **For a REVERSAL**, `reverses` names the IMPLEMENTATION's run id and merge commit. `constants` then carries both the values at that IMPLEMENTATION's dispatch and the values now.
 
 The session itself gets:
@@ -147,9 +147,9 @@ Each phase passes or stops the run. There is no "continue with warnings".
 | Merge        | After an engineer's `approve_pr`, Devin merges (squash) and reports `merge_commit`                                                                           | Report why (checks re-running, conflict with a newer merge) and wait. Rebase inside the plan if the base moved |
 
 
-The plan is Devin's own, committed before any edit. The spec gives a scope the plan must stay inside. Committing first is what makes scope checkable: the guard compares the diff with a list Devin wrote before it knew what the diff would be.
+The plan is Devin's own, committed before any edit. The spec gives a scope the plan must stay inside. Committing first is what makes scope checkable: the reviewing engineer compares the diff with a list Devin wrote before it knew what the diff would be.
 
-`plan.json` holds `files[]` (path, `create | modify | delete`, one-line reason), `reuses[]` (existing modules the change builds on, each with a one-line reason), `acceptance[]` (the spec's acceptance test names it will make pass) and, for `IMPLEMENTATION/REMOVAL` and `REVERSAL`, `removed_tests[]` of `{ file, name }`: each test the run will delete because it asserts the rule being taken out. **Tests never shrink** permits exactly those removals and no others; for other kinds the array is absent or empty. `reuses[]` is informational. No guard checks it, and it is not a scope boundary.
+`plan.json` holds `files[]` (path, `create | modify | delete`, one-line reason), `reuses[]` (existing modules the change builds on, each with a one-line reason), `acceptance[]` (the spec's acceptance test names it will make pass) and, for `IMPLEMENTATION/REMOVAL` and `REVERSAL`, `removed_tests[]` of `{ file, name }`: each test the run will delete because it asserts the rule being taken out. The reviewer permits exactly those removals and no others; for other kinds the array is absent or empty. `reuses[]` is informational and not a scope boundary.
 
 ## Progress
 
@@ -174,14 +174,10 @@ The Devin API doesn't stream sub-steps. The session's `structured_output` is the
     { "path": "tools/kyc/src/index.ts", "op": "modify", "additions": 12, "deletions": 1, "reason": "linked_refund_hold on approve" }
   ],
   "verify_steps": [
-    { "name": "lint", "pass": true },
-    { "name": "typecheck", "pass": true },
-    { "name": "boundaries", "pass": true },
-    { "name": "tests", "pass": null, "before": 68, "after": null }
-  ],
-  "guards": [
-    { "name": "Stays in plan", "pass": true },
-    { "name": "Engine untouched", "pass": true }
+    { "name": "Lint", "pass": true },
+    { "name": "Typecheck", "pass": true },
+    { "name": "Boundaries", "pass": true },
+    { "name": "Test", "pass": null, "before": 68, "after": null }
   ],
   "conflicts": [],
   "pr_url": null,
@@ -191,7 +187,6 @@ The Devin API doesn't stream sub-steps. The session's `structured_output` is the
 
 - `reuses` is copied from `plan.json` when the Plan phase lands and does not change after. It drives the "Reusing …" lines of the run checklist.
 - `files` fills during Edit. Before that, the plan's paths come from `plan.json`.
-- `guards` is Devin's local run of `scripts/run-guard.ts`. The same checks run again in CI on the PR, and CI is the authority.
 - `conflicts` is used by REVERSAL: one entry per conflicted file, with what was kept (`"partial_delivery reason code, PR #7"`) and what was removed (`"clustering_hold registration"`).
 
 The console polls the session (`GET /v3/organizations/{org_id}/sessions/{devin_id}`) and reads `status`, `status_detail` and `structured_output`. `status_detail = waiting_for_user` surfaces as a reply box, and the reply is sent through the messages endpoint. **Stop run** calls the terminate endpoint (`DELETE` on the same path) and marks the run `stopped` through an intent.
@@ -220,7 +215,6 @@ The playbook states these as prose, and `scripts/run-guard.ts` (in `pnpm verify`
 
 
 `runs/` and the guard sit under CODEOWNERS, so changing either needs a human reviewer.
-
 ## Reversal
 
 A REVERSAL is not `git revert` run by a machine. A clean revert only works if nothing has touched the same lines since the merge. In practice other runs and ordinary PRs will have landed on top. An admin will have tuned the rule's constants. Refunds may be sitting in the inbox, held by a rule that is about to disappear. Working through that is the autonomous part.
@@ -232,8 +226,6 @@ Devin's job on a REVERSAL:
 3. Remove the constants that IMPLEMENTATION declared. Restore any constant it changed to the value in its `context.json`, unless an admin has set it since. In that case, report both values in the PR and leave the declared default alone.
 4. Rewrite, don't delete, any later test that depended on the reversed rule. Name each one.
 5. List in the PR anything the code can't undo: held refunds still awaiting approval, and constant rows still in the live database. These become operator steps.
-
-The extra guard check for REVERSAL is **Only undo**. For every file the original IMPLEMENTATION touched, `git diff <implementation_base> HEAD -- <file>` must contain only changes from commits merged after that IMPLEMENTATION. Anything else is new behaviour smuggled into an undo.
 
 ## Snapshots
 
@@ -261,7 +253,7 @@ Humans approve. Devin merges. The control a regulated change process needs is se
 4. Devin merges and reports `merge_commit` in `structured_output`.
 5. The console writes `record_merge` for the same engineer, with the PR URL and merge commit.
 
-Enforcement lives in GitHub, not the guard script. `run-guard.ts` checks a diff and can't see who merged. Branch protection on `cognition-dashboard-devin-integration` requires one approving review, all guard checks, and no bypass for Devin's GitHub account. Devin's docs recommend exactly this: branch protection "to ensure all required checks pass before Devin can merge changes" (docs.devin.ai, GitHub integration). A security profile can also restrict the session's git and GitHub CLI access (docs.devin.ai, Security Profiles).
+Enforcement lives in GitHub. Branch protection on `cognition-dashboard-devin-integration` requires one approving review, the four CI checks — Lint, Typecheck, Boundaries and Test — and no bypass for Devin's GitHub account. Devin's docs recommend exactly this: branch protection "to ensure all required checks pass before Devin can merge changes" (docs.devin.ai, GitHub integration). A security profile can also restrict the session's git and GitHub CLI access (docs.devin.ai, Security Profiles).
 
 Demo setup: the engineer's GitHub token sits in the server environment next to `DEVIN_API_KEY`.
 
@@ -272,7 +264,7 @@ Demo setup: the engineer's GitHub token sits in the server environment next to `
 3. Constants a run declares must exist in the live database without a re-seed. `registerToolConstants` (`registerConstants`, which skips existing keys) runs on server start via `instrumentation.ts`, and again in-process right after the merge sync's `db:migrate`, so a merged rule works without a browser reload or restart. A production build still needs a rebuild to serve new source.
 4. The next matching record goes through the new rule. That moment is the demo.
 
-`db:migrate` here is the console migrating its own database after a merge, not a Devin session writing live data. The **No live writes** guard still forbids `db:setup`, `db:seed` and `db:tamper` for the session; the merge sync never invokes them.
+`db:migrate` here is the console migrating its own database after a merge, not a Devin session writing live data. `db:setup`, `db:seed` and `db:tamper` remain off limits for the session; the merge sync never invokes them.
 
 ## Credentials
 

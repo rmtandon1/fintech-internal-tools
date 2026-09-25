@@ -34,7 +34,7 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 - Tools are workspace packages in `tools/<tool>/` (`src/index.ts`, `src/schema.ts`, `src/seed.ts`, `package.json`), registered in `apps/console/src/registry.ts` and their tables re-exported from `apps/console/src/schema.ts`; a tool that depends on another tool declares it in its `package.json`. Queue stats are declared on the tool (`stats: StatDecl[]`, see `docs/QUEUE_STATS_STRIP.md`) and rendered by `apps/console/src/components/stat-strip.tsx`; every count is a query, never a stored number
 - The role catalog is `packages/permissions/src/roles.ts`; it may name tools, the engine may not
 - Audit rows are hash-chained and appended in the same transaction as the effect; never write audit rows outside the engine
-- `.github/CODEOWNERS` gates `packages/engine`, `packages/db*`, `packages/permissions`, the boundary and run guard scripts, `.devin/` and `runs/`
+- `.github/CODEOWNERS` gates `packages/engine`, `packages/db*`, `packages/permissions`, the boundary script and `runs/`
 
 ## Testing Guidelines
 - Vitest (`apps/console/vitest.config.ts`), Node environment, tests in `apps/console/tests/**/*.test.ts`
@@ -45,7 +45,7 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 - Run `pnpm verify` before committing
 
 ## Project Structure
-- `apps/console` - The Next app: `src/app` routes (inbox, audit, admin/policy, roadmap, `t/[tool]`) and server actions, `src/components` app components, `src/lib` (modes, session), `src/registry.ts`, `src/schema.ts`, `drizzle/` migrations, `scripts/` (migrate, seed, tamper), `tests/`, `data/` (local SQLite, gitignored)
+- `apps/console` - The Next app: `src/app` routes (inbox, audit, admin/policy, roadmap, runs, `t/[tool]`, `api/devin/[runId]`) and server actions, `src/components` app components, `src/lib` (modes, session), `src/registry.ts`, `src/schema.ts`, `drizzle/` migrations, `scripts/` (migrate, seed, tamper), `tests/`, `data/` (local SQLite, gitignored)
 - `packages/engine` - Governed write path: policy, approvals, idempotency, audit, PII masking, registry, actor
 - `packages/permissions` - Role catalog
 - `packages/ui` - shadcn primitives, `icon`, `policy-trace`, `status-chip`, `format`, `utils`

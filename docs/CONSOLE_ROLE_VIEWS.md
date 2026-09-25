@@ -13,7 +13,7 @@ A KYC record shows the same customer's refunds in a drawer (`linkedActivity` on 
 | Open cluster in Refunds | Hidden | Hidden | Yes |
 | Approve a held refund | Hidden | Hidden (a refunds decision) | Yes, unless they requested it (maker ≠ checker) |
 
-The only run control in the console today is "Ask Devin for a rule" in the refunds cluster drawer (`apps/console/src/components/dispatch-control.tsx`); there is no Reverse control yet. Their placement on a KYC case, and per-role visibility, is open for the UI rework.
+Run controls start where the evidence is: "Ask Devin for a rule" in the refunds cluster drawer for the refunds manager, "Ask Devin to change/remove this rule" on `/admin/policy` (rendered disabled when the spec offers no such kind), and "Reverse this change" on `/runs` for an admin on a merged run. Their placement on a KYC case, and per-role visibility, is open for the UI rework.
 
 The join is KYC `email` = refunds `customerEmail`, run on the server with the read client so no unmasked email reaches the browser. Covered by `apps/console/tests/tools/kyc-linked-activity.test.ts`.
 
@@ -21,4 +21,4 @@ The join is KYC `email` = refunds `customerEmail`, run on the server with the re
 
 Devin's work opens in a centred modal (`apps/console/src/components/agent-window.tsx`, on `@console/ui/dialog`), not a column. The header's Devin button or `]` toggles it (`[` toggles the sidebar); Esc or the close button also closes it. There is no resizable pane and no persisted layout; the same window opens at every viewport width.
 
-The window is a shell: it renders "source: none" and "No runs yet". The planned data flow (live session while a run is in flight, `runs/<run_id>/` on the default branch after merge) is specified in `AGENT_TRIGGER_SURFACE.md` and is not wired up.
+The window also opens on its own when a handoff or a run is focused — the "Ask Devin" buttons and `/runs` row clicks set the workspace focus. It shows the handoff panel, the run view for a focused or in-flight run (polling `GET /api/devin/<id>`), or a server-rendered empty state naming the last merged run with a link to `/runs`. Its header marks simulation mode with a `SIM` chip and names the data source: `context preview` for a handoff, the run view for a focused run, `simulation (pre-written)` or `devin_runs` otherwise.
