@@ -5,7 +5,7 @@
 - The console's frame. Operations sit on the left: queues, records, flags. Devin's work sits on the right: the run, its phases, the pull request.
 - One frame carries the argument: the operator asks, Devin changes the code, and the next refund behaves differently.
 - Context from another tool, such as a KYC case's refunds, opens in a drawer at the foot of the record, filtered by the viewer's role.
-- Every panel names its data source. The agent column reads the live session while a run is in flight, and the default branch after merge.
+- Every panel names its data source. The Devin window reads the live session while a run is in flight, and the default branch after merge.
 - Dense and keyboard-first, through styling alone. Normal feature work, and `AGENTS.md` applies.
 
 ## Why the split layout
@@ -57,13 +57,13 @@ What each role sees in the linked-activity drawer on a KYC case. Roles are domai
 
 The join is KYC `email` = refunds `customerEmail`. It runs on the server with the read client, so no unmasked email reaches the browser.
 
-## Resizing and hiding the agent column
+## Opening and closing the Devin window
 
-The gap between the record column and the agent column is a drag seam (`packages/ui/src/resizable.tsx`, on `react-resizable-panels`). The agent column runs from 280px up to half the workspace and keeps its pixel width when the window resizes. Dragging it below 280px collapses it. The header's Devin button or `]` toggles it, mirroring `[` for the sidebar, and a double-click on the seam restores the default split. The split is saved in the `console-workspace-layout` cookie, so the server renders the last layout without a jump. Below `lg` the seam and column are hidden and the header button opens the column as a sheet.
+Devin's work shows in a centred modal window (`apps/console/src/components/agent-window.tsx`, on `@console/ui/dialog`), not a column beside `main`. The header's Devin button or `]` opens it; Esc, the close button, or `]` closes it. It is not a resizable pane, and there is no layout to persist: the same window opens at every viewport width.
 
-## Where the agent column's data comes from
+## Where the Devin window's data comes from
 
-The run view has to work while a run is in flight, when Devin's branch is the only place `runs/<run_id>/` exists. So the column reads the session while the run is live, and the default branch after it has merged.
+The run view has to work while a run is in flight, when Devin's branch is the only place `runs/<run_id>/` exists. So the window reads the session while the run is live, and the default branch after it has merged.
 
 | State | Source | Shown |
 |---|---|---|
@@ -77,20 +77,18 @@ The panel never pretends to analyse code itself. It shows what the run reported.
 
 ### `apps/console/src/app/layout.tsx`
 
-Wrap `main` so the agent column sits beside it:
+`main` takes the full width; the Devin window mounts through the header:
 
 ```tsx
-            <div className="flex min-h-0 flex-1">
-              <main className="min-w-0 flex-1 px-4 py-4">{children}</main>
-              <AgentColumn />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <AppHeader agent={<AgentWindow />} /* … */ />
+              <main className="min-h-0 flex-1 overflow-hidden p-3">{children}</main>
             </div>
 ```
 
-Below the `lg` breakpoint, collapse the column to a button that opens it as a sheet.
+### `apps/console/src/components/agent-window.tsx` (new)
 
-### `apps/console/src/components/agent-column.tsx` (new)
-
-Server component shell that picks the state from the table above. It holds the handoff panel and the run view described in `AGENT_TRIGGER_SURFACE.md`. The in-flight view is a client child that polls `apps/console/src/app/api/devin/` every few seconds and stops polling when the run ends.
+Client shell on `@console/ui/dialog` that picks the state from the table above. It holds the handoff panel and the run view described in `AGENT_TRIGGER_SURFACE.md`. The in-flight view is a client child that polls `apps/console/src/app/api/devin/` every few seconds and stops polling when the run ends.
 
 ### `apps/console/src/components/context-drawer.tsx` (new)
 
@@ -113,5 +111,5 @@ pnpm db:setup && pnpm dev
 
 - As analyst, drawer rows are masked with no reveal control, and approve is absent.
 - As manager, reveal works and writes an audit row.
-- With no runs, the column shows its empty state and nothing breaks.
-- At phone width the column collapses and the record stays usable.
+- With no runs, the window shows its empty state and nothing breaks.
+- At phone width the window still opens as a centred modal and the record stays usable.
