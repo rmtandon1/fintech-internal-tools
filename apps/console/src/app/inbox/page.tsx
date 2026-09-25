@@ -16,12 +16,15 @@ export default async function InboxPage({
   const actor = await currentActor();
   const approver = canApprove(actor.role);
   const tool = typeof query.tool === "string" ? getTool(query.tool) : undefined;
+  if (typeof query.tool === "string" && !tool?.visibleTo.includes(actor.role)) notFound();
   if (!approver && !tool) notFound();
 
   const inScope = listApprovals().filter(
     (a) => (!tool || a.tool === tool.name) && (approver || a.requesterId === actor.id),
   );
-  const pending = inScope.filter((a) => a.status === "pending");
+  const pending = inScope.filter(
+    (a) => a.status === "pending" && (!tool || !approver || canDecide(a, actor).ok),
+  );
   const decided = inScope.filter((a) => a.status !== "pending").slice(0, 20);
 
   return (

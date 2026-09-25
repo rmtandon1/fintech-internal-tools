@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, like, lt, or } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, like, lt, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@console/db";
 import { defineAction, defineTool } from "@console/engine/declare";
@@ -385,6 +385,7 @@ export const kycTool = defineTool<KycCase>({
     if (filters.riskTier) clauses.push(eq(kycCases.riskTier, filters.riskTier));
     if (filters.due) {
       const now = Date.now();
+      clauses.push(inArray(kycCases.status, OPEN_STATUSES));
       if (filters.due === "overdue") {
         clauses.push(lt(kycCases.dueAt, now));
       } else if (filters.due === "due_12h") {

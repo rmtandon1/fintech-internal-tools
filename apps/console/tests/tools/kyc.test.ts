@@ -164,12 +164,25 @@ describe("kyc stats", () => {
     const all = kycTool.list({ filters: {}, limit: 1000, offset: 0 }).rows;
     const overdue = kycTool.list({ filters: { due: "overdue" }, limit: 1000, offset: 0 });
     const soon = kycTool.list({ filters: { due: "due_12h" }, limit: 1000, offset: 0 });
-    expect(overdue.total).toBe(all.filter((c) => Number(c.dueAt) < now).length);
     expect(soon.total).toBe(
       all.filter((c) => Number(c.dueAt) >= now && Number(c.dueAt) < now + 12 * 60 * 60 * 1000)
         .length,
     );
-    for (const row of overdue.rows) expect(Number(row.dueAt)).toBeLessThan(now);
+    for (const row of overdue.rows) {
+      expect(Number(row.dueAt)).toBeLessThan(now);
+      expect(["pending_review", "info_requested", "escalated"]).toContain(row.status);
+    }
+    const finishedPastDue = all.filter(
+      (c) => Number(c.dueAt) < now && ["approved", "rejected"].includes(String(c.status)),
+    );
+    expect(finishedPastDue.length).toBeGreaterThan(0);
+    expect(overdue.total).toBe(
+      all.filter(
+        (c) =>
+          Number(c.dueAt) < now &&
+          ["pending_review", "info_requested", "escalated"].includes(String(c.status)),
+      ).length,
+    );
     for (const row of soon.rows) expect(Number(row.dueAt)).toBeGreaterThanOrEqual(now);
   });
 });
