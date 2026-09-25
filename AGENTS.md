@@ -42,7 +42,7 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 - Run `pnpm verify` before committing
 
 ## Project Structure
-- `apps/console` - The Next app: `src/app` routes (inbox, audit, admin/policy, roadmap, `t/[tool]`) and server actions, `src/components` app components, `src/lib` (modes, session), `src/registry.ts`, `src/schema.ts`, `drizzle/` migrations, `scripts/` (migrate, seed, tamper), `tests/`, `data/` (local SQLite, gitignored)
+- `apps/console` - The Next app: `src/app` routes (inbox, audit, admin/policy, roadmap, runs, `t/[tool]`, `api/devin/[runId]`) and server actions, `src/components` app components, `src/lib` (modes, session), `src/registry.ts`, `src/schema.ts`, `drizzle/` migrations, `scripts/` (migrate, seed, tamper), `tests/`, `data/` (local SQLite, gitignored)
 - `packages/engine` - Governed write path: policy, approvals, idempotency, audit, PII masking, registry, actor
 - `packages/permissions` - Role catalog
 - `packages/ui` - shadcn primitives, `icon`, `policy-trace`, `status-chip`, `format`, `utils`

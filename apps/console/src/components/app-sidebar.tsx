@@ -40,10 +40,13 @@ export function AppSidebar({
   actor,
   tools,
   pendingApprovals,
+  showRuns,
 }: {
   actor: Actor;
   tools: ToolLink[];
   pendingApprovals: number;
+  /** The /runs page is for roles that may see the automation tool. */
+  showRuns?: boolean;
 }) {
   const pathname = usePathname();
   const [expanded, setExpanded] = useState(false);
@@ -74,6 +77,16 @@ export function AppSidebar({
       icon: "ScrollText",
       active: pathname === "/audit",
     },
+    ...(showRuns
+      ? [
+          {
+            href: "/runs",
+            label: "Runs",
+            icon: "Bot",
+            active: pathname === "/runs",
+          },
+        ]
+      : []),
     ...(actor.role === "admin"
       ? [
           {

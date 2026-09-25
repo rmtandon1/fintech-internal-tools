@@ -15,6 +15,8 @@ import {
 } from "@/components/workspace";
 import { countPendingFor } from "@console/engine/approvals";
 import { verifyChain } from "@console/engine/audit/verify";
+import { automationTool, type DevinRun, IN_FLIGHT_STATUSES } from "@console/tool-automation";
+import { bridgeMode } from "@/lib/bridge";
 import { OPS_MODES } from "@/lib/modes";
 import { currentActor } from "@/lib/session";
 import {
@@ -43,6 +45,11 @@ export default async function RootLayout({
   }));
   const pending = countPendingFor(actor);
   const chain = verifyChain();
+  const { rows: runRows } = automationTool.list({ filters: {}, limit: 100, offset: 0 });
+  const inFlight =
+    runRows.find((r) => IN_FLIGHT_STATUSES.includes(r.status as DevinRun["status"])) ?? null;
+  const lastMerged = runRows.find((r) => r.status === "merged") ?? null;
+  const agentProps = { mode: bridgeMode(), inFlight, lastMerged };
   const layout = parseWorkspaceLayout(
     (await cookies()).get(WORKSPACE_LAYOUT_COOKIE)?.value,
   );
@@ -70,7 +77,12 @@ export default async function RootLayout({
       <body className="h-screen overflow-hidden bg-background text-foreground antialiased">
         <CommandPaletteProvider modes={modes}>
           <div className="flex h-full">
-            <AppSidebar actor={actor} tools={tools} pendingApprovals={pending} />
+            <AppSidebar
+              actor={actor}
+              tools={tools}
+              pendingApprovals={pending}
+              showRuns={automationTool.visibleTo.includes(actor.role)}
+            />
             <WorkspaceProvider initialLayout={layout}>
               <div className="flex min-w-0 flex-1 flex-col">
                 <AppHeader
@@ -79,12 +91,12 @@ export default async function RootLayout({
                   chainLength={chain.length}
                   agent={
                     <>
-                      <AgentColumnSheet />
+                      <AgentColumnSheet {...agentProps} />
                       <AgentColumnToggle />
                     </>
                   }
                 />
-                <WorkspacePanes initialLayout={layout} agent={<AgentColumn />}>
+                <WorkspacePanes initialLayout={layout} agent={<AgentColumn {...agentProps} />}>
                   {children}
                 </WorkspacePanes>
               </div>

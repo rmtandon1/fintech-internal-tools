@@ -4,7 +4,7 @@
 
 - A Devin run starts from the screen that shows why it is needed: the cluster drawer, a rule's row, or a merged run. The request carries that screen's evidence with it.
 - The handoff panel holds one editable sentence, plus the evidence, scope and mode the system fills in. The requester sees exactly what Devin will see.
-- The run view shows the artifacts an engineer would check: planned files, lines changed, test counts and each guard check by name. The finished run is the still the demo pauses on.
+- The run view shows the artifacts an engineer would check: planned files, lines changed, test counts and the four CI checks by name. The finished run is the still the demo pauses on.
 - The approval dialog is where the human gate shows: an engineer who didn't request the run approves, then Devin merges.
 - Run mechanics live in `DEVIN_RUN_PROTOCOL.md`. This file covers the UI around them.
 
@@ -46,7 +46,7 @@ This panel carries three lines of the demo pitch (`CUSTOMER_FRAMING.md` § 4), s
 
 - **"This is everything Devin sees."** The evidence block shows the four Kestrel amounts, the $500 and score-70 lines and base commit `1a67f60`, and no email or card number. If the presenter has to scroll to prove the PII is absent, the panel is too long.
 - **"CI fails anything outside the plan."** When the Plan phase lands, the run view lists the five planned paths, not just a count, so the viewer sees the commitment before the first edit.
-- **"Devin didn't just add a threshold."** The finished run view shows every file with its +/− lines, `pnpm verify` split into its four steps, and each guard check passing by name. The presenter points at it instead of listing files from memory.
+- **"Devin didn't just add a threshold."** The finished run view shows every file with its +/− lines, `pnpm verify` split into its four checks — Lint, Typecheck, Boundaries and Test — each passing. The presenter points at it instead of listing files from memory.
 
 ## The run view
 
@@ -69,14 +69,14 @@ A glyph checklist that summarises the run in one glance: `✓` done, `●` runni
 ✓ Reusing engine intent pipeline  packages/engine/src/execute-intent.ts
 ✓ Reusing manager approval tier   packages/engine/src/approvals.ts
 ● Editing refunds/clustering-hold.ts  +84
-○ Running guards                  Engine untouched · No type escapes · Seed is not state
+○ Verify                          Lint · Typecheck · Boundaries · Test
 ○ Tests                           68 → 76
 ○ Opening pull request
 ```
 
 - **Reusing lines** come from `reuses[]` in `plan.json`, so they appear when the Plan phase lands. They show the change sitting on the existing engine rather than beside it.
 - **Editing** shows the file currently being written, from the newest entry in `files[]`.
-- **Running guards** and **Tests** expand to the guard names and `verify_steps[]` the timeline below already shows. The checklist is the summary, the timeline stays the evidence.
+- **Verify** and **Tests** expand to the `verify_steps[]` the timeline below already shows. The checklist is the summary, the timeline stays the evidence.
 - A REVERSAL swaps the reuse lines for `✓ Reverting <merge>` and `✓ Resolving conflict in <file>`.
 
 The checklist is a second reading of the same fields as the timeline, not a second data source. If a line has no field behind it, cut the line.
@@ -89,7 +89,7 @@ One timeline, one row per phase, each with a state (waiting, running with spinne
 - **Baseline:** `pnpm verify` green at base, 68 tests.
 - **Plan:** branch `devin/<run_id>-clustering-hold`, plan commit SHA, and the planned paths with `create` or `modify` and a one-line reason each.
 - **Edit:** per file, +/− lines and the symbol touched, e.g. `tools/kyc/src/index.ts · modify · +12 −1 · linked_refund_hold on approve`.
-- **Verify:** `pnpm verify` split into lint, typecheck, boundaries and tests (68 → 76), then each guard check by name with its result: **Stays in plan**, **Plan stays in scope**, **Run dir frozen**, **Engine untouched**, **Tests never shrink**, **No type escapes**, **Seed is not state**. For a REVERSAL, **Only undo** as well. **Context untouched** is checked by `approve_pr`, not CI, so it shows in the approval dialog (`DEVIN_RUN_PROTOCOL.md` § Guard checks).
+- **Verify:** `pnpm verify` split into its four checks — Lint, Typecheck, Boundaries and Test (68 → 76). **Context untouched** is checked by `approve_pr`, not CI, so it shows in the approval dialog.
 - **Pull request:** PR number and title, link to GitHub.
 
 For a REVERSAL, two more things show:
@@ -111,7 +111,7 @@ A modal over the run view. It is where the human gate becomes visible, so it get
 │                                                              │
 │  5 files · +146 −3                         View diff on  ⌥GH │
 │  Checks   lint ✓ typecheck ✓ boundaries ✓ tests 76 ✓         │
-│  Guards   Stays in plan ✓ Engine untouched ✓ … (8/8)         │
+│  Context  untouched ✓  · checked by approve_pr             │
 │                                                              │
 │                         [ Cancel ]   [ Approve as engineer ] │
 ├──────────────────────────────────────────────────────────────┤
@@ -156,7 +156,7 @@ Keep it one sentence. Don't grow the field into a specification form. The senten
 - **ADDITION and CHANGE** take free text, because the operator knows the behaviour they want and not how the code does it. For example, on an existing rule: "Also hold refunds when three or more go to the same card within 10 minutes."
 - **REMOVAL, REVERSAL and switching a rule off** are buttons. The intent is already fully known, and typing "please remove this rule" adds nothing.
 
-**What this claims.** Business users don't reprogram the fintech through natural language. The claim is that when internally owned software needs engineering work, starting that work takes one sentence from the record, and the engineering stays reviewed. Some sentences will ask for more than a rule. "Require a second reviewer for KYC applications above risk score 90" needs a two-approver primitive the engine doesn't have (`packages/engine/src/approvals.ts` takes one approver per request). **Engine untouched** stops that run at Plan. That's engineering's design work, with Devin as implementer (`CHANGE_TYPES.md`, "Change the engine").
+**What this claims.** Business users don't reprogram the fintech through natural language. The claim is that when internally owned software needs engineering work, starting that work takes one sentence from the record, and the engineering stays reviewed. Some sentences will ask for more than a rule. "Require a second reviewer for KYC applications above risk score 90" needs a two-approver primitive the engine doesn't have (`packages/engine/src/approvals.ts` takes one approver per request). A rule-scope run cannot touch `packages/engine`, so that request stops at Plan. That's engineering's design work, with Devin as implementer (`CHANGE_TYPES.md`, "Change the engine").
 
 Revisit if operators need to ask for rules with no record to start from, such as "a rule for a market we haven't launched". The answer is still a sentence that produces the same intent, started from `/admin/policy` rather than a cluster.
 
@@ -177,9 +177,9 @@ A list of every run: kind, intent, requester, status, PR, and the run it reverse
 
 ### `apps/console/src/app/api/devin/` (new)
 
-A server-only route that dispatches, polls and terminates through the v3 API, reading `DEVIN_API_KEY` and `DEVIN_ORG_ID` from the server environment. The browser calls this route, never Devin. Without a key, it serves the replay fixture from `runs/<run_id>/replay.json`.
+A server-only route that dispatches, polls and terminates through the v3 API, reading `DEVIN_API_KEY` and `DEVIN_ORG_ID` from the server environment. The browser calls this route, never Devin. Without a key, the bridge runs on scripted replay clients (`tools/automation/src/replay.ts`): the session plays a compressed `structured_output` timeline and the PR "merges" a few seconds after approval.
 
-In live mode, every poll response (`status`, `status_detail`, `structured_output`, with a timestamp) is also appended to `apps/console/data/replays/<run_id>.json`, shaped exactly like `replay.json`. `apps/console/data/` is gitignored, so this is a local recording, not state: it is never read back into `devin_runs` (`DEVIN_RUN_PROTOCOL.md` § Starting a run is a governed write). Once a real run has finished, the file can be committed by hand as `runs/<run_id>/replay.json`, so the replay the demo plays is a recorded run rather than a scripted one.
+In live mode, every poll response (`status`, `status_detail`, `structured_output`, with a timestamp) is appended to `apps/console/data/replays/<run_id>.json`, shaped exactly like `replay.json`; reads try that file first, then `runs/<run_id>/replay.json` for committed recorded runs. `apps/console/data/` is gitignored, so this is a local recording, not state: it is never read back into `devin_runs` (`DEVIN_RUN_PROTOCOL.md` § Starting a run is a governed write). Once a real run has finished, the file can be committed by hand as `runs/<run_id>/replay.json`, so the replay the demo plays is a recorded run rather than a scripted one.
 
 ### Constant registration on start
 

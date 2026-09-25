@@ -14,6 +14,7 @@ import {
   WORKSPACE_LAYOUT_COOKIE,
   type WorkspaceLayout,
 } from "@/lib/workspace-layout";
+import type { AgentFocus } from "@/lib/handoff";
 
 const MAIN = "workspace-main";
 const AGENT = "workspace-agent";
@@ -24,6 +25,10 @@ interface WorkspaceState {
   agentOpen: boolean;
   onAgentResize: (open: boolean) => void;
   toggleAgent: () => void;
+  /** What the agent column is showing: a handoff being composed, or a run. */
+  agentFocus: AgentFocus;
+  /** Focusing also expands the column when it is collapsed. */
+  setAgentFocus: (focus: AgentFocus) => void;
 }
 
 const WorkspaceContext = createContext<WorkspaceState | null>(null);
@@ -56,6 +61,7 @@ export function WorkspaceProvider({
   const agentRef = usePanelRef();
   const [agentOpen, setAgentOpen] = useState((initialLayout?.[AGENT] ?? 1) > 0);
   const [hasOpenSize, setHasOpenSize] = useState(agentOpen);
+  const [agentFocus, setFocus] = useState<AgentFocus>(null);
 
   // A column saved collapsed has no open size to return to this session, so
   // it reopens at the default width instead of the minimum.
@@ -72,6 +78,20 @@ export function WorkspaceProvider({
     if (open) setHasOpenSize(true);
   }, []);
 
+  const setAgentFocus = useCallback(
+    (focus: AgentFocus) => {
+      setFocus(focus);
+      if (focus === null) return;
+      const panel = agentRef.current;
+      if (!panel) return;
+      if (panel.isCollapsed()) {
+        if (hasOpenSize) panel.expand();
+        else panel.resize(AGENT_DEFAULT_SIZE);
+      }
+    },
+    [agentRef, hasOpenSize],
+  );
+
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "]" || isEditable(event.target)) return;
@@ -83,7 +103,9 @@ export function WorkspaceProvider({
   }, [toggleAgent]);
 
   return (
-    <WorkspaceContext.Provider value={{ agentRef, agentOpen, onAgentResize, toggleAgent }}>
+    <WorkspaceContext.Provider
+      value={{ agentRef, agentOpen, onAgentResize, toggleAgent, agentFocus, setAgentFocus }}
+    >
       {children}
     </WorkspaceContext.Provider>
   );
