@@ -114,10 +114,10 @@ Above the table, when `decl.clusters?.length`, render one chip per non-empty gro
 
 ```bash
 pnpm verify
-pnpm setup && pnpm dev   # open /t/refunds; the chip is visible; the drawer opens from it
+pnpm db:setup && pnpm dev   # open /t/refunds; the chip is visible; the drawer opens from it
 ```
 
-- The cluster appears on a fresh `pnpm setup`.
+- The cluster appears on a fresh `pnpm db:setup`.
 - As `refunds_agent`, drawer rows show masked email and card, and there is no handoff button.
 - As `refunds_manager`, the handoff button opens the panel.
 - `/t/kyc` and `/t/flags` render unchanged.

@@ -3,6 +3,8 @@ import { ulid } from "ulid";
 import { approve, getApproval, listApprovals, reject } from "@console/engine/approvals";
 import { executeIntent } from "@console/engine/execute-intent";
 import { setConstant } from "@console/engine/policy/set-constant";
+import { DEMO_ACTORS } from "@console/engine/actor";
+import { TOOLS } from "@/registry";
 import { APPROVAL_THRESHOLD_KEY, SPEND_FEE_KEY } from "../fixtures/widgets";
 import {
   admin,
@@ -31,6 +33,40 @@ function requestSpend(recordId: string, amount: number, actor = kycReviewer) {
 }
 
 describe("approvals", () => {
+  it("forbids engineer intents for every action in KYC, refunds, and flags", () => {
+    for (const tool of TOOLS) {
+      for (const action of tool.actions) {
+        const result = executeIntent(DEMO_ACTORS.engineer, {
+          tool: tool.name,
+          action: action.name,
+          recordId: "unauthorized",
+          input: {},
+          idempotencyKey: ulid(),
+        });
+        expect(result.outcome, `${tool.name}.${action.name}`).toMatchObject({
+          status: "error",
+          code: "forbidden_role",
+        });
+      }
+    }
+  });
+
+  it("does not let an engineer approve or reject a pending request", () => {
+    makeWidget("w_engineer", 1000);
+    const id = requestSpend("w_engineer", 500);
+
+    expect(approve(DEMO_ACTORS.engineer, id, "approve").outcome).toMatchObject({
+      status: "error",
+      code: "approval_not_pending",
+    });
+    expect(reject(DEMO_ACTORS.engineer, id, "reject").outcome).toMatchObject({
+      status: "error",
+      code: "approval_not_pending",
+    });
+    expect(getApproval(id)?.status).toBe("pending");
+    expect(widgetBalance("w_engineer")).toBe(1000);
+  });
+
   it("blocks self-approval at the database predicate", () => {
     makeWidget("w_self", 1000);
     const id = requestSpend("w_self", 500, kycManager);

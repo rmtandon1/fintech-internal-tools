@@ -148,7 +148,10 @@ export function AppSidebar({
                 <Icon name="PanelLeft" className="size-4" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">Menu · [</TooltipContent>
+            <TooltipContent side="right" className="flex items-center gap-2">
+              Menu
+              <kbd className="font-mono text-[10px] opacity-70">[</kbd>
+            </TooltipContent>
           </Tooltip>
 
           {items.map((item) => (
