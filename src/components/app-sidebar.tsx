@@ -2,8 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/icon";
-import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { Actor } from "@/engine/types";
 import { canApprove } from "@/lib/roles";
 import { cn } from "@/lib/utils";
@@ -12,6 +18,22 @@ interface ToolLink {
   name: string;
   displayName: string;
   icon: string;
+}
+
+interface RailItem {
+  href: string;
+  label: string;
+  icon: string;
+  active: boolean;
+  badge?: number;
+}
+
+function isEditable(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target.isContentEditable ||
+    ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)
+  );
 }
 
 export function AppSidebar({
@@ -24,105 +46,172 @@ export function AppSidebar({
   pendingApprovals: number;
 }) {
   const pathname = usePathname();
+  const [expanded, setExpanded] = useState(false);
+  const asideRef = useRef<HTMLElement>(null);
 
-  const governance = [
-    { href: "/inbox", label: "Approvals", icon: "Inbox", show: canApprove(actor.role), badge: pendingApprovals },
-    { href: "/audit", label: "Audit stream", icon: "ScrollText", show: true },
-    { href: "/audit/verify", label: "Chain verify", icon: "ShieldCheck", show: actor.role === "admin" },
-    { href: "/admin/policy", label: "Policy constants", icon: "SlidersHorizontal", show: actor.role === "admin" },
-  ].filter((item) => item.show);
+  const items: RailItem[] = [
+    { href: "/", label: "Home", icon: "Home", active: pathname === "/" },
+    ...tools.map((tool) => ({
+      href: `/t/${tool.name}`,
+      label: tool.displayName,
+      icon: tool.icon,
+      active: pathname.startsWith(`/t/${tool.name}`),
+    })),
+    ...(canApprove(actor.role)
+      ? [
+          {
+            href: "/inbox",
+            label: "Approvals",
+            icon: "Inbox",
+            active: pathname === "/inbox",
+            badge: pendingApprovals,
+          },
+        ]
+      : []),
+    {
+      href: "/audit",
+      label: "Audit",
+      icon: "ScrollText",
+      active: pathname === "/audit",
+    },
+    ...(actor.role === "admin"
+      ? [
+          {
+            href: "/audit/verify",
+            label: "Chain verify",
+            icon: "ShieldCheck",
+            active: pathname === "/audit/verify",
+          },
+          {
+            href: "/admin/policy",
+            label: "Policy constants",
+            icon: "SlidersHorizontal",
+            active: pathname === "/admin/policy",
+          },
+        ]
+      : []),
+  ];
+
+  // Close the overlay on navigation and on outside interaction.
+  useEffect(() => {
+    setExpanded(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!expanded) return;
+    function onPointerDown(event: PointerEvent) {
+      if (asideRef.current && !asideRef.current.contains(event.target as Node)) {
+        setExpanded(false);
+      }
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setExpanded(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [expanded]);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "[" && !isEditable(event.target)) {
+        setExpanded((v) => !v);
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   return (
-    <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-sidebar md:flex">
-      <div className="flex h-14 items-center gap-2 border-b border-border px-4">
-        <div className="flex size-7 items-center justify-center rounded bg-primary/15 text-primary">
-          <Icon name="Hexagon" className="size-4" />
-        </div>
-        <div className="leading-tight">
-          <div className="text-sm font-semibold">Meridian</div>
-          <div className="text-[11px] text-muted-foreground">Ops Console</div>
-        </div>
-      </div>
-
-      <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
-        <Section title="Overview">
-          <NavItem href="/" label="Home" icon="LayoutDashboard" active={pathname === "/"} />
-        </Section>
-
-        <Section title="Tools">
-          {tools.length === 0 ? (
-            <p className="px-2 text-xs text-muted-foreground">No tools registered yet</p>
-          ) : (
-            tools.map((tool) => (
-              <NavItem
-                key={tool.name}
-                href={`/t/${tool.name}`}
-                label={tool.displayName}
-                icon={tool.icon}
-                active={pathname.startsWith(`/t/${tool.name}`)}
-              />
-            ))
-          )}
-        </Section>
-
-        <Section title="Governance">
-          {governance.map((item) => (
-            <NavItem
-              key={item.href}
-              href={item.href}
-              label={item.label}
-              icon={item.icon}
-              active={pathname === item.href}
-              badge={item.badge}
-            />
-          ))}
-        </Section>
-      </nav>
-    </aside>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1">
-      <div className="px-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-        {title}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function NavItem({
-  href,
-  label,
-  icon,
-  active,
-  badge,
-}: {
-  href: string;
-  label: string;
-  icon: string;
-  active: boolean;
-  badge?: number;
-}) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
-        active
-          ? "bg-accent text-accent-foreground"
-          : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-      )}
+    <aside
+      ref={asideRef}
+      className="relative z-40 flex w-14 shrink-0 flex-col border-r border-border bg-sidebar"
     >
-      <Icon name={icon} className="size-4 shrink-0" />
-      <span className="truncate">{label}</span>
-      {badge ? (
-        <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-[11px]">
-          {badge}
-        </Badge>
+      <TooltipProvider delayDuration={0}>
+        <nav className="flex flex-1 flex-col items-center gap-1 py-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                aria-label="Toggle navigation"
+                className={cn(
+                  "flex size-8 items-center justify-center rounded-md transition-colors",
+                  expanded
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                )}
+              >
+                <Icon name="PanelLeft" className="size-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Menu · [</TooltipContent>
+          </Tooltip>
+
+          {items.map((item) => (
+            <Tooltip key={item.href}>
+              <TooltipTrigger asChild>
+                <Link
+                  href={item.href}
+                  aria-label={item.label}
+                  className={cn(
+                    "relative flex size-8 items-center justify-center rounded-md transition-colors",
+                    item.active
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                  )}
+                >
+                  <Icon name={item.icon} className="size-4" />
+                  {item.badge ? (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-400 px-1 text-[9px] font-semibold tabular-nums text-black">
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right">{item.label}</TooltipContent>
+            </Tooltip>
+          ))}
+        </nav>
+      </TooltipProvider>
+
+      {expanded ? (
+        <div className="absolute inset-y-0 left-0 z-40 w-60 border-r border-border bg-sidebar">
+          <nav className="flex h-full flex-col gap-0.5 overflow-y-auto p-2">
+            <button
+              type="button"
+              onClick={() => setExpanded(false)}
+              className="flex h-8 items-center gap-2 rounded-sm px-2 text-xs text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+            >
+              <Icon name="PanelLeft" className="size-4 shrink-0" />
+              Menu
+            </button>
+            {items.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex h-8 items-center gap-2 rounded-sm px-2 text-xs",
+                  item.active
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                )}
+              >
+                <Icon name={item.icon} className="size-4 shrink-0" />
+                <span className="truncate">{item.label}</span>
+                {item.badge ? (
+                  <span className="ml-auto text-[11px] tabular-nums text-amber-400">
+                    {item.badge}
+                  </span>
+                ) : null}
+              </Link>
+            ))}
+          </nav>
+        </div>
       ) : null}
-    </Link>
+    </aside>
   );
 }

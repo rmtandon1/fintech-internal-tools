@@ -237,6 +237,7 @@ export const flagTool = defineTool<FeatureFlag>({
   statusField: "status",
   titleField: "key",
   revealRoles: MANAGER_ROLES,
+  openStatuses: ["partial"],
   constants: [
     {
       key: PROD_APPROVAL_KEY,

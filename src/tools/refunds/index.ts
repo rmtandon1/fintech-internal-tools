@@ -222,6 +222,8 @@ export const refundTool = defineTool<Refund>({
   statusField: "status",
   titleField: "paymentId",
   revealRoles: rolesFor("refunds", "manager"),
+  openStatuses: ["requested", "executing"],
+  attention: (r) => (r.status === "failed" ? "failed" : null),
   constants: [
     {
       key: MANAGER_APPROVAL_USD_KEY,

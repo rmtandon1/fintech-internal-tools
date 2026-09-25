@@ -4,16 +4,21 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ulid } from "ulid";
 import { submitIntent } from "@/app/actions";
-import { PolicyOutcomeLine, PolicyTraceList } from "@/components/policy-trace";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { ActionPreview } from "@/engine/policy/preview";
 import { titleCase } from "@/lib/format";
 
-export function ActionPanel({
+export function ActionBar({
   tool,
   recordId,
   previews,
@@ -22,31 +27,37 @@ export function ActionPanel({
   recordId: string | null;
   previews: ActionPreview[];
 }) {
+  if (previews.length === 0) {
+    return (
+      <p className="px-3 py-2 text-xs text-muted-foreground">
+        No actions are declared for this tool.
+      </p>
+    );
+  }
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm">Actions</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {previews.map((preview) => (
-          <ActionForm
-            key={preview.action}
-            tool={tool}
-            recordId={recordId}
-            preview={preview}
-          />
-        ))}
-        {previews.length === 0 ? (
-          <p className="text-xs text-muted-foreground">
-            No actions are declared for this tool.
-          </p>
-        ) : null}
-      </CardContent>
-    </Card>
+    <>
+      {previews.map((preview) => (
+        <ActionButton
+          key={preview.action}
+          tool={tool}
+          recordId={recordId}
+          preview={preview}
+        />
+      ))}
+    </>
   );
 }
 
-function ActionForm({
+function approvalTier(preview: ActionPreview): string {
+  const outcome = preview.decision?.trace.find(
+    (o) => o.type === "require_approval",
+  );
+  return outcome && outcome.type === "require_approval"
+    ? outcome.tier
+    : "approval";
+}
+
+function ActionButton({
   tool,
   recordId,
   preview,
@@ -56,18 +67,38 @@ function ActionForm({
   preview: ActionPreview;
 }) {
   const [pending, startTransition] = useTransition();
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState(() => ulid());
-  const [showTrace, setShowTrace] = useState(false);
 
   const denied = preview.decision?.effect === "deny";
   const needsApproval = preview.decision?.effect === "require_approval";
   const disabled = !preview.offered || denied || pending;
+  const title = !preview.offered
+    ? preview.unavailableReason
+    : denied
+      ? preview.decision?.reason
+      : undefined;
+
+  const label = needsApproval
+    ? `${preview.label} → ${approvalTier(preview)}`
+    : preview.label;
+  const variant =
+    preview.tone === "destructive"
+      ? ("destructive" as const)
+      : needsApproval
+        ? ("secondary" as const)
+        : ("default" as const);
 
   function onSubmit(form: FormData) {
     startTransition(async () => {
       const result = await submitIntent(form);
       setIdempotencyKey(ulid());
       const outcome = result.outcome;
+      // Only a completed submission closes the dialog; on a denial the
+      // entered values stay put so the operator can fix and retry.
+      if (outcome.status === "applied" || outcome.status === "pending_approval") {
+        setDialogOpen(false);
+      }
       if (outcome.status === "applied") {
         toast.success(outcome.summary, {
           description: result.replayed ? "Replayed from idempotency key" : undefined,
@@ -82,38 +113,52 @@ function ActionForm({
     });
   }
 
-  return (
-    <form action={onSubmit} className="space-y-2 rounded-lg border border-border p-3">
+  const hiddenFields = (
+    <>
       <input type="hidden" name="tool" value={tool} />
       <input type="hidden" name="action" value={preview.action} />
       {recordId ? <input type="hidden" name="recordId" value={recordId} /> : null}
       <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
+    </>
+  );
 
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-sm font-medium">{preview.label}</div>
-          {preview.description ? (
-            <p className="text-xs text-muted-foreground">{preview.description}</p>
-          ) : null}
-        </div>
+  if (preview.inputFields.length === 0) {
+    return (
+      <form action={onSubmit}>
+        {hiddenFields}
         <Button
           type="submit"
           size="sm"
-          variant={
-            preview.tone === "destructive"
-              ? "destructive"
-              : needsApproval
-                ? "secondary"
-                : "default"
-          }
+          variant={variant}
           disabled={disabled}
+          title={title}
+          className="h-7 text-xs"
         >
-          {needsApproval ? "Request approval" : preview.label}
+          {label}
         </Button>
-      </div>
+      </form>
+    );
+  }
 
-      {preview.offered ? (
-        <div className="space-y-2">
+  return (
+    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <DialogTrigger asChild>
+        <Button
+          size="sm"
+          variant={variant}
+          disabled={disabled}
+          title={title}
+          className="h-7 text-xs"
+        >
+          {label}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-sm">{preview.label}</DialogTitle>
+        </DialogHeader>
+        <form action={onSubmit} className="space-y-3">
+          {hiddenFields}
           {preview.inputFields.map((field) => (
             // `input:<type><?>:<name>`: the marker tells the server a blank
             // value means "not supplied" rather than an empty value.
@@ -136,7 +181,7 @@ function ActionForm({
                 <select
                   id={`${preview.action}-${field.name}`}
                   name={`input:string${field.optional ? "?" : ""}:${field.name}`}
-                  className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs"
+                  className="h-7 w-full rounded-md border border-input bg-transparent px-2 text-xs"
                 >
                   {field.optional ? <option value="">—</option> : null}
                   {field.options?.map((option) => (
@@ -149,7 +194,7 @@ function ActionForm({
                 <select
                   id={`${preview.action}-${field.name}`}
                   name={`input:boolean${field.optional ? "?" : ""}:${field.name}`}
-                  className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs"
+                  className="h-7 w-full rounded-md border border-input bg-transparent px-2 text-xs"
                 >
                   {field.optional ? <option value="">—</option> : null}
                   <option value="true">Yes</option>
@@ -160,33 +205,22 @@ function ActionForm({
                   id={`${preview.action}-${field.name}`}
                   name={`input:${field.type === "number" ? "number" : "string"}${field.optional ? "?" : ""}:${field.name}`}
                   type={field.type === "number" ? "number" : "text"}
-                  className="h-8 text-xs"
+                  className="h-7 text-xs"
                 />
               )}
             </div>
           ))}
-
-          {preview.decision ? (
-            <div className="space-y-1">
-              <PolicyOutcomeLine decision={preview.decision} />
-              <button
-                type="button"
-                onClick={() => setShowTrace((v) => !v)}
-                className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
-              >
-                {showTrace ? "Hide" : "Show"} policy trace ({preview.decision.trace.length})
-              </button>
-              {showTrace ? <PolicyTraceList trace={preview.decision.trace} /> : null}
-            </div>
-          ) : (
-            <p className="text-[11px] text-muted-foreground">
-              Policy is evaluated once the required input is filled in.
-            </p>
-          )}
-        </div>
-      ) : (
-        <p className="text-xs text-muted-foreground">{preview.unavailableReason}</p>
-      )}
-    </form>
+          <Button
+            type="submit"
+            size="sm"
+            variant={variant}
+            disabled={disabled}
+            className="h-7 text-xs"
+          >
+            {label}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

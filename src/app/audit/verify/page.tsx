@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { Icon } from "@/components/icon";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Panel } from "@/components/panel";
 import { GENESIS_HASH } from "@/engine/audit/chain";
 import { verifyChain } from "@/engine/audit/verify";
 import { currentActor } from "@/lib/session";
@@ -21,54 +21,41 @@ export default async function VerifyPage() {
   const result = verifyChain();
 
   return (
-    <div className="max-w-3xl space-y-4">
-      <header className="space-y-1">
-        <h1 className="text-lg font-semibold">Audit chain verification</h1>
-        <p className="text-sm text-muted-foreground">
-          Recomputes every row hash from its canonical contents and the previous row&apos;s
-          hash, starting from the genesis constant.
-        </p>
-      </header>
+    <Panel
+      className="h-full"
+      title={
+        <span className="flex items-center gap-2 normal-case tracking-normal">
+          <Icon
+            name={result.ok ? "ShieldCheck" : "ShieldX"}
+            className={cn("size-3.5", result.ok ? "text-emerald-400" : "text-red-400")}
+          />
+          {result.ok
+            ? `Chain intact across ${result.length} events`
+            : `Chain broken at event #${result.firstBreak?.seq}`}
+        </span>
+      }
+      bodyClassName="space-y-3 p-3 text-xs"
+    >
+      {result.firstBreak ? (
+        <div className="space-y-1 rounded-md border border-red-500/30 bg-red-500/5 p-3">
+          <div className="font-medium text-red-400">{result.firstBreak.type}</div>
+          <p className="text-muted-foreground">
+            {BREAK_EXPLANATIONS[result.firstBreak.type]}
+          </p>
+          <p className="font-mono text-[11px]">{result.firstBreak.detail}</p>
+          <p className="font-mono text-[11px] text-muted-foreground">
+            {result.firstBreak.id}
+          </p>
+        </div>
+      ) : null}
 
-      <Card
-        className={cn(
-          result.ok ? "border-emerald-500/30" : "border-red-500/40",
-        )}
-      >
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm">
-            <Icon
-              name={result.ok ? "ShieldCheck" : "ShieldX"}
-              className={cn("size-4", result.ok ? "text-emerald-400" : "text-red-400")}
-            />
-            {result.ok
-              ? `Chain intact across ${result.length} events`
-              : `Chain broken at event #${result.firstBreak?.seq}`}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-xs">
-          {result.firstBreak ? (
-            <div className="space-y-1 rounded-md border border-red-500/30 bg-red-500/5 p-3">
-              <div className="font-medium text-red-400">{result.firstBreak.type}</div>
-              <p className="text-muted-foreground">
-                {BREAK_EXPLANATIONS[result.firstBreak.type]}
-              </p>
-              <p className="font-mono text-[11px]">{result.firstBreak.detail}</p>
-              <p className="font-mono text-[11px] text-muted-foreground">
-                {result.firstBreak.id}
-              </p>
-            </div>
-          ) : null}
-
-          <dl className="grid gap-2 sm:grid-cols-2">
-            <Row label="Events" value={String(result.length)} />
-            <Row label="Status" value={result.ok ? "verified" : "failed"} />
-            <Row label="Genesis" value={GENESIS_HASH} mono />
-            <Row label="Head hash" value={result.lastHash} mono />
-          </dl>
-        </CardContent>
-      </Card>
-    </div>
+      <dl className="grid gap-2 sm:grid-cols-2">
+        <Row label="Events" value={String(result.length)} />
+        <Row label="Status" value={result.ok ? "verified" : "failed"} />
+        <Row label="Genesis" value={GENESIS_HASH} mono />
+        <Row label="Head hash" value={result.lastHash} mono />
+      </dl>
+    </Panel>
   );
 }
 
