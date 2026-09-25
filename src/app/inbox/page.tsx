@@ -2,11 +2,12 @@ import { notFound } from "next/navigation";
 import { ApprovalCard } from "@/components/approval-card";
 import { Panel } from "@/components/panel";
 import { canDecide, listApprovals } from "@/engine/approvals";
+import { canApprove } from "@/lib/roles";
 import { currentActor } from "@/lib/session";
 
 export default async function InboxPage() {
   const actor = await currentActor();
-  if (actor.role === "analyst") notFound();
+  if (!canApprove(actor.role)) notFound();
 
   const pending = listApprovals("pending");
   const decided = listApprovals().filter((a) => a.status !== "pending").slice(0, 20);

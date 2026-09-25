@@ -23,9 +23,10 @@ any point, delete the file and re-seed:
 rm -rf data/console.db* && pnpm setup
 ```
 
-Role switching is a signed cookie (no auth), chosen from the header. Roles are still
-enforced server-side: an analyst who posts a manager-only action is rejected by the
-engine, not by the UI.
+Role switching is a signed cookie (no auth), chosen from the header. Roles are
+domain-scoped — `kyc_reviewer`, `kyc_manager`, `refunds_agent`, `refunds_manager` and
+`admin` — and still enforced server-side: a refunds agent who posts a kyc action is
+rejected by the engine, not by the UI.
 
 ## Where to look
 
@@ -34,7 +35,7 @@ engine, not by the UI.
 | `/` | console home: queue counts, pending approvals, recent audit, chain status, all modes |
 | `/t/kyc`, `/t/refunds`, `/t/flags` | the three live tools — filter, sort, page, open a record |
 | `/t/<tool>/<id>` | record detail, masked PII, action panel with the live policy outcome |
-| `/inbox` | approval inbox (manager / admin) |
+| `/inbox` | approval inbox (managers / admin) |
 | `/audit` | audit stream with filters, policy traces, before/after and hashes |
 | `/audit/verify` | walks the hash chain and names the first break |
 | `/admin/policy` | runtime policy constants (admin) |
@@ -44,23 +45,25 @@ engine, not by the UI.
 
 Each flow takes a minute and exercises a different part of the write path.
 
-**Approval, as analyst then manager.** As `analyst`, open `/t/refunds`, pick a large
+**Approval, as agent then manager.** As `refunds_agent`, open `/t/refunds`, pick a large
 pending payment and request a refund above the auto-approve threshold. The action panel
 shows the policy trace and returns "pending approval" instead of applying. Switch to
-`manager`, open `/inbox`, approve it: the frozen payload is executed, the refund settles,
-and two audit rows appear. A manager cannot approve their own request — the self-approval
+`refunds_manager`, open `/inbox`, approve it: the frozen payload is executed, the refund settles,
+and two audit rows appear. A `kyc_manager` cannot decide it — approvals are scoped to
+the tool's domain. A manager cannot approve their own request — the self-approval
 block is in the SQL predicate, not the UI.
 
 **Policy that moves.** As `admin`, open `/admin/policy` and lower
-`refunds.manager_approval_usd_minor`. Re-run the same refund as `analyst`: the same input now
+`refunds.manager_approval_usd_minor`. Re-run the same refund as `refunds_agent`: the same input now
 takes a different branch, because thresholds are read fresh on every decision.
 
 **Masked PII.** Open any case in `/t/kyc`. The document number renders as `•••• 1234` for
-every role, and the audit detail masks it too. Only a `manager` or `admin` can reveal it;
+every role, and the audit detail masks it too. Only a `kyc_manager` or `admin` can reveal it;
 doing so shows the value and writes a `pii_revealed` audit row.
 
-**Kill switch.** As `analyst`, disable a production flag in `/t/flags` — it applies
-immediately. Enabling one, or raising its customer-facing rollout, needs a manager.
+**Kill switch.** As any manager (`kyc_manager`, `refunds_manager` or `admin`), disable a
+production flag in `/t/flags` — it applies immediately. Enabling one, or raising its
+customer-facing rollout, needs another manager's approval.
 
 **Tamper-evident audit.** Break the chain from outside the engine, then look at
 `/audit/verify`:
@@ -79,7 +82,7 @@ pnpm setup` puts the demo back.
 | Script | |
 | --- | --- |
 | `pnpm setup` | `db:migrate` then `db:seed` |
-| `pnpm db:generate` | regenerate migrations from `src/db/schema.ts` |
+| `pnpm db:generate` | regenerate migrations from `src/tools/schema.ts` |
 | `pnpm db:tamper` | corrupt an audit row for the chain-break demo (local only) |
 | `pnpm test` | engine and tool tests |
 | `pnpm check:boundaries` | engine must not name a tool; tools must not import the write client |

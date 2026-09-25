@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Panel } from "@/components/panel";
 import { OPS_MODES } from "@/lib/modes";
+import { roleLabel } from "@/lib/roles";
 import { getTool } from "@/tools";
 
 /** Landing page for a declared mode that has no tool behind it yet. */
@@ -26,7 +27,7 @@ export default async function RoadmapPage({
       <p className="p-3 text-xs text-muted-foreground">
         {mode.description} Actions:{" "}
         <span className="font-mono">{mode.actions.join(", ")}</span>. Roles:{" "}
-        {mode.roles.join(", ")}.
+        {mode.roles.map(roleLabel).join(", ")}.
       </p>
     </Panel>
   );

@@ -9,6 +9,7 @@ import type {
   Rule,
   SortOption,
 } from "@/engine/types";
+import { rolesFor } from "@/lib/roles";
 import { refunds } from "./schema";
 import { seedRefunds } from "./seed";
 
@@ -78,7 +79,7 @@ const amountApproval: RefundRule = ({ record, constants }) => {
       type: "require_approval",
       rule: "amount_approval",
       tier: "manager",
-      allowedRoles: ["manager", "admin"],
+      allowedRoles: rolesFor("refunds", "manager"),
       reason: `${money(usd, "USD")} is at or above the ${money(managerUsd, "USD")} manager threshold`,
     };
   }
@@ -93,7 +94,7 @@ const goodwillApproval: RefundRule = ({ record, constants }) => {
         type: "require_approval",
         rule: "goodwill_approval",
         tier: "manager",
-        allowedRoles: ["manager", "admin"],
+        allowedRoles: rolesFor("refunds", "manager"),
         reason: `Goodwill refunds over ${money(limit, "USD")} need a manager`,
       }
     : { type: "allow", rule: "goodwill_approval" };
@@ -124,7 +125,7 @@ export const refundTool = defineTool<Refund>({
   icon: "Undo2",
   group: "Money Movement",
   recordType: "refund",
-  visibleTo: ["analyst", "manager", "admin"],
+  visibleTo: rolesFor("refunds", "agent"),
   fields: [
     { name: "paymentId", label: "Payment", type: "string" },
     { name: "merchant", label: "Merchant", type: "string" },
@@ -220,7 +221,7 @@ export const refundTool = defineTool<Refund>({
   ],
   statusField: "status",
   titleField: "paymentId",
-  revealRoles: ["manager", "admin"],
+  revealRoles: rolesFor("refunds", "manager"),
   openStatuses: ["requested", "executing"],
   attention: (r) => (r.status === "failed" ? "failed" : null),
   constants: [
@@ -251,7 +252,7 @@ export const refundTool = defineTool<Refund>({
       name: "execute",
       label: "Send to processor",
       description: "Release the refund to the payment processor.",
-      allowedRoles: ["analyst", "manager", "admin"],
+      allowedRoles: rolesFor("refunds", "agent"),
       input: z.object({ note: z.string().max(500).optional() }),
       fromStatus: ["requested", "failed"],
       tone: "primary",
@@ -266,7 +267,7 @@ export const refundTool = defineTool<Refund>({
       name: "reject",
       label: "Reject request",
       description: "Decline the refund without paying it.",
-      allowedRoles: ["analyst", "manager", "admin"],
+      allowedRoles: rolesFor("refunds", "agent"),
       input: z.object({ reason: z.string().min(5).max(500) }),
       fromStatus: ["requested", "failed"],
       tone: "destructive",
@@ -281,7 +282,7 @@ export const refundTool = defineTool<Refund>({
       name: "mark_settled",
       label: "Mark settled",
       description: "Record the processor confirmation and close the refund.",
-      allowedRoles: ["manager", "admin"],
+      allowedRoles: rolesFor("refunds", "manager"),
       input: z.object({ reference: z.string().min(3).max(64) }),
       fromStatus: ["executing"],
       rules: [allow("settlement_is_a_record_keeping_step")],
@@ -295,7 +296,7 @@ export const refundTool = defineTool<Refund>({
       name: "mark_failed",
       label: "Mark failed",
       description: "Record a processor rejection so the refund can be retried.",
-      allowedRoles: ["analyst", "manager", "admin"],
+      allowedRoles: rolesFor("refunds", "agent"),
       input: z.object({ reason: z.string().min(5).max(500) }),
       fromStatus: ["executing"],
       rules: [allow("failure_is_a_record_keeping_step")],

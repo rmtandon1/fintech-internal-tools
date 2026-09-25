@@ -2,18 +2,20 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { Actor, Role } from "@/engine/types";
-import { ROLES } from "@/engine/types";
+import { ROLE_META, ROLES } from "@/lib/roles";
 
 export const ACTOR_COOKIE = "ops_actor";
 
 /** Demo actors. Real deployments would resolve these from an identity provider. */
 export const DEMO_ACTORS: Record<Role, Actor> = {
-  analyst: { id: "usr_analyst", name: "Analyst", role: "analyst" },
-  manager: { id: "usr_manager", name: "Manager", role: "manager" },
-  admin: { id: "usr_admin", name: "Admin", role: "admin" },
+  kyc_reviewer: { id: "usr_kyc_reviewer", name: ROLE_META.kyc_reviewer.label, role: "kyc_reviewer" },
+  kyc_manager: { id: "usr_kyc_manager", name: ROLE_META.kyc_manager.label, role: "kyc_manager" },
+  refunds_agent: { id: "usr_refunds_agent", name: ROLE_META.refunds_agent.label, role: "refunds_agent" },
+  refunds_manager: { id: "usr_refunds_manager", name: ROLE_META.refunds_manager.label, role: "refunds_manager" },
+  admin: { id: "usr_admin", name: ROLE_META.admin.label, role: "admin" },
 };
 
-export const DEFAULT_ACTOR = DEMO_ACTORS.analyst;
+export const DEFAULT_ACTOR = DEMO_ACTORS.kyc_reviewer;
 
 let devSecret: string | null = null;
 

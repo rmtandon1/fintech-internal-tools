@@ -1,7 +1,7 @@
 import { ulid } from "ulid";
 import { approvalRequests } from "@/db/engine-schema";
 import { transact, writeDb } from "@/db/write-client";
-import { getTool } from "@/tools";
+import { resolveTool } from "@/engine/registry";
 import { appendAudit } from "@/engine/audit/append";
 import * as idempotency from "@/engine/idempotency";
 import { loadConstants } from "@/engine/policy/constants";
@@ -36,7 +36,7 @@ import type {
  * payload).
  */
 export function executeIntent(actor: Actor, intent: Intent): IntentResult {
-  const decl = getTool(intent.tool);
+  const decl = resolveTool(intent.tool);
   if (!decl) return fail("unknown_tool", `No such tool: ${intent.tool}`);
 
   const action = decl.actions.find((a) => a.name === intent.action);
@@ -198,7 +198,7 @@ function runGoverned(
         summary: decision.summary,
         reason,
         tier: policy.tier ?? "manager",
-        allowedRolesJson: JSON.stringify(policy.allowedRoles ?? ["manager"]),
+        allowedRolesJson: JSON.stringify(policy.allowedRoles ?? ["admin"]),
         requesterId: actor.id,
         requesterRole: actor.role,
         status: "pending",

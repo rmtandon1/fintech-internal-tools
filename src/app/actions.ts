@@ -1,5 +1,6 @@
 "use server";
 
+import "@/app/bootstrap";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { ulid } from "ulid";
@@ -9,7 +10,7 @@ import { executeIntent } from "@/engine/execute-intent";
 import { setConstant } from "@/engine/policy/set-constant";
 import { revealField } from "@/engine/pii/reveal";
 import type { IntentResult, Role } from "@/engine/types";
-import { ROLES } from "@/engine/types";
+import { ROLES } from "@/lib/roles";
 import { currentActor } from "@/lib/session";
 
 export async function switchRole(role: string): Promise<void> {

@@ -11,6 +11,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { Actor } from "@/engine/types";
+import { canApprove } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 
 interface ToolLink {
@@ -56,7 +57,7 @@ export function AppSidebar({
       icon: tool.icon,
       active: pathname.startsWith(`/t/${tool.name}`),
     })),
-    ...(actor.role !== "analyst"
+    ...(canApprove(actor.role)
       ? [
           {
             href: "/inbox",
