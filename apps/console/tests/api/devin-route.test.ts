@@ -182,6 +182,53 @@ describe("GET /api/devin/<runId>", () => {
     expect(listAuditEvents({ recordId: out.runId, action: "stop" }).rows).toHaveLength(1);
   });
 
+  it("merges an approved run whose PR merged even though the session ended", async () => {
+    stopAll();
+    // The poll reports the session over; the same snapshot carries the PR,
+    // and GitHub says the PR is already merged. The merge must win over the
+    // session-end stop.
+    let contextSha: string | null = null;
+    const devin = scriptedDevin({
+      status: "stopped",
+      statusDetail: "session finished",
+      structuredOutput: scriptedFrames(
+        "IMPLEMENTATION/ADDITION",
+        "run",
+        "0".repeat(64),
+        "0".repeat(40),
+      ).at(-1)!.structured_output,
+    });
+    const github = {
+      async getPull() {
+        return {
+          headSha: "c".repeat(40),
+          headRef: "devin/run",
+          merged: true,
+          mergeCommit: "d".repeat(40),
+        };
+      },
+      async getChecks() {
+        return { green: true, summary: "all checks green" };
+      },
+      async fileSha256() {
+        return contextSha;
+      },
+      async approvePull() {},
+    };
+    const d = { ...deps(), devin: devin.client, github };
+    const out = await dispatchRun(admin, request, d);
+    contextSha = getRun(out.runId)?.contextSha256 ?? null;
+
+    await approveRun(engineer, getRun(out.runId)!, undefined, d);
+    expect(getRun(out.runId)?.status).toBe("approved");
+
+    const body = (await handleGet(out.runId, admin, d)).body as RunViewPayload;
+    expect(body.run.status).toBe("merged");
+    expect(body.run.mergeCommit).toBe("d".repeat(40));
+    expect(listAuditEvents({ recordId: out.runId, action: "record_merge" }).rows).toHaveLength(1);
+    expect(listAuditEvents({ recordId: out.runId, action: "stop" }).rows).toHaveLength(0);
+  });
+
   it("does not stop a run whose session is merely blocked", async () => {
     stopAll();
     const devin = scriptedDevin({
