@@ -12,6 +12,10 @@ import {
   TableRow,
 } from "@console/ui/table";
 import { maskRecord } from "@console/engine/pii/mask";
+import { previewActions } from "@console/engine/policy/preview";
+import type { Actor, ClusterDecl, ClusterGroup, ToolDeclaration } from "@console/engine/types";
+import { formatFieldValue } from "@console/ui/format";
+import { ClusterDrawer, type ClusterRow } from "@/components/cluster-drawer";
 import { currentActor } from "@/lib/session";
 import { cn } from "@console/ui/utils";
 import { getTool } from "@/registry";
@@ -77,6 +81,12 @@ export default async function ToolQueuePage({
     return `/t/${decl.name}?${next.toString()}`;
   };
 
+  const clusters = (decl.clusters ?? [])
+    .map((cluster) => ({ cluster, groups: cluster.groups() }))
+    .filter(({ groups }) => groups.length > 0);
+  const inspect = typeof query.inspect === "string" ? query.inspect : undefined;
+  const open = inspect ? resolveGroup(clusters, inspect) : undefined;
+
   const sortHref = (field: string) =>
     href({
       sort: field,
@@ -140,6 +150,26 @@ export default async function ToolQueuePage({
         }
         actions={filterRow}
       >
+        {clusters.length ? (
+          <div
+            className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2"
+            data-testid="cluster-strip"
+          >
+            {clusters.flatMap(({ cluster, groups }) =>
+              groups.map((group) => (
+                <Link
+                  key={`${cluster.id}:${group.key}`}
+                  href={href({ inspect: `${cluster.id}:${group.key}` })}
+                  title={cluster.label}
+                  className="inline-flex h-6 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 text-[11px] font-medium text-amber-300 tabular-nums hover:bg-amber-500/20"
+                >
+                  <Icon name="Layers" className="size-3" />
+                  {chipLabel(group)}
+                </Link>
+              )),
+            )}
+          </div>
+        ) : null}
         <Table>
           <TableHeader>
             <TableRow>
@@ -224,6 +254,21 @@ export default async function ToolQueuePage({
         </Table>
       </Panel>
 
+      {open ? (
+        <ClusterDrawer
+          label={open.group.label}
+          clusterLabel={open.cluster.label}
+          count={open.group.count}
+          qualifier={open.group.qualifier}
+          totalUsdMinor={open.group.totalUsdMinor}
+          windowDays={open.group.windowDays}
+          traceAction={open.cluster.traceAction}
+          statuses={decl.statuses}
+          rows={clusterRows(decl, open.cluster, open.group, actor)}
+          canRequestRule={decl.revealRoles.includes(actor.role)}
+        />
+      ) : null}
+
       {pages > 1 ? (
         <div className="flex h-8 shrink-0 items-center justify-end gap-2 border-t border-border px-3 text-[11px] text-muted-foreground">
           <span className="tabular-nums">
@@ -249,6 +294,72 @@ export default async function ToolQueuePage({
       ) : null}
     </div>
   );
+}
+
+function resolveGroup(
+  clusters: { cluster: ClusterDecl; groups: ClusterGroup[] }[],
+  inspect: string,
+): { cluster: ClusterDecl; group: ClusterGroup } | undefined {
+  const separator = inspect.indexOf(":");
+  if (separator < 0) return undefined;
+  const clusterId = inspect.slice(0, separator);
+  const groupKey = inspect.slice(separator + 1);
+  const entry = clusters.find(({ cluster }) => cluster.id === clusterId);
+  const group = entry?.groups.find((g) => g.key === groupKey);
+  return entry && group ? { cluster: entry.cluster, group } : undefined;
+}
+
+/** `Kestrel Outdoors · 4 not_received · $1,880 · 14d` */
+function chipLabel(group: ClusterGroup): string {
+  const parts = [
+    group.label,
+    group.qualifier ? `${group.count} ${group.qualifier}` : String(group.count),
+    `$${Math.round(group.totalUsdMinor / 100).toLocaleString("en-US")}`,
+  ];
+  if (group.windowDays) parts.push(`${group.windowDays}d`);
+  return parts.join(" · ");
+}
+
+/** Rows behind a group, masked for the actor, each with its live policy trace. */
+function clusterRows(
+  decl: ToolDeclaration,
+  cluster: ClusterDecl,
+  group: ClusterGroup,
+  actor: Actor,
+): ClusterRow[] {
+  const piiFields = decl.fields.filter((f) => f.isPII);
+  const currencyField = decl.fields.find((f) => f.type === "currency" && f.currencyField);
+  return group.recordIds.flatMap((id) => {
+    const record = decl.get(id);
+    if (!record) return [];
+    const masked = maskRecord(decl, record, actor);
+    const preview = cluster.traceAction
+      ? previewActions(decl, record, actor).find((p) => p.action === cluster.traceAction)
+      : undefined;
+    const decision = preview?.decision ?? null;
+    const amount = currencyField ? record[currencyField.name] : record.usdMinor;
+    const currency = currencyField?.currencyField
+      ? record[currencyField.currencyField]
+      : "USD";
+    return [
+      {
+        id: record.id,
+        href: `/t/${decl.name}/${record.id}`,
+        title: String(record[decl.titleField] ?? record.id),
+        status: String(record[decl.statusField]),
+        amountMinor: typeof amount === "number" ? amount : 0,
+        currency: typeof currency === "string" ? currency : "USD",
+        usdMinor: typeof record.usdMinor === "number" ? record.usdMinor : 0,
+        requestedAt: typeof record.requestedAt === "number" ? record.requestedAt : null,
+        identity: piiFields.map((field) => ({
+          label: field.label,
+          value: formatFieldValue(field, masked.values),
+        })),
+        trace: decision?.trace ?? null,
+        pendingApproval: decision?.effect === "require_approval",
+      },
+    ];
+  });
 }
 
 /** Declaration identifiers are snake_case; column and count labels are not. */

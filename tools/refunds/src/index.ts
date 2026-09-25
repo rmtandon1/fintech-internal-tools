@@ -10,8 +10,16 @@ import type {
   SortOption,
 } from "@console/engine/types";
 import { rolesFor } from "@console/permissions";
+import { MANAGER_APPROVAL_USD_KEY, notReceivedByMerchant } from "./clusters";
 import { refunds } from "./schema";
 import { seedRefunds } from "./seed";
+
+export {
+  CLUSTERING_WINDOW_DAYS_KEY,
+  MANAGER_APPROVAL_USD_KEY,
+  clusteringWindowDays,
+  notReceivedByMerchant,
+} from "./clusters";
 
 export interface Refund extends GovernedRecord {
   id: string;
@@ -35,7 +43,6 @@ export interface Refund extends GovernedRecord {
   version: number;
 }
 
-export const MANAGER_APPROVAL_USD_KEY = "refunds.manager_approval_usd_minor";
 export const ADMIN_APPROVAL_USD_KEY = "refunds.admin_approval_usd_minor";
 export const GOODWILL_APPROVAL_USD_KEY = "refunds.goodwill_approval_usd_minor";
 
@@ -306,6 +313,15 @@ export const refundTool = defineTool<Refund>({
       }),
       apply: (ctx, decision) => write(ctx, decision.patch),
     }),
+  ],
+  clusters: [
+    {
+      id: "merchant_not_received",
+      label: "Stacked under the manager line",
+      groups: () => notReceivedByMerchant(),
+      traceAction: "execute",
+      handoffSpec: "REFUND_CLUSTERING_HOLD.md",
+    },
   ],
   list: ({ filters, search, sort, limit, offset }) => {
     const clauses = [];
