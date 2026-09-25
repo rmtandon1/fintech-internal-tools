@@ -163,7 +163,7 @@ function runGoverned(
 
   if (policy.effect === "deny") {
     const reason = policy.reason ?? "Denied by policy";
-    appendAudit(tx, {
+    const auditId = appendAudit(tx, {
       actor,
       tool: decl.name,
       action: action.name,
@@ -176,7 +176,10 @@ function runGoverned(
       after: null,
       decision: policy,
     });
-    return { outcome: { status: "denied", reason, trace: policy.trace }, replayed: false };
+    return {
+      outcome: { status: "denied", reason, auditId, trace: policy.trace },
+      replayed: false,
+    };
   }
 
   // 4. approval — freeze payload, decision, trace and record version; stop here.
@@ -209,7 +212,7 @@ function runGoverned(
         createdAt: Date.now(),
       })
       .run();
-    appendAudit(tx, {
+    const auditId = appendAudit(tx, {
       actor,
       tool: decl.name,
       action: action.name,
@@ -226,6 +229,7 @@ function runGoverned(
       outcome: {
         status: "pending_approval",
         approvalId,
+        auditId,
         reason,
         trace: policy.trace,
       },

@@ -297,6 +297,10 @@ export interface Intent<TInput = unknown> {
   idempotencyKey: string;
 }
 
+/**
+ * Every non-error outcome carries the id of the audit row appended in the
+ * same transaction, so a caller can show the row that records the decision.
+ */
 export type IntentOutcome =
   | {
       status: "applied";
@@ -308,12 +312,14 @@ export type IntentOutcome =
   | {
       status: "pending_approval";
       approvalId: string;
+      auditId: string;
       reason: string;
       trace: PolicyTrace;
     }
   | {
       status: "denied";
       reason: string;
+      auditId: string;
       trace: PolicyTrace;
     }
   | {

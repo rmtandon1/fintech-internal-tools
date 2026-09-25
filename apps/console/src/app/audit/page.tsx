@@ -27,6 +27,7 @@ export default async function AuditPage({
     tool: pick("tool"),
     event: pick("event"),
     actorId: pick("actorId"),
+    recordId: pick("recordId"),
     since,
     limit: 100,
   });
@@ -38,10 +39,16 @@ export default async function AuditPage({
         <span>
           Audit stream{since !== undefined ? ` · last ${sinceHours}h` : ""} ·{" "}
           <span className="tabular-nums">{total}</span>
+          {pick("recordId") ? (
+            <span className="font-mono normal-case tracking-normal"> · {pick("recordId")}</span>
+          ) : null}
         </span>
       }
       actions={
         <form className="flex items-center gap-2">
+          {pick("recordId") ? (
+            <input type="hidden" name="recordId" value={pick("recordId")} />
+          ) : null}
           <select
             name="tool"
             defaultValue={pick("tool") ?? "all"}
