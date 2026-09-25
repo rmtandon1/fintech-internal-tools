@@ -53,7 +53,7 @@ export function AgentWindow({ children }: { children?: React.ReactNode }) {
           <DialogTitle className="sr-only">Devin</DialogTitle>
           <Panel
             title="Devin"
-            actions={<span className="text-[10px] text-muted-foreground">source: none</span>}
+            actions={<span className="mr-6 text-[10px] text-muted-foreground">source: none</span>}
             className="h-[70vh] border-0 rounded-none"
           >
             {children ?? (
