@@ -9,7 +9,7 @@
 
 ## Why one diagram
 
-A viewer of this demo will ask which parts run and which stand in. Tagging each layer with where its state lives answers that without a disclaimer. Without this file, the answer is spread across four specs: `DEVIN_RUN_PROTOCOL.md`, `AGENT_TRIGGER_SURFACE.md`, `OPERATOR_CONSOLE_LAYOUT.md` and `QUEUE_STATS_STRIP.md`. Simulation is fine where it earns its place, but the repo should stay the size of the argument.
+A viewer of this demo will ask which parts run and which stand in. Tagging each layer with where its state lives answers that without a disclaimer. Without this file, the answer is spread across three specs: `DEVIN_RUN_PROTOCOL.md`, `AGENT_TRIGGER_SURFACE.md` and `QUEUE_STATS_STRIP.md`. Simulation is fine where it earns its place, but the repo should stay the size of the argument.
 
 ## The layers
 
