@@ -26,7 +26,7 @@ export default async function HomePage({
       ? summaries.find((s) => s.decl.name === query.tool)
       : undefined;
   const current = selected ?? summaries[0];
-  const rows = current ? current.summary.rows.slice(0, 50) : [];
+  const rows = current ? current.summary.work.slice(0, 50) : [];
   const top = rows[0] ?? null;
 
   return (

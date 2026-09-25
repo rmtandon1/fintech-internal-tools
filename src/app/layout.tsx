@@ -33,10 +33,13 @@ export default async function RootLayout({
   const pending = countPendingFor(actor);
   const chain = verifyChain();
 
-  const modes: PaletteMode[] = OPS_MODES.map((mode) => {
+  const modes: PaletteMode[] = OPS_MODES.flatMap((mode) => {
     const decl = getTool(mode.id);
-    const live = decl !== undefined && decl.visibleTo.includes(actor.role);
-    return {
+    // A registered tool this role cannot see has no page at all; roadmap
+    // only exists for unregistered modes, so the entry is omitted.
+    if (decl !== undefined && !decl.visibleTo.includes(actor.role)) return [];
+    const live = decl !== undefined;
+    return [{
       id: mode.id,
       name: decl?.displayName ?? mode.name,
       description: decl?.description ?? mode.description,
@@ -45,7 +48,7 @@ export default async function RootLayout({
       roles: mode.roles,
       live,
       href: live ? `/t/${mode.id}` : `/roadmap/${mode.id}`,
-    };
+    }];
   });
 
   return (

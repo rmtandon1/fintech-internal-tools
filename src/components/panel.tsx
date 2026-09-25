@@ -24,10 +24,10 @@ export function Panel({
         className,
       )}
     >
-      <header className="flex h-8 shrink-0 items-center gap-2 border-b border-border px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+      <header className="flex min-h-8 shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
         <span className="min-w-0 truncate">{title}</span>
         {actions ? (
-          <span className="ml-auto flex shrink-0 items-center gap-2 normal-case tracking-normal">
+          <span className="ml-auto flex flex-wrap items-center gap-2 normal-case tracking-normal">
             {actions}
           </span>
         ) : null}

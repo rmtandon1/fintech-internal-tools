@@ -36,19 +36,41 @@ export function AuditTimeline({
             icon: "Dot",
             className: "text-muted-foreground",
           };
+          const decision = safeDecision(event.decisionJson);
           return (
-            <li key={event.id} className="flex h-7 items-center gap-2 px-3">
-              <Icon name={tone.icon} className={cn("size-3.5 shrink-0", tone.className)} />
-              <span className="min-w-0 flex-1 truncate text-xs">{event.summary}</span>
-              <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
-                {event.actorId}
-              </span>
-              <span className="shrink-0 text-[11px] text-muted-foreground">
-                {formatTimestamp(event.ts)}
-              </span>
-              <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
-                {event.rowHash.slice(0, 8)}
-              </span>
+            <li key={event.id}>
+              <details>
+                <summary className="flex h-7 cursor-pointer list-none items-center gap-2 px-3">
+                  <Icon name={tone.icon} className={cn("size-3.5 shrink-0", tone.className)} />
+                  <span className="min-w-0 flex-1 truncate text-xs">{event.summary}</span>
+                  <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                    {event.actorId}
+                  </span>
+                  <span className="shrink-0 text-[11px] text-muted-foreground">
+                    {formatTimestamp(event.ts)}
+                  </span>
+                  <span className="shrink-0 font-mono text-[10px] text-muted-foreground/70">
+                    {event.rowHash.slice(0, 8)}
+                  </span>
+                </summary>
+                <div className="space-y-2 border-t border-border/50 px-3 pb-2 pt-2">
+                  {decision && decision.trace.length > 0 ? (
+                    <div className="rounded-md border border-border">
+                      <PolicyTraceList trace={decision.trace} />
+                    </div>
+                  ) : null}
+                  <ChangedFields
+                    before={event.beforeJson}
+                    after={event.afterJson}
+                    fields={getTool(event.tool)?.fields ?? []}
+                  />
+                  <dl className="space-y-0.5 font-mono text-[10px] text-muted-foreground">
+                    <Hash label="seq" value={String(event.seq)} />
+                    <Hash label="prev" value={event.prevHash} />
+                    <Hash label="row" value={event.rowHash} />
+                  </dl>
+                </div>
+              </details>
             </li>
           );
         })}

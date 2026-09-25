@@ -93,8 +93,12 @@ function ActionButton({
     startTransition(async () => {
       const result = await submitIntent(form);
       setIdempotencyKey(ulid());
-      setDialogOpen(false);
       const outcome = result.outcome;
+      // Only a completed submission closes the dialog; on a denial the
+      // entered values stay put so the operator can fix and retry.
+      if (outcome.status === "applied" || outcome.status === "pending_approval") {
+        setDialogOpen(false);
+      }
       if (outcome.status === "applied") {
         toast.success(outcome.summary, {
           description: result.replayed ? "Replayed from idempotency key" : undefined,

@@ -6,7 +6,7 @@ import { RevealField } from "@/components/reveal-field";
 import { auditTrailFor } from "@/engine/audit/query";
 import { maskRecord } from "@/engine/pii/mask";
 import { previewActions } from "@/engine/policy/preview";
-import type { Actor, GovernedRecord, ToolDeclaration } from "@/engine/types";
+import type { Actor, FieldDecl, GovernedRecord, ToolDeclaration } from "@/engine/types";
 import { formatFieldValue } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -57,15 +57,7 @@ export function RecordView({
                         canReveal={masked.canReveal}
                       />
                     ) : (
-                      <div
-                        className={cn(
-                          "truncate text-xs",
-                          numeric && "tabular-nums",
-                        )}
-                        title={field.help}
-                      >
-                        {formatFieldValue(field, masked.values)}
-                      </div>
+                      <FieldValue field={field} masked={masked.values} numeric={numeric} />
                     )}
                   </div>
                 );
@@ -74,7 +66,22 @@ export function RecordView({
           ))}
         </div>
 
-        <Panel title="Policy trace" className="mx-3 mb-3" bodyClassName="py-0.5">
+        <Panel
+          title={
+            traced ? (
+              <span className="flex items-center gap-2">
+                Policy trace{" "}
+                <span className="font-mono normal-case tracking-normal text-foreground">
+                  · {traced.label}
+                </span>
+              </span>
+            ) : (
+              "Policy trace"
+            )
+          }
+          className="mx-3 mb-3"
+          bodyClassName="py-0.5"
+        >
           {traced?.decision ? (
             <PolicyTraceList trace={traced.decision.trace} />
           ) : (
@@ -100,6 +107,31 @@ export function RecordView({
       <div className="mt-auto flex shrink-0 items-center gap-2 border-t border-border px-3 py-2">
         <ActionBar tool={decl.name} recordId={record.id} previews={previews} />
       </div>
+    </div>
+  );
+}
+
+function FieldValue({
+  field,
+  masked,
+  numeric,
+}: {
+  field: FieldDecl;
+  masked: Record<string, unknown>;
+  numeric: boolean;
+}) {
+  const value = formatFieldValue(field, masked);
+  const multiline = field.type === "text";
+  return (
+    <div
+      className={cn(
+        "text-xs",
+        multiline ? "whitespace-pre-wrap break-words" : "truncate",
+        numeric && "tabular-nums",
+      )}
+      title={value !== "—" ? value : field.help}
+    >
+      {value}
     </div>
   );
 }
