@@ -54,6 +54,12 @@ export function AppSidebar({
 
   const items: RailItem[] = [
     { href: "/", label: "Home", icon: "Home", active: pathname === "/" },
+    {
+      href: "/apps",
+      label: "Apps",
+      icon: "LayoutGrid",
+      active: pathname === "/apps" || pathname.startsWith("/roadmap"),
+    },
     ...tools.map((tool) => ({
       href: `/t/${tool.name}`,
       label: tool.displayName,

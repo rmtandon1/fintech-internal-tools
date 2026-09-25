@@ -13,9 +13,9 @@ import { countPendingFor } from "@console/engine/approvals";
 import { verifyChain } from "@console/engine/audit/verify";
 import { automationTool } from "@console/tool-automation";
 import { devinMode } from "@/lib/devin-status";
-import { OPS_MODES } from "@/lib/modes";
+import { modesFor } from "@/lib/modes";
 import { currentActor } from "@/lib/session";
-import { getTool, toolsForRole } from "@/registry";
+import { toolsForRole } from "@/registry";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -39,23 +39,16 @@ export default async function RootLayout({
   const chain = verifyChain();
   const mode = devinMode();
 
-  const modes: PaletteMode[] = OPS_MODES.flatMap((mode) => {
-    const decl = getTool(mode.id);
-    // A registered tool this role cannot see has no page at all; roadmap
-    // only exists for unregistered modes, so the entry is omitted.
-    if (decl !== undefined && !decl.visibleTo.includes(actor.role)) return [];
-    const live = decl !== undefined;
-    return [{
-      id: mode.id,
-      name: decl?.displayName ?? mode.name,
-      description: decl?.description ?? mode.description,
-      icon: decl?.icon ?? mode.icon,
-      actions: decl ? decl.actions.map((a) => a.name) : mode.actions,
-      roles: mode.roles,
-      live,
-      href: live ? `/t/${mode.id}` : `/roadmap/${mode.id}`,
-    }];
-  });
+  const modes: PaletteMode[] = modesFor(actor.role).map((mode) => ({
+    id: mode.id,
+    name: mode.name,
+    description: mode.description,
+    icon: mode.icon,
+    actions: mode.actions,
+    roles: mode.roles,
+    live: mode.live,
+    href: mode.href,
+  }));
 
   return (
     <html lang="en" suppressHydrationWarning>
