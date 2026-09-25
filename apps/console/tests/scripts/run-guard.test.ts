@@ -190,6 +190,26 @@ describe("run-guard", () => {
     expect(out).toContain("No run on this branch");
   });
 
+  it("fails when the base ref cannot be resolved", () => {
+    const f = fixture().startRun().editInPlan();
+    f.git("branch", "-m", BASE_BRANCH, "trunk");
+    const result = spawnSync(TSX, [GUARD, "--base", "no/such-branch"], { cwd: f.dir, encoding: "utf8", env: GIT_ENV });
+    expect(result.status).toBe(1);
+    expect(result.stdout).toMatch(/^FAIL {2}Base ref/m);
+    expect(result.stdout).not.toContain("No run on this branch");
+  });
+
+  it("fails when a run's plan.json is added and later deleted", () => {
+    const f = fixture().startRun().editInPlan();
+    f.remove(`${RUN_DIR}/plan.json`);
+    f.remove(`${RUN_DIR}/context.json`);
+    f.commit("drop run");
+    const { status, out } = f.guard();
+    expect(status).toBe(1);
+    expect(out).not.toContain("No run on this branch");
+    expect(line(out, "Run files parse")).toMatch(/^FAIL.*missing at HEAD/);
+  });
+
   it("passes every implemented check for an edit inside the plan", () => {
     const f = fixture().startRun().editInPlan();
     const { status, out } = f.guard();
@@ -265,6 +285,33 @@ describe("run-guard", () => {
       const { status, out } = f.guard();
       expect(status).toBe(1);
       expect(line(out, "Context untouched")).toMatch(/^FAIL.*context\.json/);
+    });
+
+    it("fails when a post-plan edit to plan.json is reverted before HEAD", () => {
+      const f = fixture().startRun().editInPlan();
+      const original = planJson({});
+      f.write({ [`${RUN_DIR}/plan.json`]: planJson({ files: [{ path: TOOL_FILE, op: "modify", reason: "x" }, { path: TEST_FILE, op: "modify", reason: "x" }, { path: "tools/kyc/src/index.ts", op: "create", reason: "widened" }] }) });
+      f.commit("widen plan");
+      f.write({ [`${RUN_DIR}/plan.json`]: original });
+      f.commit("revert plan");
+      expect(f.git("diff", "--name-only", "HEAD~2", "HEAD", "--", `${RUN_DIR}/plan.json`)).toBe("");
+      const { status, out } = f.guard();
+      expect(status).toBe(1);
+      expect(line(out, "Context untouched")).toMatch(/^FAIL.*plan\.json/);
+    });
+
+    it("fails when the plan commit also carries source edits", () => {
+      const f = fixture();
+      f.git("switch", "-q", "-c", `devin/${RUN_ID}`);
+      f.write({
+        [`${RUN_DIR}/context.json`]: contextJson({}),
+        [`${RUN_DIR}/plan.json`]: planJson({}),
+        [TOOL_FILE]: 'export const refundTool = { id: "refunds", rules: ["clustering_hold"] };\n',
+      });
+      f.commit("plan and edit together");
+      const { status, out } = f.guard();
+      expect(status).toBe(1);
+      expect(line(out, "Context untouched")).toMatch(/^FAIL.*plan commit.*also changes tools\/refunds\/src\/index\.ts/);
     });
   });
 
@@ -369,12 +416,36 @@ describe("run-guard", () => {
     });
   });
 
+  describe("Tests never shrink (renames and replacements)", () => {
+    it("fails when a test file is renamed so vitest no longer picks it up", () => {
+      const f = fixture().startRun({}, { files: [{ path: TEST_FILE, op: "delete", reason: "x" }, { path: "apps/console/tests/tools/refunds.ts", op: "create", reason: "x" }] });
+      f.git("mv", TEST_FILE, "apps/console/tests/tools/refunds.ts");
+      f.commit("rename away");
+      const { status, out } = f.guard();
+      expect(status).toBe(1);
+      expect(line(out, "Tests never shrink")).toMatch(/^FAIL.*renamed to apps\/console\/tests\/tools\/refunds\.ts, no longer a test file/);
+    });
+
+    it("fails a REMOVAL that replaces an unlisted test with a new one of the same count", () => {
+      const f = fixture().startRun(
+        { kind: "IMPLEMENTATION/REMOVAL" },
+        { removed_tests: [{ file: TEST_FILE, name: "holds large refunds" }] },
+      );
+      f.write({ [TEST_FILE]: BASE_TEST.replace('it("applies small refunds"', 'it("does something else"') });
+      f.commit("swap test");
+      const { status, out } = f.guard();
+      expect(status).toBe(1);
+      expect(line(out, "Tests never shrink")).toMatch(/^FAIL.*not in plan\.removed_tests.*"applies small refunds"/);
+    });
+  });
+
   describe("No type escapes", () => {
     it("fails on added any, @ts-ignore, @ts-expect-error, eslint-disable and as unknown as", () => {
       const f = fixture().startRun();
       f.write({
         [TOOL_FILE]: [
           "export const a: any = 1;",
+          "type RefundInput = any;",
           "// @ts-ignore",
           "// @ts-expect-error",
           "/* eslint-disable */",
@@ -391,6 +462,7 @@ describe("run-guard", () => {
       for (const label of ["(any)", "(@ts-ignore)", "(@ts-expect-error)", "(eslint-disable)", "(as unknown as)"]) {
         expect(l).toContain(label);
       }
+      expect(l).toContain(`${TOOL_FILE}:2 (any)`);
     });
 
     it("ignores 'any' in identifiers and strings", () => {

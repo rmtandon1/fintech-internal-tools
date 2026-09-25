@@ -9,15 +9,18 @@ import { ENGINE_SCOPE_PATHS } from "@console/tool-automation/specs";
  * `runs/<run_id>/plan.json`. This script diffs the branch against its merge
  * base with the integration branch and holds the diff to that plan. It runs
  * in `pnpm verify` and as the `guards` job in `.github/workflows/verify.yml`,
- * which posts the same report as a PR comment. A branch that adds no run
- * passes with "No run on this branch".
+ * which posts the same report as a PR comment. A branch whose history adds
+ * no `runs/<run_id>/plan.json` passes with "No run on this branch"; a branch
+ * that added one and later deleted it fails. A base ref that cannot be
+ * resolved fails rather than passing unchecked.
  *
  * Checks implemented here, each reported by name:
  *
  *   Stays in plan        every changed path is in `plan.files[]` or under `runs/<run_id>/`
  *   Plan stays in scope  every `plan.files[].path` matches a glob in `context.scope`
- *   Context untouched    `context.json` and `plan.json` do not change after the plan
- *                        commit (the first commit on the branch). Other files under
+ *   Context untouched    the plan commit (the first commit on the branch) adds exactly
+ *                        `context.json` and `plan.json`, and no later commit touches
+ *                        either, even if reverted afterwards. Other files under
  *                        `runs/<run_id>/`, such as `replay.json`, may. The other half
  *                        of this check, comparing `context.json`'s SHA-256 with the
  *                        dispatch audit row, lives in the automation tool's
@@ -76,7 +79,7 @@ const TEST_NAME_RE = /(?<![.\w$])(?:it|test)\s*\(\s*(["'`])((?:\\.|(?!\1).)*)\1/
 const TEST_MODIFIER_RE = /(?<![.\w$])(?:it|test|describe)\.(?:skip|only|todo)\b/g;
 const SOURCE_FILE_RE = /\.(?:ts|tsx|js|mjs|cjs)$/;
 const TYPE_ESCAPE_RES: Array<{ re: RegExp; label: string }> = [
-  { re: /(?:[:<,(]|\bas)\s*any\b(?!\w)/, label: "any" },
+  { re: /(?:[:<,(=|&]|\bas|\bextends)\s*any\b(?!\w)/, label: "any" },
   { re: /@ts-ignore/, label: "@ts-ignore" },
   { re: /@ts-expect-error/, label: "@ts-expect-error" },
   { re: /eslint-disable/, label: "eslint-disable" },
@@ -135,43 +138,44 @@ function runGuard(opts: { cwd: string; base?: string }): GuardReport {
   if (!baseRef) {
     return {
       run: null,
-      checks: [{ name: "No run on this branch", pass: true, reason: `base ref not found (tried ${INTEGRATION_BRANCH})` }],
+      checks: [{ name: "Base ref", pass: false, reason: `base ref not found (tried origin/${INTEGRATION_BRANCH}); fetch it or pass --base` }],
     };
   }
   const mergeBase = tryGit("merge-base", baseRef, "HEAD");
   if (!mergeBase) {
-    return { run: null, checks: [{ name: "No run on this branch", pass: true, reason: `no merge base with ${baseRef}` }] };
+    return { run: null, checks: [{ name: "Base ref", pass: false, reason: `no merge base between HEAD and ${baseRef}` }] };
   }
 
   const changes = parseNameStatus(git("diff", "--name-status", "-M", mergeBase, "HEAD"));
-  const planAdds = changes.filter((c) => c.status === "A" && /^runs\/[^/]+\/plan\.json$/.test(c.path));
+  const planAdds = Array.from(
+    new Set(
+      git("log", "--diff-filter=A", "--name-only", "--format=", `${mergeBase}..HEAD`, "--", "runs/*/plan.json")
+        .split("\n")
+        .filter((p) => /^runs\/[^/]+\/plan\.json$/.test(p)),
+    ),
+  );
   if (planAdds.length === 0) {
     return { run: null, checks: [{ name: "No run on this branch", pass: true, reason: `no runs/<run_id>/plan.json added since ${mergeBase.slice(0, 7)}` }] };
   }
   if (planAdds.length > 1) {
     return {
       run: null,
-      checks: [
-        {
-          name: "One run per branch",
-          pass: false,
-          reason: `branch adds ${planAdds.length} plan files: ${planAdds.map((c) => c.path).join(", ")}`,
-        },
-      ],
+      checks: [{ name: "One run per branch", pass: false, reason: `branch adds ${planAdds.length} plan files: ${planAdds.join(", ")}` }],
     };
   }
 
-  const runId = planAdds[0].path.split("/")[1];
+  const runId = planAdds[0].split("/")[1];
   const runDir = `runs/${runId}/`;
   const planCommit = git("rev-list", "--reverse", "--topo-order", `${mergeBase}..HEAD`).split("\n")[0];
 
   const contextRaw = tryGit("show", `HEAD:${runDir}context.json`);
   const planRaw = tryGit("show", `HEAD:${runDir}plan.json`);
-  if (contextRaw === null) {
-    return { run: null, checks: [{ name: "Run files parse", pass: false, reason: `${runDir}context.json is missing at HEAD` }] };
+  if (contextRaw === null || planRaw === null) {
+    const missing = [contextRaw === null ? "context.json" : null, planRaw === null ? "plan.json" : null].filter(Boolean).join(" and ");
+    return { run: null, checks: [{ name: "Run files parse", pass: false, reason: `${runDir}${missing} missing at HEAD (run files were added on this branch)` }] };
   }
   const context = parseJson(ContextFile, contextRaw, `${runDir}context.json`);
-  const plan = parseJson(PlanFile, planRaw ?? "", `${runDir}plan.json`);
+  const plan = parseJson(PlanFile, planRaw, `${runDir}plan.json`);
   if (!context.ok || !plan.ok) {
     return {
       run: null,
@@ -230,12 +234,30 @@ function planStaysInScope({ plan, context }: RunContext): CheckResult {
     : { name: "Plan stays in scope", pass: false, reason: `not in context.scope: ${list(outside)}` };
 }
 
-function contextUntouched({ git, planCommit, runDir }: RunContext): CheckResult {
+function contextUntouched({ git, mergeBase, planCommit, runDir }: RunContext): CheckResult {
   const frozen = [`${runDir}context.json`, `${runDir}plan.json`];
-  const changed = git("diff", "--name-only", planCommit, "HEAD", "--", ...frozen).split("\n").filter(Boolean);
-  return changed.length === 0
-    ? { name: "Context untouched", pass: true, reason: `context.json and plan.json unchanged since plan commit ${planCommit.slice(0, 7)}` }
-    : { name: "Context untouched", pass: false, reason: `changed after plan commit ${planCommit.slice(0, 7)}: ${list(changed)}` };
+  const short = planCommit.slice(0, 7);
+
+  const inPlanCommit = git("diff", "--name-only", mergeBase, planCommit).split("\n").filter(Boolean);
+  const extra = inPlanCommit.filter((p) => !frozen.includes(p));
+  const absent = frozen.filter((p) => !inPlanCommit.includes(p));
+  if (extra.length > 0 || absent.length > 0) {
+    const parts = [
+      ...(absent.length > 0 ? [`does not add ${list(absent)}`] : []),
+      ...(extra.length > 0 ? [`also changes ${list(extra)}`] : []),
+    ];
+    return { name: "Context untouched", pass: false, reason: `plan commit ${short} ${parts.join(" and ")}` };
+  }
+
+  const touched = git("log", "--name-only", "--format=commit %h", `${planCommit}..HEAD`, "--", ...frozen)
+    .split("\n")
+    .filter(Boolean);
+  if (touched.length > 0) {
+    const commits = touched.filter((l) => l.startsWith("commit ")).map((l) => l.slice("commit ".length));
+    const files = Array.from(new Set(touched.filter((l) => frozen.includes(l))));
+    return { name: "Context untouched", pass: false, reason: `changed after plan commit ${short}: ${list(files)} in ${list(commits)}` };
+  }
+  return { name: "Context untouched", pass: true, reason: `plan commit ${short} adds only context.json and plan.json; neither changes afterwards` };
 }
 
 function engineUntouched({ scope, changes }: RunContext): CheckResult {
@@ -266,8 +288,9 @@ function testsNeverShrink({ tryGit, mergeBase, plan, context, changes }: RunCont
     if (!isTest) continue;
     files += 1;
     const basePath = c.from ?? c.path;
+    const gone = c.status === "D" || !TEST_FILE_RE.test(c.path);
     const before = c.status === "A" ? "" : (tryGit("show", `${mergeBase}:${basePath}`) ?? "");
-    const after = c.status === "D" ? "" : (tryGit("show", `HEAD:${c.path}`) ?? "");
+    const after = gone ? "" : (tryGit("show", `HEAD:${c.path}`) ?? "");
 
     const beforeNames = testNames(before);
     const afterNames = testNames(after);
@@ -278,21 +301,21 @@ function testsNeverShrink({ tryGit, mergeBase, plan, context, changes }: RunCont
     const unlisted = missing.filter((n) => !allowed.has(n));
     const allowedLoss = mayRemove ? missing.length - unlisted.length : 0;
 
-    if (c.status === "D") {
+    if (gone) {
+      const what = c.status === "D" ? "deleted" : `renamed to ${c.path}, no longer a test file`;
       if (!mayRemove || unlisted.length > 0 || beforeCount > allowedLoss) {
-        problems.push(`${basePath} deleted (${beforeCount} test(s))`);
+        problems.push(`${basePath} ${what} (${beforeCount} test(s))`);
       }
-    } else if (afterCount < beforeCount) {
-      const drop = beforeCount - afterCount;
-      if (!mayRemove) {
-        problems.push(`${c.path}: ${beforeCount} → ${afterCount}`);
-      } else if (unlisted.length > 0) {
-        problems.push(`${c.path}: removed tests not in plan.removed_tests: ${unlisted.map((n) => JSON.stringify(n)).join(", ")}`);
-      } else if (drop > allowedLoss) {
-        problems.push(`${c.path}: ${beforeCount} → ${afterCount}, only ${allowedLoss} removal(s) listed in plan.removed_tests`);
-      }
-    } else if (!mayRemove && unlisted.length > 0) {
-      problems.push(`${c.path}: tests renamed or replaced without a count drop: ${unlisted.map((n) => JSON.stringify(n)).join(", ")}`);
+    } else if (!mayRemove && afterCount < beforeCount) {
+      problems.push(`${c.path}: ${beforeCount} → ${afterCount}`);
+    } else if (unlisted.length > 0) {
+      problems.push(
+        mayRemove
+          ? `${c.path}: removed tests not in plan.removed_tests: ${unlisted.map((n) => JSON.stringify(n)).join(", ")}`
+          : `${c.path}: tests renamed or replaced: ${unlisted.map((n) => JSON.stringify(n)).join(", ")}`,
+      );
+    } else if (beforeCount - afterCount > allowedLoss) {
+      problems.push(`${c.path}: ${beforeCount} → ${afterCount}, only ${allowedLoss} removal(s) listed in plan.removed_tests`);
     }
 
     if (count(after, TEST_MODIFIER_RE) > count(before, TEST_MODIFIER_RE)) {
