@@ -6,7 +6,7 @@ import type {
   SessionSnapshot,
 } from "./devin-api";
 import type { GitHubClient, PullRef } from "./github-api";
-import { getRun, getRunByPrUrl } from "./index";
+import { automationTool, type DevinRun, getRun, getRunByPrUrl } from "./index";
 import { CI_CHECKS, type ReplayFrame, type StructuredOutput } from "./run-files";
 import type { RunKind } from "./specs";
 
@@ -22,7 +22,7 @@ const REPO_PR_BASE = "https://github.com/rmtandon1/buy-v-build-cog-demo/pull";
 
 /** A deterministic fake 40-hex digest, so replay runs look like git objects. */
 function fakeSha(...parts: string[]): string {
-  return createHash("sha256").update(parts.join(":")).digest("hex");
+  return createHash("sha256").update(parts.join(":")).digest("hex").slice(0, 40);
 }
 
 function out(over: Partial<StructuredOutput>): StructuredOutput {
@@ -413,7 +413,18 @@ const MERGE_DELAY_MS = 4_000;
  */
 export function replayGitHubClient(now: () => number = Date.now): GitHubClient {
   function runFor(pr: PullRef) {
-    return getRunByPrUrl(`${REPO_PR_BASE}/${pr.number}`);
+    const byUrl = getRunByPrUrl(`${REPO_PR_BASE}/${pr.number}`);
+    if (byUrl) return byUrl;
+    // Before approval the run's pr_url lives only in its frames; match the
+    // scripted PR number against in-flight replay runs by kind instead.
+    const { rows } = automationTool.list({ filters: {}, limit: 200, offset: 0 });
+    return (
+      (rows as DevinRun[]).find(
+        (r) =>
+          r.sessionId?.startsWith("replay-") &&
+          (pr.number === 991 ? r.kind === "REVERSAL" : r.kind !== "REVERSAL"),
+      ) ?? null
+    );
   }
   return {
     async getPull(pr) {

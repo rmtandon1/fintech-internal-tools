@@ -32,27 +32,16 @@ export interface BridgeResult {
   runId?: string;
 }
 
-const DispatchForm = z
-  .object({
-    spec: z.string().min(1),
-    kind: z.enum(RUN_KINDS),
-    scope: z.enum(RUN_SCOPES),
-    intent: z.string().min(1).max(500),
-    /** Optional on a REVERSAL: derived from the reversed run's context.json. */
-    clusterKey: z.string().min(1).optional(),
-    evidenceIds: z.array(z.string().min(1)).default([]),
-    reverses: z.string().min(1).optional(),
-  })
-  .check((ctx) => {
-    const v = ctx.value;
-    if (v.kind === "REVERSAL") {
-      if (!v.reverses) {
-        ctx.issues.push({ code: "custom", message: "A REVERSAL must name the run it reverses" });
-      }
-    } else if (!v.clusterKey || v.evidenceIds.length === 0) {
-      ctx.issues.push({ code: "custom", message: "A run needs a cluster key and evidence ids" });
-    }
-  });
+const DispatchForm = z.object({
+  spec: z.string().min(1),
+  kind: z.enum(RUN_KINDS),
+  scope: z.enum(RUN_SCOPES),
+  intent: z.string().min(1).max(500),
+  /** Optional on a REVERSAL: derived from the reversed run's context.json. */
+  clusterKey: z.string().min(1).optional(),
+  evidenceIds: z.array(z.string().min(1)).default([]),
+  reverses: z.string().min(1).optional(),
+});
 
 /** The cluster key and evidence ids a REVERSAL reuses from the run it undoes. */
 function reversalEvidence(
@@ -81,6 +70,16 @@ export async function dispatchAutomationRun(form: FormData): Promise<BridgeResul
   });
   if (!parsed.success) {
     return { ok: false, title: "Invalid dispatch", detail: parsed.error.issues[0]?.message };
+  }
+  if (parsed.data.kind === "REVERSAL" ? !parsed.data.reverses : !parsed.data.clusterKey || parsed.data.evidenceIds.length === 0) {
+    return {
+      ok: false,
+      title: "Invalid dispatch",
+      detail:
+        parsed.data.kind === "REVERSAL"
+          ? "A REVERSAL must name the run it reverses"
+          : "A run needs a cluster key and evidence ids",
+    };
   }
   const actor = await currentActor();
   try {

@@ -155,7 +155,7 @@ export function ApprovalDialog({
           <p className="text-muted-foreground">
             Context untouched{" "}
             {stage === "approving" || stage === "merging" || stage === "merged" ? "✓" : "…"} · the
-            server compares the branch's context.json digest at approval
+            server compares the branch&apos;s context.json digest at approval
           </p>
           <p className="text-muted-foreground">
             The approver cannot be the requester. Switch to the engineer role if you asked for this

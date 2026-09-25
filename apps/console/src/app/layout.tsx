@@ -46,9 +46,10 @@ export default async function RootLayout({
   const pending = countPendingFor(actor);
   const chain = verifyChain();
   const { rows: runRows } = automationTool.list({ filters: {}, limit: 100, offset: 0 });
+  const runs = runRows as DevinRun[];
   const inFlight =
-    runRows.find((r) => IN_FLIGHT_STATUSES.includes(r.status as DevinRun["status"])) ?? null;
-  const lastMerged = runRows.find((r) => r.status === "merged") ?? null;
+    runs.find((r) => (IN_FLIGHT_STATUSES as readonly string[]).includes(r.status)) ?? null;
+  const lastMerged = runs.find((r) => r.status === "merged") ?? null;
   const agentProps = { mode: bridgeMode(), inFlight, lastMerged };
   const layout = parseWorkspaceLayout(
     (await cookies()).get(WORKSPACE_LAYOUT_COOKIE)?.value,

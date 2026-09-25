@@ -20,6 +20,7 @@ import {
   IMPLEMENTATION_KINDS,
   kindsStartableBy,
   reversingRun,
+  type DevinRun,
   type RunKind,
 } from "@console/tool-automation";
 import { type AppBridgeDeps, bridgeDeps } from "@/lib/bridge";
@@ -65,6 +66,7 @@ export default async function RunsPage() {
   if (!AUTOMATION_ROLES.includes(actor.role)) notFound();
   const deps = bridgeDeps();
   const { rows } = automationTool.list({ filters: {}, limit: 200, offset: 0 });
+  const runs = rows as DevinRun[];
 
   return (
     <Panel
@@ -90,7 +92,7 @@ export default async function RunsPage() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((run) => (
+          {runs.map((run) => (
             <RunRow
               key={run.id}
               runId={run.id}
