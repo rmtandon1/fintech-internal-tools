@@ -10,7 +10,8 @@
     "./run-files": "./src/run-files.ts",
     "./playbook-registration": "./src/playbook-registration.ts",
     "./context": "./src/context.ts",
-    "./bridge": "./src/bridge.ts"
+    "./bridge": "./src/bridge.ts",
+    "./git": "./src/git.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
