@@ -8,22 +8,31 @@ export const PLAYBOOK_TITLE = "Governed console run";
 
 const playbookPath = resolve(dirname(fileURLToPath(import.meta.url)), "../../../.devin/run-protocol.playbook.md");
 
-export async function registerPlaybook(
+function playbooksEndpoint(orgId: string, baseUrl: string): string {
+  return `${baseUrl.replace(/\/$/, "")}/organizations/${encodeURIComponent(orgId)}/playbooks`;
+}
+
+function requester(apiKey: string, fetchImpl: FetchLike) {
+  const headers = { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" };
+  return async (url: string, init: RequestInit): Promise<unknown> => {
+    const response = await fetchImpl(url, { ...init, headers });
+    if (!response.ok) throw new Error(`Devin playbook API returned HTTP ${response.status}`);
+    return response.json();
+  };
+}
+
+/**
+ * The id of the org playbook titled `PLAYBOOK_TITLE`, or null when there is
+ * none. Read-only: dispatch uses it when `DEVIN_PLAYBOOK_ID` is not set.
+ */
+export async function findPlaybookId(
   apiKey: string,
   orgId: string,
   fetchImpl: FetchLike = fetch,
   baseUrl = DEVIN_API_BASE,
-): Promise<string> {
-  if (!apiKey || !orgId) throw new Error("Set DEVIN_API_KEY and DEVIN_ORG_ID before registering the playbook");
-  const endpoint = `${baseUrl.replace(/\/$/, "")}/organizations/${encodeURIComponent(orgId)}/playbooks`;
-  const headers = { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" };
-
-  async function request(url: string, init: RequestInit): Promise<unknown> {
-    const response = await fetchImpl(url, { ...init, headers });
-    if (!response.ok) throw new Error(`Devin playbook API returned HTTP ${response.status}`);
-    return response.json();
-  }
-
+): Promise<string | null> {
+  const endpoint = playbooksEndpoint(orgId, baseUrl);
+  const request = requester(apiKey, fetchImpl);
   let cursor: string | null = null;
   let existingId: string | null = null;
   do {
@@ -46,9 +55,21 @@ export async function registerPlaybook(
     }
     cursor = next;
   } while (true);
+  return existingId;
+}
+
+export async function registerPlaybook(
+  apiKey: string,
+  orgId: string,
+  fetchImpl: FetchLike = fetch,
+  baseUrl = DEVIN_API_BASE,
+): Promise<string> {
+  if (!apiKey || !orgId) throw new Error("Set DEVIN_API_KEY before registering the playbook");
+  const endpoint = playbooksEndpoint(orgId, baseUrl);
+  const existingId = await findPlaybookId(apiKey, orgId, fetchImpl, baseUrl);
 
   const url = existingId ? `${endpoint}/${encodeURIComponent(existingId)}` : endpoint;
-  const result = await request(url, {
+  const result = await requester(apiKey, fetchImpl)(url, {
     method: existingId ? "PUT" : "POST",
     body: JSON.stringify({
       title: PLAYBOOK_TITLE,

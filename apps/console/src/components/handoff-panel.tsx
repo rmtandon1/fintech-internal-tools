@@ -7,6 +7,7 @@ import { Button } from "@console/ui/button";
 import { Textarea } from "@console/ui/textarea";
 import { formatMinorUnits, formatRelative } from "@console/ui/format";
 import { useWorkspace } from "@/components/workspace";
+import { SimulationBanner, SimulatedRunView } from "@/components/simulated-run";
 import type { HandoffOffer } from "@/lib/handoff";
 
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
@@ -22,13 +23,25 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
 
 /**
  * The one-sentence handoff: the requester writes the intent and the system
- * supplies the evidence, scope and mode. Rendered in the agent column from
- * `AgentFocus` ("handoff").
+ * supplies the evidence, scope and mode. Rendered in the Devin window from
+ * `AgentFocus` ("handoff"). Without `DEVIN_API_KEY` the start button plays a
+ * pre-written run locally instead of dispatching anything.
  */
 export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
   const { setAgentFocus } = useWorkspace();
   const [intent, setIntent] = useState(offer.intent);
   const [pending, startTransition] = useTransition();
+  const [simulating, setSimulating] = useState(false);
+  const simulation = offer.simulations?.[offer.kind] ?? null;
+
+  if (simulating && simulation) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col text-xs" data-testid="handoff-panel">
+        <SimulationBanner />
+        <SimulatedRunView run={simulation} />
+      </div>
+    );
+  }
 
   function start() {
     const form = new FormData();
@@ -140,14 +153,14 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
 
       <Group title="Execution">
         <p className="mb-2 text-[11px] text-muted-foreground">
-          {offer.mode === "live" ? (
+          {offer.simulations === null ? (
             <>
               <span className="font-medium text-foreground">Live</span> · api.devin.ai
             </>
           ) : (
             <>
-              <span className="font-medium text-foreground">Replay</span> · scripted session, no key
-              configured
+              <span className="font-medium text-foreground">Simulation</span> · pre-written run, no
+              key configured — nothing is dispatched or recorded
             </>
           )}
         </p>
@@ -155,11 +168,11 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
           <Button
             size="sm"
             className="h-7 text-xs"
-            disabled={pending || intent.trim().length === 0}
-            onClick={start}
+            disabled={pending || intent.trim().length === 0 || (offer.simulations !== null && !simulation)}
+            onClick={offer.simulations === null ? start : () => setSimulating(true)}
             data-testid="start-run"
           >
-            {pending ? "Dispatching…" : "Start run"}
+            {pending ? "Dispatching…" : offer.simulations === null ? "Start run" : "Simulate run"}
           </Button>
           <Button
             size="sm"

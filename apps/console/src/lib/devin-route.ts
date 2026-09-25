@@ -21,6 +21,7 @@ import {
   readReplay,
 } from "@console/tool-automation/bridge";
 import type { AppBridgeDeps } from "@/lib/bridge";
+import { devinMode, type DevinMode } from "@/lib/devin-status";
 import { runOffers, type RunOffers } from "@/lib/run-surface";
 
 /**
@@ -56,7 +57,7 @@ function publicRun(run: DevinRun) {
 }
 
 export interface RunViewPayload {
-  mode: AppBridgeDeps["mode"];
+  mode: DevinMode;
   run: ReturnType<typeof publicRun>;
   frames: ReplayFrame[];
   latest: ReplayFrame | null;
@@ -105,13 +106,14 @@ export async function handleGet(
 
   const frames = readReplay(deps.repoRoot, runId, deps.replaysDir);
   const latest = frames.at(-1) ?? null;
+  const mode = devinMode();
   const payload: RunViewPayload = {
-    mode: deps.mode,
+    mode,
     run: publicRun(run),
     frames,
     latest,
     sessionUrl:
-      deps.mode === "live" && run.sessionId
+      mode === "live" && run.sessionId
         ? `https://app.devin.ai/sessions/${run.sessionId}`
         : null,
     summary: getSpec(run.spec)?.summaries?.[run.kind as RunKind] ?? run.intent,

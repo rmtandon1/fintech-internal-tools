@@ -191,6 +191,51 @@ describe("dispatchRun", () => {
     expect(req.tags).toContain(`run:${out.runId}`);
     expect(req.structuredOutputSchema).toHaveProperty("properties");
     expect(req.prompt).toContain(request.intent);
+    expect(req.prompt).toContain(".devin/run-protocol.playbook.md");
+    expect(req.prompt).not.toContain("Repository:");
+  });
+
+  it("names the repository and base branch in the prompt when it is known", async () => {
+    stopAll();
+    const devin = fakeDevin({});
+    await dispatchRun(refundsManager, request, deps({ devin: devin.client, repository: "acme/ops-console" }));
+    expect(devin.created[0].prompt).toMatch(
+      /Repository: https:\/\/github\.com\/acme\/ops-console\. Branch from devin\/test at [0-9a-f]{7} and open the pull request against devin\/test\./,
+    );
+  });
+
+  it("looks the playbook up when none is configured, and prefers a configured one", async () => {
+    stopAll();
+    const found = fakeDevin({});
+    const lookups: string[] = [];
+    const resolvePlaybookId = async () => {
+      lookups.push("lookup");
+      return "playbook-found";
+    };
+    await dispatchRun(refundsManager, request, deps({ devin: found.client, resolvePlaybookId }));
+    expect(found.created[0].playbookId).toBe("playbook-found");
+
+    stopAll();
+    const configured = fakeDevin({});
+    await dispatchRun(
+      refundsManager,
+      request,
+      deps({ devin: configured.client, playbookId: "playbook-env", resolvePlaybookId }),
+    );
+    expect(configured.created[0].playbookId).toBe("playbook-env");
+    expect(lookups).toEqual(["lookup"]);
+  });
+
+  it("still creates the session when the playbook lookup fails", async () => {
+    stopAll();
+    const devin = fakeDevin({});
+    const out = await dispatchRun(
+      refundsManager,
+      request,
+      deps({ devin: devin.client, resolvePlaybookId: () => Promise.reject(new Error("HTTP 500")) }),
+    );
+    expect(getRun(out.runId)?.status).toBe("running");
+    expect(devin.created[0].playbookId).toBeUndefined();
   });
 
   it("records dispatch_failed with the error when the Devin API rejects the session", async () => {

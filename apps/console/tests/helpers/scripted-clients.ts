@@ -4,17 +4,20 @@ import type {
   CreateSessionRequest,
   DevinClient,
   SessionSnapshot,
-} from "./devin-api";
-import type { GitHubClient, PullRef } from "./github-api";
+  GitHubClient,
+  PullRef,
+} from "@console/tool-automation";
 import {
   automationTool,
+  CI_CHECKS,
   type DevinRun,
   getRun,
   getRunByPrUrl,
   IN_FLIGHT_STATUSES,
-} from "./index";
-import { CI_CHECKS, type ReplayFrame, type StructuredOutput } from "./run-files";
-import type { RunKind } from "./specs";
+  type ReplayFrame,
+  type RunKind,
+  type StructuredOutput,
+} from "@console/tool-automation";
 
 /**
  * Scripted stand-ins for the Devin and GitHub clients, used when the server

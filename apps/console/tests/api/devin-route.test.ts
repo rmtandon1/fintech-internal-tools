@@ -14,11 +14,9 @@ import {
   getRun,
   IN_FLIGHT_STATUSES,
   REFUND_CLUSTERING_HOLD,
-  replayDevinClient,
-  replayGitHubClient,
-  scriptedFrames,
   type SessionSnapshot,
 } from "@console/tool-automation";
+import { replayDevinClient, replayGitHubClient, scriptedFrames } from "../helpers/scripted-clients";
 import { approveRun, dispatchRun } from "@console/tool-automation/bridge";
 import { kycTool } from "@console/tool-kyc";
 import { refundTool } from "@console/tool-refunds";
@@ -59,7 +57,6 @@ let t = Date.now();
 let githubShift = 0;
 function deps(): AppBridgeDeps {
   return {
-    mode: "replay",
     devin: replayDevinClient(() => t),
     github: replayGitHubClient(() => Date.now() + githubShift),
     repoRoot,
@@ -93,7 +90,7 @@ describe("GET /api/devin/<runId>", () => {
     expect(result.status).toBe(404);
   });
 
-  it("labels replay mode and advances frames with the clock", async () => {
+  it("reports simulation mode and advances frames with the clock", async () => {
     stopAll();
     const d = deps();
     const out = await dispatchRun(admin, request, d);
@@ -101,7 +98,7 @@ describe("GET /api/devin/<runId>", () => {
     const early = await handleGet(out.runId, admin, d);
     expect(early.status).toBe(200);
     const earlyBody = early.body as RunViewPayload;
-    expect(earlyBody.mode).toBe("replay");
+    expect(earlyBody.mode).toBe("simulation");
     expect(earlyBody.sessionUrl).toBeNull();
     expect(earlyBody.summary).toBe(
       REFUND_CLUSTERING_HOLD.summaries["IMPLEMENTATION/ADDITION"],

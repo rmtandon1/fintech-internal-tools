@@ -30,7 +30,7 @@ export * from "./run-files";
 export { buildContext, type BuiltContext, type ContextRequest } from "./context";
 export * from "./devin-api";
 export * from "./github-api";
-export * from "./replay";
+export * from "./run-files";
 
 export interface DevinRun extends GovernedRecord {
   id: string;

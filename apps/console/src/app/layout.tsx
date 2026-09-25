@@ -4,15 +4,16 @@ import { Toaster } from "@console/ui/sonner";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
 import { AgentWindow } from "@/components/agent-window";
+import { DevinWindowBody } from "@/components/devin-window-body";
 import {
   CommandPaletteProvider,
   type PaletteMode,
 } from "@/components/command-palette";
 import { countPendingFor } from "@console/engine/approvals";
 import { verifyChain } from "@console/engine/audit/verify";
-import { automationTool, type DevinRun, IN_FLIGHT_STATUSES } from "@console/tool-automation";
+import { automationTool } from "@console/tool-automation";
 import { WorkspaceProvider } from "@/components/workspace";
-import { bridgeMode } from "@/lib/bridge";
+import { devinMode } from "@/lib/devin-status";
 import { OPS_MODES } from "@/lib/modes";
 import { currentActor } from "@/lib/session";
 import { getTool, toolsForRole } from "@/registry";
@@ -37,12 +38,7 @@ export default async function RootLayout({
   const runs = visible.some((t) => t.name === automationTool.name);
   const pending = countPendingFor(actor);
   const chain = verifyChain();
-  const { rows: runRows } = automationTool.list({ filters: {}, limit: 100, offset: 0 });
-  const devinRuns = runRows as DevinRun[];
-  const inFlight =
-    devinRuns.find((r) => (IN_FLIGHT_STATUSES as readonly string[]).includes(r.status)) ?? null;
-  const lastMerged = devinRuns.find((r) => r.status === "merged") ?? null;
-  const agentProps = { mode: bridgeMode(), inFlight, lastMerged };
+  const mode = devinMode();
 
   const modes: PaletteMode[] = OPS_MODES.flatMap((mode) => {
     const decl = getTool(mode.id);
@@ -63,7 +59,7 @@ export default async function RootLayout({
   });
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className="h-screen overflow-hidden bg-background text-foreground antialiased">
         <CommandPaletteProvider modes={modes}>
           <div className="flex h-full">
@@ -74,7 +70,14 @@ export default async function RootLayout({
                   actor={actor}
                   chainOk={chain.ok}
                   chainLength={chain.length}
-                  agent={<AgentWindow {...agentProps} />}
+                  agent={
+                    <AgentWindow
+                      mode={mode}
+                      source={mode === "simulation" ? "source: simulation (pre-written)" : "source: devin_runs"}
+                    >
+                      <DevinWindowBody actor={actor} mode={mode} />
+                    </AgentWindow>
+                  }
                 />
                 <main className="min-h-0 flex-1 overflow-hidden p-3">{children}</main>
               </div>

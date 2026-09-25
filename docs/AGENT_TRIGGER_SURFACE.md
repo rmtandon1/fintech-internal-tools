@@ -177,7 +177,7 @@ A list of every run: kind, intent, requester, status, PR, and the run it reverse
 
 ### `apps/console/src/app/api/devin/` (new)
 
-A server-only route that dispatches, polls and terminates through the v3 API, reading `DEVIN_API_KEY` and `DEVIN_ORG_ID` from the server environment. The browser calls this route, never Devin. Without a key, the bridge runs on scripted replay clients (`tools/automation/src/replay.ts`): the session plays a compressed `structured_output` timeline and the PR "merges" a few seconds after approval.
+A server-only route that dispatches, polls and terminates through the v3 API, reading `DEVIN_API_KEY` from the server environment; the organisation comes from `GET /v3/self` unless `DEVIN_ORG_ID` overrides it. The browser calls this route, never Devin. Without a key the console runs in simulation mode (`GET /api/devin/status` reports it): the Devin window and the handoff panel's "Simulate run" show a pre-written run (`apps/console/src/lib/simulation.ts`), dispatch is refused before it reaches the bridge, and nothing is written to `devin_runs` or the audit chain.
 
 In live mode, every poll response (`status`, `status_detail`, `structured_output`, with a timestamp) is appended to `apps/console/data/replays/<run_id>.json`, shaped exactly like `replay.json`; reads try that file first, then `runs/<run_id>/replay.json` for committed recorded runs. `apps/console/data/` is gitignored, so this is a local recording, not state: it is never read back into `devin_runs` (`DEVIN_RUN_PROTOCOL.md` § Starting a run is a governed write). Once a real run has finished, the file can be committed by hand as `runs/<run_id>/replay.json`, so the replay the demo plays is a recorded run rather than a scripted one.
 

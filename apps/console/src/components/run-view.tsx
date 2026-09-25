@@ -277,7 +277,7 @@ export function RunView({ runId, initial }: { runId: string; initial?: RunViewPa
           <span className="font-mono text-[11px]">{run.kind}</span>
           <StatusChip value={run.status} statuses={RUN_STATUSES} />
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            {mode === "live" ? "Live · session" : "Replay · replay.json"}
+            {mode === "live" ? "Live · session" : "Recorded · replay.json"}
           </span>
           <span className="ml-auto flex items-center gap-1">
             {sessionUrl ? (
