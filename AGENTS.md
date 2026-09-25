@@ -9,7 +9,7 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 - Run tests: `pnpm test` (watch mode: `pnpm test:watch`)
 - Lint / typecheck: `pnpm lint` / `pnpm typecheck`
 - Architecture boundary check: `pnpm check:boundaries`
-- Run PR guard: `pnpm check:run`
+- Devin run guard (`docs/DEVIN_RUN_PROTOCOL.md` § Guard checks): `pnpm check:run`; prints "No run on this branch" unless the branch adds one `runs/<run_id>/plan.json`
 - Register the Devin run playbook: `pnpm devin:playbook` (requires `DEVIN_API_KEY` and `DEVIN_ORG_ID`)
 - Full gate (lint + typecheck + boundaries + run guard + tests): `pnpm verify`
 - Build for production: `pnpm build`
@@ -55,7 +55,8 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 - `scripts/check-boundaries.ts` - Cross-package rules pnpm cannot express
 - `.devin/run-protocol.playbook.md` - Phased instructions for governed Devin runs
 - `scripts/register-playbook.ts` - Org playbook registration through the Devin v3 API
-- `scripts/run-guard.ts` - Run PR checks against the committed context and plan
+- `scripts/run-guard.ts` - Holds a Devin run branch to its committed `runs/<run_id>/plan.json`; `tsconfig.scripts.json` typechecks the scripts
+- `runs/` - One directory per Devin run (`context.json`, `plan.json`), merged with the run's PR
 - `docs/` - Product specs and run protocol for the demo; `docs/MIGRATION.md` maps old `src/` paths to new ones
 
 ## Git Workflow
@@ -65,6 +66,6 @@ Next.js 15 (App Router) + React 19 governed-write-path console backed by SQLite 
 - Squash-merge; the PR title becomes the commit title. Delete the feature branch after merge
 - Commit at meaningful checkpoints: each commit is a coherent step that builds and passes tests; fold small touch-ups into the related commit
 - Tests are required: new or changed behaviour ships with tests, and `pnpm verify` must pass before a PR is opened
-- CI (`.github/workflows/verify.yml`, job `verify`) runs `pnpm verify` on every PR; it must be green before merge
+- CI (`.github/workflows/verify.yml`) runs `pnpm verify` in job `verify` and the run guard in job `guards`, which posts one PR comment with each check by name; both must be green before merge
 - The `demo-start` tag marks the accepted baseline; do not move or delete it
 - Update `AGENTS.md`/docs when commands, structure, or architecture rules change

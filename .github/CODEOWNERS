@@ -8,7 +8,8 @@
 /packages/db/        @rmtandon1
 /packages/permissions/ @rmtandon1
 
-# The boundary script is part of the governance surface.
+# The boundary script and the run guard are part of the governance surface,
+# and runs/ is the permanent record of every Devin run.
 /scripts/check-boundaries.ts @rmtandon1
 /scripts/run-guard.ts @rmtandon1
 /runs/ @rmtandon1
