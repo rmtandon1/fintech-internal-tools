@@ -16,7 +16,11 @@ const execFileAsync = promisify(execFile);
 const MigrationJournal = z.object({ entries: z.array(z.object({ when: z.number() })) });
 const LastMigration = z.object({ created_at: z.number() });
 
-/** One playbook lookup per server process; a failed lookup is retried. */
+/**
+ * The playbook found by title, kept once found. A failed lookup, or finding
+ * none, is retried on the next dispatch, so a playbook registered while the
+ * server runs is picked up without a restart.
+ */
 let playbookLookup: Promise<string | null> | null = null;
 
 /**
@@ -53,9 +57,12 @@ export function bridgeDeps(): BridgeDeps {
     resolvePlaybookId: creds
       ? () => {
           if (!playbookLookup) {
-            const pending = resolveOrgId(creds, fetchImpl).then((orgId) =>
-              findPlaybookId(creds.apiKey, orgId, fetchImpl, creds.baseUrl),
-            );
+            const pending = resolveOrgId(creds, fetchImpl)
+              .then((orgId) => findPlaybookId(creds.apiKey, orgId, fetchImpl, creds.baseUrl))
+              .then((id) => {
+                if (id === null) playbookLookup = null;
+                return id;
+              });
             pending.catch(() => {
               playbookLookup = null;
             });

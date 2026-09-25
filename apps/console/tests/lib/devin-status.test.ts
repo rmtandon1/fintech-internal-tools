@@ -51,19 +51,25 @@ describe("Devin status", () => {
     expect(http.calls()).toBe(2);
   });
 
-  it("prefers DEVIN_ORG_ID over the key's org", async () => {
-    const env = { DEVIN_API_KEY: "cog_status_test_key_2", DEVIN_ORG_ID: "org-env" };
-    const status = await devinStatus(env, counting(ok).fetchImpl);
-    expect(status).toMatchObject({ orgId: "org-env", orgSource: "DEVIN_ORG_ID", github: false });
+  it("prefers DEVIN_ORG_ID over the key's org, and a changed override is not served from cache", async () => {
+    const http = counting(ok);
+    const key = "cog_status_test_key_2";
+    const first = await devinStatus({ DEVIN_API_KEY: key }, http.fetchImpl, 1_000);
+    expect(first).toMatchObject({ orgId: "org-from-key", orgSource: "key" });
+    const overridden = await devinStatus({ DEVIN_API_KEY: key, DEVIN_ORG_ID: "org-env" }, http.fetchImpl, 2_000);
+    expect(overridden).toMatchObject({ orgId: "org-env", orgSource: "DEVIN_ORG_ID", github: false });
+    expect(http.calls()).toBe(2);
   });
 
-  it("stays live and reports why when the key is rejected, without caching the failure", async () => {
+  it("stays live and reports why when the key is rejected, re-checking at most every 15 seconds", async () => {
     const http = counting(() => new Response("bad key", { status: 401 }));
     const env = { DEVIN_API_KEY: "cog_status_test_key_3" };
-    const status = await devinStatus(env, http.fetchImpl);
+    const status = await devinStatus(env, http.fetchImpl, 1_000);
     expect(status).toMatchObject({ configured: true, mode: "live", orgId: null, principal: null });
     expect(status.error).toContain("401");
-    await devinStatus(env, http.fetchImpl);
+    await devinStatus(env, http.fetchImpl, 10_000);
+    expect(http.calls()).toBe(1);
+    await devinStatus(env, http.fetchImpl, 17_000);
     expect(http.calls()).toBe(2);
   });
 });

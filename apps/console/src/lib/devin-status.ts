@@ -34,11 +34,15 @@ export function devinMode(env: Env = serverEnv()): DevinMode {
 }
 
 const TTL_MS = 60_000;
-let cached: { apiKey: string; at: number; status: DevinStatus } | null = null;
+/** A rejected or unreachable key is re-checked at most this often. */
+const FAILURE_TTL_MS = 15_000;
+let cached: { identity: string; until: number; status: DevinStatus } | null = null;
 
 /**
- * Checks the key against `GET /v3/self`. A good answer is cached for a minute
- * per key; a failure is not cached. Never returns the key itself.
+ * Checks the key against `GET /v3/self`. The answer is cached per key, org
+ * override and API base: a minute when it succeeds, fifteen seconds when it
+ * fails, so a bad key can't turn every status request into an upstream call.
+ * Never returns the key itself.
  */
 export async function devinStatus(
   env: Env = serverEnv(),
@@ -58,10 +62,11 @@ export async function devinStatus(
       error: null,
     };
   }
-  if (cached && cached.apiKey === apiKey && now - cached.at < TTL_MS) {
+  const envOrg = env.DEVIN_ORG_ID || null;
+  const identity = JSON.stringify([apiKey, envOrg, env.DEVIN_API_BASE ?? null]);
+  if (cached && cached.identity === identity && now < cached.until) {
     return { ...cached.status, ...base };
   }
-  const envOrg = env.DEVIN_ORG_ID || null;
   try {
     const self = await getSelf(apiKey, fetchImpl, env.DEVIN_API_BASE);
     const orgId = envOrg ?? self.orgId;
@@ -74,10 +79,10 @@ export async function devinStatus(
       principal: [self.principalType, self.name].filter(Boolean).join(" · "),
       error: orgId ? null : "The key is not scoped to an organisation; set DEVIN_ORG_ID",
     };
-    if (orgId) cached = { apiKey, at: now, status };
+    cached = { identity, until: now + (orgId ? TTL_MS : FAILURE_TTL_MS), status };
     return status;
   } catch (error) {
-    return {
+    const status: DevinStatus = {
       ...base,
       configured: true,
       mode: "live",
@@ -86,5 +91,7 @@ export async function devinStatus(
       principal: null,
       error: error instanceof Error ? error.message : String(error),
     };
+    cached = { identity, until: now + FAILURE_TTL_MS, status };
+    return status;
   }
 }
