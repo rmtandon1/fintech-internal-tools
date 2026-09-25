@@ -8,7 +8,7 @@ import { buildContext } from "./context";
 import type { DevinClient } from "./devin-api";
 import { type GitHubClient, parsePullUrl } from "./github-api";
 import { automationTool, getRun, type DevinRun } from "./index";
-import { ReplayFile, type ReplayFrame, STRUCTURED_OUTPUT_JSON_SCHEMA, StructuredOutput } from "./run-files";
+import { STRUCTURED_OUTPUT_JSON_SCHEMA, StructuredOutput } from "./run-files";
 import { getSpec, type RunKind, type RunScope } from "./specs";
 
 /**
@@ -16,7 +16,7 @@ import { getSpec, type RunKind, type RunScope } from "./specs";
  * Every database change here is an `executeIntent` call; the Devin and GitHub
  * calls happen strictly after the intent they depend on has committed, or
  * strictly before the intent that records what they returned. Polled session
- * progress goes to `runs/<id>/replay.json`, never to `devin_runs`
+ * progress is read from the session and never written to `devin_runs`
  * (DEVIN_RUN_PROTOCOL.md § Progress).
  */
 
@@ -57,13 +57,6 @@ export function runDir(repoRoot: string, runId: string): string {
 export function readContextJson(repoRoot: string, runId: string): string | null {
   const path = join(runDir(repoRoot, runId), "context.json");
   return existsSync(path) ? readFileSync(path, "utf8") : null;
-}
-
-export function readReplay(repoRoot: string, runId: string): ReplayFrame[] {
-  const path = join(runDir(repoRoot, runId), "replay.json");
-  if (!existsSync(path)) return [];
-  const parsed = ReplayFile.safeParse(JSON.parse(readFileSync(path, "utf8")));
-  return parsed.success ? parsed.data : [];
 }
 
 function key(runId: string, step: string): string {
@@ -189,14 +182,14 @@ export async function dispatchRun(
 }
 
 export type PollOutcome =
-  | { kind: "frame"; frame: ReplayFrame }
+  | { kind: "output"; structuredOutput: StructuredOutput; status: string; statusDetail: string | null }
   | { kind: "no_output"; status: string; statusDetail: string | null }
   | { kind: "invalid_output"; status: string; issues: string }
   | { kind: "unavailable"; reason: string };
 
 /**
- * Reads the session once and appends a validated frame to `replay.json`.
- * Touches no governed table: a poll is an observation, not a transition.
+ * Reads the session once and validates its `structured_output`. Touches no
+ * governed table and writes no file: a poll is an observation, not a transition.
  */
 export async function pollRun(run: DevinRun, deps: BridgeDeps): Promise<PollOutcome> {
   if (!deps.devin) return { kind: "unavailable", reason: "Devin API is not configured" };
@@ -213,28 +206,20 @@ export async function pollRun(run: DevinRun, deps: BridgeDeps): Promise<PollOutc
       issues: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
     };
   }
-  const frame: ReplayFrame = {
-    at_ms: (deps.now ?? Date.now)(),
-    structured_output: parsed.data,
+  return {
+    kind: "output",
+    structuredOutput: parsed.data,
     status: snapshot.status,
-    status_detail: snapshot.statusDetail,
+    statusDetail: snapshot.statusDetail,
   };
-  const dir = runDir(deps.repoRoot, run.id);
-  mkdirSync(dir, { recursive: true });
-  const frames = [...readReplay(deps.repoRoot, run.id), frame];
-  writeFileSync(join(dir, "replay.json"), JSON.stringify(frames, null, 2) + "\n");
-  return { kind: "frame", frame };
 }
 
-/** The PR a run is working on: the audited one once approved, else the last one the session reported. */
-export function currentPrUrl(run: DevinRun, deps: BridgeDeps): string | null {
+/** The PR a run is working on: the audited one once approved, else the one the session reports now. */
+export async function currentPrUrl(run: DevinRun, deps: BridgeDeps): Promise<string | null> {
   if (run.prUrl) return run.prUrl;
-  const frames = readReplay(deps.repoRoot, run.id);
-  for (let i = frames.length - 1; i >= 0; i--) {
-    const url = frames[i].structured_output.pr_url;
-    if (url) return url;
-  }
-  return null;
+  if (!deps.devin || !run.sessionId) return null;
+  const outcome = await pollRun(run, deps);
+  return outcome.kind === "output" ? outcome.structuredOutput.pr_url : null;
 }
 
 export interface ApproveOutcome {
@@ -255,10 +240,10 @@ export async function approveRun(
   note: string | undefined,
   deps: BridgeDeps,
 ): Promise<ApproveOutcome> {
-  const prUrl = currentPrUrl(run, deps);
+  if (!deps.github) throw new Error("GitHub API is not configured: set GITHUB_TOKEN on the server");
+  const prUrl = await currentPrUrl(run, deps);
   const ref = prUrl ? parsePullUrl(prUrl) : null;
   if (!prUrl || !ref) throw new Error("The session has not reported a pull request yet");
-  if (!deps.github) throw new Error("GitHub API is not configured: set GITHUB_TOKEN on the server");
 
   const pull = await deps.github.getPull(ref);
   const checks = await deps.github.getChecks(ref, pull.headSha);
