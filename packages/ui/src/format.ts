@@ -1,7 +1,7 @@
 import type { FieldDecl } from "@console/engine/types";
 
 export function formatMinorUnits(minor: number, currency = "GBP"): string {
-  return new Intl.NumberFormat("en-GB", {
+  return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency,
   }).format(minor / 100);
@@ -46,6 +46,8 @@ export function formatFieldValue(
     }
     case "boolean":
       return value ? "Yes" : "No";
+    case "enum":
+      return field.enumLabels?.[String(value)] ?? humanize(String(value));
     case "date":
       return typeof value === "number"
         ? formatTimestamp(value)
@@ -59,4 +61,10 @@ export function titleCase(value: string): string {
   return value
     .replace(/[_.]/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** `not_received` → `Not received`: identifiers read as words, not code. */
+export function humanize(value: string): string {
+  const spaced = value.replace(/[_.]/g, " ").trim();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
 }

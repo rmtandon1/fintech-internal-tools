@@ -4,6 +4,7 @@ import {
   ContextFile,
   type EvidenceRow,
   type RunKind,
+  runKindLabel,
   type RunnableSpec,
 } from "@console/tool-automation";
 import { readContextJson, type BridgeDeps } from "@console/tool-automation/bridge";
@@ -18,6 +19,8 @@ import { simulationsFor, type SimulatedRun } from "@/lib/simulation";
 export interface HandoffOffer {
   spec: string;
   kind: RunKind;
+  /** The kind as the operator reads it, e.g. "New rule". */
+  kindLabel: string;
   intent: string;
   scope: string;
   clusterKey: string;
@@ -80,6 +83,7 @@ export function buildHandoffOffer(
   return {
     spec: spec.file,
     kind,
+    kindLabel: runKindLabel(kind),
     intent: built.context.intent,
     scope: spec.scope,
     clusterKey: input.clusterKey,

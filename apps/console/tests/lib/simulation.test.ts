@@ -17,7 +17,7 @@ describe("simulation mode scripts", () => {
     for (const run of allSimulations()) {
       expect(run.checklist.length).toBeGreaterThan(0);
       expect(run.checklist.every((line) => line.state === "done")).toBe(true);
-      expect(run.checklist.some((line) => line.label === "Running guards")).toBe(true);
+      expect(run.checklist.some((line) => line.label === "Safety checks")).toBe(true);
       expect(run.checklist.find((line) => line.label === "Tests")?.detail).toMatch(/^\d+ → \d+$/);
     }
   });

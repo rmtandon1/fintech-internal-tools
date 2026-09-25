@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Icon } from "@console/ui/icon";
 import { ContextDrawer } from "@/components/context-drawer";
 import {
@@ -9,12 +9,8 @@ import {
 import { Panel } from "@/components/panel";
 import { RecordView } from "@/components/record-view";
 import { RunView } from "@/components/run-view";
-import { RunSummary } from "@/components/run-summary";
-import { runChecklist } from "@/lib/run-checklist";
 import { StatusChip } from "@console/ui/status-chip";
 import { automationTool, getRun } from "@console/tool-automation";
-import { readReplay } from "@console/tool-automation/bridge";
-import { bridgeDeps } from "@/lib/bridge";
 import { currentActor } from "@/lib/session";
 import { getTool } from "@/registry";
 
@@ -26,7 +22,8 @@ export default async function RecordPage({
   const { tool, id } = await params;
   const decl = getTool(tool);
   const actor = await currentActor();
-  if (!decl || !decl.visibleTo.includes(actor.role)) notFound();
+  if (!decl) notFound();
+  if (!decl.visibleTo.includes(actor.role)) redirect("/");
 
   const record = decl.get(id);
   if (!record) notFound();
@@ -34,26 +31,19 @@ export default async function RecordPage({
   const activity = decl.linkedActivity?.(record, actor) ?? null;
   const linked = activity ? getTool(activity.tool) : undefined;
   const run = decl.name === automationTool.name ? getRun(id) : null;
-  const output = run
-    ? (readReplay(bridgeDeps().repoRoot, run.id, bridgeDeps().replaysDir).at(-1)
-        ?.structured_output ?? null)
-    : null;
 
   const panel = (
     <Panel
       className="min-h-0 flex-1"
       title={
         <span className="flex items-center gap-2 normal-case tracking-normal">
-          <span className="font-mono text-foreground">{record.id}</span>
-          <span aria-hidden>·</span>
+          <span className="text-sm font-semibold text-foreground">
+            {String(record[decl.titleField] ?? record.id)}
+          </span>
           <StatusChip
             value={String(record[decl.statusField])}
             statuses={decl.statuses}
           />
-          <span aria-hidden>·</span>
-          <span className="tabular-nums text-muted-foreground">
-            v{record.version}
-          </span>
         </span>
       }
     >
@@ -61,35 +51,31 @@ export default async function RecordPage({
         decl={decl}
         record={record}
         actor={actor}
-        extra={
+        actions={
           run ? (
-            <>
-              <RunSummary
-                run={run}
-                checklist={runChecklist(output)}
-                phaseLine={output ? `${output.phase} · ${output.phase_status}` : null}
-              />
-              <RunView key={id} runId={id} />
-            </>
+            <span className="text-[11px] text-muted-foreground">
+              Devin&apos;s controls are in the run view above
+            </span>
           ) : undefined
         }
+        extra={run ? <RunView key={id} runId={id} showSummary /> : undefined}
       />
     </Panel>
   );
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Link href={`/t/${decl.name}`} className="hover:text-foreground">
           {decl.displayName}
         </Link>
         <Icon name="ChevronRight" className="size-3" />
-        <span className="font-mono">{record.id}</span>
+        <span>{String(record[decl.titleField] ?? record.id)}</span>
       </div>
 
       {activity ? (
         <ContextDrawer
-          title="Linked activity (same customer)"
+          title={`${activity.title} from this customer`}
           summary={<LinkedActivitySummaryLine activity={activity} />}
           content={
             <LinkedActivityBody activity={activity} linked={linked} actor={actor} />

@@ -150,13 +150,13 @@ function order(sort?: SortOption) {
 export const flagTool = defineTool<FeatureFlag>({
   name: "flags",
   displayName: "Feature flags",
-  description: "Runtime flags, kill switches and staged rollouts.",
+  description: "Switch features on or off, and choose who sees them.",
   icon: "ToggleRight",
   group: "Platform",
   recordType: "feature_flag",
   visibleTo: MANAGER_ROLES,
   fields: [
-    { name: "key", label: "Key", type: "string", help: "Immutable once created" },
+    { name: "key", label: "Key", type: "string", help: "Can't be changed once created" },
     { name: "description", label: "Description", type: "text" },
     {
       name: "flagType",
@@ -245,24 +245,25 @@ export const flagTool = defineTool<FeatureFlag>({
     },
     {
       key: "awaiting_approval",
-      label: "Awaiting your approval",
+      label: "Need your approval",
       roles: MANAGER_ROLES,
       source: { kind: "approvals", scope: "decidable" },
     },
     {
       key: "denied_24h",
-      label: "Denied 24h",
+      label: "Blocked in the last day",
       roles: ["admin"],
       tone: "warning",
       source: { kind: "audit", event: "denied", sinceHours: 24 },
     },
     {
       key: "policy_changes_7d",
-      label: "Policy changes 7d",
+      label: "Setting changes this week",
       roles: ["admin"],
       source: { kind: "audit", event: "constant_changed", sinceHours: 24 * 7 },
     },
   ],
+  toggle: { field: "enabled", on: "enable", off: "disable", groupBy: "environment" },
   sections: [
     { title: "Flag", fields: ["key", "description", "flagType", "environment"] },
     { title: "State", fields: ["enabled", "rolloutPercent", "customerFacing"] },
@@ -283,21 +284,21 @@ export const flagTool = defineTool<FeatureFlag>({
       key: PROD_APPROVAL_KEY,
       value: true,
       type: "boolean",
-      description: "Enabling a customer-facing production flag needs a manager",
+      description: "Turning on a customer-facing flag in production needs a manager. true or false.",
       tool: "flags",
     },
     {
       key: ROLLOUT_STEP_KEY,
       value: 25,
       type: "number",
-      description: "Rollout increase, in points, allowed without a manager",
+      description: "The biggest rollout increase, in percentage points, allowed without a manager.",
       tool: "flags",
     },
     {
       key: PERMISSION_ADMIN_KEY,
       value: true,
       type: "boolean",
-      description: "Permission flag changes need an admin",
+      description: "Changing a permission flag needs an admin. true or false.",
       tool: "flags",
     },
   ],
@@ -417,6 +418,15 @@ export const flagTool = defineTool<FeatureFlag>({
       .where(where)
       .all().length;
     return { rows, total };
+  },
+  ruleLabels: {
+    permission_flag_tier: "Permission flag",
+    production_enable: "Production switch-on",
+    not_archived: "Flag not retired",
+    not_expired: "Flag not past its review date",
+    rollout_increase: "Rollout step",
+    production_exposure_increase: "Production traffic increase",
+    kill_switch_is_always_available: "Switching off is always allowed",
   },
   get: getFlag,
   seed: seedFeatureFlags,

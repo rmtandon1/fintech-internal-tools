@@ -13,8 +13,10 @@ import type { HandoffOffer } from "@/lib/handoff";
 export interface RunRowData {
   id: string;
   kind: string;
+  kindLabel: string;
   intent: string;
   requestedByRole: string;
+  requesterLabel: string;
   status: string;
   prUrl: string | null;
   reverses: string | null;
@@ -40,12 +42,14 @@ export function RunRow({
       onClick={() => setAgentFocus({ kind: "run", runId: run.id })}
     >
       <TableCell>
-        <span className="font-mono text-[11px]">{run.kind}</span>
+        <span className="whitespace-nowrap text-xs">{run.kindLabel}</span>
       </TableCell>
       <TableCell>
         <span className="block max-w-64 truncate">{run.intent}</span>
       </TableCell>
-      <TableCell>{run.requestedByRole}</TableCell>
+      <TableCell>
+        {run.requesterLabel}
+      </TableCell>
       <TableCell>
         <StatusChip value={run.status} statuses={statuses} />
       </TableCell>
@@ -92,7 +96,7 @@ export function RunRow({
             }}
             data-testid="reverse-run"
           >
-            Reverse this change
+            Undo this change
           </Button>
         ) : null}
       </TableCell>

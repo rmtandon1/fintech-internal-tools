@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { Panel } from "@/components/panel";
+import { RefreshInFlight } from "@/components/refresh-in-flight";
 import { RunRow } from "@/components/run-row";
 import {
   Table,
   TableBody,
+  TableCell,
   TableHead,
   TableHeader,
   TableRow,
@@ -17,16 +19,26 @@ import {
   getRun,
   getSpec,
   IMPLEMENTATION_KINDS,
+  isInFlight,
   kindsStartableBy,
   listRuns,
   reversingRun,
+  runKindLabel,
   type RunKind,
 } from "@console/tool-automation";
+import { roleLabel, ROLES, type Role } from "@console/permissions";
 import { type AppBridgeDeps, bridgeDeps } from "@/lib/bridge";
 import { buildHandoffOffer, type HandoffOffer, reversalEvidence } from "@/lib/handoff";
+import { pageNumber } from "@/lib/page-number";
 import { currentActor } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
+
+const ROLE_NAMES: readonly string[] = ROLES;
+
+function requesterLabel(role: string): string {
+  return ROLE_NAMES.includes(role) ? roleLabel(role as Role) : role;
+}
 
 /** A REVERSAL handoff for this row, or null when the row can't be reversed. */
 function reversalOffer(runId: string, actor: Actor, deps: AppBridgeDeps): HandoffOffer | null {
@@ -68,11 +80,11 @@ export default async function RunsPage({
   searchParams: Promise<{ page?: string }>;
 }) {
   const actor = await currentActor();
-  if (!AUTOMATION_ROLES.includes(actor.role)) notFound();
+  if (!AUTOMATION_ROLES.includes(actor.role)) redirect("/");
   const deps = bridgeDeps();
   const total = countRuns();
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const page = Math.min(pages, Math.max(1, Number((await searchParams).page) || 1));
+  const page = Math.min(pages, pageNumber((await searchParams).page));
   const runs = listRuns({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE });
 
   return (
@@ -80,7 +92,7 @@ export default async function RunsPage({
       className="h-full"
       title={
         <span className="flex items-center gap-2">
-          {total} run{total === 1 ? "" : "s"} · newest first
+          {total} rule change{total === 1 ? "" : "s"} · newest first
           {pages > 1 ? (
             <span className="flex items-center gap-1">
               {page > 1 ? (
@@ -105,27 +117,43 @@ export default async function RunsPage({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Kind</TableHead>
-            <TableHead>Intent</TableHead>
-            <TableHead>Requester</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Request</TableHead>
+            <TableHead>Asked by</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>PR</TableHead>
-            <TableHead>Reverses</TableHead>
-            <TableHead>Requested</TableHead>
+            <TableHead>Pull request</TableHead>
+            <TableHead>Undoes</TableHead>
+            <TableHead>Asked</TableHead>
             <TableHead />
           </TableRow>
         </TableHeader>
         <TableBody>
+          {runs.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={8} className="py-8 text-center text-xs text-muted-foreground">
+                Nothing yet. When a queue shows a pattern no rule catches, ask Devin for a rule from there.
+              </TableCell>
+            </TableRow>
+          ) : null}
           {runs.map((run) => (
             <RunRow
               key={run.id}
-              run={run}
+              run={{
+                ...run,
+                kindLabel: runKindLabel(run.kind),
+                requesterLabel: requesterLabel(run.requestedByRole),
+              }}
               statuses={automationTool.statuses}
               reversalOffer={reversalOffer(run.id, actor, deps)}
             />
           ))}
         </TableBody>
       </Table>
+      {runs.some((run) => isInFlight(run.status)) ? (
+        <RefreshInFlight
+          runIds={runs.filter((run) => isInFlight(run.status)).map((run) => run.id)}
+        />
+      ) : null}
     </Panel>
   );
 }

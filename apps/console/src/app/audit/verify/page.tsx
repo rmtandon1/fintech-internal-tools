@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { Icon } from "@console/ui/icon";
 import { Panel } from "@/components/panel";
 import { GENESIS_HASH } from "@console/engine/audit/chain";
@@ -7,16 +7,15 @@ import { currentActor } from "@/lib/session";
 import { cn } from "@console/ui/utils";
 
 const BREAK_EXPLANATIONS: Record<string, string> = {
-  seq_gap: "A row was deleted: the sequence is no longer dense.",
-  prev_mismatch: "A row was inserted or reordered: its prev_hash does not follow.",
-  row_hash_mismatch: "A row's contents were edited in place: the hash no longer matches.",
-  head_mismatch:
-    "The end of the log was removed: the head checkpoint records a row the log no longer has.",
+  seq_gap: "An entry was deleted.",
+  prev_mismatch: "An entry was inserted or moved.",
+  row_hash_mismatch: "An entry was edited after it was written.",
+  head_mismatch: "The newest entries were removed from the end of the log.",
 };
 
 export default async function VerifyPage() {
   const actor = await currentActor();
-  if (actor.role !== "admin") notFound();
+  if (actor.role !== "admin") redirect("/");
 
   const result = verifyChain();
 
@@ -27,21 +26,20 @@ export default async function VerifyPage() {
         <span className="flex items-center gap-2 normal-case tracking-normal">
           <Icon
             name={result.ok ? "ShieldCheck" : "ShieldX"}
-            className={cn("size-3.5", result.ok ? "text-emerald-400" : "text-red-400")}
+            className={cn("size-3.5", result.ok ? "text-success" : "text-destructive")}
           />
           {result.ok
-            ? `Chain intact across ${result.length} events`
-            : `Chain broken at event #${result.firstBreak?.seq}`}
+            ? `Audit log verified: all ${result.length} entries are intact`
+            : `Audit log tampered with at entry #${result.firstBreak?.seq}`}
         </span>
       }
       bodyClassName="space-y-3 p-3 text-xs"
     >
       {result.firstBreak ? (
-        <div className="space-y-1 rounded-md border border-red-500/30 bg-red-500/5 p-3">
-          <div className="font-medium text-red-400">{result.firstBreak.type}</div>
-          <p className="text-muted-foreground">
-            {BREAK_EXPLANATIONS[result.firstBreak.type]}
-          </p>
+        <div className="space-y-1 rounded-md border border-destructive/30 bg-destructive/5 p-3">
+          <div className="text-sm font-medium text-destructive">
+            {BREAK_EXPLANATIONS[result.firstBreak.type] ?? result.firstBreak.type}
+          </div>
           <p className="font-mono text-[11px]">{result.firstBreak.detail}</p>
           <p className="font-mono text-[11px] text-muted-foreground">
             {result.firstBreak.id}
@@ -49,12 +47,25 @@ export default async function VerifyPage() {
         </div>
       ) : null}
 
+      <p className="text-sm text-muted-foreground">
+        Every entry carries a fingerprint of the one before it, so editing, deleting or
+        reordering any entry breaks every fingerprint after it. This page recomputes them all.
+      </p>
+
       <dl className="grid gap-2 sm:grid-cols-2">
-        <Row label="Events" value={String(result.length)} />
-        <Row label="Status" value={result.ok ? "verified" : "failed"} />
-        <Row label="Genesis" value={GENESIS_HASH} mono />
-        <Row label="Head hash" value={result.lastHash} mono />
+        <Row label="Entries checked" value={String(result.length)} />
+        <Row label="Result" value={result.ok ? "Intact" : "Tampered with"} />
       </dl>
+
+      <details>
+        <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+          Technical details
+        </summary>
+        <dl className="mt-2 grid gap-2 sm:grid-cols-2">
+          <Row label="First hash" value={GENESIS_HASH} mono />
+          <Row label="Latest hash" value={result.lastHash} mono />
+        </dl>
+      </details>
     </Panel>
   );
 }

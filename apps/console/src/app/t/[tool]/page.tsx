@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Icon } from "@console/ui/icon";
 import { Panel } from "@/components/panel";
 import { RecordCell, columnIsNumeric } from "@/components/record-table";
@@ -15,9 +15,10 @@ import {
 import { maskRecord } from "@console/engine/pii/mask";
 import { previewActions } from "@console/engine/policy/preview";
 import type { Actor, ClusterDecl, ClusterGroup, ToolDeclaration } from "@console/engine/types";
-import { formatFieldValue } from "@console/ui/format";
 import { ClusterDrawer, type ClusterRow } from "@/components/cluster-drawer";
+import { PatternMonitor } from "@/components/pattern-monitor";
 import { ReconcileRuns } from "@/components/reconcile-runs";
+import { ToggleGrid } from "@/components/toggle-grid";
 import { buildHandoffOffer, type HandoffOffer } from "@/lib/handoff";
 import { bridgeDeps } from "@/lib/bridge";
 import { getSpec, kindsStartableBy } from "@console/tool-automation";
@@ -38,7 +39,8 @@ export default async function ToolQueuePage({
   const query = await searchParams;
   const decl = getTool(tool);
   const actor = await currentActor();
-  if (!decl || !decl.visibleTo.includes(actor.role)) notFound();
+  if (!decl) notFound();
+  if (!decl.visibleTo.includes(actor.role)) redirect("/");
 
   const filters: Record<string, string> = {};
   for (const filter of decl.filters) {
@@ -56,6 +58,9 @@ export default async function ToolQueuePage({
       : undefined;
   const direction: "asc" | "desc" = query.dir === "asc" ? "asc" : "desc";
   const sort = sortField ? { field: sortField, direction } : undefined;
+
+  // A tool with switches opens on them; `view=table` shows the full columns.
+  const view = decl.toggle && query.view !== "table" ? "toggles" : "table";
 
   const requestedPage = Number(query.page);
   const page = Number.isSafeInteger(requestedPage) && requestedPage >= 1 ? requestedPage : 1;
@@ -78,6 +83,7 @@ export default async function ToolQueuePage({
     const next = new URLSearchParams();
     for (const [key, value] of Object.entries(filters)) next.set(key, value);
     if (search) next.set("q", search);
+    if (view === "table" && decl.toggle) next.set("view", "table");
     if (sortField) {
       next.set("sort", sortField);
       next.set("dir", direction);
@@ -102,7 +108,7 @@ export default async function ToolQueuePage({
   const filterRow = (
     <form
       key={new URLSearchParams({ ...filters, q: search ?? "" }).toString()}
-      className="flex items-center gap-2"
+      className="flex flex-wrap items-center gap-2 font-normal"
     >
       {decl.filters.map((filter) =>
         filter.type === "enum" ? (
@@ -111,7 +117,7 @@ export default async function ToolQueuePage({
             name={filter.field}
             defaultValue={filters[filter.field] ?? "all"}
             title={filter.label}
-            className="h-6 rounded-md border border-input bg-transparent px-1.5 text-[11px] text-foreground"
+            className="h-8 rounded-md border border-input bg-card px-2 text-sm text-foreground shadow-xs"
           >
             <option value="all">{filter.label}</option>
             {filter.options?.map((option) => (
@@ -126,65 +132,74 @@ export default async function ToolQueuePage({
             name={filter.field}
             defaultValue={filters[filter.field] ?? ""}
             placeholder={filter.label}
-            className="h-6 w-24 rounded-md border border-input bg-transparent px-1.5 text-[11px] text-foreground"
+            className="h-8 w-32 rounded-md border border-input bg-card px-2 text-sm text-foreground shadow-xs"
           />
         ),
       )}
       {sortField ? <input type="hidden" name="sort" value={sortField} /> : null}
       {sortField ? <input type="hidden" name="dir" value={direction} /> : null}
+      {view === "table" && decl.toggle ? <input type="hidden" name="view" value="table" /> : null}
       <input
         name="q"
         defaultValue={search ?? ""}
-        placeholder="Search…"
-        className="h-6 w-28 rounded-md border border-input bg-transparent px-1.5 text-[11px] text-foreground"
+        placeholder="Search"
+        className="h-8 w-44 rounded-md border border-input bg-card px-2 text-sm text-foreground shadow-xs"
       />
       <button
         type="submit"
-        className="h-6 rounded-md border border-input px-2 text-[11px] hover:bg-accent"
+        className="h-8 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground shadow-xs hover:bg-primary/90"
       >
-        Apply
+        Filter
       </button>
     </form>
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <Panel
-        className="min-h-0 flex-1"
-        title={
-          <span>
-            {decl.displayName} · <span className="tabular-nums">{total}</span>
-          </span>
-        }
-        actions={
-          <span className="flex items-center gap-2">
-            {decl.name === "automation" && actor.role === "engineer" ? <ReconcileRuns /> : null}
-            {filterRow}
-          </span>
-        }
-        bodyClassName="flex flex-col"
-      >
-        <StatStrip decl={decl} actor={actor} />
-        {clusters.length ? (
-          <div
-            className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2"
-            data-testid="cluster-strip"
-          >
-            {clusters.flatMap(({ cluster, groups }) =>
-              groups.map((group) => (
+    <div className="flex h-full min-h-0 flex-col gap-4">
+      <div className="flex shrink-0 flex-wrap items-center gap-3">
+        <span className="flex size-10 items-center justify-center rounded-lg border border-border bg-card shadow-xs">
+          <Icon name={decl.icon} className="size-5 text-muted-foreground" />
+        </span>
+        <div className="min-w-0">
+          <h1 className="flex items-center gap-2 text-lg font-semibold leading-tight tracking-tight">
+            {decl.displayName}
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+              {total}
+            </span>
+          </h1>
+          <p className="truncate text-sm text-muted-foreground">{decl.description}</p>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          {decl.name === "automation" && actor.role === "engineer" ? <ReconcileRuns /> : null}
+          {decl.toggle ? (
+            <div className="flex h-8 items-center rounded-md border border-border bg-card p-0.5 text-sm shadow-xs">
+              {(["toggles", "table"] as const).map((option) => (
                 <Link
-                  key={`${cluster.id}:${group.key}`}
-                  href={href({ inspect: `${cluster.id}:${group.key}` })}
-                  title={cluster.label}
-                  className="inline-flex h-6 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 text-[11px] font-medium text-amber-300 tabular-nums hover:bg-amber-500/20"
+                  key={option}
+                  href={href({ view: option, page: "1" })}
+                  aria-current={view === option ? "page" : undefined}
+                  className={cn(
+                    "flex h-full items-center gap-1.5 rounded-[5px] px-2.5",
+                    view === option
+                      ? "bg-accent font-medium text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
                 >
-                  <Icon name="Layers" className="size-3" />
-                  {chipLabel(group)}
+                  <Icon name={option === "toggles" ? "ToggleRight" : "Table"} className="size-3.5" />
+                  {option === "toggles" ? "Switches" : "Table"}
                 </Link>
-              )),
-            )}
-          </div>
-        ) : null}
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <StatStrip decl={decl} actor={actor} />
+
+      <Panel className="min-h-0 flex-1" title={filterRow} bodyClassName="flex flex-col">
+        {view === "toggles" && decl.toggle ? (
+          <ToggleGrid decl={decl} toggle={decl.toggle} rows={rows} actor={actor} />
+        ) : (
         <Table>
           <TableHeader>
             <TableRow>
@@ -261,27 +276,43 @@ export default async function ToolQueuePage({
                   colSpan={decl.listColumns.length}
                   className="py-10 text-center text-xs text-muted-foreground"
                 >
-                  Nothing matches these filters.
+                  Nothing matches. Try clearing the filters.
                 </TableCell>
               </TableRow>
             ) : null}
           </TableBody>
         </Table>
+        )}
       </Panel>
+
+      {clusters.length > 0 ? (
+        <PatternMonitor
+          toolName={decl.displayName}
+          scanned={first.total}
+          looksFor={clusters.map(({ cluster }) => cluster.label)}
+          findings={clusters.flatMap(({ cluster, groups }) =>
+            groups.map((group) => ({
+              key: `${cluster.id}:${group.key}`,
+              headline: group.headline ?? chipLabel(group),
+              detail: group.detail,
+              href: href({ inspect: `${cluster.id}:${group.key}` }),
+            })),
+          )}
+        />
+      ) : null}
 
       {open ? (
         <ClusterDrawer
           label={open.group.label}
-          clusterLabel={open.cluster.label}
-          count={open.group.count}
-          qualifier={open.group.qualifier}
+          headline={open.group.headline ?? chipLabel(open.group)}
+          detail={open.group.detail}
+          limit={open.group.limit}
           totalUsdMinor={open.group.totalUsdMinor}
-          windowDays={open.group.windowDays}
-          traceAction={open.cluster.traceAction}
           statuses={decl.statuses}
+          ruleLabels={decl.ruleLabels}
           rows={clusterRows(decl, open.cluster, open.group, actor)}
           canRequestRule={decl.revealRoles.includes(actor.role)}
-          dispatch={dispatchOffer(open.cluster, open.group, actor)}
+          dispatch={dispatchOffer(decl, open.cluster, open.group, actor)}
         />
       ) : null}
 
@@ -314,6 +345,7 @@ export default async function ToolQueuePage({
 
 /** The handoffs this actor may ask Devin for from the open group. */
 function dispatchOffer(
+  decl: ToolDeclaration,
   cluster: ClusterDecl,
   group: ClusterGroup,
   actor: Actor,
@@ -365,19 +397,17 @@ function chipLabel(group: ClusterGroup): string {
   return parts.join(" · ");
 }
 
-/** Rows behind a group, masked for the actor, each with its live policy trace. */
+/** Rows behind a group, each with its live policy trace. */
 function clusterRows(
   decl: ToolDeclaration,
   cluster: ClusterDecl,
   group: ClusterGroup,
   actor: Actor,
 ): ClusterRow[] {
-  const piiFields = decl.fields.filter((f) => f.isPII);
   const currencyField = decl.fields.find((f) => f.type === "currency" && f.currencyField);
   return group.recordIds.flatMap((id) => {
     const record = decl.get(id);
     if (!record) return [];
-    const masked = maskRecord(decl, record, actor);
     const preview = cluster.traceAction
       ? previewActions(decl, record, actor).find((p) => p.action === cluster.traceAction)
       : undefined;
@@ -396,10 +426,6 @@ function clusterRows(
         currency: typeof currency === "string" ? currency : "USD",
         usdMinor: typeof record.usdMinor === "number" ? record.usdMinor : 0,
         requestedAt: typeof record.requestedAt === "number" ? record.requestedAt : null,
-        identity: piiFields.map((field) => ({
-          label: field.label,
-          value: formatFieldValue(field, masked.values),
-        })),
         trace: decision?.trace ?? null,
         pendingApproval: decision?.effect === "require_approval",
       },

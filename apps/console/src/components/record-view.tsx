@@ -1,5 +1,9 @@
 import { ActionBar } from "@/components/action-panel";
 import { AuditTimeline } from "@/components/audit-timeline";
+import { CustomerCard } from "@/components/customer-card";
+import { CUSTOMER_CARD_FIELDS, customerFacts, type CustomerFacts } from "@/lib/customer-profile";
+import { kycThresholds } from "@/lib/kyc-thresholds";
+import { kycTool } from "@console/tool-kyc";
 import { Panel } from "@/components/panel";
 import { PolicyTraceList } from "@console/ui/policy-trace";
 import { RevealField } from "@/components/reveal-field";
@@ -33,15 +37,25 @@ export function RecordView({
   const previews = previewActions(decl, record, actor);
   const trail = auditTrailFor(decl.recordType, record.id);
 
+  // The checks for the first action this person can take, so they can see
+  // what would happen before they click.
   const traced = previews.find((p) => p.offered && p.decision);
+  const facts = decl.name === kycTool.name ? customerFacts(record) : null;
+  // Fields the customer card already shows are not repeated in the grid.
+  const sections = facts
+    ? decl.sections
+        .map((s) => ({ ...s, fields: s.fields.filter((f) => !CUSTOMER_CARD_FIELDS.includes(f)) }))
+        .filter((s) => s.fields.length > 0)
+    : decl.sections;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 overflow-auto">
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 xl:grid-cols-3">
-          {decl.sections.map((section) => (
+        {facts ? <CustomerCardFor decl={decl} record={record} facts={facts} /> : null}
+        <div className="grid grid-cols-2 gap-x-6 gap-y-4 p-5 xl:grid-cols-3">
+          {sections.map((section) => (
             <div key={section.title} className="contents">
-              <div className="col-span-full mt-2 border-b border-border pb-1 text-[10px] uppercase tracking-wider text-muted-foreground first:mt-0">
+              <div className="col-span-full mt-3 border-b border-border pb-2 text-sm font-semibold text-foreground first:mt-0">
                 {section.title}
               </div>
               {section.fields.map((name) => {
@@ -51,7 +65,7 @@ export function RecordView({
                   field.type === "number" || field.type === "currency";
                 return (
                   <div key={name} className="min-w-0 space-y-0.5">
-                    <div className="text-[11px] text-muted-foreground">
+                    <div className="text-xs text-muted-foreground">
                       {field.label}
                     </div>
                     {field.isPII ? (
@@ -72,30 +86,19 @@ export function RecordView({
           ))}
         </div>
 
-        <Panel
-          title={
-            traced ? (
-              <span className="flex items-center gap-2">
-                Policy trace{" "}
-                <span className="font-mono normal-case tracking-normal text-foreground">
-                  · {traced.label}
-                </span>
+        {traced?.decision ? (
+          <Panel
+            title={
+              <span className="normal-case tracking-normal">
+                If you {traced.label.toLowerCase()} now
               </span>
-            ) : (
-              "Policy trace"
-            )
-          }
-          className="mx-3 mb-3"
-          bodyClassName="py-0.5"
-        >
-          {traced?.decision ? (
-            <PolicyTraceList trace={traced.decision.trace} />
-          ) : (
-            <p className="px-3 py-2 text-xs text-muted-foreground">
-              Policy runs once required input is supplied.
-            </p>
-          )}
-        </Panel>
+            }
+            className="mx-5 mb-5"
+            bodyClassName="py-0.5"
+          >
+            <PolicyTraceList trace={traced.decision.trace} labels={decl.ruleLabels} />
+          </Panel>
+        ) : null}
         {extra}
       </div>
 
@@ -103,25 +106,50 @@ export function RecordView({
         open={trail.length <= 3}
         className="shrink-0 border-t border-border"
       >
-        <summary className="flex h-8 cursor-pointer items-center gap-2 border-b border-border px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-          Activity · <span className="tabular-nums">{trail.length}</span>
+        <summary className="flex h-10 cursor-pointer items-center gap-2 border-b border-border px-4 text-sm font-semibold text-foreground">
+          History · <span className="tabular-nums">{trail.length}</span>
         </summary>
         <div className="max-h-40 overflow-auto py-0.5">
           <AuditTimeline events={trail} compact />
         </div>
       </details>
 
-      <div className="mt-auto flex shrink-0 items-center gap-2 border-t border-border px-3 py-2">
+      <div className="mt-auto flex shrink-0 items-center gap-2 border-t border-border px-5 py-4">
         {actions ?? (
           <ActionBar
             key={`${decl.name}:${record.id}`}
             tool={decl.name}
             recordId={record.id}
+            recordLabel={String(record[decl.titleField] ?? record.id)}
             previews={previews}
+            statuses={decl.statuses}
+            ruleLabels={decl.ruleLabels}
           />
         )}
       </div>
     </div>
+  );
+}
+
+function CustomerCardFor({
+  decl,
+  record,
+  facts,
+}: {
+  decl: ToolDeclaration;
+  record: GovernedRecord;
+  facts: CustomerFacts;
+}) {
+  const { prohibited, ...thresholds } = kycThresholds();
+  return (
+    <CustomerCard
+      key={record.id}
+      facts={facts}
+      thresholds={thresholds}
+      countryAllowed={!prohibited.includes(facts.country)}
+      open={decl.openStatuses?.includes(String(record[decl.statusField])) ?? true}
+      now={Date.now()}
+    />
   );
 }
 
@@ -139,7 +167,7 @@ function FieldValue({
   return (
     <div
       className={cn(
-        "text-xs",
+        "text-sm",
         multiline ? "whitespace-pre-wrap break-words" : "truncate",
         numeric && "tabular-nums",
       )}

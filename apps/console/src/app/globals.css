@@ -3,7 +3,7 @@
 @import "shadcn/tailwind.css";
 @source "../../../../packages/ui/src";
 
-@custom-variant dark (&);
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
@@ -27,6 +27,10 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -46,38 +50,44 @@
 }
 
 :root {
+  /* Light, neutral surfaces: a soft grey canvas with white cards on top. */
   --radius: 0.625rem;
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --background: oklch(0.975 0.002 264);
+  --foreground: oklch(0.21 0.006 285.885);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.006 285.885);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.006 285.885);
+  --primary: oklch(0.21 0.006 285.885);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.967 0.001 286.375);
+  --muted-foreground: oklch(0.552 0.016 285.938);
+  --accent: oklch(0.955 0.003 286.35);
+  --accent-foreground: oklch(0.21 0.006 285.885);
+  --destructive: oklch(0.577 0.245 27.325);
+  /* Status inks, dark enough to read as text on white. */
+  --success: oklch(0.527 0.154 150.069);
+  --warning: oklch(0.555 0.163 48.998);
+  --warning-foreground: oklch(1 0 0);
+  --info: oklch(0.5 0.134 242.749);
+  --border: oklch(0.92 0.004 286.32);
+  --input: oklch(0.92 0.004 286.32);
+  --ring: oklch(0.705 0.015 286.067);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.21 0.006 285.885);
+  --sidebar-primary: oklch(0.21 0.006 285.885);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-accent: oklch(0.955 0.003 286.35);
+  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
+  --sidebar-border: oklch(0.92 0.004 286.32);
+  --sidebar-ring: oklch(0.705 0.015 286.067);
 }
 
 @layer base {
@@ -86,16 +96,16 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-size: 13px;
+    font-size: 14px;
   }
-  /* Density: figures line up in columns, rows sit at 28px, identifiers read as code. */
+  /* Figures line up in columns; rows get room to breathe. */
   table,
   .tabular-nums,
   .font-mono {
     font-variant-numeric: tabular-nums;
   }
   tbody tr {
-    height: 28px;
+    height: 40px;
   }
   td,
   th {
@@ -109,3 +119,100 @@
   }
 }
 
+
+/*
+ * Motion. Each animation says something happened: a bar rose past a line, a
+ * step finished, an agent is working. Every one is wrapped in `motion-safe:`
+ * where it is used, so reduced-motion users get the end state.
+ */
+@theme {
+  --animate-rise: rise 700ms cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
+  --animate-pop: pop 420ms cubic-bezier(0.2, 0.9, 0.3, 1.4) both;
+  --animate-ripple: ripple 1100ms ease-out both;
+  --animate-line-in: line-in 360ms ease-out both;
+  --animate-caret: caret 1s steps(1) infinite;
+  --animate-orbit: orbit 2.4s linear infinite;
+  --animate-sheen: sheen 3.2s ease-in-out infinite;
+
+  @keyframes rise {
+    from {
+      transform: scaleY(0);
+    }
+  }
+  @keyframes pop {
+    from {
+      transform: scale(0.3);
+      opacity: 0;
+    }
+  }
+  @keyframes ripple {
+    from {
+      transform: scale(0.8);
+      opacity: 0.7;
+    }
+    to {
+      transform: scale(2.2);
+      opacity: 0;
+    }
+  }
+  @keyframes line-in {
+    from {
+      transform: translateY(6px);
+      opacity: 0;
+    }
+  }
+  @keyframes caret {
+    50% {
+      opacity: 0;
+    }
+  }
+  @keyframes orbit {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes sheen {
+    0%,
+    60% {
+      transform: translateX(-120%) skewX(-20deg);
+    }
+    100% {
+      transform: translateX(260%) skewX(-20deg);
+    }
+  }
+}
+
+@layer components {
+  /* The one button that hands work to Devin: a gradient with a slow sheen. */
+  .agent-action {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    background-image: linear-gradient(
+      100deg,
+      oklch(0.54 0.22 290),
+      oklch(0.58 0.2 262) 55%,
+      oklch(0.66 0.15 228)
+    );
+    box-shadow:
+      inset 0 0 0 1px oklch(1 0 0 / 0.12),
+      0 6px 20px -8px oklch(0.55 0.22 285 / 0.8);
+  }
+  .agent-action:hover {
+    filter: brightness(1.1);
+  }
+  .agent-action::after {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: -1;
+    width: 45%;
+    background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.3), transparent);
+    animation: var(--animate-sheen);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .agent-action::after {
+      display: none;
+    }
+  }
+}
