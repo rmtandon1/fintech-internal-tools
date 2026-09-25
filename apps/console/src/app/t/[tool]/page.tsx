@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Icon } from "@console/ui/icon";
 import { Panel } from "@/components/panel";
 import { RecordCell, columnIsNumeric } from "@/components/record-table";
@@ -39,7 +39,8 @@ export default async function ToolQueuePage({
   const query = await searchParams;
   const decl = getTool(tool);
   const actor = await currentActor();
-  if (!decl || !decl.visibleTo.includes(actor.role)) notFound();
+  if (!decl) notFound();
+  if (!decl.visibleTo.includes(actor.role)) redirect("/");
 
   const filters: Record<string, string> = {};
   for (const filter of decl.filters) {

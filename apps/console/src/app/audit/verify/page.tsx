@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { Icon } from "@console/ui/icon";
 import { Panel } from "@/components/panel";
 import { GENESIS_HASH } from "@console/engine/audit/chain";
@@ -16,7 +16,7 @@ const BREAK_EXPLANATIONS: Record<string, string> = {
 
 export default async function VerifyPage() {
   const actor = await currentActor();
-  if (actor.role !== "admin") notFound();
+  if (actor.role !== "admin") redirect("/");
 
   const result = verifyChain();
 

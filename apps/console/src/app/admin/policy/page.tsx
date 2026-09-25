@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { ConstantEditor } from "@/components/constant-editor";
 import { Panel } from "@/components/panel";
 import { listConstants } from "@console/engine/policy/constants";
@@ -6,7 +6,7 @@ import { currentActor } from "@/lib/session";
 
 export default async function PolicyConstantsPage() {
   const actor = await currentActor();
-  if (actor.role !== "admin") notFound();
+  if (actor.role !== "admin") redirect("/");
 
   const constants = listConstants();
 

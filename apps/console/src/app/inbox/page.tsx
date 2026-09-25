@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ApprovalCard } from "@/components/approval-card";
 import { Panel } from "@/components/panel";
 import { canDecide, listApprovals } from "@console/engine/approvals";
@@ -16,8 +16,9 @@ export default async function InboxPage({
   const actor = await currentActor();
   const approver = canApprove(actor.role);
   const tool = typeof query.tool === "string" ? getTool(query.tool) : undefined;
-  if (typeof query.tool === "string" && !tool?.visibleTo.includes(actor.role)) notFound();
-  if (!approver && !tool) notFound();
+  if (typeof query.tool === "string" && !tool) notFound();
+  if (tool && !tool.visibleTo.includes(actor.role)) redirect("/");
+  if (!approver && !tool) redirect("/");
 
   const inScope = listApprovals().filter(
     (a) => (!tool || a.tool === tool.name) && (approver || a.requesterId === actor.id),
