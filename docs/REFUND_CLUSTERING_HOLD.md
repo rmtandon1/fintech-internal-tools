@@ -147,6 +147,8 @@ Use it when the hold is catching genuine refunds and a REVERSAL would take too l
 
 A regional courier failure produces genuine `not_received` refunds at Fernhill Home, a long-standing merchant, and the hold sends about 60 of them to the manager inbox. The admin applies the KILL_SWITCH. Risk judges the rule too blunt and withdraws it while designing a narrower one. The recorded demo needs a Fernhill seed for this step: about 60 `not_received` refunds under $500 each, requested after the IMPLEMENTATION merges.
 
+**Scenario data.** `pnpm db:scenario courier-outage` produces it: about 60 Fernhill Home `not_received` refunds between $30 and $450, ids `rfnd_1001`–`rfnd_1060`. The script inserts the rows and then submits each one through `executeIntent` as the refunds agent, so the live `clustering_hold` routes them to the manager inbox and every hold writes its own audit row. It is not a seed: it runs against the live `apps/console/data/console.db` after the IMPLEMENTATION has merged, and it is what fills the inbox the REVERSAL's PR has to list.
+
 ### Intent
 
 > Reverse the clustering hold: remove the refund rule, the KYC link rule and the window constant, and keep everything merged since.

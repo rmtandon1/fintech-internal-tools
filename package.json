@@ -12,6 +12,7 @@
     "db:migrate": "pnpm --filter @console/app db:migrate",
     "db:seed": "pnpm --filter @console/app db:seed",
     "db:tamper": "pnpm --filter @console/app db:tamper",
+    "db:scenario": "pnpm --filter @console/app db:scenario",
     "db:setup": "pnpm --filter @console/app db:setup",
     "check:boundaries": "tsx scripts/check-boundaries.ts",
     "test": "pnpm --filter @console/app test",
