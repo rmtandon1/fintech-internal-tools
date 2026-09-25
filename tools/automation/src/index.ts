@@ -555,6 +555,18 @@ export function listRuns(limit = 100): DevinRun[] {
   return db.select().from(devinRuns).orderBy(desc(devinRuns.requestedAt)).limit(limit).all();
 }
 
+/** The newest run whose approved pull request is `/pull/<number>`. */
+export function findRunByPullNumber(prNumber: number): DevinRun | null {
+  return (
+    db
+      .select()
+      .from(devinRuns)
+      .where(like(devinRuns.prUrl, `%/pull/${prNumber}`))
+      .orderBy(desc(devinRuns.requestedAt))
+      .get() ?? null
+  );
+}
+
 /** Whether a stored status string is one of the in-flight statuses. */
 export function isInFlight(status: string): boolean {
   return IN_FLIGHT_STATUSES.some((s) => s === status);

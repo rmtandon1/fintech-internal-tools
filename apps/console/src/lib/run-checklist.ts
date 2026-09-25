@@ -4,12 +4,13 @@ import type { z } from "zod";
 type Output = z.infer<typeof StructuredOutput>;
 type Phase = (typeof PHASES)[number];
 
-export type ChecklistState = "done" | "running" | "waiting";
+export type ChecklistState = "done" | "running" | "waiting" | "failed";
 
 export const CHECKLIST_GLYPH: Record<ChecklistState, string> = {
   done: "✓",
   running: "●",
   waiting: "○",
+  failed: "✗",
 };
 
 export interface ChecklistLine {
@@ -48,10 +49,11 @@ export function runChecklist(out: Output | null): ChecklistLine[] {
 
   const tests = out.verify_steps.find((s) => s.name === "tests");
   if (tests && tests.before !== undefined) {
+    const baselineFailed = tests.pass === false && tests.after === undefined;
     lines.push({
       field: "verify_steps",
-      state: phaseState("baseline"),
-      label: "Baseline green",
+      state: baselineFailed ? "failed" : phaseState("baseline"),
+      label: baselineFailed ? "Baseline failing" : "Baseline green",
       detail: `${tests.before} tests`,
     });
   }
@@ -74,23 +76,23 @@ export function runChecklist(out: Output | null): ChecklistLine[] {
     });
   }
 
-  const editing = out.files[out.files.length - 1];
-  if (editing) {
-    const verb = editing.op === "delete" ? "Removing" : editing.op === "create" ? "Adding" : "Editing";
+  out.files.forEach((file, i) => {
+    const verb = file.op === "delete" ? "Removing" : file.op === "create" ? "Adding" : "Editing";
+    const current = i === out.files.length - 1;
     lines.push({
       field: "files",
-      state: phaseState("edit"),
-      label: `${verb} ${editing.path}`,
-      detail: `+${editing.additions} −${editing.deletions}`,
+      state: current ? phaseState("edit") : "done",
+      label: `${verb} ${file.path}`,
+      detail: `+${file.additions} −${file.deletions}`,
     });
-  }
+  });
 
   if (out.guards.length > 0) {
     const failed = out.guards.filter((g) => g.pass === false);
     const pending = out.guards.some((g) => g.pass === null);
     lines.push({
       field: "guards",
-      state: pending ? "running" : "done",
+      state: failed.length > 0 ? "failed" : pending ? "running" : "done",
       label: failed.length > 0 ? `Guard failed: ${failed.map((g) => g.name).join(", ")}` : "Running guards",
       detail: out.guards.map((g) => g.name).join(" · "),
     });
@@ -99,7 +101,8 @@ export function runChecklist(out: Output | null): ChecklistLine[] {
   if (tests && tests.after !== undefined) {
     lines.push({
       field: "verify_steps",
-      state: tests.after === null || tests.pass === null ? "running" : "done",
+      state:
+        tests.pass === false ? "failed" : tests.after === null || tests.pass === null ? "running" : "done",
       label: tests.pass === false ? "Tests failed" : "Tests",
       detail: tests.after === null ? `${tests.before ?? "?"} → …` : `${tests.before ?? "?"} → ${tests.after}`,
     });

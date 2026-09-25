@@ -15,8 +15,9 @@ import {
   kindsStartableBy,
   listRuns,
 } from "@console/tool-automation";
-import { bridgeMode, pollRun, readReplay } from "@console/tool-automation/bridge";
+import { bridgeMode, currentPrUrl, pollRun, readReplay } from "@console/tool-automation/bridge";
 import type { Actor } from "@console/engine/types";
+import type { BridgeDeps } from "@console/tool-automation/bridge";
 import { formatRelative } from "@console/ui/format";
 import { StatusChip } from "@console/ui/status-chip";
 import {
@@ -30,19 +31,27 @@ import {
 
 const PAGE_SIZE = 100;
 
+interface RowState {
+  phase: string | null;
+  /** The approved PR, or the one the session has reported ahead of approval. */
+  prUrl: string | null;
+}
+
 /**
  * An in-flight run is polled once per render so its row shows the phase the
  * session last reported. Polling only writes `replay.json`; a failed poll
  * leaves the row on whatever the last frame said.
  */
-async function livePhase(run: DevinRun): Promise<string | null> {
-  const deps = bridgeDeps();
+async function rowState(run: DevinRun, deps: BridgeDeps): Promise<RowState> {
   if (isInFlight(run.status) && run.sessionId) {
     await pollRun(run, deps).catch(() => undefined);
   }
   const frames = readReplay(deps.repoRoot, run.id);
   const latest = frames[frames.length - 1];
-  return latest ? `${latest.structured_output.phase} · ${latest.structured_output.phase_status}` : null;
+  return {
+    phase: latest ? `${latest.structured_output.phase} · ${latest.structured_output.phase_status}` : null,
+    prUrl: currentPrUrl(run, deps),
+  };
 }
 
 /** Admins may undo a merged implementation; the spec fixes the intent. */
@@ -67,9 +76,10 @@ export default async function RunsPage() {
 
   const rows = listRuns(PAGE_SIZE);
   const total = rows.length;
-  const mode = bridgeMode(bridgeDeps());
-  const phases = new Map<string, string | null>();
-  for (const run of rows) phases.set(run.id, await livePhase(run));
+  const deps = bridgeDeps();
+  const mode = bridgeMode(deps);
+  const states = new Map<string, RowState>();
+  for (const run of rows) states.set(run.id, await rowState(run, deps));
   const anyInFlight = rows.some((run) => isInFlight(run.status) && run.sessionId);
 
   return (
@@ -109,7 +119,7 @@ export default async function RunsPage() {
               </TableRow>
             ) : null}
             {rows.map((run) => {
-              const phase = phases.get(run.id) ?? null;
+              const { phase, prUrl } = states.get(run.id) ?? { phase: null, prUrl: run.prUrl };
               const reversal = reversalOffer(run, actor);
               const inFlight = isInFlight(run.status);
               return (
@@ -145,9 +155,9 @@ export default async function RunsPage() {
                     </span>
                   </TableCell>
                   <TableCell className="hidden font-mono text-[11px] lg:table-cell">
-                    {run.prUrl ? (
-                      <a href={run.prUrl} target="_blank" rel="noreferrer" className="hover:underline">
-                        #{run.prUrl.split("/").pop()}
+                    {prUrl ? (
+                      <a href={prUrl} target="_blank" rel="noreferrer" className="hover:underline">
+                        #{prUrl.split("/").pop()}
                       </a>
                     ) : (
                       <span className="text-muted-foreground">—</span>

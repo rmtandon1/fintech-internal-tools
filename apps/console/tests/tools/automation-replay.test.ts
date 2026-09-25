@@ -92,11 +92,35 @@ describe("runChecklist", () => {
       }),
     );
     expect(withPr.map((l) => l.field)).toEqual(["base_commit", "files", "pr_url"]);
+    const twoFiles = runChecklist(
+      output({
+        files: [
+          { path: "a.ts", op: "create", reason: "new", additions: 1, deletions: 0 },
+          { path: "b.ts", op: "modify", reason: "wire", additions: 2, deletions: 1 },
+        ],
+      }),
+    );
+    expect(twoFiles.map((l) => [l.label, l.state])).toEqual([
+      ["Adding a.ts", "done"],
+      ["Editing b.ts", "running"],
+    ]);
     for (const line of withPr) expect(line.field in output()).toBe(true);
   });
 
-  it("uses the three glyphs for done, running and waiting", () => {
-    expect(Object.values(CHECKLIST_GLYPH)).toEqual(["✓", "●", "○"]);
+  it("uses ✓ ● ○ for done, running and waiting, and ✗ for a failed check", () => {
+    expect(CHECKLIST_GLYPH).toEqual({ done: "✓", running: "●", waiting: "○", failed: "✗" });
+    const failed = runChecklist(
+      output({
+        phase: "verify",
+        verify_steps: [{ name: "tests", pass: false, before: 68, after: 65 }],
+        guards: [{ name: "scope", pass: false }],
+      }),
+    );
+    expect(failed.map((l) => [l.field, l.state])).toEqual([
+      ["verify_steps", "done"],
+      ["guards", "failed"],
+      ["verify_steps", "failed"],
+    ]);
     const lines = runChecklist(
       output({
         phase: "edit",

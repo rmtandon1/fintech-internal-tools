@@ -92,6 +92,7 @@ export function RunSummary({
                   line.state === "done" && "text-emerald-400",
                   line.state === "running" && "text-amber-400",
                   line.state === "waiting" && "text-muted-foreground",
+                  line.state === "failed" && "text-red-400",
                 )}
               >
                 {CHECKLIST_GLYPH[line.state]}

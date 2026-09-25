@@ -1,8 +1,11 @@
 import { resolve } from "node:path";
 import {
+  findRunByPullNumber,
+  getRun,
   httpDevinClient,
   httpGitHubClient,
   replayDevinClient,
+  type ReplayLookup,
   replayGitHubClient,
 } from "@console/tool-automation";
 import type { BridgeDeps } from "@console/tool-automation/bridge";
@@ -10,8 +13,18 @@ import type { BridgeDeps } from "@console/tool-automation/bridge";
 /**
  * Credentials for the Devin and GitHub APIs are read here, on the server,
  * and nowhere else. Without Devin credentials the console runs in Replay
- * mode: both clients play a recorded fixture and every surface says so.
+ * mode: both clients play a recorded fixture and every surface says so. The
+ * bridge refuses to serve a live run's session with replay clients and vice
+ * versa, so a credential change never lets fixture data stand in for GitHub.
  */
+const replayLookup: ReplayLookup = {
+  runStatus: (runId) => getRun(runId)?.status ?? null,
+  runForPull: (prNumber) => {
+    const run = findRunByPullNumber(prNumber);
+    return run ? { id: run.id, status: run.status } : null;
+  },
+};
+
 export function bridgeDeps(): BridgeDeps {
   const apiKey = process.env.DEVIN_API_KEY;
   const orgId = process.env.DEVIN_ORG_ID;
@@ -20,8 +33,8 @@ export function bridgeDeps(): BridgeDeps {
   const fetchImpl = (input: string, init?: RequestInit) => fetch(input, init);
   if (!apiKey || !orgId) {
     return {
-      devin: replayDevinClient(),
-      github: replayGitHubClient(repoRoot),
+      devin: replayDevinClient(replayLookup),
+      github: replayGitHubClient(repoRoot, replayLookup),
       repoRoot,
       mode: "replay",
     };

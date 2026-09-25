@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ulid } from "ulid";
 import { executeIntent } from "@console/engine/execute-intent";
@@ -8,7 +8,7 @@ import { buildContext } from "./context";
 import type { DevinClient } from "./devin-api";
 import { type GitHubClient, parsePullUrl } from "./github-api";
 import { automationTool, getRun, type DevinRun } from "./index";
-import type { BridgeMode } from "./replay";
+import { type BridgeMode, isReplaySession } from "./replay";
 import { ContextFile, ReplayFile, type ReplayFrame, STRUCTURED_OUTPUT_JSON_SCHEMA, StructuredOutput } from "./run-files";
 import { getSpec, type RunKind, type RunScope } from "./specs";
 
@@ -130,7 +130,8 @@ export async function dispatchRun(
     const target = getRun(req.reverses);
     if (!target?.mergeCommit) throw new Error(`${req.reverses} has no merge commit to reverse`);
     reverses = { runId: target.id, mergeCommit: target.mergeCommit };
-    if (!clusterKey) clusterKey = contextClusterKey(deps.repoRoot, target.id) ?? "";
+    // A reversal's evidence is the merged run's, never the caller's.
+    clusterKey = contextClusterKey(deps.repoRoot, target.id) ?? "";
   }
 
   const built = buildContext({
@@ -214,12 +215,31 @@ export type PollOutcome =
   | { kind: "unavailable"; reason: string };
 
 /**
+ * A run's session belongs to the mode it was dispatched in. Serving a live
+ * session with replay clients (or the reverse) would let fixture data stand
+ * in for Devin or GitHub, so the bridge refuses instead.
+ */
+function modeMismatch(run: DevinRun, deps: BridgeDeps): string | null {
+  if (!run.sessionId) return null;
+  const replaySession = isReplaySession(run.sessionId);
+  if (bridgeMode(deps) === "replay" && !replaySession) {
+    return "This run has a live Devin session; Devin credentials are not configured on this server";
+  }
+  if (bridgeMode(deps) === "live" && replaySession) {
+    return "This run has a replay session; the server is configured for live Devin";
+  }
+  return null;
+}
+
+/**
  * Reads the session once and appends a validated frame to `replay.json`.
  * Touches no governed table: a poll is an observation, not a transition.
  */
 export async function pollRun(run: DevinRun, deps: BridgeDeps): Promise<PollOutcome> {
   if (!deps.devin) return { kind: "unavailable", reason: "Devin API is not configured" };
   if (!run.sessionId) return { kind: "unavailable", reason: "The run has no session" };
+  const mismatch = modeMismatch(run, deps);
+  if (mismatch) return { kind: "unavailable", reason: mismatch };
   const snapshot = await deps.devin.getSession(run.sessionId);
   if (snapshot.structuredOutput === null || snapshot.structuredOutput === undefined) {
     return { kind: "no_output", status: snapshot.status, statusDetail: snapshot.statusDetail };
@@ -253,7 +273,10 @@ export async function pollRun(run: DevinRun, deps: BridgeDeps): Promise<PollOutc
     return { kind: "frame", frame: last };
   }
   const frames = [...existing, frame];
-  writeFileSync(join(dir, "replay.json"), JSON.stringify(frames, null, 2) + "\n");
+  // Written whole then renamed, so a concurrent reader never sees a torn file.
+  const tmp = join(dir, `.replay.${process.pid}.${frame.at_ms}.json`);
+  writeFileSync(tmp, JSON.stringify(frames, null, 2) + "\n");
+  renameSync(tmp, join(dir, "replay.json"));
   return { kind: "frame", frame };
 }
 
@@ -286,6 +309,8 @@ export async function approveRun(
   note: string | undefined,
   deps: BridgeDeps,
 ): Promise<ApproveOutcome> {
+  const mismatch = modeMismatch(run, deps);
+  if (mismatch) throw new Error(mismatch);
   const prUrl = currentPrUrl(run, deps);
   const ref = prUrl ? parsePullUrl(prUrl) : null;
   if (!prUrl || !ref) throw new Error("The session has not reported a pull request yet");
@@ -339,6 +364,8 @@ export async function observeMerge(actor: Actor, run: DevinRun, deps: BridgeDeps
   const ref = prUrl ? parsePullUrl(prUrl) : null;
   if (!prUrl || !ref) return { kind: "unavailable", reason: "The run has no approved pull request" };
   if (!deps.github) return { kind: "unavailable", reason: "GitHub API is not configured" };
+  const mismatch = modeMismatch(run, deps);
+  if (mismatch) return { kind: "unavailable", reason: mismatch };
   const pull = await deps.github.getPull(ref);
   if (!pull.merged || !pull.mergeCommit) return { kind: "open", prUrl };
   const record = executeIntent(actor, {

@@ -42,12 +42,15 @@ function tag(req: CreateSessionRequest, name: string): string | undefined {
 }
 
 /** `replay-<i|r>-<runId>`: the kind and the ULID's timestamp are all the client needs. */
-function parseSession(sessionId: string): { fixture: ReplayFrame[]; startedAt: number } | null {
+function parseSession(
+  sessionId: string,
+): { fixture: ReplayFrame[]; startedAt: number; runId: string } | null {
   const m = /^replay-([ir])-([0-9A-HJKMNP-TV-Z]{26})$/.exec(sessionId);
   if (!m) return null;
   return {
     fixture: m[1] === "r" ? REPLAY_FIXTURES.REVERSAL : REPLAY_FIXTURES.IMPLEMENTATION,
     startedAt: decodeTime(m[2]),
+    runId: m[2],
   };
 }
 
@@ -61,7 +64,24 @@ export function frameAt(fixture: readonly ReplayFrame[], elapsedMs: number): Rep
   return current;
 }
 
-export function replayDevinClient(now: () => number = Date.now): DevinClient {
+/** What the replay clients read from the governed record: nothing else gates them. */
+export interface ReplayLookup {
+  /** The run's current status, or null when unknown. */
+  runStatus: (runId: string) => string | null;
+  /** The run whose approved PR is `/pull/<number>`, or null when none is. */
+  runForPull: (prNumber: number) => { id: string; status: string } | null;
+  now?: () => number;
+}
+
+const APPROVED = new Set(["approved", "merged"]);
+
+/** Frames at or past the merge are held back until an engineer has approved the run. */
+function gate(fixture: ReplayFrame[], approved: boolean): ReplayFrame[] {
+  return approved ? fixture : fixture.filter((f) => f.structured_output.phase !== "merge");
+}
+
+export function replayDevinClient(lookup: ReplayLookup): DevinClient {
+  const now = lookup.now ?? Date.now;
   return {
     async createSession(req): Promise<CreatedSession> {
       const runId = tag(req, "run");
@@ -73,7 +93,8 @@ export function replayDevinClient(now: () => number = Date.now): DevinClient {
     async getSession(sessionId): Promise<SessionSnapshot> {
       const parsed = parseSession(sessionId);
       if (!parsed) throw new Error(`not a replay session: ${sessionId}`);
-      const frame = frameAt(parsed.fixture, now() - parsed.startedAt);
+      const approved = APPROVED.has(lookup.runStatus(parsed.runId) ?? "");
+      const frame = frameAt(gate(parsed.fixture, approved), now() - parsed.startedAt);
       return {
         status: frame.status,
         statusDetail: frame.status_detail,
@@ -88,21 +109,30 @@ export function replayDevinClient(now: () => number = Date.now): DevinClient {
 /**
  * Stands in for GitHub once the fixture has opened its PR: checks are green,
  * the branch carries the very `context.json` the console wrote, and the PR
- * reads as merged with the fixture's merge commit.
+ * reads as merged only after the console has recorded an approval for the
+ * run that owns it and the fixture's merge frame has come due.
  */
-export function replayGitHubClient(repoRoot: string): GitHubClient {
-  const last = (fixture: ReplayFrame[]) => fixture[fixture.length - 1].structured_output;
+export function replayGitHubClient(repoRoot: string, lookup: ReplayLookup): GitHubClient {
+  const now = lookup.now ?? Date.now;
+  const last = (fixture: ReplayFrame[]) => fixture[fixture.length - 1];
   const fixtureFor = (pr: PullRef): ReplayFrame[] =>
-    Object.values(REPLAY_FIXTURES).find((f) => last(f).pr_url?.endsWith(`/pull/${pr.number}`)) ??
-    REPLAY_FIXTURES.IMPLEMENTATION;
+    Object.values(REPLAY_FIXTURES).find((f) =>
+      last(f).structured_output.pr_url?.endsWith(`/pull/${pr.number}`),
+    ) ?? REPLAY_FIXTURES.IMPLEMENTATION;
   return {
     async getPull(pr): Promise<PullState> {
-      const out = last(fixtureFor(pr));
+      const fixture = fixtureFor(pr);
+      const out = last(fixture).structured_output;
+      const owner = lookup.runForPull(pr.number);
+      const merged =
+        owner !== null &&
+        APPROVED.has(owner.status) &&
+        now() - decodeTime(owner.id) >= last(fixture).at_ms;
       return {
         headSha: out.plan_commit ?? "0".repeat(40),
         headRef: out.branch ?? "replay",
-        merged: true,
-        mergeCommit: out.merge_commit ?? null,
+        merged,
+        mergeCommit: merged ? (out.merge_commit ?? null) : null,
       };
     },
     async getChecks(): Promise<ChecksState> {
