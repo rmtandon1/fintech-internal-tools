@@ -12,7 +12,8 @@ A KYC record shows the same customer's refunds in a drawer (`linkedActivity` on 
 | Refund rows: amount, email, card number | Hidden | Hidden | Masked, reveal logged |
 | Open cluster in Refunds | Hidden | Hidden | Yes |
 | Approve a held refund | Hidden | Hidden (a refunds decision) | Yes, unless they requested it (maker ≠ checker) |
-| Ask Devin / Reverse this change | Hidden | Ask only | Both |
+
+The only run control in the console today is "Ask Devin for a rule" in the refunds cluster drawer (`apps/console/src/components/dispatch-control.tsx`); there is no Reverse control yet. Their placement on a KYC case, and per-role visibility, is open for the UI rework.
 
 The join is KYC `email` = refunds `customerEmail`, run on the server with the read client so no unmasked email reaches the browser. Covered by `apps/console/tests/tools/kyc-linked-activity.test.ts`.
 
@@ -26,4 +27,4 @@ Implemented in `apps/console/src/components/workspace.tsx` on `packages/ui/src/r
 - The split is saved in the `console-workspace-layout` cookie (`apps/console/src/lib/workspace-layout.ts`) so the server renders the last layout without a jump.
 - Below `lg` the seam is hidden and the header button opens the column as a sheet.
 
-The column's data source is described in `AGENT_TRIGGER_SURFACE.md` (the run view): the live session while a run is in flight, `runs/<run_id>/` on the default branch after merge.
+The column is a shell: `AgentColumnBody` (`apps/console/src/components/agent-column.tsx`) renders "source: none" and "No runs yet". The planned data flow (live session while a run is in flight, `runs/<run_id>/` on the default branch after merge) is specified in `AGENT_TRIGGER_SURFACE.md` and is not wired up.
