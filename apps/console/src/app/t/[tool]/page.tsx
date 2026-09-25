@@ -17,6 +17,8 @@ import { previewActions } from "@console/engine/policy/preview";
 import type { Actor, ClusterDecl, ClusterGroup, ToolDeclaration } from "@console/engine/types";
 import { formatFieldValue } from "@console/ui/format";
 import { ClusterDrawer, type ClusterRow } from "@/components/cluster-drawer";
+import type { DispatchOffer } from "@/components/dispatch-control";
+import { getSpec, kindsStartableBy } from "@console/tool-automation";
 import { currentActor } from "@/lib/session";
 import { cn } from "@console/ui/utils";
 import { getTool } from "@/registry";
@@ -272,6 +274,7 @@ export default async function ToolQueuePage({
           statuses={decl.statuses}
           rows={clusterRows(decl, open.cluster, open.group, actor)}
           canRequestRule={decl.revealRoles.includes(actor.role)}
+          dispatch={dispatchOffer(open.cluster, open.group, actor)}
         />
       ) : null}
 
@@ -300,6 +303,22 @@ export default async function ToolQueuePage({
       ) : null}
     </div>
   );
+}
+
+/** The run this actor may ask for from the open group, or null when the cluster has no spec or the role may start nothing. */
+function dispatchOffer(
+  cluster: ClusterDecl,
+  group: ClusterGroup,
+  actor: Actor,
+): DispatchOffer | null {
+  const spec = cluster.handoffSpec ? getSpec(cluster.handoffSpec) : undefined;
+  if (!spec) return null;
+  const kinds = kindsStartableBy(actor.role, spec).map((kind) => ({
+    kind,
+    intent: spec.intents[kind] ?? "",
+  }));
+  if (kinds.length === 0) return null;
+  return { spec: spec.file, clusterKey: group.key, evidenceIds: group.recordIds, kinds };
 }
 
 function resolveGroup(

@@ -28,6 +28,8 @@ import {
 export * from "./specs";
 export * from "./run-files";
 export { buildContext, type BuiltContext, type ContextRequest } from "./context";
+export * from "./devin-api";
+export * from "./github-api";
 
 export interface DevinRun extends GovernedRecord {
   id: string;
@@ -65,6 +67,8 @@ const STATUS_LABELS: Record<(typeof RUN_STATUSES)[number], string> = {
 const sha256 = z.string().regex(/^[0-9a-f]{64}$/, "SHA-256 hex digest");
 
 const DispatchInput = z.object({
+  /** Preassigned run id, so `runs/<id>/context.json` can name the run before it exists. */
+  runId: z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/, "ULID").optional(),
   spec: z.string().min(1),
   kind: z.enum(RUN_KINDS),
   scope: z.enum(RUN_SCOPES),
@@ -105,15 +109,25 @@ const specKnown: RunRule<DispatchInput> = ({ input }) => {
  * admin may ask for an addition or change; only the admin may ask for a
  * removal or reversal.
  */
+export function roleMayStart(role: Role, spec: RunnableSpec, kind: RunKind): boolean {
+  const meta = ROLE_META[role];
+  const adminOnly = kind === "IMPLEMENTATION/REMOVAL" || kind === "REVERSAL";
+  return (
+    meta.level === "admin" ||
+    (!adminOnly && meta.level === "manager" && meta.domain === spec.domain)
+  );
+}
+
+/** The kinds of `spec` that `role` may dispatch, in the spec's own order. */
+export function kindsStartableBy(role: Role, spec: RunnableSpec): RunKind[] {
+  return spec.kinds.filter((kind) => roleMayStart(role, spec, kind));
+}
+
 const roleMayStartKind: RunRule<DispatchInput> = ({ actor, input }) => {
   const spec = getSpec(input.spec);
   if (!spec) return { type: "allow", rule: "role_may_start_kind" };
   const meta = ROLE_META[actor.role];
-  const adminOnly = input.kind === "IMPLEMENTATION/REMOVAL" || input.kind === "REVERSAL";
-  const ok =
-    meta.level === "admin" ||
-    (!adminOnly && meta.level === "manager" && meta.domain === spec.domain);
-  return ok
+  return roleMayStart(actor.role, spec, input.kind)
     ? { type: "allow", rule: "role_may_start_kind" }
     : {
         type: "deny",
@@ -367,7 +381,7 @@ export const automationTool = defineTool<DevinRun>({
       apply: ({ tx, actor, now }, decision) => {
         const input = decision.patch;
         const spec = requireSpec(input.spec);
-        const id = ulid();
+        const id = input.runId ?? ulid();
         tx.insert(devinRuns)
           .values({
             id,

@@ -1,0 +1,517 @@
+import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { beforeAll, describe, expect, it } from "vitest";
+import { ulid } from "ulid";
+import { executeIntent } from "@console/engine/execute-intent";
+import { registerConstants } from "@console/engine/policy/register";
+import type { Actor } from "@console/engine/types";
+import {
+  automationTool,
+  type CreateSessionRequest,
+  type DevinClient,
+  type FetchLike,
+  getRun,
+  type GitHubClient,
+  httpDevinClient,
+  httpGitHubClient,
+  IN_FLIGHT_STATUSES,
+  parsePullUrl,
+  REFUND_CLUSTERING_HOLD,
+  type SessionSnapshot,
+  type StructuredOutput,
+} from "@console/tool-automation";
+import {
+  approveRun,
+  type BridgeDeps,
+  dispatchRun,
+  observeMerge,
+  pollRun,
+  readReplay,
+  stopRun,
+} from "@console/tool-automation/bridge";
+import { kycTool } from "@console/tool-kyc";
+import { refundTool } from "@console/tool-refunds";
+import { admin, refundsAgent, refundsManager, setupHarness } from "../helpers/harness";
+
+const engineer: Actor = { id: "usr_engineer", name: "Engineer", role: "engineer" };
+const KESTREL = ["rfnd_0011", "rfnd_0012", "rfnd_0013", "rfnd_0014"];
+const PR = "https://github.com/rmtandon1/buy-v-build-cog-demo/pull/99";
+const HEAD = "c".repeat(40);
+const MERGE = "d".repeat(40);
+
+let repoRoot: string;
+
+beforeAll(() => {
+  setupHarness();
+  registerConstants([...(refundTool.constants ?? []), ...(kycTool.constants ?? [])]);
+  refundTool.seed?.();
+  repoRoot = mkdtempSync(join(tmpdir(), "bridge-repo-"));
+  const git = (...args: string[]) =>
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd: repoRoot });
+  git("init", "-q", "-b", "devin/test");
+  git("commit", "-q", "--allow-empty", "-m", "init");
+});
+
+/** A Devin client that records calls and answers from a script. */
+function fakeDevin(script: { create?: () => Promise<{ sessionId: string; url: string }>; snapshot?: SessionSnapshot }) {
+  const calls: string[] = [];
+  const created: CreateSessionRequest[] = [];
+  const client: DevinClient = {
+    async createSession(req) {
+      calls.push("create");
+      created.push(req);
+      return script.create ? script.create() : { sessionId: "devin-abc", url: "https://app.devin.ai/sessions/abc" };
+    },
+    async getSession() {
+      calls.push("get");
+      if (!script.snapshot) throw new Error("no snapshot scripted");
+      return script.snapshot;
+    },
+    async sendMessage(_id, message) {
+      calls.push(`message:${message}`);
+    },
+    async terminateSession(id) {
+      calls.push(`terminate:${id}`);
+    },
+  };
+  return { client, calls, created };
+}
+
+function fakeGitHub(state: {
+  merged?: boolean;
+  green?: boolean;
+  contextSha?: string | null;
+}) {
+  const calls: string[] = [];
+  const client: GitHubClient = {
+    async getPull() {
+      calls.push("pull");
+      return {
+        headSha: HEAD,
+        headRef: "devin/run",
+        merged: state.merged ?? false,
+        mergeCommit: state.merged ? MERGE : null,
+      };
+    },
+    async getChecks() {
+      calls.push("checks");
+      return { green: state.green ?? true, summary: state.green === false ? "failed: verify" : "1 check run(s)" };
+    },
+    async fileSha256() {
+      calls.push("file");
+      return state.contextSha === undefined ? null : state.contextSha;
+    },
+    async approvePull() {
+      calls.push("approve");
+    },
+  };
+  return { client, calls };
+}
+
+function deps(over: Partial<BridgeDeps>): BridgeDeps {
+  return { devin: null, github: null, repoRoot, now: () => 1_700_000_000_000, ...over };
+}
+
+const request = {
+  spec: REFUND_CLUSTERING_HOLD.file,
+  kind: "IMPLEMENTATION/ADDITION" as const,
+  scope: "rule" as const,
+  intent: REFUND_CLUSTERING_HOLD.intents["IMPLEMENTATION/ADDITION"] ?? "",
+  clusterKey: "Kestrel Outdoors",
+  evidenceIds: KESTREL,
+};
+
+function output(over: Partial<StructuredOutput> = {}): StructuredOutput {
+  return {
+    phase: "edit",
+    phase_status: "running",
+    phase_durations_s: { intake: 3 },
+    base_commit: null,
+    context_sha256: null,
+    branch: "devin/run",
+    plan_commit: null,
+    reuses: [],
+    files: [],
+    verify_steps: [],
+    guards: [],
+    conflicts: [],
+    pr_url: null,
+    stopped_by: null,
+    ...over,
+  };
+}
+
+/** One run per tool: stop whatever the previous test left in flight. */
+function stopAll() {
+  const { rows } = automationTool.list({ filters: {}, limit: 100, offset: 0 });
+  for (const row of rows) {
+    if (!IN_FLIGHT_STATUSES.some((s) => s === row.status)) continue;
+    executeIntent(admin, {
+      tool: "automation",
+      action: "stop",
+      recordId: row.id,
+      input: { reason: "cleanup" },
+      idempotencyKey: ulid(),
+    });
+  }
+}
+
+describe("dispatchRun", () => {
+  it("writes context.json, dispatches, creates the session with the context attached, then records it", async () => {
+    stopAll();
+    const devin = fakeDevin({});
+    const out = await dispatchRun(refundsManager, request, deps({ devin: devin.client }));
+    expect(out.dispatch.outcome.status).toBe("applied");
+    expect(out.session?.outcome.status).toBe("applied");
+    expect(out.sessionUrl).toBe("https://app.devin.ai/sessions/abc");
+
+    const run = getRun(out.runId);
+    expect(run?.status).toBe("running");
+    expect(run?.sessionId).toBe("devin-abc");
+
+    const contextPath = join(repoRoot, "runs", out.runId, "context.json");
+    const json = readFileSync(contextPath, "utf8");
+    expect(createHash("sha256").update(json).digest("hex")).toBe(run?.contextSha256);
+    expect(json).not.toMatch(/@|\d{4}-\d{4}-\d{4}/);
+
+    expect(devin.calls).toEqual(["create"]);
+    const req = devin.created[0];
+    expect(req.attachment).toEqual({ name: "context.json", body: json });
+    expect(req.tags).toContain(`run:${out.runId}`);
+    expect(req.structuredOutputSchema).toHaveProperty("properties");
+    expect(req.prompt).toContain(request.intent);
+  });
+
+  it("records dispatch_failed with the error when the Devin API rejects the session", async () => {
+    stopAll();
+    const devin = fakeDevin({
+      create: () => Promise.reject(new Error("Devin API 401 on /sessions: bad key")),
+    });
+    const out = await dispatchRun(refundsManager, request, deps({ devin: devin.client }));
+    expect(out.dispatch.outcome.status).toBe("applied");
+    const run = getRun(out.runId);
+    expect(run?.status).toBe("dispatch_failed");
+    expect(run?.lastNote).toContain("bad key");
+    expect(run?.sessionId).toBeNull();
+  });
+
+  it("records dispatch_failed when no Devin credentials are configured", async () => {
+    stopAll();
+    const out = await dispatchRun(admin, request, deps({}));
+    expect(getRun(out.runId)?.status).toBe("dispatch_failed");
+    expect(getRun(out.runId)?.lastNote).toMatch(/DEVIN_API_KEY/);
+  });
+
+  it("never reaches Devin and leaves no run dir when the dispatch intent does not apply", async () => {
+    stopAll();
+    const devin = fakeDevin({});
+    const out = await dispatchRun(refundsAgent, request, deps({ devin: devin.client }));
+    expect(out.dispatch.outcome.status).toBe("error");
+    expect(out.session).toBeNull();
+    expect(devin.calls).toEqual([]);
+    expect(existsSync(join(repoRoot, "runs", out.runId))).toBe(false);
+    expect(getRun(out.runId)).toBeNull();
+  });
+});
+
+describe("pollRun", () => {
+  async function running() {
+    stopAll();
+    const devin = fakeDevin({});
+    const out = await dispatchRun(admin, request, deps({ devin: devin.client }));
+    const run = getRun(out.runId);
+    if (!run) throw new Error("no run");
+    return run;
+  }
+
+  it("appends a validated frame to replay.json and leaves devin_runs untouched", async () => {
+    const run = await running();
+    const devin = fakeDevin({
+      snapshot: { status: "working", statusDetail: "editing", structuredOutput: output() },
+    });
+    const first = await pollRun(run, deps({ devin: devin.client, now: () => 1 }));
+    expect(first.kind).toBe("frame");
+    const second = await pollRun(
+      run,
+      deps({ devin: devin.client, now: () => 2 }),
+    );
+    expect(second.kind).toBe("frame");
+
+    const frames = readReplay(repoRoot, run.id);
+    expect(frames.map((f) => f.at_ms)).toEqual([1, 2]);
+    expect(frames[0].status).toBe("working");
+    expect(frames[0].status_detail).toBe("editing");
+    expect(frames[0].structured_output.phase).toBe("edit");
+
+    const after = getRun(run.id);
+    expect(after?.version).toBe(run.version);
+    expect(after?.updatedAt).toBe(run.updatedAt);
+    expect(after?.status).toBe("running");
+  });
+
+  it("rejects malformed structured output and writes no frame", async () => {
+    const run = await running();
+    const devin = fakeDevin({
+      snapshot: { status: "working", statusDetail: null, structuredOutput: { phase: "nonsense" } },
+    });
+    const out = await pollRun(run, deps({ devin: devin.client }));
+    expect(out.kind).toBe("invalid_output");
+    expect(readReplay(repoRoot, run.id)).toEqual([]);
+  });
+
+  it("reports a session without structured output yet", async () => {
+    const run = await running();
+    const devin = fakeDevin({ snapshot: { status: "running", statusDetail: null, structuredOutput: null } });
+    const out = await pollRun(run, deps({ devin: devin.client }));
+    expect(out).toEqual({ kind: "no_output", status: "running", statusDetail: null });
+    expect(readReplay(repoRoot, run.id)).toEqual([]);
+  });
+});
+
+describe("approveRun", () => {
+  async function runningWithPr() {
+    stopAll();
+    const devin = fakeDevin({});
+    const out = await dispatchRun(admin, request, deps({ devin: devin.client }));
+    const run = getRun(out.runId);
+    if (!run) throw new Error("no run");
+    const poll = fakeDevin({
+      snapshot: {
+        status: "working",
+        statusDetail: null,
+        structuredOutput: output({ phase: "pull_request", pr_url: PR }),
+      },
+    });
+    await pollRun(run, deps({ devin: poll.client }));
+    return run;
+  }
+
+  it("reads checks and the branch digest from GitHub, applies approve_pr, then submits the review", async () => {
+    const run = await runningWithPr();
+    const github = fakeGitHub({ green: true, contextSha: run.contextSha256 });
+    const devin = fakeDevin({});
+    const out = await approveRun(engineer, run, "lgtm", deps({ github: github.client, devin: devin.client }));
+    expect(out.approve.outcome.status).toBe("applied");
+    expect(out.reviewError).toBeNull();
+    expect(github.calls).toEqual(["pull", "checks", "file", "approve"]);
+    expect(devin.calls).toEqual([`message:Run ${run.id} is approved. Merge ${PR} now.`]);
+    const after = getRun(run.id);
+    expect(after?.status).toBe("approved");
+    expect(after?.prUrl).toBe(PR);
+    expect(after?.approvedBy).toBe(engineer.id);
+  });
+
+  it("denies when checks are not green and submits no review", async () => {
+    const run = await runningWithPr();
+    const github = fakeGitHub({ green: false, contextSha: run.contextSha256 });
+    const out = await approveRun(engineer, run, undefined, deps({ github: github.client }));
+    expect(out.approve.outcome.status).toBe("denied");
+    expect(out.checks).toContain("failed");
+    expect(github.calls).not.toContain("approve");
+    expect(getRun(run.id)?.status).toBe("running");
+  });
+
+  it("denies when the branch context.json digest differs from the dispatched one", async () => {
+    const run = await runningWithPr();
+    const github = fakeGitHub({ green: true, contextSha: "e".repeat(64) });
+    const out = await approveRun(engineer, run, undefined, deps({ github: github.client }));
+    expect(out.approve.outcome.status).toBe("denied");
+    expect(github.calls).not.toContain("approve");
+  });
+
+  it("denies when the branch has no context.json at all", async () => {
+    const run = await runningWithPr();
+    const github = fakeGitHub({ green: true, contextSha: null });
+    const out = await approveRun(engineer, run, undefined, deps({ github: github.client }));
+    expect(out.approve.outcome.status).toBe("denied");
+    expect(github.calls).not.toContain("approve");
+  });
+
+  it("denies a non-engineer before touching the review endpoint", async () => {
+    const run = await runningWithPr();
+    const github = fakeGitHub({ green: true, contextSha: run.contextSha256 });
+    const out = await approveRun(refundsManager, run, undefined, deps({ github: github.client }));
+    expect(out.approve.outcome.status).not.toBe("applied");
+    expect(github.calls).not.toContain("approve");
+  });
+
+  it("refuses without a reported pull request or GitHub credentials", async () => {
+    stopAll();
+    const out = await dispatchRun(admin, request, deps({ devin: fakeDevin({}).client }));
+    const run = getRun(out.runId);
+    if (!run) throw new Error("no run");
+    await expect(approveRun(engineer, run, undefined, deps({ github: fakeGitHub({}).client }))).rejects.toThrow(
+      /not reported a pull request/,
+    );
+  });
+});
+
+describe("observeMerge and stopRun", () => {
+  async function approved() {
+    stopAll();
+    const out = await dispatchRun(admin, request, deps({ devin: fakeDevin({}).client }));
+    const run = getRun(out.runId);
+    if (!run) throw new Error("no run");
+    await pollRun(
+      run,
+      deps({
+        devin: fakeDevin({
+          snapshot: { status: "working", statusDetail: null, structuredOutput: output({ pr_url: PR }) },
+        }).client,
+      }),
+    );
+    const github = fakeGitHub({ green: true, contextSha: run.contextSha256 });
+    await approveRun(engineer, run, undefined, deps({ github: github.client }));
+    const after = getRun(run.id);
+    if (!after) throw new Error("no run");
+    return after;
+  }
+
+  it("records the merge only once GitHub reports the PR merged", async () => {
+    const run = await approved();
+    const open = await observeMerge(admin, run, deps({ github: fakeGitHub({ merged: false }).client }));
+    expect(open).toEqual({ kind: "open", prUrl: PR });
+    expect(getRun(run.id)?.status).toBe("approved");
+
+    const merged = await observeMerge(admin, run, deps({ github: fakeGitHub({ merged: true }).client }));
+    expect(merged.kind).toBe("merged");
+    const after = getRun(run.id);
+    expect(after?.status).toBe("merged");
+    expect(after?.mergeCommit).toBe(MERGE);
+    expect(after?.prUrl).toBe(PR);
+  });
+
+  it("terminates the Devin session, then records stop", async () => {
+    const run = await approved();
+    const devin = fakeDevin({});
+    const out = await stopRun(admin, run, "operator halted", deps({ devin: devin.client }));
+    expect(out.stop.outcome.status).toBe("applied");
+    expect(out.terminateError).toBeNull();
+    expect(devin.calls).toEqual([`terminate:${run.sessionId}`]);
+    expect(getRun(run.id)?.status).toBe("stopped");
+  });
+
+  it("does not terminate a session for a stop the policy denies", async () => {
+    const run = await approved();
+    const devin = fakeDevin({});
+    const out = await stopRun(refundsAgent, run, "nope", deps({ devin: devin.client }));
+    expect(out.stop.outcome.status).not.toBe("applied");
+    expect(devin.calls).toEqual([]);
+    expect(getRun(run.id)?.status).toBe("approved");
+  });
+});
+
+describe("HTTP clients", () => {
+  function recorder(routes: Record<string, (init?: RequestInit) => unknown>) {
+    const seen: { url: string; method: string; body: string | null }[] = [];
+    const fetchImpl: FetchLike = async (url, init) => {
+      const method = init?.method ?? "GET";
+      seen.push({ url, method, body: typeof init?.body === "string" ? init.body : null });
+      const route = Object.entries(routes).find(([k]) => `${method} ${url}`.includes(k));
+      if (!route) return new Response("not found", { status: 404 });
+      const body = route[1](init);
+      return new Response(body === undefined ? "" : JSON.stringify(body), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+    return { fetchImpl, seen };
+  }
+
+  it("Devin client uploads the attachment, then creates the session with the schema", async () => {
+    const http = recorder({
+      "POST https://api.devin.ai/v3/organizations/org_1/attachments": () => ({ url: "https://files/ctx" }),
+      "POST https://api.devin.ai/v3/organizations/org_1/sessions": () => ({
+        session_id: "devin-1",
+        url: "https://app.devin.ai/sessions/1",
+        status: "running",
+      }),
+      "GET https://api.devin.ai/v3/organizations/org_1/sessions/devin-1": () => ({
+        session_id: "devin-1",
+        status: "blocked",
+        status_detail: "waiting",
+        structured_output: { phase: "plan" },
+      }),
+      "DELETE https://api.devin.ai/v3/organizations/org_1/sessions/devin-1": () => undefined,
+    });
+    const client = httpDevinClient({ apiKey: "k", orgId: "org_1" }, http.fetchImpl);
+    const created = await client.createSession({
+      prompt: "p",
+      title: "t",
+      tags: ["run:1"],
+      attachment: { name: "context.json", body: "{}" },
+      structuredOutputSchema: { type: "object" },
+    });
+    expect(created).toEqual({ sessionId: "devin-1", url: "https://app.devin.ai/sessions/1" });
+    expect(http.seen.map((s) => s.method)).toEqual(["POST", "POST"]);
+    const sessionBody = JSON.parse(http.seen[1].body ?? "{}");
+    expect(sessionBody.attachment_urls).toEqual(["https://files/ctx"]);
+    expect(sessionBody.structured_output_required).toBe(true);
+    expect(sessionBody.structured_output_schema).toEqual({ type: "object" });
+
+    const snap = await client.getSession("devin-1");
+    expect(snap).toEqual({ status: "blocked", statusDetail: "waiting", structuredOutput: { phase: "plan" } });
+    await client.terminateSession("devin-1");
+    expect(http.seen.at(-1)?.method).toBe("DELETE");
+  });
+
+  it("Devin client surfaces API errors with status and path", async () => {
+    const fetchImpl: FetchLike = async () => new Response("nope", { status: 403 });
+    const client = httpDevinClient({ apiKey: "k", orgId: "org_1" }, fetchImpl);
+    await expect(client.getSession("x")).rejects.toThrow(/Devin API 403 .*sessions\/x: nope/);
+  });
+
+  it("GitHub client reads combined checks, hashes the branch file and approves at the head sha", async () => {
+    const context = '{"run_id":"r"}';
+    const http = recorder({
+      "GET https://api.github.com/repos/o/r/pulls/7": () => ({
+        head: { sha: HEAD, ref: "devin/run" },
+        merged: true,
+        merge_commit_sha: MERGE,
+      }),
+      [`GET https://api.github.com/repos/o/r/commits/${HEAD}/check-runs`]: () => ({
+        check_runs: [
+          { name: "verify", status: "completed", conclusion: "success" },
+          { name: "lint", status: "in_progress", conclusion: null },
+        ],
+      }),
+      [`GET https://api.github.com/repos/o/r/commits/${HEAD}/status`]: () => ({ state: "pending", total_count: 0 }),
+      [`GET https://api.github.com/repos/o/r/contents/runs/r/context.json?ref=${HEAD}`]: () => ({
+        encoding: "base64",
+        content: Buffer.from(context).toString("base64"),
+      }),
+      "POST https://api.github.com/repos/o/r/pulls/7/reviews": () => ({ state: "APPROVED" }),
+    });
+    const client = httpGitHubClient("tok", http.fetchImpl);
+    const ref = parsePullUrl("https://github.com/o/r/pull/7");
+    if (!ref) throw new Error("parse failed");
+    expect(ref).toEqual({ owner: "o", repo: "r", number: 7 });
+
+    const pull = await client.getPull(ref);
+    expect(pull).toEqual({ headSha: HEAD, headRef: "devin/run", merged: true, mergeCommit: MERGE });
+    const checks = await client.getChecks(ref, HEAD);
+    expect(checks.green).toBe(false);
+    expect(checks.summary).toContain("pending: lint");
+    expect(await client.fileSha256(ref, HEAD, "runs/r/context.json")).toBe(
+      createHash("sha256").update(context).digest("hex"),
+    );
+    expect(await client.fileSha256(ref, HEAD, "runs/missing/context.json")).toBeNull();
+    await client.approvePull(ref, HEAD, "ok");
+    const review = JSON.parse(http.seen.at(-1)?.body ?? "{}");
+    expect(review).toMatchObject({ commit_id: HEAD, event: "APPROVE" });
+    expect(http.seen.every((s) => s.url.startsWith("https://api.github.com/"))).toBe(true);
+  });
+
+  it("parsePullUrl rejects anything that is not a github.com pull request", () => {
+    expect(parsePullUrl("https://github.com/o/r/pulls")).toBeNull();
+    expect(parsePullUrl("https://gitlab.com/o/r/pull/1")).toBeNull();
+    expect(parsePullUrl("https://github.com/o/r/pull/12/files")).toEqual({ owner: "o", repo: "r", number: 12 });
+  });
+
+  it("the global fetch is disabled under test", async () => {
+    await expect(async () => fetch("https://api.devin.ai/v3")).rejects.toThrow(/Live HTTP is disabled/);
+  });
+});

@@ -8,7 +8,8 @@
     "./seed": "./src/seed.ts",
     "./specs": "./src/specs.ts",
     "./run-files": "./src/run-files.ts",
-    "./context": "./src/context.ts"
+    "./context": "./src/context.ts",
+    "./bridge": "./src/bridge.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

@@ -12,6 +12,7 @@ import {
   SheetTitle,
 } from "@console/ui/sheet";
 import { StatusChip } from "@console/ui/status-chip";
+import { DispatchControl, type DispatchOffer } from "@/components/dispatch-control";
 import { formatMinorUnits, formatRelative } from "@console/ui/format";
 import type { RuleOutcome, StatusDecl } from "@console/engine/types";
 
@@ -43,6 +44,7 @@ export function ClusterDrawer({
   statuses,
   rows,
   canRequestRule,
+  dispatch,
 }: {
   label: string;
   clusterLabel: string;
@@ -54,6 +56,8 @@ export function ClusterDrawer({
   statuses: StatusDecl[];
   rows: ClusterRow[];
   canRequestRule: boolean;
+  /** Set when this actor may dispatch a Devin run for the cluster's spec. */
+  dispatch?: DispatchOffer | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -147,9 +151,14 @@ export function ClusterDrawer({
           ))}
         </ol>
 
-        <SheetFooter className="mt-0 border-t border-border text-xs text-muted-foreground">
+        <SheetFooter className="mt-0 flex-row items-center gap-3 border-t border-border text-xs text-muted-foreground">
           {uncovered ? <p>No rule covers this pattern.</p> : null}
           {!canRequestRule ? <p>A refunds manager can ask for a rule.</p> : null}
+          {dispatch ? (
+            <div className="ml-auto">
+              <DispatchControl offer={dispatch} />
+            </div>
+          ) : null}
         </SheetFooter>
       </SheetContent>
     </Sheet>
