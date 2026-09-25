@@ -30,6 +30,7 @@ import {
   dispatchRun,
   isSynced,
   observeMerge,
+  observeRun,
   pollRun,
   reconcileRuns,
   stopRun,
@@ -283,6 +284,85 @@ describe("pollRun", () => {
   });
 });
 
+describe("observeRun", () => {
+  async function running() {
+    stopAll();
+    const out = await dispatchRun(admin, request, deps({ devin: fakeDevin({}).client }));
+    const run = getRun(out.runId);
+    if (!run) throw new Error("no run");
+    return run;
+  }
+
+  it("records the reported pull request once, then keeps it through a poll that omits it", async () => {
+    const run = await running();
+    const first = await observeRun(admin, run, deps({ devin: reportingPr().client }));
+    expect(first.poll.kind).toBe("output");
+    expect(first.record?.outcome.status).toBe("applied");
+
+    const recorded = getRun(run.id);
+    expect(recorded?.status).toBe("running");
+    expect(recorded?.prUrl).toBe(PR);
+    expect(recorded?.version).toBe(run.version + 1);
+    expect(auditTrailFor("devin_run", run.id).map((row) => row.action)).toEqual([
+      "record_pr",
+      "record_session",
+      "dispatch",
+    ]);
+    if (!recorded) throw new Error("no run");
+
+    const again = await observeRun(admin, recorded, deps({ devin: reportingPr().client }));
+    expect(again.record).toBeNull();
+    const silent = fakeDevin({ snapshot: { status: "working", statusDetail: null, structuredOutput: null } });
+    const third = await observeRun(admin, recorded, deps({ devin: silent.client }));
+    expect(third.poll.kind).toBe("no_output");
+    expect(third.record).toBeNull();
+    expect(getRun(run.id)?.prUrl).toBe(PR);
+    expect(getRun(run.id)?.version).toBe(run.version + 1);
+  });
+
+  it("records nothing while the session reports no pull request", async () => {
+    const run = await running();
+    const devin = fakeDevin({ snapshot: { status: "working", statusDetail: null, structuredOutput: output() } });
+    const out = await observeRun(refundsManager, run, deps({ devin: devin.client }));
+    expect(out.poll.kind).toBe("output");
+    expect(out.record).toBeNull();
+    expect(getRun(run.id)?.version).toBe(run.version);
+  });
+
+  it("skips recording for a manager outside the run's domain, so the next poller can still record", async () => {
+    const run = await running();
+    const kycManager: Actor = { id: "usr_kyc_mgr", name: "KYC manager", role: "kyc_manager" };
+    const out = await observeRun(kycManager, run, deps({ devin: reportingPr().client }));
+    expect(out.record).toBeNull();
+    expect(getRun(run.id)?.prUrl).toBeNull();
+    expect(getRun(run.id)?.version).toBe(run.version);
+
+    const next = await observeRun(admin, run, deps({ devin: reportingPr().client }));
+    expect(next.record?.outcome.status).toBe("applied");
+    expect(getRun(run.id)?.prUrl).toBe(PR);
+  });
+
+  it("record_pr denies a repeat under a fresh key, same URL or not, without a new version", async () => {
+    const run = await running();
+    await observeRun(admin, run, deps({ devin: reportingPr().client }));
+    const recorded = getRun(run.id);
+    for (const prUrl of [PR, "https://github.com/rmtandon1/buy-v-build-cog-demo/pull/100"]) {
+      const again = executeIntent(admin, {
+        tool: "automation",
+        action: "record_pr",
+        recordId: run.id,
+        input: { prUrl },
+        idempotencyKey: ulid(),
+      });
+      expect(again.outcome.status).toBe("denied");
+    }
+    expect(getRun(run.id)?.prUrl).toBe(PR);
+    expect(getRun(run.id)?.version).toBe(recorded?.version);
+    const rows = auditTrailFor("devin_run", run.id).filter((row) => row.action === "record_pr");
+    expect(rows.map((row) => row.event)).toEqual(["denied", "denied", "applied"]);
+  });
+});
+
 /** A Devin client whose session reports `PR` as its pull request. */
 function reportingPr() {
   return fakeDevin({
@@ -316,6 +396,12 @@ describe("approveRun", () => {
     expect(after?.status).toBe("approved");
     expect(after?.prUrl).toBe(PR);
     expect(after?.approvedBy).toBe(engineer.id);
+    expect(auditTrailFor("devin_run", run.id).map((row) => row.action)).toEqual([
+      "approve_pr",
+      "record_pr",
+      "record_session",
+      "dispatch",
+    ]);
   });
 
   it("denies when checks are not green and submits no review", async () => {
