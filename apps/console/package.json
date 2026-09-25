@@ -22,6 +22,7 @@
     "@console/db-core": "workspace:*",
     "@console/engine": "workspace:*",
     "@console/permissions": "workspace:*",
+    "@console/tool-automation": "workspace:*",
     "@console/tool-flags": "workspace:*",
     "@console/tool-kyc": "workspace:*",
     "@console/tool-refunds": "workspace:*",

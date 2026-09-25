@@ -8,9 +8,62 @@ import {
 } from "@/components/linked-activity";
 import { Panel } from "@/components/panel";
 import { RecordView } from "@/components/record-view";
+import { RunActions, type RunOffer } from "@/components/run-actions";
+import { RunFiles } from "@/components/run-files";
 import { StatusChip } from "@console/ui/status-chip";
+import { previewActions } from "@console/engine/policy/preview";
+import type { Actor } from "@console/engine/types";
+import { automationTool, getRun } from "@console/tool-automation";
+import { currentPrUrl, readContextJson, readReplay } from "@console/tool-automation/bridge";
+import { bridgeDeps } from "@/lib/bridge";
 import { currentActor } from "@/lib/session";
 import { getTool } from "@/registry";
+
+/**
+ * A Devin run replaces the generic action bar: `approve_pr`'s checks and
+ * digest inputs are read from GitHub on the server, so the browser never
+ * gets a form for them. The offers below gate the buttons with the same
+ * policy preview the generic bar uses; the server re-evaluates on click.
+ */
+function runSurface(id: string, actor: Actor): { offer: RunOffer; files: React.ReactNode } | null {
+  const run = getRun(id);
+  if (!run) return null;
+  const deps = bridgeDeps();
+  const prUrl = currentPrUrl(run, deps);
+  const previews = previewActions(automationTool, run, actor, {
+    approve_pr: {
+      prUrl: prUrl ?? "https://github.com/owner/repo/pull/0",
+      checksGreen: true,
+      branchContextSha256: run.contextSha256,
+    },
+    stop: { reason: "preview" },
+  });
+  const gate = (action: string): { offered: boolean; reason?: string } => {
+    const p = previews.find((x) => x.action === action);
+    if (!p?.offered) return { offered: false, reason: p?.unavailableReason };
+    if (p.decision?.effect === "deny") return { offered: false, reason: p.decision.reason };
+    return { offered: true };
+  };
+  const approve = gate("approve_pr");
+  const inFlight = run.status === "running" || run.status === "approved";
+  return {
+    offer: {
+      runId: run.id,
+      poll: inFlight && run.sessionId !== null,
+      approve: prUrl ? approve : { offered: false, reason: approve.reason ?? "No pull request reported yet" },
+      merge: run.status === "approved" && gate("record_merge").offered,
+      stop: gate("stop"),
+    },
+    files: (
+      <RunFiles
+        run={run}
+        contextPresent={readContextJson(deps.repoRoot, run.id) !== null}
+        frames={readReplay(deps.repoRoot, run.id)}
+        prUrl={prUrl}
+      />
+    ),
+  };
+}
 
 export default async function RecordPage({
   params,
@@ -27,6 +80,7 @@ export default async function RecordPage({
 
   const activity = decl.linkedActivity?.(record, actor) ?? null;
   const linked = activity ? getTool(activity.tool) : undefined;
+  const run = decl.name === automationTool.name ? runSurface(id, actor) : null;
 
   const panel = (
     <Panel
@@ -46,7 +100,13 @@ export default async function RecordPage({
         </span>
       }
     >
-      <RecordView decl={decl} record={record} actor={actor} />
+      <RecordView
+        decl={decl}
+        record={record}
+        actor={actor}
+        actions={run ? <RunActions offer={run.offer} /> : undefined}
+        extra={run ? run.files : undefined}
+      />
     </Panel>
   );
 

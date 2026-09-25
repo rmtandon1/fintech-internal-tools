@@ -18,10 +18,16 @@ export function RecordView({
   decl,
   record,
   actor,
+  actions,
+  extra,
 }: {
   decl: ToolDeclaration;
   record: GovernedRecord;
   actor: Actor;
+  /** Replaces the generic action bar for tools whose inputs the server derives. */
+  actions?: React.ReactNode;
+  /** Extra panels rendered under the policy trace. */
+  extra?: React.ReactNode;
 }) {
   const masked = maskRecord(decl, record, actor);
   const previews = previewActions(decl, record, actor);
@@ -90,6 +96,7 @@ export function RecordView({
             </p>
           )}
         </Panel>
+        {extra}
       </div>
 
       <details
@@ -105,12 +112,14 @@ export function RecordView({
       </details>
 
       <div className="mt-auto flex shrink-0 items-center gap-2 border-t border-border px-3 py-2">
-        <ActionBar
-          key={`${decl.name}:${record.id}`}
-          tool={decl.name}
-          recordId={record.id}
-          previews={previews}
-        />
+        {actions ?? (
+          <ActionBar
+            key={`${decl.name}:${record.id}`}
+            tool={decl.name}
+            recordId={record.id}
+            previews={previews}
+          />
+        )}
       </div>
     </div>
   );
