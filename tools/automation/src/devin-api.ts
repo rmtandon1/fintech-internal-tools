@@ -22,13 +22,16 @@ export interface CreateSessionRequest {
   /** Filename and contents of the attachment handed to the session. */
   attachment: { name: string; body: string };
   structuredOutputSchema: Record<string, unknown>;
+  /** Run id for replay clients; `httpDevinClient` ignores it (tags carry it live). */
+  runId?: string;
   playbookId?: string;
   maxAcuLimit?: number;
 }
 
 export interface CreatedSession {
   sessionId: string;
-  url: string;
+  /** Null for replay sessions: there is no app.devin.ai page to open. */
+  url: string | null;
 }
 
 export interface SessionSnapshot {

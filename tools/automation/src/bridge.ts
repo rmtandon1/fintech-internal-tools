@@ -27,6 +27,11 @@ export interface BridgeDeps {
   github: GitHubClient | null;
   /** Repository root: `runs/<id>/` is written under it and git is read from it. */
   repoRoot: string;
+  /**
+   * Where polled frames are appended in live mode and read back first.
+   * Defaults to `<repoRoot>/apps/console/data/replays` (gitignored).
+   */
+  replaysDir?: string;
   playbookId?: string;
   maxAcuLimit?: number;
   now?: () => number;
@@ -54,16 +59,42 @@ export function runDir(repoRoot: string, runId: string): string {
   return join(repoRoot, "runs", runId);
 }
 
+/**
+ * `runs/<id>/context.json`, falling back to the data-dir copy a successful
+ * dispatch leaves for later REVERSALs to read.
+ */
 export function readContextJson(repoRoot: string, runId: string): string | null {
-  const path = join(runDir(repoRoot, runId), "context.json");
-  return existsSync(path) ? readFileSync(path, "utf8") : null;
+  const candidates = [
+    join(runDir(repoRoot, runId), "context.json"),
+    join(repoRoot, "apps", "console", "data", "runs", runId, "context.json"),
+  ];
+  for (const path of candidates) {
+    if (existsSync(path)) return readFileSync(path, "utf8");
+  }
+  return null;
 }
 
-export function readReplay(repoRoot: string, runId: string): ReplayFrame[] {
-  const path = join(runDir(repoRoot, runId), "replay.json");
-  if (!existsSync(path)) return [];
-  const parsed = ReplayFile.safeParse(JSON.parse(readFileSync(path, "utf8")));
-  return parsed.success ? parsed.data : [];
+export function replaysDir(deps: Pick<BridgeDeps, "repoRoot" | "replaysDir">): string {
+  return deps.replaysDir ?? join(deps.repoRoot, "apps", "console", "data", "replays");
+}
+
+/**
+ * The frames recorded for a run. A live recording in `data/replays/` wins;
+ * `runs/<id>/replay.json` is the fallback for committed recorded runs.
+ */
+export function readReplay(
+  repoRoot: string,
+  runId: string,
+  replayDir?: string,
+): ReplayFrame[] {
+  const dir = replayDir ?? join(repoRoot, "apps", "console", "data", "replays");
+  const candidates = [join(dir, `${runId}.json`), join(runDir(repoRoot, runId), "replay.json")];
+  for (const path of candidates) {
+    if (!existsSync(path)) continue;
+    const parsed = ReplayFile.safeParse(JSON.parse(readFileSync(path, "utf8")));
+    if (parsed.success) return parsed.data;
+  }
+  return [];
 }
 
 function key(runId: string, step: string): string {
@@ -152,6 +183,12 @@ export async function dispatchRun(
     return { runId, dispatch, session: null, sessionUrl: null };
   }
 
+  // Keep a copy outside `runs/` as well, so a REVERSAL can still read the
+  // context after the run dir only exists on the merged branch's checkout.
+  const dataDir = join(deps.repoRoot, "apps", "console", "data", "runs", runId);
+  mkdirSync(dataDir, { recursive: true });
+  writeFileSync(join(dataDir, "context.json"), built.json);
+
   let sessionInput: { sessionId: string } | { error: string };
   let sessionUrl: string | null = null;
   if (!deps.devin) {
@@ -168,6 +205,7 @@ export async function dispatchRun(
         tags: [`run:${runId}`, `kind:${req.kind}`],
         attachment: { name: "context.json", body: built.json },
         structuredOutputSchema: STRUCTURED_OUTPUT_JSON_SCHEMA,
+        runId,
         playbookId: deps.playbookId,
         maxAcuLimit: deps.maxAcuLimit,
       });
@@ -219,17 +257,17 @@ export async function pollRun(run: DevinRun, deps: BridgeDeps): Promise<PollOutc
     status: snapshot.status,
     status_detail: snapshot.statusDetail,
   };
-  const dir = runDir(deps.repoRoot, run.id);
+  const dir = replaysDir(deps);
   mkdirSync(dir, { recursive: true });
-  const frames = [...readReplay(deps.repoRoot, run.id), frame];
-  writeFileSync(join(dir, "replay.json"), JSON.stringify(frames, null, 2) + "\n");
+  const frames = [...readReplay(deps.repoRoot, run.id, deps.replaysDir), frame];
+  writeFileSync(join(dir, `${run.id}.json`), JSON.stringify(frames, null, 2) + "\n");
   return { kind: "frame", frame };
 }
 
 /** The PR a run is working on: the audited one once approved, else the last one the session reported. */
 export function currentPrUrl(run: DevinRun, deps: BridgeDeps): string | null {
   if (run.prUrl) return run.prUrl;
-  const frames = readReplay(deps.repoRoot, run.id);
+  const frames = readReplay(deps.repoRoot, run.id, deps.replaysDir);
   for (let i = frames.length - 1; i >= 0; i--) {
     const url = frames[i].structured_output.pr_url;
     if (url) return url;
