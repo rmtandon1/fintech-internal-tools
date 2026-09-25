@@ -84,6 +84,10 @@ Generated from `git diff -M --name-status`.
 | `src/components/app-sidebar.tsx` | `apps/console/src/components/app-sidebar.tsx` |
 | `src/components/approval-card.tsx` | `apps/console/src/components/approval-card.tsx` |
 | `src/components/audit-timeline.tsx` | `apps/console/src/components/audit-timeline.tsx` |
+| `src/components/command-palette.tsx` | `apps/console/src/components/command-palette.tsx` |
+| `src/components/panel.tsx` | `apps/console/src/components/panel.tsx` |
+| `src/components/record-table.tsx` | `apps/console/src/components/record-table.tsx` |
+| `src/components/record-view.tsx` | `apps/console/src/components/record-view.tsx` |
 | `src/components/constant-editor.tsx` | `apps/console/src/components/constant-editor.tsx` |
 | `src/components/icon.tsx` | `packages/ui/src/icon.tsx` |
 | `src/components/policy-trace.tsx` | `packages/ui/src/policy-trace.tsx` |
@@ -129,6 +133,7 @@ Generated from `git diff -M --name-status`.
 | `src/engine/types/index.ts` | `packages/engine/src/types.ts` |
 | `src/lib/format.ts` | `packages/ui/src/format.ts` |
 | `src/lib/modes.ts` | `apps/console/src/lib/modes.ts` |
+| `src/lib/work.ts` | `apps/console/src/lib/work.ts` |
 | `src/lib/roles.ts` | `packages/permissions/src/roles.ts` |
 | `src/lib/session.ts` | `apps/console/src/lib/session.ts` |
 | `src/lib/utils.ts` | `packages/ui/src/utils.ts` |

@@ -1,161 +1,106 @@
 import Link from "next/link";
 import { Icon } from "@console/ui/icon";
-import { Badge } from "@console/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@console/ui/card";
-import { countPendingFor } from "@console/engine/approvals";
-import { auditStats } from "@console/engine/audit/query";
-import { verifyChain } from "@console/engine/audit/verify";
-import { formatRelative } from "@console/ui/format";
-import { canApprove } from "@console/permissions";
-import { modesByGroup } from "@/lib/modes";
+import { Panel } from "@/components/panel";
+import { RecordTable } from "@/components/record-table";
+import { RecordView } from "@/components/record-view";
+import { StatusChip } from "@console/ui/status-chip";
 import { currentActor } from "@/lib/session";
-import { getTool } from "@/registry";
 import { cn } from "@console/ui/utils";
+import { workSummary } from "@/lib/work";
+import { toolsForRole } from "@/registry";
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const actor = await currentActor();
-  const stats = auditStats();
-  const chain = verifyChain();
-  const pending = countPendingFor(actor);
+  const query = await searchParams;
+  const now = Date.now();
+
+  const tools = toolsForRole(actor.role);
+  const summaries = tools.map((decl) => ({ decl, summary: workSummary(decl, now) }));
+
+  const selected =
+    typeof query.tool === "string"
+      ? summaries.find((s) => s.decl.name === query.tool)
+      : undefined;
+  const current = selected ?? summaries[0];
+  const rows = current ? current.summary.work.slice(0, 50) : [];
+  const top = rows[0] ?? null;
 
   return (
-    <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-xl font-semibold">Operations home</h1>
-        <p className="text-sm text-muted-foreground">
-          Acting as {actor.role}. Every action below runs through the same governed write
-          path: validate → idempotency → policy → approval → effect → audit.
-        </p>
-      </header>
+    <div className="grid h-full gap-3 lg:grid-cols-[360px_minmax(0,1fr)]">
+      <Panel title="Work" bodyClassName="overflow-auto">
+        <div>
+          {summaries.map(({ decl, summary }) => {
+            const active = decl.name === current?.decl.name;
+            return (
+              <Link
+                key={decl.name}
+                href={`/?tool=${decl.name}`}
+                className={cn(
+                  "flex h-8 items-center gap-2 px-3 text-xs",
+                  active
+                    ? "bg-accent text-accent-foreground"
+                    : "text-foreground hover:bg-accent/40",
+                )}
+              >
+                <Icon name={decl.icon} className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="truncate">{decl.displayName}</span>
+                {summary.attention > 0 ? (
+                  <span className="ml-auto inline-flex items-center gap-1 text-[11px] text-amber-400">
+                    <Icon name="Flag" className="size-3" />
+                    <span className="tabular-nums">{summary.attention}</span>{" "}
+                    {summary.attentionLabel}
+                  </span>
+                ) : null}
+                <span
+                  className={cn(
+                    "tabular-nums text-muted-foreground",
+                    summary.attention === 0 && "ml-auto",
+                  )}
+                >
+                  {summary.open}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+        {current ? (
+          <>
+            <div className="border-t border-border" />
+            <RecordTable decl={current.decl} rows={rows} actor={actor} now={now} />
+          </>
+        ) : null}
+      </Panel>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Stat
-          label="Approvals waiting"
-          value={String(pending)}
-          icon="Inbox"
-          href={canApprove(actor.role) ? "/inbox" : undefined}
-        />
-        <Stat
-          label="Audit events"
-          value={String(stats.total)}
-          icon="ScrollText"
-          hint={stats.lastTs ? `last ${formatRelative(stats.lastTs)}` : undefined}
-          href="/audit"
-        />
-        <Stat
-          label="Audit chain"
-          value={chain.ok ? "Intact" : "Broken"}
-          icon={chain.ok ? "ShieldCheck" : "ShieldX"}
-          tone={chain.ok ? "positive" : "negative"}
-          href={actor.role === "admin" ? "/audit/verify" : undefined}
-        />
-      </div>
-
-      {modesByGroup().map(({ group, modes }) => (
-        <section key={group} className="space-y-2">
-          <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            {group}
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {modes.map((mode) => {
-              const decl = getTool(mode.id);
-              const live = decl ? decl.visibleTo.includes(actor.role) : false;
-              const permitted = mode.roles.includes(actor.role);
-              const body = (
-                <Card className="h-full transition-colors hover:border-primary/50">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start gap-2.5">
-                      <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                        <Icon name={decl?.icon ?? mode.icon} className="size-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <CardTitle className="text-sm">
-                          {decl?.displayName ?? mode.name}
-                        </CardTitle>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          {decl?.description ?? mode.description}
-                        </p>
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className="ml-auto shrink-0 text-[10px] font-normal capitalize"
-                      >
-                        {mode.segment === "both" ? "All segments" : mode.segment}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="flex flex-wrap gap-1 pt-0">
-                    {(decl ? decl.actions.map((a) => a.name) : mode.actions)
-                      .slice(0, 4)
-                      .map((action) => (
-                        <span
-                          key={action}
-                          className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground"
-                        >
-                          {action}
-                        </span>
-                      ))}
-                    {!permitted ? (
-                      <span className="ml-auto text-[10px] text-muted-foreground">
-                        {mode.roles.join(", ")} only
-                      </span>
-                    ) : null}
-                  </CardContent>
-                </Card>
-              );
-
-              return (
-                <Link key={mode.id} href={live ? `/t/${mode.id}` : `/roadmap/${mode.id}`}>
-                  {body}
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      ))}
+      <Panel
+        title={
+          current && top ? (
+            <span className="flex items-center gap-2 normal-case tracking-normal">
+              <span className="font-mono text-foreground">{top.id}</span>
+              <span aria-hidden>·</span>
+              <StatusChip
+                value={String(top[current.decl.statusField])}
+                statuses={current.decl.statuses}
+              />
+              <span aria-hidden>·</span>
+              <span className="tabular-nums text-muted-foreground">
+                v{top.version}
+              </span>
+            </span>
+          ) : (
+            "Record"
+          )
+        }
+      >
+        {current && top ? (
+          <RecordView decl={current.decl} record={top} actor={actor} />
+        ) : (
+          <p className="p-3 text-xs text-muted-foreground">No open records.</p>
+        )}
+      </Panel>
     </div>
   );
-}
-
-function Stat({
-  label,
-  value,
-  icon,
-  hint,
-  href,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string;
-  icon: string;
-  hint?: string;
-  href?: string;
-  tone?: "neutral" | "positive" | "negative";
-}) {
-  const card = (
-    <Card className="h-full">
-      <CardContent className="flex items-center gap-3 py-4">
-        <div
-          className={cn(
-            "flex size-9 items-center justify-center rounded-md",
-            tone === "positive"
-              ? "bg-emerald-500/10 text-emerald-400"
-              : tone === "negative"
-                ? "bg-red-500/10 text-red-400"
-                : "bg-muted text-muted-foreground",
-          )}
-        >
-          <Icon name={icon} className="size-4" />
-        </div>
-        <div>
-          <div className="text-lg font-semibold leading-none">{value}</div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            {label}
-            {hint ? ` · ${hint}` : ""}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-  return href ? <Link href={href}>{card}</Link> : card;
 }

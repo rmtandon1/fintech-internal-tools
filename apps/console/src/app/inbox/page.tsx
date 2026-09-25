@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { ApprovalCard } from "@/components/approval-card";
+import { Panel } from "@/components/panel";
 import { canDecide, listApprovals } from "@console/engine/approvals";
 import { canApprove } from "@console/permissions";
 import { currentActor } from "@/lib/session";
@@ -12,21 +13,17 @@ export default async function InboxPage() {
   const decided = listApprovals().filter((a) => a.status !== "pending").slice(0, 20);
 
   return (
-    <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-lg font-semibold">Approvals</h1>
-        <p className="text-sm text-muted-foreground">
-          Each request carries the payload, policy trace and record version frozen at the
-          moment it was raised. Approving executes exactly that.
-        </p>
-      </header>
-
-      <section className="space-y-3">
-        <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Pending ({pending.length})
-        </h2>
+    <div className="grid h-full min-h-0 gap-3 lg:grid-cols-2">
+      <Panel
+        title={
+          <span>
+            Pending · <span className="tabular-nums">{pending.length}</span>
+          </span>
+        }
+        bodyClassName="space-y-3 p-3"
+      >
         {pending.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nothing waiting on you.</p>
+          <p className="text-xs text-muted-foreground">Nothing waiting on you.</p>
         ) : (
           pending.map((approval) => (
             <ApprovalCard
@@ -36,22 +33,28 @@ export default async function InboxPage() {
             />
           ))
         )}
-      </section>
+      </Panel>
 
-      {decided.length > 0 ? (
-        <section className="space-y-3">
-          <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Recently decided
-          </h2>
-          {decided.map((approval) => (
+      <Panel
+        title={
+          <span>
+            Recently decided · <span className="tabular-nums">{decided.length}</span>
+          </span>
+        }
+        bodyClassName="space-y-3 p-3"
+      >
+        {decided.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No decisions yet.</p>
+        ) : (
+          decided.map((approval) => (
             <ApprovalCard
               key={approval.id}
               approval={approval}
               gate={{ ok: false, reason: `${approval.status}` }}
             />
-          ))}
-        </section>
-      ) : null}
+          ))
+        )}
+      </Panel>
     </div>
   );
 }

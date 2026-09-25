@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Icon } from "@console/ui/icon";
-import { StatusChip } from "@console/ui/status-chip";
+import { Panel } from "@/components/panel";
+import { RecordCell, columnIsNumeric } from "@/components/record-table";
 import {
   Table,
   TableBody,
@@ -11,7 +12,6 @@ import {
   TableRow,
 } from "@console/ui/table";
 import { maskRecord } from "@console/engine/pii/mask";
-import { formatFieldValue } from "@console/ui/format";
 import { currentActor } from "@/lib/session";
 import { cn } from "@console/ui/utils";
 import { getTool } from "@/registry";
@@ -84,67 +84,62 @@ export default async function ToolQueuePage({
       page: "1",
     });
 
-  return (
-    <div className="space-y-4">
-      <header className="flex items-start gap-3">
-        <div className="mt-0.5 flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary">
-          <Icon name={decl.icon} className="size-4.5" />
-        </div>
-        <div>
-          <h1 className="text-lg font-semibold">{decl.displayName}</h1>
-          <p className="text-sm text-muted-foreground">{decl.description}</p>
-        </div>
-        <div className="ml-auto text-sm text-muted-foreground">
-          {total} {(total === 1 ? decl.recordType : `${decl.recordType}s`).replace(/_/g, " ")}
-        </div>
-      </header>
-
-      <form className="flex flex-wrap items-end gap-3 rounded-lg border border-border p-3">
-        {decl.filters.map((filter) => (
-          <label key={filter.field} className="space-y-1 text-[11px] text-muted-foreground">
-            <span className="block">{filter.label}</span>
-            {filter.type === "enum" ? (
-              <select
-                name={filter.field}
-                defaultValue={filters[filter.field] ?? "all"}
-                className="h-8 rounded-md border border-input bg-transparent px-2 text-xs text-foreground"
-              >
-                <option value="all">All</option>
-                {filter.options?.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                name={filter.field}
-                defaultValue={filters[filter.field] ?? ""}
-                className="h-8 rounded-md border border-input bg-transparent px-2 text-xs text-foreground"
-              />
-            )}
-          </label>
-        ))}
-        {sortField ? <input type="hidden" name="sort" value={sortField} /> : null}
-        {sortField ? <input type="hidden" name="dir" value={direction} /> : null}
-        <label className="space-y-1 text-[11px] text-muted-foreground">
-          <span className="block">Search</span>
+  const filterRow = (
+    <form className="flex items-center gap-2">
+      {decl.filters.map((filter) =>
+        filter.type === "enum" ? (
+          <select
+            key={filter.field}
+            name={filter.field}
+            defaultValue={filters[filter.field] ?? "all"}
+            title={filter.label}
+            className="h-6 rounded-md border border-input bg-transparent px-1.5 text-[11px] text-foreground"
+          >
+            <option value="all">{filter.label}</option>
+            {filter.options?.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        ) : (
           <input
-            name="q"
-            defaultValue={search ?? ""}
-            placeholder="id, name…"
-            className="h-8 rounded-md border border-input bg-transparent px-2 text-xs text-foreground"
+            key={filter.field}
+            name={filter.field}
+            defaultValue={filters[filter.field] ?? ""}
+            placeholder={filter.label}
+            className="h-6 w-24 rounded-md border border-input bg-transparent px-1.5 text-[11px] text-foreground"
           />
-        </label>
-        <button
-          type="submit"
-          className="h-8 rounded-md border border-input px-3 text-xs hover:bg-accent"
-        >
-          Apply
-        </button>
-      </form>
+        ),
+      )}
+      {sortField ? <input type="hidden" name="sort" value={sortField} /> : null}
+      {sortField ? <input type="hidden" name="dir" value={direction} /> : null}
+      <input
+        name="q"
+        defaultValue={search ?? ""}
+        placeholder="Search…"
+        className="h-6 w-28 rounded-md border border-input bg-transparent px-1.5 text-[11px] text-foreground"
+      />
+      <button
+        type="submit"
+        className="h-6 rounded-md border border-input px-2 text-[11px] hover:bg-accent"
+      >
+        Apply
+      </button>
+    </form>
+  );
 
-      <div className="overflow-hidden rounded-lg border border-border">
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <Panel
+        className="min-h-0 flex-1"
+        title={
+          <span>
+            {decl.displayName} · <span className="tabular-nums">{total}</span>
+          </span>
+        }
+        actions={filterRow}
+      >
         <Table>
           <TableHeader>
             <TableRow>
@@ -192,37 +187,26 @@ export default async function ToolQueuePage({
               const masked = maskRecord(decl, row, actor);
               return (
                 <TableRow key={row.id} className="hover:bg-accent/40">
-                  {decl.listColumns.map((column, index) => {
-                    const field = decl.fields.find((f) => f.name === column.field);
-                    const isStatus = column.field === decl.statusField;
-                    const content = isStatus ? (
-                      <StatusChip
-                        value={String(row[decl.statusField])}
-                        statuses={decl.statuses}
-                      />
-                    ) : field ? (
-                      formatFieldValue(field, masked.values)
-                    ) : (
-                      String(masked.values[column.field] ?? "—")
-                    );
-                    return (
-                      <TableCell
-                        key={column.field}
-                        className={column.align === "right" ? "text-right" : undefined}
-                      >
-                        {index === 0 ? (
-                          <Link
-                            href={`/t/${decl.name}/${row.id}`}
-                            className="font-medium text-foreground hover:underline"
-                          >
-                            {content}
-                          </Link>
-                        ) : (
-                          content
-                        )}
-                      </TableCell>
-                    );
-                  })}
+                  {decl.listColumns.map((column, index) => (
+                    <TableCell
+                      key={column.field}
+                      className={cn(
+                        columnIsNumeric(decl, column) && "text-right tabular-nums",
+                        index === 0 && "font-mono",
+                      )}
+                    >
+                      {index === 0 ? (
+                        <Link
+                          href={`/t/${decl.name}/${row.id}`}
+                          className="font-medium text-foreground hover:underline"
+                        >
+                          <RecordCell decl={decl} column={column} row={row} masked={masked} />
+                        </Link>
+                      ) : (
+                        <RecordCell decl={decl} column={column} row={row} masked={masked} />
+                      )}
+                    </TableCell>
+                  ))}
                 </TableRow>
               );
             })}
@@ -230,7 +214,7 @@ export default async function ToolQueuePage({
               <TableRow>
                 <TableCell
                   colSpan={decl.listColumns.length}
-                  className="py-10 text-center text-sm text-muted-foreground"
+                  className="py-10 text-center text-xs text-muted-foreground"
                 >
                   Nothing matches these filters.
                 </TableCell>
@@ -238,17 +222,17 @@ export default async function ToolQueuePage({
             ) : null}
           </TableBody>
         </Table>
-      </div>
+      </Panel>
 
       {pages > 1 ? (
-        <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
-          <span>
+        <div className="flex h-8 shrink-0 items-center justify-end gap-2 border-t border-border px-3 text-[11px] text-muted-foreground">
+          <span className="tabular-nums">
             Page {current} of {pages}
           </span>
           {current > 1 ? (
             <Link
               href={href({ page: String(current - 1) })}
-              className="rounded-md border border-input px-2 py-1 hover:bg-accent"
+              className="rounded-md border border-input px-2 py-0.5 hover:bg-accent"
             >
               Previous
             </Link>
@@ -256,7 +240,7 @@ export default async function ToolQueuePage({
           {current < pages ? (
             <Link
               href={href({ page: String(current + 1) })}
-              className="rounded-md border border-input px-2 py-1 hover:bg-accent"
+              className="rounded-md border border-input px-2 py-0.5 hover:bg-accent"
             >
               Next
             </Link>

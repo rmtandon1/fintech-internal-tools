@@ -192,6 +192,10 @@ export interface ToolDeclaration<TRecord extends GovernedRecord = GovernedRecord
   actions: ActionDecl<TRecord>[];
   list: (opts: ListOptions) => { rows: TRecord[]; total: number };
   get: (id: string) => TRecord | null;
+  /** Statuses that count as open work on the home Work panel. */
+  openStatuses?: string[];
+  /** Returns a short marker (e.g. "overdue") when a record needs attention, else null. */
+  attention?: (record: TRecord, now: number) => string | null;
   /** Default policy thresholds installed when the database is seeded. */
   constants?: ConstantDefinition[];
   /** Installs demo records. Must be safe to run twice. */
