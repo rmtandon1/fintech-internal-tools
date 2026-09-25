@@ -10,6 +10,18 @@ export const RUN_KINDS = [
 ] as const;
 export type RunKind = (typeof RUN_KINDS)[number];
 
+/** What each kind is called on screen. */
+export const RUN_KIND_LABELS: Record<RunKind, string> = {
+  "IMPLEMENTATION/ADDITION": "New rule",
+  "IMPLEMENTATION/CHANGE": "Rule change",
+  "IMPLEMENTATION/REMOVAL": "Rule removal",
+  REVERSAL: "Undo a change",
+};
+
+export function runKindLabel(kind: string): string {
+  return RUN_KIND_LABELS[kind as RunKind] ?? kind;
+}
+
 export const RUN_SCOPES = ["rule", "engine"] as const;
 export type RunScope = (typeof RUN_SCOPES)[number];
 
@@ -87,15 +99,15 @@ export const REFUND_CLUSTERING_HOLD: RunnableSpec = {
   ],
   intents: {
     "IMPLEMENTATION/ADDITION":
-      "Hold a merchant's not-received refunds once together they pass the manager line, and send those customers' KYC approvals to a manager.",
+      "Once a merchant's \"not received\" refunds add up past the manager limit, send them to a manager for approval. Send those customers' KYC approvals to a manager too.",
     REVERSAL:
-      "Reverse the clustering hold: remove the refund rule, the KYC link rule and the window constant, and keep everything merged since.",
+      "Undo the refund hold: remove the refund rule, the linked KYC rule and its time-window setting, and keep every change made since.",
   },
   outcomes: {
     "IMPLEMENTATION/ADDITION":
-      "Refunds for a merchant whose not-received claims together pass the manager line are held for a manager, and those customers' KYC approvals route to a manager.",
+      "A merchant's \"not received\" refunds go to a manager once together they pass the manager limit, and those customers' KYC approvals go to a manager too.",
     REVERSAL:
-      "The clustering hold rule, the KYC link rule and the window constant are removed; refunds and KYC approvals route as they did before the hold.",
+      "The refund hold and the linked KYC rule are removed. Refunds and KYC approvals work as they did before.",
   },
   constantKeys: [MANAGER_APPROVAL_USD_KEY, MANAGER_REVIEW_SCORE_KEY],
   evidence: { cluster: "merchant_not_received", tool: "refunds" },

@@ -9,13 +9,13 @@ import { getTool } from "@/registry";
 
 /** What every tool gets from the engine, so a pending mode would too. */
 const INHERITED = [
-  { name: "Role scoping", detail: "Only the roles listed above see it, enforced on the server." },
-  { name: "Policy trace", detail: "Every action shows the rules it passed or failed." },
-  { name: "Approvals and maker-checker", detail: "Large actions wait for a manager. Nobody approves their own." },
-  { name: "Live settings", detail: "Thresholds change on the policy page, no deploy." },
-  { name: "Idempotency", detail: "A retried request can't apply twice." },
-  { name: "PII masking", detail: "Personal data is masked. Every reveal is audited." },
-  { icon: "Link2", name: "Tamper-evident audit", detail: "Every action is a row in the hash chain." },
+  { name: "Access by role", detail: "Only the roles listed above can see it." },
+  { name: "Checks on every action", detail: "Every action shows which rules it passed or failed." },
+  { name: "Approvals", detail: "Large actions wait for a manager. Nobody approves their own." },
+  { name: "Live settings", detail: "Limits change on the rule settings page, with no release." },
+  { name: "No double actions", detail: "Clicking twice, or retrying, never does it twice." },
+  { name: "Personal data hidden", detail: "Personal data is masked. Every reveal is logged." },
+  { icon: "Link2", name: "Tamper-proof audit log", detail: "Every action is logged, and any edit to the log is detected." },
 ];
 
 // Fixed widths so the placeholder rows look like data without pretending to be any.
@@ -50,7 +50,7 @@ export default async function RoadmapPage({
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-semibold">{mode.name}</h1>
             <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-400">
-              Pending
+              Coming soon
             </span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">{mode.description}</p>
@@ -70,7 +70,7 @@ export default async function RoadmapPage({
       <div className="grid min-h-0 gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
         <Panel
           title="Queue"
-          actions={<span className="text-[11px] text-muted-foreground">Sample layout · no data yet</span>}
+          actions={<span className="text-[11px] text-muted-foreground">Sample layout, no data yet</span>}
         >
           <table className="w-full text-xs">
             <thead>
@@ -105,7 +105,7 @@ export default async function RoadmapPage({
           </div>
         </Panel>
 
-        <Panel title="Comes with, from the engine">
+        <Panel title="Included automatically">
           <ul className="flex flex-col">
             {INHERITED.map((item) => (
               <li key={item.name} className="flex gap-3 border-b border-border/50 px-3 py-2.5 last:border-0">

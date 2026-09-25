@@ -112,6 +112,7 @@ export function ClusterDrawer({
   limit,
   totalUsdMinor,
   statuses,
+  ruleLabels,
   rows,
   canRequestRule,
   dispatch,
@@ -122,6 +123,7 @@ export function ClusterDrawer({
   limit?: { usdMinor: number; label: string };
   totalUsdMinor: number;
   statuses: StatusDecl[];
+  ruleLabels?: Record<string, string>;
   rows: ClusterRow[];
   canRequestRule: boolean;
   /** Set when this actor may dispatch a Devin run for the cluster's spec. */
@@ -201,7 +203,7 @@ export function ClusterDrawer({
                           </>
                         )
                       ) : (
-                        "Checks run once required input is supplied"
+                        "Checks run once the details are filled in"
                       )}
                       {row.trace ? (
                         <Icon name="ChevronDown" className="size-3 transition-transform group-open:rotate-180" />
@@ -209,7 +211,7 @@ export function ClusterDrawer({
                     </summary>
                     {row.trace ? (
                       <div className="mt-2 rounded-md border border-border bg-card">
-                        <PolicyTraceList trace={row.trace} className="py-0.5" />
+                        <PolicyTraceList trace={row.trace} labels={ruleLabels} className="py-0.5" />
                       </div>
                     ) : null}
                   </details>

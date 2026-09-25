@@ -70,7 +70,7 @@ export function AppSidebar({
       ? [
           {
             href: "/runs",
-            label: "Runs",
+            label: "Rule changes",
             icon: "Bot",
             active: pathname.startsWith("/runs") || pathname.startsWith("/t/automation"),
           },
@@ -89,7 +89,7 @@ export function AppSidebar({
       : []),
     {
       href: "/audit",
-      label: "Audit",
+      label: "Audit log",
       icon: "ScrollText",
       active: pathname === "/audit",
     },
@@ -97,13 +97,13 @@ export function AppSidebar({
       ? [
           {
             href: "/audit/verify",
-            label: "Chain verify",
+            label: "Verify audit log",
             icon: "ShieldCheck",
             active: pathname === "/audit/verify",
           },
           {
             href: "/admin/policy",
-            label: "Policy constants",
+            label: "Rule settings",
             icon: "SlidersHorizontal",
             active: pathname === "/admin/policy",
           },
@@ -167,10 +167,7 @@ export function AppSidebar({
                 <Icon name="PanelLeft" className="size-4" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right" className="flex items-center gap-2">
-              Menu
-              <kbd className="font-mono text-[10px] opacity-70">[</kbd>
-            </TooltipContent>
+            <TooltipContent side="right">Menu</TooltipContent>
           </Tooltip>
 
           {items.map((item) => (

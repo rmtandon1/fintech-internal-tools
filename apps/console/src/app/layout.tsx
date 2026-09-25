@@ -62,9 +62,12 @@ export default async function RootLayout({
                 chainOk={chain.ok}
                 chainLength={chain.length}
                 agent={
+                  // Keyed: an element built here and rendered among the header's
+                  // children otherwise trips React's list-key warning in dev.
                   <AgentWindow
+                    key="devin-window"
                     mode={mode}
-                    source={mode === "simulation" ? "source: simulation (pre-written)" : "source: devin_runs"}
+                    source={mode === "simulation" ? "Preview" : "Connected"}
                   >
                     <DevinWindowBody actor={actor} mode={mode} />
                   </AgentWindow>

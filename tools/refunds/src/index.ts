@@ -54,7 +54,7 @@ const withinCapturedAmount: RefundRule = ({ record }) =>
     ? {
         type: "deny",
         rule: "within_captured_amount",
-        reason: `Refunding ${money(record.amountMinor, record.currency)} would exceed the ${money(record.capturedMinor - record.refundedMinor, record.currency)} still refundable`,
+        reason: `Refund is more than the ${money(record.capturedMinor - record.refundedMinor, record.currency)} left on the payment`,
       }
     : { type: "allow", rule: "within_captured_amount" };
 
@@ -64,7 +64,7 @@ const notDisputed: RefundRule = ({ record }) =>
     ? {
         type: "deny",
         rule: "not_disputed",
-        reason: "A chargeback is open on this payment; resolve the dispute first",
+        reason: "Customer has an open chargeback on this payment",
       }
     : { type: "allow", rule: "not_disputed" };
 
@@ -78,7 +78,7 @@ const amountApproval: RefundRule = ({ record, constants }) => {
       rule: "amount_approval",
       tier: "admin",
       allowedRoles: ["admin"],
-      reason: `${money(usd, "USD")} is at or above the ${money(adminUsd, "USD")} admin threshold`,
+      reason: "Amount exceeds admin threshold",
     };
   }
   if (usd >= managerUsd) {
@@ -87,7 +87,7 @@ const amountApproval: RefundRule = ({ record, constants }) => {
       rule: "amount_approval",
       tier: "manager",
       allowedRoles: rolesFor("refunds", "manager"),
-      reason: `${money(usd, "USD")} is at or above the ${money(managerUsd, "USD")} manager threshold`,
+      reason: "Amount exceeds manager threshold",
     };
   }
   return { type: "allow", rule: "amount_approval" };
@@ -102,7 +102,7 @@ const goodwillApproval: RefundRule = ({ record, constants }) => {
         rule: "goodwill_approval",
         tier: "manager",
         allowedRoles: rolesFor("refunds", "manager"),
-        reason: `Goodwill refunds over ${money(limit, "USD")} need a manager`,
+        reason: "Goodwill refund exceeds manager threshold",
       }
     : { type: "allow", rule: "goodwill_approval" };
 };
@@ -112,6 +112,7 @@ const allow =
   () => ({ type: "allow", rule });
 
 const SORTABLE = {
+  id: refunds.id,
   paymentId: refunds.paymentId,
   merchant: refunds.merchant,
   amountMinor: refunds.usdMinor,
@@ -128,7 +129,7 @@ function order(sort?: SortOption) {
 export const refundTool = defineTool<Refund>({
   name: "refunds",
   displayName: "Refunds",
-  description: "Refund requests against captured payments.",
+  description: "Refund requests to send to the payment processor, approve or reject.",
   icon: "Undo2",
   group: "Money Movement",
   recordType: "refund",
@@ -162,7 +163,7 @@ export const refundTool = defineTool<Refund>({
       label: "USD equivalent",
       type: "currency",
       currency: "USD",
-      help: "Frozen at request time; thresholds are evaluated against this.",
+      help: "Converted at the rate on the day of the request.",
     },
     { name: "currency", label: "Currency", type: "string" },
     {
@@ -178,10 +179,9 @@ export const refundTool = defineTool<Refund>({
     { name: "lastNote", label: "Last note", type: "text" },
   ],
   listColumns: [
-    { field: "paymentId", sortable: true },
+    { field: "id", label: "Refund", sortable: true },
     { field: "merchant", sortable: true },
     { field: "amountMinor", align: "right", sortable: true },
-    { field: "currency" },
     { field: "reasonCode" },
     { field: "status", sortable: true },
     { field: "requestedAt", sortable: true },
@@ -193,7 +193,7 @@ export const refundTool = defineTool<Refund>({
       type: "enum",
       options: [
         { value: "requested", label: "Requested" },
-        { value: "executing", label: "Executing" },
+        { value: "executing", label: "With processor" },
         { value: "settled", label: "Settled" },
         { value: "failed", label: "Failed" },
         { value: "rejected", label: "Rejected" },
@@ -216,19 +216,19 @@ export const refundTool = defineTool<Refund>({
   stats: [
     {
       key: "requested",
-      label: "Requested",
+      label: "Ready to send",
       roles: ["refunds_agent", "refunds_manager"],
       source: { kind: "records", filters: { status: "requested" } },
     },
     {
       key: "my_requests_awaiting",
-      label: "My requests awaiting approval",
+      label: "Waiting on approval",
       roles: ["refunds_agent"],
       source: { kind: "approvals", scope: "requested_by_me" },
     },
     {
       key: "awaiting_approval",
-      label: "Awaiting your approval",
+      label: "Need your approval",
       roles: ["refunds_manager", "admin"],
       source: { kind: "approvals", scope: "decidable" },
     },
@@ -241,14 +241,14 @@ export const refundTool = defineTool<Refund>({
     },
     {
       key: "denied_24h",
-      label: "Denied 24h",
+      label: "Blocked in the last day",
       roles: ["admin"],
       tone: "warning",
       source: { kind: "audit", event: "denied", sinceHours: 24 },
     },
     {
       key: "policy_changes_7d",
-      label: "Policy changes 7d",
+      label: "Setting changes this week",
       roles: ["admin"],
       source: { kind: "audit", event: "constant_changed", sinceHours: 24 * 7 },
     },
@@ -261,13 +261,13 @@ export const refundTool = defineTool<Refund>({
   ],
   statuses: [
     { value: "requested", label: "Requested", tone: "info" },
-    { value: "executing", label: "Executing", tone: "warning" },
+    { value: "executing", label: "With processor", tone: "warning" },
     { value: "settled", label: "Settled", tone: "positive" },
     { value: "failed", label: "Failed", tone: "negative" },
     { value: "rejected", label: "Rejected", tone: "neutral" },
   ],
   statusField: "status",
-  titleField: "paymentId",
+  titleField: "id",
   revealRoles: rolesFor("refunds", "manager"),
   openStatuses: ["requested", "executing"],
   attention: (r) => (r.status === "failed" ? "failed" : null),
@@ -276,21 +276,21 @@ export const refundTool = defineTool<Refund>({
       key: MANAGER_APPROVAL_USD_KEY,
       value: 50_000,
       type: "number",
-      description: "USD minor units at which a refund needs a manager",
+      description: "Refunds at or above this amount need a manager. In cents, USD.",
       tool: "refunds",
     },
     {
       key: ADMIN_APPROVAL_USD_KEY,
       value: 500_000,
       type: "number",
-      description: "USD minor units at which a refund needs an admin",
+      description: "Refunds at or above this amount need an admin. In cents, USD.",
       tool: "refunds",
     },
     {
       key: GOODWILL_APPROVAL_USD_KEY,
       value: 5_000,
       type: "number",
-      description: "USD minor units at which a goodwill refund needs a manager",
+      description: "Goodwill refunds at or above this amount need a manager. In cents, USD.",
       tool: "refunds",
     },
   ],
@@ -305,14 +305,14 @@ export const refundTool = defineTool<Refund>({
       tone: "primary",
       rules: [withinCapturedAmount, notDisputed, amountApproval, goodwillApproval],
       decide: ({ record, input }) => ({
-        summary: `Refund ${money(record?.amountMinor ?? 0, record?.currency ?? "USD")} on ${record?.paymentId ?? ""}`,
+        summary: `Send ${record?.id ?? ""} to processor: ${money(record?.amountMinor ?? 0, record?.currency ?? "USD")} to ${record?.merchant ?? ""}`,
         patch: { status: "executing", note: input.note ?? null },
       }),
       apply: (ctx, decision) => write(ctx, decision.patch),
     }),
     defineAction<Refund, z.ZodObject<{ reason: z.ZodString }>, Patch>({
       name: "reject",
-      label: "Reject request",
+      label: "Reject",
       description: "Decline the refund without paying it.",
       allowedRoles: rolesFor("refunds", "agent"),
       input: z.object({ reason: z.string().min(5).max(500) }),
@@ -320,7 +320,7 @@ export const refundTool = defineTool<Refund>({
       tone: "destructive",
       rules: [allow("reject_always_permitted")],
       decide: ({ record, input }) => ({
-        summary: `Reject refund on ${record?.paymentId ?? ""}: ${input.reason}`,
+        summary: `Reject ${record?.id ?? ""}: ${input.reason}`,
         patch: { status: "rejected", note: input.reason },
       }),
       apply: (ctx, decision) => write(ctx, decision.patch),
@@ -334,7 +334,7 @@ export const refundTool = defineTool<Refund>({
       fromStatus: ["executing"],
       rules: [allow("settlement_is_a_record_keeping_step")],
       decide: ({ record, input }) => ({
-        summary: `Settle refund on ${record?.paymentId ?? ""} (${input.reference})`,
+        summary: `Mark ${record?.id ?? ""} settled (processor reference ${input.reference})`,
         patch: { status: "settled", note: `Processor reference ${input.reference}` },
       }),
       apply: (ctx, decision) => write(ctx, decision.patch),
@@ -348,12 +348,21 @@ export const refundTool = defineTool<Refund>({
       fromStatus: ["executing"],
       rules: [allow("failure_is_a_record_keeping_step")],
       decide: ({ record, input }) => ({
-        summary: `Refund on ${record?.paymentId ?? ""} failed at the processor: ${input.reason}`,
+        summary: `${record?.id ?? ""} failed at the processor: ${input.reason}`,
         patch: { status: "failed", note: input.reason },
       }),
       apply: (ctx, decision) => write(ctx, decision.patch),
     }),
   ],
+  ruleLabels: {
+    within_captured_amount: "Within the amount paid",
+    not_disputed: "No open chargeback",
+    amount_approval: "Approval limit",
+    goodwill_approval: "Goodwill limit",
+    reject_always_permitted: "Rejecting is always allowed",
+    settlement_is_a_record_keeping_step: "Record-keeping step",
+    failure_is_a_record_keeping_step: "Record-keeping step",
+  },
   clusters: [
     {
       id: "merchant_not_received",
@@ -370,6 +379,7 @@ export const refundTool = defineTool<Refund>({
     if (search) {
       clauses.push(
         or(
+          like(refunds.id, `%${search}%`),
           like(refunds.paymentId, `%${search}%`),
           like(refunds.merchant, `%${search}%`),
           inArray(refunds.id, search.split(",").map((s) => s.trim())),
@@ -425,5 +435,5 @@ function getRefund(id: string): Refund | null {
 }
 
 function money(minor: number, currency: string): string {
-  return `${(minor / 100).toFixed(2)} ${currency}`;
+  return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(minor / 100);
 }

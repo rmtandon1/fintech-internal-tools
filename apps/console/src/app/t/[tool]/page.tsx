@@ -13,12 +13,14 @@ import {
   TableRow,
 } from "@console/ui/table";
 import { maskRecord } from "@console/engine/pii/mask";
+import { formatMinorUnits } from "@console/ui/format";
 import { previewActions } from "@console/engine/policy/preview";
 import type { Actor, ClusterDecl, ClusterGroup, ToolDeclaration } from "@console/engine/types";
 import { ClusterDrawer, type ClusterRow } from "@/components/cluster-drawer";
+import { PatternMonitor } from "@/components/pattern-monitor";
 import type { DispatchOffer } from "@/components/dispatch-control";
 import { ReconcileRuns } from "@/components/reconcile-runs";
-import { getSpec, kindsStartableBy } from "@console/tool-automation";
+import { getSpec, kindsStartableBy, runKindLabel } from "@console/tool-automation";
 import { devinMode } from "@/lib/devin-status";
 import { currentActor } from "@/lib/session";
 import { simulationsFor } from "@/lib/simulation";
@@ -112,7 +114,7 @@ export default async function ToolQueuePage({
             name={filter.field}
             defaultValue={filters[filter.field] ?? "all"}
             title={filter.label}
-            className="h-6 rounded-md border border-input bg-transparent px-1.5 text-[11px] text-foreground"
+            className="h-8 rounded-md border border-input bg-transparent px-2 text-sm text-foreground"
           >
             <option value="all">{filter.label}</option>
             {filter.options?.map((option) => (
@@ -127,7 +129,7 @@ export default async function ToolQueuePage({
             name={filter.field}
             defaultValue={filters[filter.field] ?? ""}
             placeholder={filter.label}
-            className="h-6 w-24 rounded-md border border-input bg-transparent px-1.5 text-[11px] text-foreground"
+            className="h-8 w-32 rounded-md border border-input bg-transparent px-2 text-sm text-foreground"
           />
         ),
       )}
@@ -136,14 +138,14 @@ export default async function ToolQueuePage({
       <input
         name="q"
         defaultValue={search ?? ""}
-        placeholder="Search…"
-        className="h-6 w-28 rounded-md border border-input bg-transparent px-1.5 text-[11px] text-foreground"
+        placeholder="Search"
+        className="h-8 w-44 rounded-md border border-input bg-transparent px-2 text-sm text-foreground"
       />
       <button
         type="submit"
-        className="h-6 rounded-md border border-input px-2 text-[11px] hover:bg-accent"
+        className="h-8 rounded-md border border-input px-2 text-sm hover:bg-accent"
       >
-        Apply
+        Filter
       </button>
     </form>
   );
@@ -165,32 +167,6 @@ export default async function ToolQueuePage({
         }
         bodyClassName="flex flex-col"
       >
-        {clusters.flatMap(({ cluster, groups }) =>
-          groups.map((group) => (
-            <Link
-              key={`${cluster.id}:${group.key}`}
-              href={href({ inspect: `${cluster.id}:${group.key}` })}
-              data-testid="cluster-alert"
-              className="group m-3 mb-0 flex items-center gap-3 rounded-md border border-amber-500/40 bg-amber-500/[0.07] p-3 transition-colors hover:border-amber-500/70 hover:bg-amber-500/[0.12]"
-            >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-400">
-                <Icon name="TriangleAlert" className="size-4" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium text-foreground">
-                  {group.headline ?? chipLabel(group)}
-                </span>
-                {group.detail ? (
-                  <span className="mt-0.5 block text-xs text-muted-foreground">{group.detail}</span>
-                ) : null}
-              </span>
-              <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-amber-400 px-3 text-xs font-medium text-black group-hover:bg-amber-300">
-                Take a look
-                <Icon name="ArrowRight" className="size-3.5" />
-              </span>
-            </Link>
-          )),
-        )}
         <StatStrip decl={decl} actor={actor} />
         <Table>
           <TableHeader>
@@ -268,13 +244,29 @@ export default async function ToolQueuePage({
                   colSpan={decl.listColumns.length}
                   className="py-10 text-center text-xs text-muted-foreground"
                 >
-                  Nothing matches these filters.
+                  Nothing matches. Try clearing the filters.
                 </TableCell>
               </TableRow>
             ) : null}
           </TableBody>
         </Table>
       </Panel>
+
+      {clusters.length > 0 ? (
+        <PatternMonitor
+          toolName={decl.displayName}
+          scanned={first.total}
+          looksFor={clusters.map(({ cluster }) => cluster.label)}
+          findings={clusters.flatMap(({ cluster, groups }) =>
+            groups.map((group) => ({
+              key: `${cluster.id}:${group.key}`,
+              headline: group.headline ?? chipLabel(group),
+              detail: group.detail,
+              href: href({ inspect: `${cluster.id}:${group.key}` }),
+            })),
+          )}
+        />
+      ) : null}
 
       {open ? (
         <ClusterDrawer
@@ -284,9 +276,10 @@ export default async function ToolQueuePage({
           limit={open.group.limit}
           totalUsdMinor={open.group.totalUsdMinor}
           statuses={decl.statuses}
+          ruleLabels={decl.ruleLabels}
           rows={clusterRows(decl, open.cluster, open.group, actor)}
           canRequestRule={decl.revealRoles.includes(actor.role)}
-          dispatch={dispatchOffer(open.cluster, open.group, actor)}
+          dispatch={dispatchOffer(decl, open.cluster, open.group, actor)}
         />
       ) : null}
 
@@ -319,6 +312,7 @@ export default async function ToolQueuePage({
 
 /** The run this actor may ask for from the open group, or null when the cluster has no spec or the role may start nothing. */
 function dispatchOffer(
+  decl: ToolDeclaration,
   cluster: ClusterDecl,
   group: ClusterGroup,
   actor: Actor,
@@ -328,12 +322,19 @@ function dispatchOffer(
   // Reversals start from the merged run on /runs, not from evidence.
   const kinds = kindsStartableBy(actor.role, spec)
     .filter((kind) => kind !== "REVERSAL")
-    .map((kind) => ({ kind, intent: spec.intents[kind] ?? "" }));
+    .map((kind) => ({ kind, label: runKindLabel(kind), intent: spec.intents[kind] ?? "" }));
   if (kinds.length === 0) return null;
   return {
     spec: spec.file,
     clusterKey: group.key,
     evidenceIds: group.recordIds,
+    context: group.headline ?? chipLabel(group),
+    evidence: group.recordIds.flatMap((id) => {
+      const record = decl.get(id);
+      if (!record) return [];
+      const usd = typeof record.usdMinor === "number" ? record.usdMinor : null;
+      return [{ id, detail: usd !== null ? formatMinorUnits(usd, "USD") : "" }];
+    }),
     kinds,
     simulations:
       devinMode() === "simulation" ? simulationsFor(spec.file, kinds.map((k) => k.kind)) : null,

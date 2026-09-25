@@ -10,7 +10,7 @@ export interface WorkSummary {
 }
 
 /**
- * Home Work panel counts, computed in JS over the tool's default ordering.
+ * Home tile counts, computed in JS over the tool's default ordering.
  * Demo volumes are small enough that one unfiltered list is fine.
  */
 export function workSummary(

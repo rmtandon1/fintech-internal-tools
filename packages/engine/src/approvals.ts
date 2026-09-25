@@ -2,6 +2,7 @@ import { and, desc, eq, ne } from "drizzle-orm";
 import { db } from "@console/db";
 import { approvalRequests } from "@console/db-core/engine-schema";
 import { transact } from "@console/db-write";
+import { roleLabel } from "@console/permissions";
 import { resolveTool } from "./registry";
 import { appendAudit } from "./audit/append";
 import { applyEffect } from "./execute-intent";
@@ -83,16 +84,16 @@ export function canDecide(
   actor: Actor,
 ): { ok: true } | { ok: false; reason: string } {
   if (approval.status !== "pending") {
-    return { ok: false, reason: `Request is already ${approval.status}` };
+    return { ok: false, reason: `Already ${approval.status}` };
   }
   if (!approval.allowedRoles.includes(actor.role)) {
     return {
       ok: false,
-      reason: `Requires ${approval.allowedRoles.join(" or ")} — you are ${actor.role}`,
+      reason: `Needs approval from ${approval.allowedRoles.map(roleLabel).join(" or ")}`,
     };
   }
   if (approval.requesterId === actor.id) {
-    return { ok: false, reason: "You raised this request; someone else must approve it" };
+    return { ok: false, reason: "You made this request, so someone else has to approve it" };
   }
   return { ok: true };
 }

@@ -36,7 +36,7 @@ export function runChecklist(out: Output | null): ChecklistLine[] {
     lines.push({
       field: "base_commit",
       state: phaseState("intake"),
-      label: "Inspecting architecture",
+      label: "Read the codebase",
       detail: `base ${out.base_commit.slice(0, 7)}`,
     });
   }
@@ -47,7 +47,7 @@ export function runChecklist(out: Output | null): ChecklistLine[] {
     lines.push({
       field: "verify_steps",
       state: baselineFailed ? "failed" : phaseState("baseline"),
-      label: baselineFailed ? "Baseline failing" : "Baseline green",
+      label: baselineFailed ? "Existing tests fail" : "Existing tests pass",
       detail: `${tests.before} tests`,
     });
   }
@@ -56,7 +56,7 @@ export function runChecklist(out: Output | null): ChecklistLine[] {
     lines.push({
       field: "reuses",
       state: phaseState("plan"),
-      label: `Reusing ${reuse.module}`,
+      label: `Reused ${reuse.module}`,
       detail: reuse.reason,
     });
   }
@@ -65,7 +65,7 @@ export function runChecklist(out: Output | null): ChecklistLine[] {
     lines.push({
       field: "conflicts",
       state: phaseState("edit"),
-      label: `Resolving conflict in ${conflict.file}`,
+      label: `Resolved a clash in ${conflict.file}`,
       detail: `kept ${conflict.kept}`,
     });
   }
@@ -87,7 +87,7 @@ export function runChecklist(out: Output | null): ChecklistLine[] {
     lines.push({
       field: "guards",
       state: failed.length > 0 ? "failed" : pending ? "running" : "done",
-      label: failed.length > 0 ? `Guard failed: ${failed.map((g) => g.name).join(", ")}` : "Running guards",
+      label: failed.length > 0 ? `Safety check failed: ${failed.map((g) => g.name).join(", ")}` : "Safety checks",
       detail: out.guards.map((g) => g.name).join(" · "),
     });
   }
@@ -106,7 +106,7 @@ export function runChecklist(out: Output | null): ChecklistLine[] {
     lines.push({
       field: "pr_url",
       state: out.phase === "pull_request" && out.phase_status === "waiting_for_user" ? "running" : "done",
-      label: "Pull request open",
+      label: "Sent for review",
       detail: out.pr_url.replace(/^https:\/\/github\.com\//, ""),
     });
   }
@@ -115,7 +115,7 @@ export function runChecklist(out: Output | null): ChecklistLine[] {
     lines.push({
       field: "merge_commit",
       state: "done",
-      label: "Merged",
+      label: "Live",
       detail: out.merge_commit.slice(0, 7),
     });
   }
@@ -125,4 +125,26 @@ export function runChecklist(out: Output | null): ChecklistLine[] {
   }
 
   return lines;
+}
+
+const PHASE_LABELS: Record<Phase, string> = {
+  intake: "Reading the request",
+  baseline: "Running the existing tests",
+  plan: "Planning the change",
+  edit: "Making the change",
+  verify: "Testing the change",
+  pull_request: "Ready for review",
+  merge: "Going live",
+};
+
+const PHASE_STATUS_LABELS: Record<Output["phase_status"], string> = {
+  running: "in progress",
+  done: "done",
+  stopped: "stopped",
+  waiting_for_user: "waiting for an engineer",
+};
+
+/** Where the session says it is, in words: `Testing the change · in progress`. */
+export function phaseLine(out: Output | null): string | null {
+  return out ? `${PHASE_LABELS[out.phase]} · ${PHASE_STATUS_LABELS[out.phase_status]}` : null;
 }

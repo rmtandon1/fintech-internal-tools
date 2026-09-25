@@ -15,14 +15,14 @@ export default async function PolicyConstantsPage() {
       className="h-full"
       title={
         <span>
-          Policy constants · <span className="tabular-nums">{constants.length}</span>
+          Rule settings · <span className="tabular-nums">{constants.length}</span>
         </span>
       }
       bodyClassName="space-y-2 p-3"
     >
       {constants.length === 0 ? (
         <p className="py-10 text-center text-xs text-muted-foreground">
-          No constants registered yet — they arrive with the tools that use them.
+          No settings yet. Each tool adds its own.
         </p>
       ) : (
         constants.map((constant) => (

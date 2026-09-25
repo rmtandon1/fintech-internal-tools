@@ -33,6 +33,8 @@ export function RecordView({
   const previews = previewActions(decl, record, actor);
   const trail = auditTrailFor(decl.recordType, record.id);
 
+  // The checks for the first action this person can take, so they can see
+  // what would happen before they click.
   const traced = previews.find((p) => p.offered && p.decision);
 
   return (
@@ -72,30 +74,19 @@ export function RecordView({
           ))}
         </div>
 
-        <Panel
-          title={
-            traced ? (
-              <span className="flex items-center gap-2">
-                Policy trace{" "}
-                <span className="font-mono normal-case tracking-normal text-foreground">
-                  · {traced.label}
-                </span>
+        {traced?.decision ? (
+          <Panel
+            title={
+              <span className="normal-case tracking-normal">
+                If you {traced.label.toLowerCase()} now
               </span>
-            ) : (
-              "Policy trace"
-            )
-          }
-          className="mx-3 mb-3"
-          bodyClassName="py-0.5"
-        >
-          {traced?.decision ? (
-            <PolicyTraceList trace={traced.decision.trace} />
-          ) : (
-            <p className="px-3 py-2 text-xs text-muted-foreground">
-              Policy runs once required input is supplied.
-            </p>
-          )}
-        </Panel>
+            }
+            className="mx-3 mb-3"
+            bodyClassName="py-0.5"
+          >
+            <PolicyTraceList trace={traced.decision.trace} labels={decl.ruleLabels} />
+          </Panel>
+        ) : null}
         {extra}
       </div>
 
@@ -104,20 +95,23 @@ export function RecordView({
         className="shrink-0 border-t border-border"
       >
         <summary className="flex h-8 cursor-pointer items-center gap-2 border-b border-border px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-          Activity · <span className="tabular-nums">{trail.length}</span>
+          History · <span className="tabular-nums">{trail.length}</span>
         </summary>
         <div className="max-h-40 overflow-auto py-0.5">
           <AuditTimeline events={trail} compact />
         </div>
       </details>
 
-      <div className="mt-auto flex shrink-0 items-center gap-2 border-t border-border px-3 py-2">
+      <div className="mt-auto flex shrink-0 items-center gap-2 border-t border-border px-3 py-3">
         {actions ?? (
           <ActionBar
             key={`${decl.name}:${record.id}`}
             tool={decl.name}
             recordId={record.id}
+            recordLabel={String(record[decl.titleField] ?? record.id)}
             previews={previews}
+            statuses={decl.statuses}
+            ruleLabels={decl.ruleLabels}
           />
         )}
       </div>

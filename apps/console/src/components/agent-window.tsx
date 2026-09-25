@@ -17,7 +17,7 @@ import { cn } from "@console/ui/utils";
 export function AgentWindow({
   children,
   mode = "live",
-  source = "source: none",
+  source = "",
 }: {
   children?: React.ReactNode;
   mode?: DevinMode;
@@ -41,20 +41,20 @@ export function AgentWindow({
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-pressed={open}
-        title={mode === "simulation" ? "Toggle Devin window (]) · simulation mode" : "Toggle Devin window (])"}
+        title={mode === "simulation" ? "Devin (preview: not connected)" : "Devin"}
         className={cn(
-          "flex h-7 items-center gap-1.5 rounded-md border border-input px-2 text-[11px]",
+          "flex h-8 items-center gap-1.5 rounded-md border border-input px-3 text-sm",
           open ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground",
         )}
       >
-        <Icon name="Bot" className="size-3.5" />
+        <Icon name="Bot" className="size-4" />
         Devin
         {mode === "simulation" ? (
           <span
-            className="rounded-sm bg-amber-500/15 px-1 font-mono text-[9px] tracking-wider text-amber-300"
+            className="rounded-sm bg-amber-500/15 px-1.5 text-[10px] font-medium text-amber-300"
             data-testid="devin-simulation-chip"
           >
-            SIM
+            Preview
           </span>
         ) : null}
       </button>
@@ -69,7 +69,7 @@ export function AgentWindow({
             {children ?? (
               <div className="flex h-full flex-col items-center justify-center gap-1 px-4 py-8 text-center">
                 <Icon name="Bot" className="size-5 text-muted-foreground" />
-                <div className="text-xs text-muted-foreground">No runs yet</div>
+                <div className="text-sm text-muted-foreground">Nothing yet</div>
               </div>
             )}
           </Panel>

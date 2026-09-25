@@ -16,8 +16,8 @@ export default async function AppsPage() {
       title={`Apps · ${modes.length}`}
       actions={
         <span className="text-[11px] text-muted-foreground">
-          <span className="text-emerald-400 tabular-nums">{live}</span> live ·{" "}
-          <span className="tabular-nums">{modes.length - live}</span> pending
+          <span className="text-emerald-400 tabular-nums">{live}</span> in use ·{" "}
+          <span className="tabular-nums">{modes.length - live}</span> coming soon
         </span>
       }
       className="h-full"
@@ -77,7 +77,7 @@ function AppTile({ mode }: { mode: ModeEntry }) {
                   : "border-border text-muted-foreground",
               )}
             >
-              {mode.live ? "Live" : "Pending"}
+              {mode.live ? "In use" : "Coming soon"}
             </span>
           </div>
           <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{mode.description}</p>

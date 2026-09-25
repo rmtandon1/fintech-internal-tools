@@ -12,7 +12,7 @@ import { RunActions, type RunOffer } from "@/components/run-actions";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { RunFiles } from "@/components/run-files";
 import { RunSummary } from "@/components/run-summary";
-import { runChecklist } from "@/lib/run-checklist";
+import { phaseLine, runChecklist } from "@/lib/run-checklist";
 import { StatusChip } from "@console/ui/status-chip";
 import { previewActions } from "@console/engine/policy/preview";
 import type { Actor } from "@console/engine/types";
@@ -76,7 +76,7 @@ async function runSurface(
         <RunSummary
           run={run}
           checklist={runChecklist(output)}
-          phaseLine={output ? `${output.phase} · ${output.phase_status}` : null}
+          phaseLine={phaseLine(output)}
         />
         <RunFiles
           run={run}
@@ -111,16 +111,13 @@ export default async function RecordPage({
       className="min-h-0 flex-1"
       title={
         <span className="flex items-center gap-2 normal-case tracking-normal">
-          <span className="font-mono text-foreground">{record.id}</span>
-          <span aria-hidden>·</span>
+          <span className="text-sm font-semibold text-foreground">
+            {String(record[decl.titleField] ?? record.id)}
+          </span>
           <StatusChip
             value={String(record[decl.statusField])}
             statuses={decl.statuses}
           />
-          <span aria-hidden>·</span>
-          <span className="tabular-nums text-muted-foreground">
-            v{record.version}
-          </span>
         </span>
       }
     >
@@ -136,17 +133,17 @@ export default async function RecordPage({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Link href={`/t/${decl.name}`} className="hover:text-foreground">
           {decl.displayName}
         </Link>
         <Icon name="ChevronRight" className="size-3" />
-        <span className="font-mono">{record.id}</span>
+        <span>{String(record[decl.titleField] ?? record.id)}</span>
       </div>
 
       {activity ? (
         <ContextDrawer
-          title="Linked activity (same customer)"
+          title={`${activity.title} from this customer`}
           summary={<LinkedActivitySummaryLine activity={activity} />}
           content={
             <LinkedActivityBody activity={activity} linked={linked} actor={actor} />

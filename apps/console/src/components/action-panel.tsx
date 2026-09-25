@@ -1,82 +1,158 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { toast } from "sonner";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { ulid } from "ulid";
 import { submitIntent, type SubmitResult } from "@/app/actions";
-import { ActionOutcome } from "@/components/action-outcome";
+import { ActionResult } from "@/components/action-result";
 import { Button } from "@console/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@console/ui/dialog";
 import { Input } from "@console/ui/input";
 import { Label } from "@console/ui/label";
 import { Textarea } from "@console/ui/textarea";
 import type { ActionPreview } from "@console/engine/policy/preview";
-import { titleCase } from "@console/ui/format";
+import type { StatusDecl } from "@console/engine/types";
+import { humanize } from "@console/ui/format";
 
-interface Submission {
+interface Note {
   action: string;
-  idempotencyKey: string;
-  result: SubmitResult;
+  tone: "approval" | "deny";
+  text: string;
 }
 
+/** The last completed submission per action, so the same payload sent again replays it. */
+type Completed = Record<string, { key: string; payload: string }>;
+
+/**
+ * The actions this person can take on the record right now. Actions their
+ * role or the record's status rules out are left off entirely; one that needs
+ * approval or is blocked says so in a line under the buttons.
+ *
+ * The dialog lives here rather than on each button: a successful action
+ * usually changes the record's status, which removes its own button, and the
+ * result must stay on screen until it is closed.
+ */
 export function ActionBar({
   tool,
   recordId,
+  recordLabel,
   previews,
+  statuses,
+  ruleLabels,
 }: {
   tool: string;
   recordId: string | null;
+  /** How the record is named in dialog titles, e.g. its id. */
+  recordLabel?: string;
   previews: ActionPreview[];
+  statuses: StatusDecl[];
+  ruleLabels?: Record<string, string>;
 }) {
-  // The last outcome stays docked here until the next action or navigation.
-  const [last, setLast] = useState<Submission | null>(null);
+  // The preview is copied when the dialog opens, so a refresh that drops the
+  // action from `previews` leaves the open dialog untouched.
+  const [active, setActive] = useState<{ preview: ActionPreview; autoSubmit: boolean } | null>(
+    null,
+  );
+  const completed = useRef<Completed>({});
+  const offered = previews.filter((p) => p.offered);
 
-  if (previews.length === 0) {
-    return (
-      <p className="px-3 py-2 text-xs text-muted-foreground">
-        No actions are declared for this tool.
-      </p>
-    );
-  }
+  const notes = offered.flatMap((preview): Note[] => {
+    const decision = preview.decision;
+    if (decision?.effect === "require_approval") {
+      return [
+        {
+          action: preview.action,
+          tone: "approval",
+          text: `${preview.label} needs ${decision.tier ?? "manager"} approval: ${decision.reason ?? ""}`,
+        },
+      ];
+    }
+    if (decision?.effect === "deny") {
+      return [
+        {
+          action: preview.action,
+          tone: "deny",
+          text: `${preview.label} is blocked: ${decision.reason ?? ""}`,
+        },
+      ];
+    }
+    return [];
+  });
+
   return (
     <div className="flex w-full flex-col gap-2">
-      {last && last.result.outcome.status !== "error" ? (
-        <ActionOutcome
-          result={last.result}
+      {offered.length === 0 ? (
+        <p className="py-1 text-sm text-muted-foreground">Nothing to do here right now.</p>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          {offered.map((preview) => {
+            const { label, variant, disabled, title } = buttonFor(preview);
+            return (
+              <Button
+                key={preview.action}
+                variant={variant}
+                disabled={disabled}
+                title={title}
+                onClick={() =>
+                  setActive({ preview, autoSubmit: preview.inputFields.length === 0 })
+                }
+              >
+                {label}
+              </Button>
+            );
+          })}
+        </div>
+      )}
+      {notes.length > 0 ? (
+        <ul className="space-y-0.5 text-[13px]">
+          {notes.map((note) => (
+            <li
+              key={note.action}
+              className={note.tone === "approval" ? "text-amber-400" : "text-red-400"}
+            >
+              {note.text}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {active ? (
+        <ActionDialog
+          key={active.preview.action}
           tool={tool}
-          action={last.action}
           recordId={recordId}
-          idempotencyKey={last.idempotencyKey}
+          recordLabel={recordLabel ?? recordId}
+          preview={active.preview}
+          autoSubmit={active.autoSubmit}
+          statuses={statuses}
+          ruleLabels={ruleLabels}
+          completed={completed.current}
+          onClose={() => setActive(null)}
         />
       ) : null}
-      <div className="flex flex-wrap items-center gap-2">
-        {previews.map((preview) => (
-          <ActionButton
-            key={preview.action}
-            tool={tool}
-            recordId={recordId}
-            preview={preview}
-            onSubmitted={setLast}
-          />
-        ))}
-      </div>
     </div>
   );
 }
 
-function approvalTier(preview: ActionPreview): string {
-  const outcome = preview.decision?.trace.find(
-    (o) => o.type === "require_approval",
-  );
-  return outcome && outcome.type === "require_approval"
-    ? outcome.tier
-    : "approval";
+function buttonFor(preview: ActionPreview) {
+  const denied = preview.decision?.effect === "deny";
+  const needsApproval = preview.decision?.effect === "require_approval";
+  const tier = preview.decision?.tier ?? "manager";
+  return {
+    label: needsApproval ? `Send to ${tier}` : preview.label,
+    variant:
+      preview.tone === "destructive"
+        ? ("destructive" as const)
+        : needsApproval
+          ? ("secondary" as const)
+          : ("default" as const),
+    disabled: denied,
+    title: needsApproval ? `${preview.label} needs ${tier} approval` : undefined,
+  };
 }
 
 /** The submitted input fields, in a stable order, as the engine will hash them. */
@@ -88,138 +164,113 @@ function payloadOf(form: FormData): string {
   return JSON.stringify(entries);
 }
 
-function ActionButton({
+function ActionDialog({
   tool,
   recordId,
+  recordLabel,
   preview,
-  onSubmitted,
+  autoSubmit,
+  statuses,
+  ruleLabels,
+  completed,
+  onClose,
 }: {
   tool: string;
   recordId: string | null;
+  recordLabel: string | null;
   preview: ActionPreview;
-  onSubmitted: (submission: Submission) => void;
+  /** Actions with no inputs are sent as soon as the button is clicked. */
+  autoSubmit: boolean;
+  statuses: StatusDecl[];
+  ruleLabels?: Record<string, string>;
+  completed: Completed;
+  onClose: () => void;
 }) {
   const [pending, startTransition] = useTransition();
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [stage, setStage] = useState<"form" | "result">(autoSubmit ? "result" : "form");
+  const [result, setResult] = useState<SubmitResult | null>(null);
   const [idempotencyKey, setIdempotencyKey] = useState(() => ulid());
-  // The last completed submission, so the same payload sent again replays it
-  // while a changed payload goes out under a fresh key.
-  const [completed, setCompleted] = useState<{ key: string; payload: string } | null>(null);
+  const [submittedKey, setSubmittedKey] = useState(idempotencyKey);
+  const sent = useRef(false);
 
-  const denied = preview.decision?.effect === "deny";
+  const { label: buttonLabel, variant, disabled } = buttonFor(preview);
   const needsApproval = preview.decision?.effect === "require_approval";
-  const disabled = !preview.offered || denied || pending;
-  const title = !preview.offered
-    ? preview.unavailableReason
-    : denied
-      ? preview.decision?.reason
-      : undefined;
+  const tier = preview.decision?.tier ?? "manager";
+  const title = recordLabel ? `${preview.label}: ${recordLabel}` : preview.label;
 
-  const label = needsApproval
-    ? `${preview.label} → ${approvalTier(preview)}`
-    : preview.label;
-  const variant =
-    preview.tone === "destructive"
-      ? ("destructive" as const)
-      : needsApproval
-        ? ("secondary" as const)
-        : ("default" as const);
-
-  function onSubmit(form: FormData) {
+  function submit(form: FormData) {
+    form.set("tool", tool);
+    form.set("action", preview.action);
+    if (recordId) form.set("recordId", recordId);
+    const payload = payloadOf(form);
+    const prior = completed[preview.action];
+    const key = prior?.payload === payload ? prior.key : idempotencyKey;
+    form.set("idempotencyKey", key);
+    setSubmittedKey(key);
+    setResult(null);
+    setStage("result");
     startTransition(async () => {
-      const payload = payloadOf(form);
-      const key = completed?.payload === payload ? completed.key : idempotencyKey;
-      form.set("idempotencyKey", key);
-      const result = await submitIntent(form);
-      const outcome = result.outcome;
-      onSubmitted({ action: preview.action, idempotencyKey: key, result });
-      // Only a completed submission closes the dialog; on a denial the
-      // entered values stay put so the operator can fix and retry.
-      if (outcome.status === "applied" || outcome.status === "pending_approval") {
-        setDialogOpen(false);
-        setCompleted({ key, payload });
+      const next = await submitIntent(form);
+      setResult(next);
+      const status = next.outcome.status;
+      if (status === "applied" || status === "pending_approval") {
+        completed[preview.action] = { key, payload };
       }
       setIdempotencyKey(ulid());
-      if (outcome.status === "error") {
-        toast.error(titleCase(outcome.code), { description: outcome.message });
-      }
     });
   }
 
-  const hiddenFields = (
-    <>
-      <input type="hidden" name="tool" value={tool} />
-      <input type="hidden" name="action" value={preview.action} />
-      {recordId ? <input type="hidden" name="recordId" value={recordId} /> : null}
-      <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
-    </>
-  );
+  useEffect(() => {
+    if (!autoSubmit || sent.current) return;
+    sent.current = true;
+    submit(new FormData());
+    // Sent once, when the dialog opens for an action with no inputs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  if (preview.inputFields.length === 0) {
-    return (
-      <form action={onSubmit}>
-        {hiddenFields}
-        <Button
-          type="submit"
-          size="sm"
-          variant={variant}
-          disabled={disabled}
-          title={title}
-          className="h-7 text-xs"
-        >
-          {label}
-        </Button>
-      </form>
-    );
-  }
+  // A denial or error keeps the entered values so they can be fixed and sent again.
+  const canRetry =
+    !autoSubmit &&
+    result !== null &&
+    (result.outcome.status === "denied" || result.outcome.status === "error");
 
   return (
-    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-      <DialogTrigger asChild>
-        <Button
-          size="sm"
-          variant={variant}
-          disabled={disabled}
-          title={title}
-          className="h-7 text-xs"
-        >
-          {label}
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-sm">
+    <Dialog open onOpenChange={(open) => (!open && !pending ? onClose() : undefined)}>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-sm">{preview.label}</DialogTitle>
+          <DialogTitle className="text-base">{title}</DialogTitle>
+          {stage === "form" && preview.description ? (
+            <DialogDescription>{preview.description}</DialogDescription>
+          ) : null}
         </DialogHeader>
-        <form action={onSubmit} className="space-y-3">
-          {hiddenFields}
+        <form action={submit} className={stage === "form" ? "space-y-4" : "hidden"}>
           {preview.inputFields.map((field) => (
             // `input:<type><?>:<name>`: the marker tells the server a blank
             // value means "not supplied" rather than an empty value.
-            <div key={field.name} className="space-y-1">
-              <Label
-                htmlFor={`${preview.action}-${field.name}`}
-                className="text-[11px] text-muted-foreground"
-              >
-                {titleCase(field.name)}
-                {field.optional ? " (optional)" : ""}
+            <div key={field.name} className="space-y-1.5">
+              <Label htmlFor={`${preview.action}-${field.name}`} className="text-sm">
+                {humanize(field.name)}
+                {field.optional ? (
+                  <span className="font-normal text-muted-foreground"> (optional)</span>
+                ) : null}
               </Label>
-              {field.type === "string" && field.name.includes("reason") ? (
+              {field.type === "string" &&
+              (field.name.includes("reason") || field.name === "note") ? (
                 <Textarea
                   id={`${preview.action}-${field.name}`}
                   name={`input:string${field.optional ? "?" : ""}:${field.name}`}
-                  rows={2}
-                  className="text-xs"
+                  rows={3}
                 />
               ) : field.type === "enum" ? (
                 <select
                   id={`${preview.action}-${field.name}`}
                   name={`input:string${field.optional ? "?" : ""}:${field.name}`}
-                  className="h-7 w-full rounded-md border border-input bg-transparent px-2 text-xs"
+                  className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm"
                 >
                   {field.optional ? <option value="">—</option> : null}
                   {field.options?.map((option) => (
                     <option key={option} value={option}>
-                      {titleCase(option)}
+                      {humanize(option)}
                     </option>
                   ))}
                 </select>
@@ -227,7 +278,7 @@ function ActionButton({
                 <select
                   id={`${preview.action}-${field.name}`}
                   name={`input:boolean${field.optional ? "?" : ""}:${field.name}`}
-                  className="h-7 w-full rounded-md border border-input bg-transparent px-2 text-xs"
+                  className="h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm"
                 >
                   {field.optional ? <option value="">—</option> : null}
                   <option value="true">Yes</option>
@@ -238,21 +289,47 @@ function ActionButton({
                   id={`${preview.action}-${field.name}`}
                   name={`input:${field.type === "number" ? "number" : "string"}${field.optional ? "?" : ""}:${field.name}`}
                   type={field.type === "number" ? "number" : "text"}
-                  className="h-7 text-xs"
                 />
               )}
             </div>
           ))}
-          <Button
-            type="submit"
-            size="sm"
-            variant={variant}
-            disabled={disabled}
-            className="h-7 text-xs"
-          >
-            {label}
-          </Button>
+          {needsApproval ? (
+            <p className="text-sm text-amber-400">
+              This goes to a{tier === "admin" ? "n" : ""} {tier} for approval:{" "}
+              {preview.decision?.reason}.
+            </p>
+          ) : null}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" variant={variant} disabled={disabled || pending}>
+              {buttonLabel}
+            </Button>
+          </div>
         </form>
+        {stage === "result" ? (
+          <>
+            <ActionResult
+              result={result}
+              actionLabel={preview.label}
+              recordId={recordId}
+              idempotencyKey={submittedKey}
+              statuses={statuses}
+              ruleLabels={ruleLabels}
+            />
+            <div className="flex justify-end gap-2">
+              {canRetry ? (
+                <Button variant="ghost" onClick={() => setStage("form")}>
+                  Back
+                </Button>
+              ) : null}
+              <Button variant="outline" disabled={pending} onClick={onClose}>
+                Close
+              </Button>
+            </div>
+          </>
+        ) : null}
       </DialogContent>
     </Dialog>
   );

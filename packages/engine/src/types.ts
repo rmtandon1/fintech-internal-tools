@@ -33,6 +33,8 @@ export interface FieldDecl {
   /** Number of trailing characters left visible when masked. */
   revealTail?: number;
   enumValues?: readonly string[];
+  /** Display label per enum value; unlisted values are shown humanised. */
+  enumLabels?: Readonly<Record<string, string>>;
   /** For `currency` fields: the field holding the ISO currency code. */
   currencyField?: string;
   /** For `currency` fields always denominated in one currency. */
@@ -236,7 +238,7 @@ export interface ToolDeclaration<TRecord extends GovernedRecord = GovernedRecord
   actions: ActionDecl<TRecord>[];
   list: (opts: ListOptions) => { rows: TRecord[]; total: number };
   get: (id: string) => TRecord | null;
-  /** Statuses that count as open work on the home Work panel. */
+  /** Statuses that count as open work on the home page. */
   openStatuses?: string[];
   /** Returns a short marker (e.g. "overdue") when a record needs attention, else null. */
   attention?: (record: TRecord, now: number) => string | null;
@@ -251,6 +253,11 @@ export interface ToolDeclaration<TRecord extends GovernedRecord = GovernedRecord
   seed?: () => void;
   /** Named groupings an operator can open from the queue and act on. */
   clusters?: ClusterDecl[];
+  /**
+   * Plain-language name for each rule id, shown to operators in place of the
+   * id. Read at render time, so audit rows written earlier get the label too.
+   */
+  ruleLabels?: Record<string, string>;
 }
 
 /** One group within a cluster: an aggregate over records, carrying no PII. */

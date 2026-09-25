@@ -5,15 +5,11 @@ import type { SimulatedRun } from "@/lib/simulation";
 export function SimulationBanner({ children }: { children?: React.ReactNode }) {
   return (
     <div
-      className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-300"
+      className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200"
       data-testid="simulation-banner"
     >
-      <span className="font-semibold uppercase tracking-wider">Simulation</span>
-      <span className="text-amber-200/80">
-        {" "}
-        · DEVIN_API_KEY is not set. These lines are pre-written: this is what a finished run would
-        report. No Devin session is created and nothing is written.
-      </span>
+      <span className="font-semibold">Preview.</span> Devin isn&apos;t connected here, so this
+      shows what a finished request looks like. Nothing is sent or changed.
       {children}
     </div>
   );
@@ -22,19 +18,30 @@ export function SimulationBanner({ children }: { children?: React.ReactNode }) {
 /** A finished run, as the run view would show it, from a pre-written script. */
 export function SimulatedRunView({ run }: { run: SimulatedRun }) {
   return (
-    <div className="space-y-3 text-xs" data-testid="simulated-run">
+    <div className="space-y-4 text-sm" data-testid="simulated-run">
       <div>
-        <div className="text-[11px] text-muted-foreground">
-          <span className="font-mono">{run.kind}</span> · {run.spec}
-        </div>
+        <div className="text-xs font-medium text-muted-foreground">{run.kindLabel}</div>
         <p className="mt-1 whitespace-pre-wrap break-words">{run.intent}</p>
       </div>
-      <ol className="list-decimal space-y-1 pl-4 text-muted-foreground marker:text-muted-foreground/60">
-        {run.sentences.map((sentence) => (
-          <li key={sentence}>{sentence}</li>
-        ))}
-      </ol>
-      <ChecklistList lines={run.checklist} className="border-t border-border pt-2" />
+      <div>
+        <div className="mb-2 text-xs font-medium text-muted-foreground">What Devin did</div>
+        <ol className="space-y-2">
+          {run.sentences.map((sentence, index) => (
+            <li key={sentence} className="flex gap-3">
+              <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-[11px] font-semibold text-emerald-400">
+                {index + 1}
+              </span>
+              <span className="leading-relaxed">{sentence}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+      <details className="rounded-md border border-border">
+        <summary className="cursor-pointer px-3 py-2 text-xs text-muted-foreground hover:text-foreground">
+          Technical details for the reviewing engineer
+        </summary>
+        <ChecklistList lines={run.checklist} className="border-t border-border px-3 py-2 text-xs" />
+      </details>
     </div>
   );
 }

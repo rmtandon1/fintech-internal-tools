@@ -51,13 +51,13 @@ const DispatchForm = z
     // A reversal names the merged run; the bridge reuses that run's cluster.
     // Every other kind is dispatched from a cluster with evidence in hand.
     if (form.kind === "REVERSAL") {
-      if (!form.reverses) ctx.addIssue({ code: "custom", message: "A reversal names the run it reverses" });
+      if (!form.reverses) ctx.addIssue({ code: "custom", message: "Name the change to undo" });
       if (form.intent !== getSpec(form.spec)?.intents.REVERSAL) {
-        ctx.addIssue({ code: "custom", message: "A reversal uses the spec's reversal intent" });
+        ctx.addIssue({ code: "custom", message: "An undo uses the fixed wording for this rule" });
       }
     } else {
-      if (!form.clusterKey) ctx.addIssue({ code: "custom", message: "Dispatch from a cluster" });
-      if (form.evidenceIds.length === 0) ctx.addIssue({ code: "custom", message: "Select evidence rows" });
+      if (!form.clusterKey) ctx.addIssue({ code: "custom", message: "Ask from a pattern in the queue" });
+      if (form.evidenceIds.length === 0) ctx.addIssue({ code: "custom", message: "Include at least one example" });
     }
   });
 
@@ -72,15 +72,15 @@ export async function dispatchAutomationRun(form: FormData): Promise<BridgeResul
     reverses: form.get("reverses") || null,
   });
   if (!parsed.success) {
-    return { ok: false, title: "Invalid dispatch", detail: parsed.error.issues[0]?.message };
+    return { ok: false, title: "Request not sent", detail: parsed.error.issues[0]?.message };
   }
   // Simulation mode shows a pre-written run in the dialog; a run that never
   // happened must not reach devin_runs or the audit chain.
   if (devinMode() === "simulation") {
     return {
       ok: false,
-      title: "Simulation mode",
-      detail: "DEVIN_API_KEY is not set, so nothing was dispatched or recorded",
+      title: "Preview only",
+      detail: "Devin isn't connected, so nothing was sent or recorded",
     };
   }
   const actor = await currentActor();
@@ -88,23 +88,23 @@ export async function dispatchAutomationRun(form: FormData): Promise<BridgeResul
     const outcome = await dispatchRun(actor, parsed.data, bridgeDeps());
     revalidatePath("/", "layout");
     if (!outcome.session) {
-      return { ok: false, title: "Dispatch denied", detail: describeIntent(outcome.dispatch) };
+      return { ok: false, title: "Request not allowed", detail: describeIntent(outcome.dispatch) };
     }
     const href = `/t/automation/${outcome.runId}`;
     const run = getRun(outcome.runId);
     if (run?.status === "dispatch_failed") {
-      return { ok: false, title: "Devin session not created", detail: run.lastNote ?? undefined, href };
+      return { ok: false, title: "Devin couldn't start", detail: run.lastNote ?? undefined, href };
     }
-    return { ok: true, title: "Run dispatched", detail: describeIntent(outcome.session), href };
+    return { ok: true, title: "Sent to Devin", detail: describeIntent(outcome.session), href };
   } catch (error) {
-    return { ok: false, title: "Dispatch failed", detail: message(error) };
+    return { ok: false, title: "Request failed", detail: message(error) };
   }
 }
 
 export async function pollAutomationRun(runId: string): Promise<BridgeResult> {
   const actor = await currentActor();
   const run = getRun(runId);
-  if (!run) return { ok: false, title: "Run not found" };
+  if (!run) return { ok: false, title: "Rule change not found" };
   try {
     const { poll: outcome, record } = await observeRun(actor, run, bridgeDeps());
     revalidatePath(`/t/automation/${runId}`);
@@ -113,7 +113,7 @@ export async function pollAutomationRun(runId: string): Promise<BridgeResult> {
       case "output":
         return {
           ok: true,
-          title: `Session ${outcome.status}`,
+          title: `Devin: ${outcome.status.replace(/_/g, " ")}`,
           detail: [
             `${outcome.structuredOutput.phase} · ${outcome.structuredOutput.phase_status}`,
             record ? describeIntent(record) : null,
@@ -122,21 +122,21 @@ export async function pollAutomationRun(runId: string): Promise<BridgeResult> {
             .join(" · "),
         };
       case "no_output":
-        return { ok: true, title: `Session ${outcome.status}`, detail: outcome.statusDetail ?? "No structured output yet" };
+        return { ok: true, title: `Devin: ${outcome.status.replace(/_/g, " ")}`, detail: outcome.statusDetail ?? "No progress reported yet" };
       case "invalid_output":
-        return { ok: false, title: "Structured output rejected", detail: outcome.issues };
+        return { ok: false, title: "Devin's progress report couldn't be read", detail: outcome.issues };
       case "unavailable":
-        return { ok: false, title: "Cannot poll", detail: outcome.reason };
+        return { ok: false, title: "Can't check status", detail: outcome.reason };
     }
   } catch (error) {
-    return { ok: false, title: "Poll failed", detail: message(error) };
+    return { ok: false, title: "Status check failed", detail: message(error) };
   }
 }
 
 export async function approveAutomationRun(runId: string, note: string): Promise<BridgeResult> {
   const actor = await currentActor();
   const run = getRun(runId);
-  if (!run) return { ok: false, title: "Run not found" };
+  if (!run) return { ok: false, title: "Rule change not found" };
   try {
     const outcome = await approveRun(actor, run, note || undefined, bridgeDeps());
     revalidatePath("/", "layout");
@@ -144,14 +144,14 @@ export async function approveAutomationRun(runId: string, note: string): Promise
     if (status !== "applied") {
       return {
         ok: false,
-        title: status === "denied" ? "Approval denied" : "Approval failed",
+        title: status === "denied" ? "Approval not allowed" : "Approval failed",
         detail: `${describeIntent(outcome.approve)} (${outcome.checks})`,
       };
     }
     if (outcome.reviewError) {
-      return { ok: false, title: "Approved, but GitHub review failed", detail: outcome.reviewError };
+      return { ok: false, title: "Approved here, but the GitHub review didn't post", detail: outcome.reviewError };
     }
-    return { ok: true, title: "PR approved", detail: outcome.checks };
+    return { ok: true, title: "Change approved", detail: outcome.checks };
   } catch (error) {
     return { ok: false, title: "Approval failed", detail: message(error) };
   }
@@ -160,7 +160,7 @@ export async function approveAutomationRun(runId: string, note: string): Promise
 export async function observeAutomationMerge(runId: string): Promise<BridgeResult> {
   const actor = await currentActor();
   const run = getRun(runId);
-  if (!run) return { ok: false, title: "Run not found" };
+  if (!run) return { ok: false, title: "Rule change not found" };
   try {
     const outcome = await observeMerge(actor, run, bridgeDeps());
     revalidatePath("/", "layout");
@@ -179,18 +179,18 @@ export async function observeAutomationMerge(runId: string): Promise<BridgeResul
         }
         return {
           ok: recorded,
-          title: recorded ? "Merge recorded" : "Merge seen, not recorded",
+          title: recorded ? "Now live" : "Merged on GitHub, not yet recorded here",
           detail,
           reload: sync?.kind === "synced",
         };
       }
       case "open":
-        return { ok: true, title: "Not merged yet", detail: outcome.prUrl, retry: true };
+        return { ok: true, title: "Not live yet", detail: outcome.prUrl, retry: true };
       case "unavailable":
-        return { ok: false, title: "Cannot check merge", detail: outcome.reason };
+        return { ok: false, title: "Can't check", detail: outcome.reason };
     }
   } catch (error) {
-    return { ok: false, title: "Merge check failed", detail: message(error) };
+    return { ok: false, title: "Check failed", detail: message(error) };
   }
 }
 
@@ -198,10 +198,10 @@ export async function observeAutomationMerge(runId: string): Promise<BridgeResul
 export async function syncAutomationRun(runId: string): Promise<BridgeResult> {
   const actor = await currentActor();
   if (actor.role !== "engineer") {
-    return { ok: false, title: "Sync denied", detail: "Only the engineer may pull merged code" };
+    return { ok: false, title: "Not allowed", detail: "Only an engineer can update the local code" };
   }
   const run = getRun(runId);
-  if (!run) return { ok: false, title: "Run not found" };
+  if (!run) return { ok: false, title: "Rule change not found" };
   try {
     const sync = await syncMergedRun(run, bridgeDeps());
     revalidatePath("/", "layout");
@@ -212,12 +212,12 @@ export async function syncAutomationRun(runId: string): Promise<BridgeResult> {
     }
     return {
       ok,
-      title: ok ? "Local checkout synced" : "Pull did not run",
+      title: ok ? "Local code updated" : "Local code not updated",
       detail,
       reload: sync.kind === "synced",
     };
   } catch (error) {
-    return { ok: false, title: "Pull failed", detail: message(error) };
+    return { ok: false, title: "Update failed", detail: message(error) };
   }
 }
 
@@ -225,11 +225,11 @@ export async function syncAutomationRun(runId: string): Promise<BridgeResult> {
 export async function reconcileAutomationRuns(): Promise<BridgeResult> {
   const actor = await currentActor();
   if (actor.role !== "engineer") {
-    return { ok: false, title: "Reconcile denied", detail: "Only the engineer may reconcile runs" };
+    return { ok: false, title: "Not allowed", detail: "Only an engineer can sync with GitHub" };
   }
   const deps = bridgeDeps();
   if (!deps.github) {
-    return { ok: false, title: "Cannot reconcile", detail: "GitHub API is not configured" };
+    return { ok: false, title: "Can't sync", detail: "GitHub isn't connected" };
   }
   try {
     const outcome = await reconcileRuns(actor, deps);
@@ -244,26 +244,26 @@ export async function reconcileAutomationRuns(): Promise<BridgeResult> {
     }
     return {
       ok: true,
-      title: `Reconciled ${outcome.checked} approved run(s)`,
+      title: `Synced ${outcome.checked} approved change${outcome.checked === 1 ? "" : "s"}`,
       detail,
       reload: sync?.kind === "synced",
     };
   } catch (error) {
-    return { ok: false, title: "Reconcile failed", detail: message(error) };
+    return { ok: false, title: "Sync failed", detail: message(error) };
   }
 }
 
 export async function stopAutomationRun(runId: string, reason: string): Promise<BridgeResult> {
   const actor = await currentActor();
   const run = getRun(runId);
-  if (!run) return { ok: false, title: "Run not found" };
+  if (!run) return { ok: false, title: "Rule change not found" };
   try {
     const outcome = await stopRun(actor, run, reason, bridgeDeps());
     revalidatePath("/", "layout");
     const ok = outcome.stop.outcome.status === "applied";
     return {
       ok,
-      title: ok ? "Run stopped" : "Stop denied",
+      title: ok ? "Devin stopped" : "Can't stop",
       detail: outcome.terminateError
         ? `Session terminate failed: ${outcome.terminateError}`
         : describeIntent(outcome.stop),

@@ -20,7 +20,7 @@ Nothing in the console connects those facts, and no rule catches them.
 
 The sentence the requester sends, prefilled from the cluster drawer and editable:
 
-> Hold a merchant's not-received refunds once together they pass the manager line, and send those customers' KYC approvals to a manager.
+> Once a merchant's "not received" refunds add up past the manager limit, send them to a manager for approval. Send those customers' KYC approvals to a manager too.
 
 It is deliberately short. It doesn't mention the window, rejected refunds, frozen-FX amounts or where the rule sits in the trace. The scope and acceptance tests below cover those, and Devin has to find them. That gap is what the viewer should notice (`AGENT_TRIGGER_SURFACE.md` § One sentence, not a chat panel).
 
@@ -151,7 +151,7 @@ A regional courier failure produces genuine `not_received` refunds at Fernhill H
 
 ### Intent
 
-> Reverse the clustering hold: remove the refund rule, the KYC link rule and the window constant, and keep everything merged since.
+> Undo the refund hold: remove the refund rule, the linked KYC rule and its time-window setting, and keep every change made since.
 
 ### What the reversal has to work through
 

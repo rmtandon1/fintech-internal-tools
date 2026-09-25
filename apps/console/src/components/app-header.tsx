@@ -40,7 +40,7 @@ export function AppHeader({
         className="mx-auto hidden h-7 w-72 items-center gap-2 rounded-md border border-input bg-transparent px-2 text-xs text-muted-foreground md:flex"
       >
         <Icon name="Search" className="size-3.5" />
-        <span>Search modes…</span>
+        <span>Search apps</span>
         <kbd className="ml-auto font-mono text-[10px] text-muted-foreground">
           ⌘K
         </kbd>
@@ -57,17 +57,17 @@ export function AppHeader({
           )}
           title={
             chainOk
-              ? `Audit chain intact across ${chainLength} events`
-              : "Audit chain verification failed"
+              ? `All ${chainLength} audit log entries verified: none edited or removed`
+              : "The audit log failed verification: an entry was edited or removed"
           }
         >
           <Icon name={chainOk ? "ShieldCheck" : "ShieldX"} className="size-3" />
           {chainOk ? (
             <>
-              Chain OK · <span className="tabular-nums">{chainLength}</span>
+              Audit log verified
             </>
           ) : (
-            "Chain broken"
+            "Audit log tampered"
           )}
         </div>
 

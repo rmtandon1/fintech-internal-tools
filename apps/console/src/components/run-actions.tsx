@@ -74,7 +74,7 @@ export function RunActions({ offer }: { offer: RunOffer }) {
           disabled={pending}
           onClick={() => run(() => pollAutomationRun(offer.runId))}
         >
-          Poll session
+          Refresh status
         </Button>
       ) : null}
 
@@ -93,7 +93,7 @@ export function RunActions({ offer }: { offer: RunOffer }) {
           </DialogTrigger>
           <DialogContent className="sm:max-w-sm">
             <DialogHeader>
-              <DialogTitle className="text-sm">Review and approve the run&apos;s pull request</DialogTitle>
+              <DialogTitle className="text-base">Approve this change</DialogTitle>
             </DialogHeader>
             <form
               action={(form) =>
@@ -105,9 +105,9 @@ export function RunActions({ offer }: { offer: RunOffer }) {
               className="space-y-3"
             >
               <p className="text-xs text-muted-foreground">
-                The server reads the head&apos;s checks and the branch&apos;s{" "}
-                <span className="font-mono">context.json</span> digest from GitHub. The review is
-                submitted only once the approval is recorded here.
+                Before approving, the console checks on GitHub that every test passed and that
+                Devin worked from the evidence it was sent. Your approval is then recorded here
+                and posted to the pull request.
               </p>
               <div className="space-y-1">
                 <Label htmlFor="approve-note" className="text-[11px] text-muted-foreground">
@@ -131,7 +131,7 @@ export function RunActions({ offer }: { offer: RunOffer }) {
           disabled={pending}
           onClick={() => run(checkMerge)}
         >
-          Check merge
+          Check if live
         </Button>
       ) : null}
 
@@ -143,7 +143,7 @@ export function RunActions({ offer }: { offer: RunOffer }) {
           disabled={pending}
           onClick={() => run(() => syncAutomationRun(offer.runId))}
         >
-          Pull merged code
+          Update local code
         </Button>
       ) : null}
 
@@ -162,7 +162,7 @@ export function RunActions({ offer }: { offer: RunOffer }) {
         </DialogTrigger>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-sm">Stop the run</DialogTitle>
+            <DialogTitle className="text-base">Stop Devin</DialogTitle>
           </DialogHeader>
           <form
             action={(form) =>
@@ -180,7 +180,7 @@ export function RunActions({ offer }: { offer: RunOffer }) {
               <Textarea id="stop-reason" name="reason" rows={2} required className="text-xs" />
             </div>
             <Button type="submit" size="sm" variant="destructive" className="h-7 text-xs" disabled={pending}>
-              {pending ? "Stopping…" : "Terminate session and stop"}
+              {pending ? "Stopping…" : "Stop Devin"}
             </Button>
           </form>
         </DialogContent>

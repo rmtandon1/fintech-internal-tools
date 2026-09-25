@@ -6,6 +6,7 @@ import { Panel } from "@/components/panel";
 import { requesterLabel } from "@/components/run-summary";
 import { bridgeDeps } from "@/lib/bridge";
 import { devinMode } from "@/lib/devin-status";
+import { phaseLine } from "@/lib/run-checklist";
 import { simulationsFor } from "@/lib/simulation";
 import { currentActor } from "@/lib/session";
 import {
@@ -16,6 +17,7 @@ import {
   isInFlight,
   kindsStartableBy,
   listRuns,
+  runKindLabel,
 } from "@console/tool-automation";
 import { type BridgeDeps, pollRun } from "@console/tool-automation/bridge";
 import type { Actor } from "@console/engine/types";
@@ -48,7 +50,7 @@ async function rowState(run: DevinRun, deps: BridgeDeps): Promise<RowState> {
   const polled = await pollRun(run, deps).catch(() => null);
   const out = polled?.kind === "output" ? polled.structuredOutput : null;
   return {
-    phase: out ? `${out.phase} · ${out.phase_status}` : null,
+    phase: phaseLine(out),
     prUrl: run.prUrl ?? out?.pr_url ?? null,
   };
 }
@@ -69,7 +71,7 @@ function reversalOffer(run: DevinRun, actor: Actor) {
     spec: spec.file,
     clusterKey: "",
     evidenceIds: [],
-    kinds: [{ kind: "REVERSAL", intent }],
+    kinds: [{ kind: "REVERSAL", label: runKindLabel("REVERSAL"), intent }],
     reverses: run.id,
     simulations: devinMode() === "simulation" ? simulationsFor(spec.file, ["REVERSAL"]) : null,
   };
@@ -96,11 +98,11 @@ export default async function RunsPage({
     <div className="flex h-full flex-col gap-3 p-3">
       {anyInFlight ? <AutoRefresh everyMs={5000} /> : null}
       <Panel
-        title="Runs"
+        title="Rule changes"
         bodyClassName="p-0"
         actions={
           <span className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            {total} run{total === 1 ? "" : "s"} · newest first
+            {total} change{total === 1 ? "" : "s"} · newest first
             {pages > 1 ? (
               <span className="flex items-center gap-1">
                 {page > 1 ? (
@@ -124,12 +126,12 @@ export default async function RunsPage({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="text-[11px]">Kind</TableHead>
-              <TableHead className="text-[11px]">Intent</TableHead>
-              <TableHead className="hidden text-[11px] md:table-cell">Requester</TableHead>
+              <TableHead className="text-[11px]">Type</TableHead>
+              <TableHead className="text-[11px]">Request</TableHead>
+              <TableHead className="hidden text-[11px] md:table-cell">Asked by</TableHead>
               <TableHead className="text-[11px]">Status</TableHead>
-              <TableHead className="hidden text-[11px] lg:table-cell">PR</TableHead>
-              <TableHead className="hidden text-[11px] lg:table-cell">Reverses</TableHead>
+              <TableHead className="hidden text-[11px] lg:table-cell">Pull request</TableHead>
+              <TableHead className="hidden text-[11px] lg:table-cell">Undoes</TableHead>
               <TableHead className="text-[11px]" />
             </TableRow>
           </TableHeader>
@@ -137,7 +139,7 @@ export default async function RunsPage({
             {rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="py-8 text-center text-xs text-muted-foreground">
-                  No runs yet. Open a cluster and ask Devin for a rule.
+                  Nothing yet. When a queue shows a pattern no rule catches, ask Devin for a rule from there.
                 </TableCell>
               </TableRow>
             ) : null}
@@ -147,9 +149,9 @@ export default async function RunsPage({
               const inFlight = isInFlight(run.status);
               return (
                 <TableRow key={run.id} data-testid="run-row" data-run-id={run.id}>
-                  <TableCell className="whitespace-nowrap font-mono text-[11px]">
+                  <TableCell className="whitespace-nowrap text-xs">
                     <Link href={`/t/automation/${run.id}`} className="hover:underline">
-                      {run.kind}
+                      {runKindLabel(run.kind)}
                     </Link>
                   </TableCell>
                   <TableCell className="max-w-[28rem] text-xs">
@@ -170,7 +172,7 @@ export default async function RunsPage({
                     <span className="flex flex-col gap-0.5">
                       <StatusChip value={run.status} statuses={automationTool.statuses} />
                       {inFlight && phase ? (
-                        <span className="font-mono text-[10px] text-muted-foreground">{phase}</span>
+                        <span className="text-[11px] text-muted-foreground">{phase}</span>
                       ) : null}
                     </span>
                   </TableCell>
@@ -194,7 +196,7 @@ export default async function RunsPage({
                   </TableCell>
                   <TableCell className="text-right">
                     {reversal ? (
-                      <DispatchControl offer={reversal} label="Reverse this change" variant="outline" />
+                      <DispatchControl offer={reversal} label="Undo this change" variant="outline" />
                     ) : null}
                   </TableCell>
                 </TableRow>
