@@ -19,7 +19,7 @@ export default async function RoadmapPage({
       title={mode.name}
       actions={
         <span className="text-[10px] uppercase text-muted-foreground">
-          not built
+          pending
         </span>
       }
       className="h-full"
