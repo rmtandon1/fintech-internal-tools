@@ -61,6 +61,45 @@ rejected by the engine, not by the UI.
 | `/runs`, `/t/automation/<id>` | Devin runs and each run's view |
 | `/api/devin/status` | Devin mode (`live` or `simulation`), organisation and key check |
 
+## Apps
+
+Every mode the console lists, grouped by area. Live apps are backed by a registered
+tool in `apps/console/src/registry.ts`; the rest open a roadmap preview.
+
+| App | What it does | Status |
+| --- | --- | --- |
+| **Compliance** | | |
+| KYC review | Approve or reject new customers after their identity checks. | Live |
+| Transaction monitoring | Review suspicious-activity alerts and escalate the real ones. | Coming soon |
+| Sanctions screening | Clear or confirm matches against sanctions lists. | Coming soon |
+| SAR filing | Draft, review and file suspicious activity reports. | Coming soon |
+| Business onboarding | Check and approve new business customers. | Coming soon |
+| **Money movement** | | |
+| Refunds | Pay or reject customer refund requests. | Live |
+| Wire release | Release or hold large outgoing payments, with two sign-offs. | Coming soon |
+| Chargebacks | Accept or fight card disputes before the deadline. | Coming soon |
+| Remittances | Fix and retry stuck international transfers. | Coming soon |
+| Ledger adjustments | Post manual credits and write-offs. | Coming soon |
+| Reconciliation | Match ledger entries that don't agree with bank settlements. | Coming soon |
+| **Customers** | | |
+| Card operations | Freeze, replace and set limits on customer cards. | Coming soon |
+| Offboarding | Close accounts and return what's left in them. | Coming soon |
+| Complaints | Answer customer complaints within the regulator's deadlines. | Coming soon |
+| Data requests | Handle customers' requests to see or delete their data. | Coming soon |
+| Plans | Manage customer plans and what each one includes. | Coming soon |
+| Collections | Set up payment plans for customers who are behind. | Coming soon |
+| **Platform** | | |
+| Feature flags | Switch features on or off, and choose who sees them. | Live |
+| Rule changes | Rules Devin writes, reviewed by an engineer before they go live. | Live |
+| Pricing | Change fees, FX spreads and interest rates. | Coming soon |
+| Model overrides | Approve risk model updates and manual score overrides. | Coming soon |
+
+## Changing a console rule
+
+![Changing a console rule](docs/rule-change-workflow.svg)
+
+Editable source: [`docs/rule-change-workflow.excalidraw`](docs/rule-change-workflow.excalidraw).
+
 ## Demo walkthrough
 
 Each flow takes a minute and exercises a different part of the write path.

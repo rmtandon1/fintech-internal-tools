@@ -87,6 +87,10 @@ Set a control once and see it hold across every app. Every change arrives with i
 
 ## 3. Scenarios
 
+![Changing a console rule](rule-change-workflow.svg)
+
+Editable source: [`rule-change-workflow.excalidraw`](rule-change-workflow.excalidraw).
+
 Three scenarios, one per demonstration in `LOOM-VIDEO-SCRIPT.md`. Each is harder than the last, and each answers a question the buyer asks about owning the software.
 
 ### 1. Add a rule nobody predicted
