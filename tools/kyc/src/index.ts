@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, like, lt, or } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, gte, inArray, like, lt, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@console/db";
 import { defineAction, defineTool } from "@console/engine/declare";
@@ -10,6 +10,7 @@ import type {
   SortOption,
 } from "@console/engine/types";
 import { rolesFor } from "@console/permissions";
+import { caseFile, materialDifferences } from "./case-file";
 import { refundsForCase } from "./linked-activity";
 import { kycCases } from "./schema";
 import { seedKycCases } from "./seed";
@@ -26,6 +27,7 @@ export interface KycCase extends GovernedRecord {
   riskScore: number;
   riskTier: string;
   sanctionsHit: number;
+  pep: number;
   documentsComplete: number;
   status: string;
   openedAt: number;
@@ -33,7 +35,19 @@ export interface KycCase extends GovernedRecord {
   lastNote: string | null;
   decidedBy: string | null;
   version: number;
+  /** Live count of material declared-vs-found rows; a query, never stored. */
+  materialDifferences: number;
 }
+
+export { caseFile };
+export type {
+  CheckKind,
+  CheckResult,
+  DifferenceSeverity,
+  KycCaseFile,
+  KycCheck,
+  KycDiscrepancy,
+} from "./case-file";
 
 export const MANAGER_REVIEW_SCORE_KEY = "kyc.manager_review_score";
 export const ADMIN_REVIEW_SCORE_KEY = "kyc.admin_review_score";
@@ -101,6 +115,30 @@ const riskTierApproval: CaseRule = ({ record, constants }) => {
   return { type: "allow", rule: "risk_tier_approval" };
 };
 
+const pepApproval: CaseRule = ({ record }) =>
+  record?.pep === 1
+    ? {
+        type: "require_approval",
+        rule: "pep_approval",
+        tier: "manager",
+        allowedRoles: rolesFor("kyc", "manager"),
+        reason: "Politically exposed person: a manager must approve",
+      }
+    : { type: "allow", rule: "pep_approval" };
+
+const declaredVsFound: CaseRule = ({ record }) => {
+  const n = record?.materialDifferences ?? 0;
+  return n > 0
+    ? {
+        type: "require_approval",
+        rule: "declared_vs_found",
+        tier: "manager",
+        allowedRoles: rolesFor("kyc", "manager"),
+        reason: `${n} material difference${n === 1 ? "" : "s"} between what the customer declared and what the checks found`,
+      }
+    : { type: "allow", rule: "declared_vs_found" };
+};
+
 const escalatedNeedsManager: CaseRule = ({ record }) =>
   record?.status === "escalated"
     ? {
@@ -165,6 +203,7 @@ export const kycTool = defineTool<KycCase>({
       enumValues: ["low", "medium", "high"],
     },
     { name: "sanctionsHit", label: "Sanctions hit", type: "boolean" },
+    { name: "pep", label: "Politically exposed person", type: "boolean" },
     { name: "documentsComplete", label: "Documents complete", type: "boolean" },
     { name: "openedAt", label: "Opened", type: "date" },
     { name: "dueAt", label: "Due", type: "date" },
@@ -274,7 +313,7 @@ export const kycTool = defineTool<KycCase>({
     { title: "Identity document", fields: ["documentType", "documentNumber"] },
     {
       title: "Risk",
-      fields: ["riskScore", "riskTier", "sanctionsHit", "documentsComplete"],
+      fields: ["riskScore", "riskTier", "sanctionsHit", "pep", "documentsComplete"],
     },
     { title: "Case", fields: ["openedAt", "dueAt", "lastNote", "decidedBy"] },
   ],
@@ -329,6 +368,8 @@ export const kycTool = defineTool<KycCase>({
         noSanctionsHit,
         countryPermitted,
         riskTierApproval,
+        pepApproval,
+        declaredVsFound,
         escalatedNeedsManager,
       ],
       suggest: () => ({ note: "Identity checks complete." }),
@@ -426,7 +467,7 @@ export const kycTool = defineTool<KycCase>({
     }
     const where = clauses.length ? and(...clauses) : undefined;
     const rows = db
-      .select()
+      .select({ ...getTableColumns(kycCases), materialDifferences })
       .from(kycCases)
       .where(where)
       .orderBy(order(sort))
@@ -441,6 +482,8 @@ export const kycTool = defineTool<KycCase>({
     no_sanctions_hit: "No sanctions match",
     country_permitted: "Country allowed",
     risk_tier_approval: "Risk approval",
+    pep_approval: "PEP approval",
+    declared_vs_found: "Declared vs found",
     escalated_needs_manager: "Escalation",
     reject_always_permitted: "Rejecting is always allowed",
     request_info_always_permitted: "Asking for information is always allowed",
@@ -452,6 +495,7 @@ export const kycTool = defineTool<KycCase>({
     no_sanctions_hit: ["sanctionsHit"],
     country_permitted: ["country"],
     risk_tier_approval: ["riskScore", "riskTier"],
+    pep_approval: ["pep"],
   },
   get: getCase,
   seed: seedKycCases,
@@ -487,5 +531,11 @@ function write(
 }
 
 function getCase(id: string): KycCase | null {
-  return db.select().from(kycCases).where(eq(kycCases.id, id)).get() ?? null;
+  return (
+    db
+      .select({ ...getTableColumns(kycCases), materialDifferences })
+      .from(kycCases)
+      .where(eq(kycCases.id, id))
+      .get() ?? null
+  );
 }

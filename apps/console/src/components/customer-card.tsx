@@ -62,11 +62,16 @@ export function CustomerCard({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 xl:grid-cols-5">
             <Signal
               label="Sanctions screening"
               value={facts.sanctionsHit ? "Possible match" : "Clear"}
               tone={facts.sanctionsHit ? "negative" : "positive"}
+            />
+            <Signal
+              label="Politically exposed"
+              value={facts.pep ? "Match" : "Clear"}
+              tone={facts.pep ? "negative" : "positive"}
             />
             <Signal
               label="Documents"

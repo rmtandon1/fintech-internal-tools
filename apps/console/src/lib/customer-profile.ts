@@ -77,6 +77,7 @@ export interface CustomerFacts {
   documentType: string;
   riskScore: number;
   sanctionsHit: boolean;
+  pep: boolean;
   documentsComplete: boolean;
   openedAt: number;
   dueAt: number;
@@ -91,6 +92,7 @@ export function customerFacts(record: GovernedRecord): CustomerFacts | null {
   const documentType = s("documentType");
   const riskScore = n("riskScore");
   const sanctionsHit = n("sanctionsHit");
+  const pep = n("pep");
   const documentsComplete = n("documentsComplete");
   const openedAt = n("openedAt");
   const dueAt = n("dueAt");
@@ -101,6 +103,7 @@ export function customerFacts(record: GovernedRecord): CustomerFacts | null {
     documentType === null ||
     riskScore === null ||
     sanctionsHit === null ||
+    pep === null ||
     documentsComplete === null ||
     openedAt === null ||
     dueAt === null
@@ -114,6 +117,7 @@ export function customerFacts(record: GovernedRecord): CustomerFacts | null {
     documentType,
     riskScore,
     sanctionsHit: sanctionsHit === 1,
+    pep: pep === 1,
     documentsComplete: documentsComplete === 1,
     openedAt,
     dueAt,
@@ -129,5 +133,6 @@ export const CUSTOMER_CARD_FIELDS = [
   "riskScore",
   "riskTier",
   "sanctionsHit",
+  "pep",
   "documentsComplete",
 ];

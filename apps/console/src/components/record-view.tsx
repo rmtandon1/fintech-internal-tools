@@ -1,6 +1,7 @@
 import { ActionBar } from "@/components/action-panel";
 import { AuditTimeline } from "@/components/audit-timeline";
 import { CustomerCard } from "@/components/customer-card";
+import { KycCaseFile } from "@/components/kyc-case-file";
 import { CUSTOMER_CARD_FIELDS, customerFacts, type CustomerFacts } from "@/lib/customer-profile";
 import { kycThresholds } from "@/lib/kyc-thresholds";
 import { kycTool } from "@console/tool-kyc";
@@ -54,6 +55,7 @@ export function RecordView({
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 overflow-auto">
         {facts ? <CustomerCardFor decl={decl} record={record} facts={facts} /> : null}
+        {facts ? <KycCaseFile caseId={record.id} hold={declaredVsFoundHold(previews)} /> : null}
         <div className="grid grid-cols-2 gap-x-6 gap-y-4 p-5 xl:grid-cols-3">
           {sections.map((section) => (
             <div key={section.title} className="contents">
@@ -165,6 +167,20 @@ function heldFields(
     }
   }
   return held;
+}
+
+/** The declared_vs_found hold reasons across the offered action previews. */
+function declaredVsFoundHold(previews: ActionPreview[]): string[] {
+  const reasons: string[] = [];
+  for (const p of previews) {
+    if (!p.offered || !p.decision) continue;
+    for (const o of p.decision.trace) {
+      if (o.rule === "declared_vs_found" && o.type === "require_approval" && !reasons.includes(o.reason)) {
+        reasons.push(o.reason);
+      }
+    }
+  }
+  return reasons;
 }
 
 function CustomerCardFor({

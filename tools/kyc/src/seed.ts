@@ -1,7 +1,23 @@
+import { eq } from "drizzle-orm";
 import { db } from "@console/db";
-import { kycCases } from "./schema";
+import type { CheckKind, CheckResult, DifferenceSeverity } from "./case-file";
+import { kycCases, kycChecks, kycDiscrepancies } from "./schema";
 
 const HOUR = 60 * 60 * 1000;
+
+interface SeedCheck {
+  result: CheckResult;
+  source: string;
+  detail: string;
+}
+
+interface SeedDifference {
+  topic: string;
+  declared: string;
+  found: string;
+  source: string;
+  severity: DifferenceSeverity;
+}
 
 interface SeedCase {
   id: string;
@@ -14,10 +30,14 @@ interface SeedCase {
   segment: string;
   riskScore: number;
   sanctionsHit: boolean;
+  pep?: boolean;
   documentsComplete: boolean;
   status: string;
   openedHoursAgo: number;
   lastNote?: string;
+  /** Per-kind overrides on the default check rows. */
+  checks?: Partial<Record<CheckKind, SeedCheck>>;
+  differences?: SeedDifference[];
 }
 
 /**
@@ -71,6 +91,13 @@ const CASES: SeedCase[] = [
     status: "pending_review",
     openedHoursAgo: 20,
     lastNote: "Two UBOs verified, third pending confirmation from registry.",
+    checks: {
+      company_registry: {
+        result: "needs_review",
+        source: "Companies House",
+        detail: "Two of three owners verified; third pending",
+      },
+    },
   },
   {
     id: "kyc_0004",
@@ -102,7 +129,7 @@ const CASES: SeedCase[] = [
     documentsComplete: true,
     status: "escalated",
     openedHoursAgo: 46,
-    lastNote: "Screening returned a probable match on a PEP list.",
+    lastNote: "Screening returned a probable match on a sanctions list.",
   },
   {
     id: "kyc_0006",
@@ -230,6 +257,78 @@ const CASES: SeedCase[] = [
     status: "pending_review",
     openedHoursAgo: 30,
     lastNote: "Address on file differs from the delivery address on a recent refund.",
+    differences: [
+      {
+        topic: "Address",
+        declared: "Rotterdam",
+        found: "Refund delivered to Utrecht",
+        source: "Refunds",
+        severity: "minor",
+      },
+    ],
+  },
+  {
+    id: "kyc_0102",
+    customerName: "Beatrix Ashdown",
+    email: "beatrix.ashdown@example.com",
+    dateOfBirth: "1968-02-14",
+    documentType: "passport",
+    documentNumber: "GB5521907",
+    country: "GB",
+    segment: "consumer",
+    riskScore: 32,
+    sanctionsHit: false,
+    pep: true,
+    documentsComplete: true,
+    status: "pending_review",
+    openedHoursAgo: 5,
+    lastNote: "PEP screening matched a serving local councillor.",
+    checks: {
+      pep: {
+        result: "match",
+        source: "PEP screening list",
+        detail: "Match: serving local councillor",
+      },
+    },
+  },
+  {
+    id: "kyc_0103",
+    customerName: "Rupert Callaghan",
+    email: "rupert.callaghan@example.com",
+    dateOfBirth: "1975-06-30",
+    documentType: "passport",
+    documentNumber: "GB7730412",
+    country: "GB",
+    segment: "consumer",
+    riskScore: 45,
+    sanctionsHit: false,
+    documentsComplete: true,
+    status: "pending_review",
+    openedHoursAgo: 11,
+    lastNote: "Declared no directorships; registry shows three active companies.",
+    checks: {
+      company_registry: {
+        result: "needs_review",
+        source: "Companies House",
+        detail: "Three active directorships not declared",
+      },
+    },
+    differences: [
+      {
+        topic: "Directorships",
+        declared: "None",
+        found: "3 active companies",
+        source: "Companies House",
+        severity: "material",
+      },
+      {
+        topic: "Source of funds",
+        declared: "Salary",
+        found: "Dividends from two of those companies",
+        source: "Companies House filings",
+        severity: "material",
+      },
+    ],
   },
 ];
 
@@ -307,6 +406,7 @@ function generated(): SeedCase[] {
       segment: business ? "business" : "consumer",
       riskScore,
       sanctionsHit,
+      pep: false,
       documentsComplete,
       status,
       openedHoursAgo: between(1, 240),
@@ -336,6 +436,7 @@ export function seedKycCases(): void {
       riskScore: c.riskScore,
       riskTier: tierFor(c.riskScore),
       sanctionsHit: c.sanctionsHit ? 1 : 0,
+      pep: c.pep ? 1 : 0,
       documentsComplete: c.documentsComplete ? 1 : 0,
       status: c.status,
       openedAt,
@@ -345,7 +446,78 @@ export function seedKycCases(): void {
       version: 1,
     };
     db.insert(kycCases).values(row).onConflictDoUpdate({ target: kycCases.id, set: row }).run();
+
+    db.delete(kycChecks).where(eq(kycChecks.caseId, c.id)).run();
+    db.delete(kycDiscrepancies).where(eq(kycDiscrepancies.caseId, c.id)).run();
+    const checkedAt = openedAt + HOUR;
+    for (const [kind, check] of Object.entries(checksFor(c))) {
+      db.insert(kycChecks)
+        .values({
+          id: `${c.id}_${kind}`,
+          caseId: c.id,
+          kind,
+          result: check.result,
+          source: check.source,
+          detail: check.detail,
+          checkedAt,
+        })
+        .run();
+    }
+    (c.differences ?? []).forEach((d, i) => {
+      db.insert(kycDiscrepancies)
+        .values({
+          id: `${c.id}_diff_${i + 1}`,
+          caseId: c.id,
+          topic: d.topic,
+          declared: d.declared,
+          found: d.found,
+          source: d.source,
+          severity: d.severity,
+        })
+        .run();
+    });
   }
+}
+
+/**
+ * Every case carries the same five checks. They agree with the case's flags
+ * unless the seed overrides a row, and they hold no PII: sources and details
+ * are categorical, never a name, address or document number.
+ */
+function checksFor(c: SeedCase): Record<CheckKind, SeedCheck> {
+  const checks: Record<CheckKind, SeedCheck> = {
+    sanctions: {
+      result: c.sanctionsHit ? "possible_match" : "clear",
+      source: "UK OFSI consolidated list, OFAC SDN, UN, EU",
+      detail: c.sanctionsHit ? "Possible match on UK OFSI list" : "No match on any list",
+    },
+    pep: {
+      result: c.pep ? "match" : "clear",
+      source: "PEP screening list",
+      detail: "No match",
+    },
+    adverse_media: {
+      result: "clear",
+      source: "News search",
+      detail: "No findings",
+    },
+    company_registry: {
+      result: "clear",
+      source: c.country === "GB" ? "Companies House" : "Local company registry",
+      detail: "Registry record agrees with the application",
+    },
+    identity_document: c.documentsComplete
+      ? { result: "verified", source: "Document check", detail: "Document verified" }
+      : {
+          result: "missing",
+          source: "Document check",
+          detail: "Identity document not yet supplied",
+        },
+  };
+  for (const [kind, override] of Object.entries(c.checks ?? {})) {
+    checks[kind as CheckKind] = override;
+  }
+  return checks;
 }
 
 function tierFor(score: number): string {
