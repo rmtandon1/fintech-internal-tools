@@ -118,6 +118,15 @@ describe("GET /api/devin/<runId>", () => {
     expect(lateBody.offers.stop.offered).toBe(true);
   });
 
+  it("hands the reviewer checklist to the run view, not the session", async () => {
+    stopAll();
+    const d = deps();
+    const out = await dispatchRun(admin, request, d);
+    const body = (await handleGet(out.runId, admin, d)).body as RunViewPayload;
+    expect(body.reviewerChecklist).toHaveLength(8);
+    expect(body.reviewerChecklist[0]).toMatch(/^The first refund in a cluster/);
+  });
+
   it("observes the merge once the approved run is four seconds old", async () => {
     stopAll();
     const d = deps();

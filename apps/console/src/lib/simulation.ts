@@ -56,8 +56,8 @@ const ADDITION = StructuredOutput.parse({
     { path: "tools/refunds/src/clustering-hold.ts", op: "create", reason: "clustering_hold rule and the shared held-customer query", additions: 84, deletions: 0 },
     { path: "tools/refunds/src/index.ts", op: "modify", reason: "register the rule after goodwill_approval; declare the window constant", additions: 11, deletions: 1 },
     { path: "tools/kyc/src/index.ts", op: "modify", reason: "linked_refund_hold on approve", additions: 12, deletions: 1 },
-    { path: TEST_FILE, op: "create", reason: "acceptance tests 1-6 from the Kestrel evidence", additions: 131, deletions: 0 },
-    { path: "apps/console/tests/tools/kyc.test.ts", op: "modify", reason: "acceptance tests 7-8", additions: 38, deletions: 0 },
+    { path: TEST_FILE, op: "create", reason: "six refund tests from the Kestrel evidence", additions: 131, deletions: 0 },
+    { path: "apps/console/tests/tools/kyc.test.ts", op: "modify", reason: "two linked-hold KYC tests", additions: 38, deletions: 0 },
   ],
   verify_steps: [
     { name: "lint", pass: true },

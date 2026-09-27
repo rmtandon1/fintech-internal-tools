@@ -163,6 +163,14 @@ export function ApprovalDialog({
             {stage === "approving" || stage === "merging" || stage === "merged" ? "✓" : "…"} · the
             server compares the branch&apos;s context.json digest at approval
           </p>
+          {payload?.reviewerChecklist?.length ? (
+            <div className="space-y-1">
+              <p className="text-muted-foreground">Reviewer checklist · from the spec, not sent to Devin</p>
+              <ol className="list-decimal space-y-0.5 pl-4" data-testid="reviewer-checklist">
+                {payload.reviewerChecklist.map((line) => <li key={line}>{line}</li>)}
+              </ol>
+            </div>
+          ) : null}
           <p className="text-muted-foreground">
             The approver cannot be the requester. Switch to the engineer role if you asked for this
             run.

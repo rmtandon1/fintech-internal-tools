@@ -6,7 +6,7 @@
 - A refunds manager asks Devin for a rule from the cluster drawer (`TRANSACTION_INSPECTION.md`). Devin writes `clustering_hold` in the refunds tool, a KYC rule that sends those customers' approvals to a manager, a window setting, and eight tests. No flag.
 - An admin can switch the hold off in seconds by setting the window to 0.
 - Devin later removes the hold from the code, keeping a later change to the same file.
-- This spec gives Devin the intent, scope and acceptance tests. Shared run rules: `DEVIN_RUN_PROTOCOL.md`.
+- This spec gives the console the intent sentence and scope, and gives the reviewer the acceptance tests. Devin's session never reads it. Shared run rules: `DEVIN_RUN_PROTOCOL.md`.
 
 ## The problem
 
@@ -22,7 +22,7 @@ The sentence the requester sends, prefilled from the cluster drawer and editable
 
 > Once a merchant's "not received" refunds add up past the manager limit, send them to a manager for approval. Send those customers' KYC approvals to a manager too.
 
-It is deliberately short. It doesn't mention the window, rejected refunds, frozen-FX amounts or where the rule sits in the trace. The scope and acceptance tests below cover those, and Devin has to find them. That gap is what the viewer should notice (`AGENT_TRIGGER_SURFACE.md` § One sentence, not a chat panel).
+It is deliberately short. It doesn't mention the window, rejected refunds, frozen-FX amounts or where the rule sits in the trace. Devin never sees this file: it has to find each of those in the code, and the acceptance tests below are what the reviewer checks its tests against. That gap is what the viewer should notice (`AGENT_TRIGGER_SURFACE.md` § One sentence, not a chat panel).
 
 ### Scope
 
@@ -38,7 +38,7 @@ The files the run may plan to touch. Devin's `plan.json` must stay inside this l
 
 ### Acceptance tests
 
-These are the contract. Devin makes them pass, and the reviewer checks that they are there and say what they should. The fixture comes from the run's `context.json` evidence, so the test reproduces the pattern that was actually seen.
+These are the reviewer's contract, shown in the approval dialog. Devin does not read them; it writes its own tests from the sentence and the evidence, and the reviewer checks those tests cover each line here. The fixture comes from the run's `context.json` evidence, so the test reproduces the pattern that was actually seen.
 
 Refunds:
 
