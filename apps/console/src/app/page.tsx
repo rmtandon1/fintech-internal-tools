@@ -4,7 +4,9 @@ import { listApprovals } from "@console/engine/approvals";
 import { verifyChain } from "@console/engine/audit/verify";
 import { Icon } from "@console/ui/icon";
 import { cn } from "@console/ui/utils";
-import { BrandMark, Wordmark } from "@/components/brand-mark";
+import { Wordmark } from "@/components/brand-mark";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { currentTheme } from "@/lib/theme";
 import { BRAND } from "@/lib/brand";
 import { devinMode } from "@/lib/devin-status";
 import { allModes, MODE_AREAS, type ModeArea, type ModeEntry } from "@/lib/modes";
@@ -15,25 +17,25 @@ import { getTool } from "@/registry";
 const AREA: Record<ModeArea, { icon: string; tile: string; glow: string; hover: string }> = {
   Compliance: {
     icon: "ShieldCheck",
-    tile: "bg-sky-500/10 text-sky-700 ring-sky-500/25",
+    tile: "bg-sky-500/10 text-sky-700 ring-sky-500/25 dark:text-sky-300",
     glow: "from-sky-500/[0.08]",
     hover: "hover:border-sky-500/50",
   },
   "Money movement": {
     icon: "Banknote",
-    tile: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/25",
+    tile: "bg-emerald-500/10 text-emerald-700 ring-emerald-500/25 dark:text-emerald-300",
     glow: "from-emerald-500/[0.08]",
     hover: "hover:border-emerald-500/50",
   },
   Customers: {
     icon: "Users",
-    tile: "bg-rose-500/10 text-rose-700 ring-rose-500/25",
+    tile: "bg-rose-500/10 text-rose-700 ring-rose-500/25 dark:text-rose-300",
     glow: "from-rose-500/[0.08]",
     hover: "hover:border-rose-500/50",
   },
   Platform: {
     icon: "Cpu",
-    tile: "bg-amber-500/10 text-amber-700 ring-amber-500/25",
+    tile: "bg-amber-500/10 text-amber-700 ring-amber-500/25 dark:text-amber-300",
     glow: "from-amber-500/[0.08]",
     hover: "hover:border-amber-500/50",
   },
@@ -44,7 +46,7 @@ const AREA: Record<ModeArea, { icon: string; tile: string; glow: string; hover: 
  * signs in as the role it is used by and goes straight to it; apps still
  * being built open a preview of what they will look like.
  */
-export default function HomePage() {
+export default async function HomePage() {
   const modes = allModes();
   const live = modes.filter((m) => m.live);
   const soon = modes.filter((m) => !m.live);
@@ -53,21 +55,23 @@ export default function HomePage() {
   const chain = verifyChain();
   const waiting = listApprovals("pending").length;
   const devin = devinMode();
+  const theme = await currentTheme();
 
   return (
     <div className="h-full overflow-auto">
       <div className="mx-auto flex max-w-7xl flex-col gap-14 px-2 pt-10 pb-16 sm:px-6">
         <header className="flex flex-col gap-5">
-          <div className="flex items-center gap-4">
-            <BrandMark size="lg" />
+          <div className="flex items-start justify-between gap-4">
             <h1>
               <Wordmark className="text-5xl" />
             </h1>
+            <ThemeToggle initial={theme} />
           </div>
           <p className="max-w-2xl text-lg leading-relaxed text-muted-foreground">{BRAND.tagline}</p>
           <ul className="flex flex-wrap gap-2">
             <Status
               tone={chain.ok ? "good" : "bad"}
+              hint="Every action is written to a log that detects any later edit or deletion. This checks the whole log now."
               label={
                 !chain.ok
                   ? "Audit log tampered with"
@@ -78,6 +82,7 @@ export default function HomePage() {
             />
             <Status
               tone={waiting > 0 ? "attention" : "good"}
+              hint="Actions across every app that are held for a manager or admin to approve."
               label={
                 waiting === 0
                   ? "No approvals waiting"
@@ -86,9 +91,13 @@ export default function HomePage() {
             />
             <Status
               tone={devin === "live" ? "good" : "neutral"}
+              hint={
+                devin === "live"
+                  ? "Asking Devin for a rule starts a real Devin session."
+                  : "Devin isn't connected: asking for a rule shows a preview and changes nothing."
+              }
               label={devin === "live" ? "Devin connected" : "Devin in preview"}
             />
-            <Status tone="neutral" label={`${live.length} apps live · ${soon.length} on the way`} />
           </ul>
         </header>
 
@@ -109,10 +118,7 @@ export default function HomePage() {
 
         <section className="flex flex-col gap-5">
           <div>
-            <h2 className="text-xl font-semibold tracking-tight">Coming next</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Each new app gets approvals, checks and the audit log from day one.
-            </p>
+            <h2 className="text-xl font-semibold tracking-tight">Coming soon</h2>
           </div>
           <div className="grid items-start gap-4 md:grid-cols-2">
             {MODE_AREAS.map((area) => {
@@ -127,12 +133,15 @@ export default function HomePage() {
   );
 }
 
+/** One live reading, set like a status line in a terminal; the hint says what it measures. */
 function Status({
   tone,
   label,
+  hint,
 }: {
   tone: "good" | "attention" | "bad" | "neutral";
   label: string;
+  hint: string;
 }) {
   const styles = {
     good: { chip: "border-success/30 bg-success/[0.08] text-success", dot: "bg-success" },
@@ -142,8 +151,9 @@ function Status({
   }[tone];
   return (
     <li
+      title={hint}
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm",
+        "inline-flex cursor-help items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-[13px]",
         styles.chip,
       )}
     >

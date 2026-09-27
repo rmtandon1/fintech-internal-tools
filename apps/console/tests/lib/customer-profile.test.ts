@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GAUGE_START, GAUGE_SWEEP, angleFor, arcPath, bandFor, swing } from "@console/ui/gauge";
 import {
-  approvalNeed,
   countryName,
   customerFacts,
   dueLabel,
@@ -57,12 +56,6 @@ describe("risk bands", () => {
     expect(bandFor(bands, 65)?.label).toBe("High risk");
     expect(bandFor(bands, 89)?.label).toBe("High risk");
     expect(riskBands({ manager: 30, admin: 50 })[0]).toMatchObject({ from: 0, to: 30 });
-  });
-
-  it("says who approves, matching the risk_tier_approval rule", () => {
-    expect(approvalNeed(69, thresholds).text).toBe("Any reviewer can approve this case.");
-    expect(approvalNeed(70, thresholds).text).toMatch(/^A manager approves/);
-    expect(approvalNeed(85, thresholds).text).toMatch(/^An admin approves/);
   });
 });
 

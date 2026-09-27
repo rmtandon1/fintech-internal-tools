@@ -26,20 +26,6 @@ export function riskBands({ manager, admin }: RiskThresholds): GaugeBand[] {
   ];
 }
 
-/** Who has to approve a case with this score, in the analyst's words. */
-export function approvalNeed(
-  score: number,
-  { manager, admin }: RiskThresholds,
-): { tone: GaugeTone; text: string } {
-  if (score >= admin) {
-    return { tone: "negative", text: `An admin approves this case. The score is ${admin} or more.` };
-  }
-  if (score >= manager) {
-    return { tone: "warning", text: `A manager approves this case. The score is ${manager} or more.` };
-  }
-  return { tone: "positive", text: "Any reviewer can approve this case." };
-}
-
 /** `Due in 5h`, `Overdue by 2d`: the SLA as a deadline, not a timestamp. */
 export function dueLabel(dueAt: number, now: number): { tone: GaugeTone | "neutral"; text: string } {
   const delta = dueAt - now;

@@ -5,5 +5,5 @@
  */
 export const BRAND = {
   name: "Solon",
-  tagline: "Live controls and reviewed automation for every operations team.",
+  tagline: "Live controls and reviewed automation for every operations team",
 } as const;

@@ -18,6 +18,7 @@ import { WorkspaceProvider } from "@/components/workspace";
 import { devinMode } from "@/lib/devin-status";
 import { modesFor } from "@/lib/modes";
 import { BRAND } from "@/lib/brand";
+import { currentTheme } from "@/lib/theme";
 import { chosenRole, currentActor } from "@/lib/session";
 import { toolsForRole } from "@/registry";
 import "./globals.css";
@@ -36,6 +37,7 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const actor = await currentActor();
+  const theme = await currentTheme();
   // Until a role is picked, the rail offers only Home, where picking an app picks one.
   const role = await chosenRole();
   const visible = role ? toolsForRole(actor.role) : [];
@@ -66,7 +68,11 @@ export default async function RootLayout({
   }));
 
   return (
-    <html lang="en" suppressHydrationWarning className={`${sans.variable} ${mono.variable}`}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${sans.variable} ${mono.variable}${theme === "dark" ? " dark" : ""}`}
+    >
       <body className="h-screen overflow-hidden bg-background font-sans text-foreground antialiased">
         <CommandPaletteProvider modes={modes}>
           <div className="flex h-full">

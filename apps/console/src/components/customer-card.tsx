@@ -3,7 +3,6 @@ import { TONE_INK, type GaugeTone } from "@console/ui/gauge";
 import { ScoreGauge } from "@console/ui/score-gauge";
 import { cn } from "@console/ui/utils";
 import {
-  approvalNeed,
   countryName,
   dueLabel,
   flagEmoji,
@@ -32,7 +31,6 @@ export function CustomerCard({
   open: boolean;
   now: number;
 }) {
-  const need = approvalNeed(facts.riskScore, thresholds);
   const due = dueLabel(facts.dueAt, now);
   const flag = flagEmoji(facts.country);
 
@@ -87,14 +85,6 @@ export function CustomerCard({
             />
           </div>
 
-          <p className="flex items-center gap-2 text-sm text-foreground">
-            <span
-              className="size-2 shrink-0 rounded-full"
-              style={{ background: TONE_INK[need.tone] }}
-              aria-hidden
-            />
-            {need.text}
-          </p>
         </div>
 
         <div className="mx-auto flex w-[220px] shrink-0 flex-col items-center">

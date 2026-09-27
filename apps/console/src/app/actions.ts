@@ -14,6 +14,7 @@ import type { IntentResult, Role } from "@console/engine/types";
 import { ROLES } from "@console/permissions";
 import { AUTOMATION_ROLES } from "@console/tool-automation";
 import { OPS_MODES } from "@/lib/modes";
+import { THEME_COOKIE } from "@/lib/theme";
 import { readOutcomeAudit, type OutcomeAudit } from "@/lib/outcome-audit";
 import { getTool } from "@/registry";
 import { currentActor } from "@/lib/session";
@@ -55,6 +56,12 @@ export async function openApp(id: string): Promise<void> {
   }
   revalidatePath("/", "layout");
   redirect(mode.href ?? `/t/${mode.id}`);
+}
+
+/** Keeps the light or dark choice made with the home page toggle. */
+export async function setTheme(theme: "light" | "dark"): Promise<void> {
+  const store = await cookies();
+  store.set(THEME_COOKIE, theme, { sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 365 });
 }
 
 /** Clears the role, so the next person starts from the home page with none. */

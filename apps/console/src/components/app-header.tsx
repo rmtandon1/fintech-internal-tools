@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useTransition } from "react";
 import { usePathname } from "next/navigation";
-import { BrandMark, Wordmark } from "@/components/brand-mark";
+import { Wordmark } from "@/components/brand-mark";
 import { useCommandPalette } from "@/components/command-palette";
 import { ConnectionStatus } from "@/components/connection-status";
 import { Icon } from "@console/ui/icon";
@@ -42,7 +42,6 @@ export function AppHeader({
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-4">
       <Link href="/" className="flex shrink-0 items-center gap-2">
-        <BrandMark />
         <Wordmark className="text-base" />
       </Link>
 
