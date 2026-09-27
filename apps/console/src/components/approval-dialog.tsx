@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@console/ui/dialog";
 import { Label } from "@console/ui/label";
-import { Textarea } from "@console/ui/textarea";
+import { SuggestTextarea } from "@/components/suggest-textarea";
 import type { RunViewPayload } from "@/lib/devin-route";
 
 type Stage = "idle" | "approving" | "merging" | "merged" | "failed";
@@ -175,12 +175,12 @@ export function ApprovalDialog({
                 <Label htmlFor="approve-note" className="text-[11px] text-muted-foreground">
                   Note (optional)
                 </Label>
-                <Textarea
+                <SuggestTextarea
                   id="approve-note"
                   rows={2}
-                  className="text-xs"
                   value={note}
-                  onChange={(e) => setNote(e.target.value)}
+                  onChange={setNote}
+                  suggestion="Reviewed the change and its tests."
                 />
               </div>
               <div className="flex justify-end gap-2">

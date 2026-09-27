@@ -134,7 +134,7 @@ function TechnicalDetails({ event }: { event: AuditRow }) {
   return (
     <details>
       <summary className="cursor-pointer text-[11px] text-muted-foreground hover:text-foreground">
-        Technical details
+        Show attributes
       </summary>
       <dl className="mt-1 space-y-0.5 font-mono text-[10px] text-muted-foreground">
         <Hash label="entry" value={String(event.seq)} />

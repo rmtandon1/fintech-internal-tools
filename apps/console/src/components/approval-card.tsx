@@ -8,7 +8,7 @@ import { PolicyTraceList } from "@console/ui/policy-trace";
 import { Badge } from "@console/ui/badge";
 import { Button } from "@console/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@console/ui/card";
-import { Textarea } from "@console/ui/textarea";
+import { SuggestTextarea } from "@/components/suggest-textarea";
 import type { ApprovalView } from "@console/engine/approvals";
 import { formatRelative, humanize } from "@console/ui/format";
 
@@ -123,11 +123,11 @@ export function ApprovalCard({
         {approval.status === "pending" ? (
           gate.ok ? (
             <div className="space-y-2">
-              <Textarea
+              <SuggestTextarea
                 value={note}
-                onChange={(e) => setNote(e.target.value)}
+                onChange={setNote}
                 rows={2}
-                placeholder="Note (optional)"
+                suggestion="Checked and approved."
               />
               <div className="flex gap-2">
                 <Button disabled={pending} onClick={() => decide("approve")}>

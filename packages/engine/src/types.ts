@@ -173,6 +173,11 @@ export interface ActionDecl<TRecord = unknown, TInput = unknown, TPatch = unknow
   /** Set when the action creates the record it governs rather than mutating one. */
   createsRecord?: boolean;
   rules: Rule<TRecord, TInput>[];
+  /**
+   * Short ready-made text for the action's free-text inputs, keyed by input
+   * name, read from the record. The form offers each as a Tab-to-fill suggestion.
+   */
+  suggest?: (record: TRecord | null) => Partial<Record<string, string>>;
   decide: (ctx: RuleContext<TRecord, TInput>) => Decision<TPatch>;
   apply: (
     ctx: ApplyContext<TRecord, TInput>,

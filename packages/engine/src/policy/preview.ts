@@ -22,6 +22,8 @@ export interface ActionPreview {
   needsInput?: boolean;
   decision: PolicyDecision | null;
   inputFields: InputFieldDesc[];
+  /** Tab-to-fill text for free-text inputs, keyed by input name. */
+  suggestions: Partial<Record<string, string>>;
 }
 
 export interface InputFieldDesc {
@@ -56,6 +58,7 @@ export function previewActions(
       description: action.description,
       tone: action.tone ?? "default",
       inputFields: describeInputs(action),
+      suggestions: action.suggest?.(record) ?? {},
     };
 
     if (!action.allowedRoles.includes(actor.role)) {

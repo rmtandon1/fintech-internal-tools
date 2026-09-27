@@ -331,6 +331,7 @@ export const kycTool = defineTool<KycCase>({
         riskTierApproval,
         escalatedNeedsManager,
       ],
+      suggest: () => ({ note: "Identity checks complete." }),
       decide: ({ record, input }) => ({
         summary: `Approve KYC case ${record?.id ?? ""} (risk ${record?.riskScore ?? "?"})`,
         patch: { status: "approved", note: input.note ?? null },
@@ -346,6 +347,12 @@ export const kycTool = defineTool<KycCase>({
       fromStatus: OPEN_STATUSES,
       tone: "destructive",
       rules: [allow("reject_always_permitted"), escalatedNeedsManager],
+      suggest: (record) => ({
+        reason:
+          record?.sanctionsHit === 1
+            ? "Confirmed sanctions match."
+            : "Identity could not be verified.",
+      }),
       decide: ({ record, input }) => ({
         summary: `Reject KYC case ${record?.id ?? ""}: ${input.reason}`,
         patch: { status: "rejected", note: input.reason },
@@ -360,6 +367,12 @@ export const kycTool = defineTool<KycCase>({
       input: z.object({ reason: z.string().min(5).max(500) }),
       fromStatus: ["pending_review", "escalated"],
       rules: [allow("request_info_always_permitted")],
+      suggest: (record) => ({
+        reason:
+          record?.documentsComplete === 0
+            ? "Please send the missing identity documents."
+            : "Please confirm your address and source of funds.",
+      }),
       decide: ({ record, input }) => ({
         summary: `Request information on ${record?.id ?? ""}: ${input.reason}`,
         patch: { status: "info_requested", note: input.reason },
@@ -374,6 +387,14 @@ export const kycTool = defineTool<KycCase>({
       input: z.object({ reason: z.string().min(5).max(500) }),
       fromStatus: ["pending_review", "info_requested"],
       rules: [allow("escalate_always_permitted")],
+      suggest: (record) => ({
+        reason:
+          record?.sanctionsHit === 1
+            ? "Possible sanctions match needs a senior review."
+            : record?.riskTier === "high"
+              ? "High-risk case needs a senior review."
+              : "Needs a senior review.",
+      }),
       decide: ({ record, input }) => ({
         summary: `Escalate KYC case ${record?.id ?? ""}: ${input.reason}`,
         patch: { status: "escalated", note: input.reason },

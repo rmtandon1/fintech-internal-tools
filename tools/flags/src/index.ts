@@ -312,6 +312,7 @@ export const flagTool = defineTool<FeatureFlag>({
       fromStatus: ["off", "partial"],
       tone: "primary",
       rules: [notArchived, notExpired, permissionFlagTier, productionEnable],
+      suggest: () => ({ reason: "Ready to turn on." }),
       decide: ({ record, input }) => ({
         summary: `Enable ${record?.key ?? ""}: ${input.reason}`,
         patch: { enabled: 1, rolloutPercent: 100, status: "on", note: input.reason },
@@ -329,6 +330,7 @@ export const flagTool = defineTool<FeatureFlag>({
       // Deliberately unguarded: an approval queue in front of a kill switch
       // would make an incident worse. The audit record is the control.
       rules: [notArchived, allow("kill_switch_is_always_available")],
+      suggest: () => ({ reason: "Turning off while we look into an issue." }),
       decide: ({ record, input }) => ({
         summary: `Disable ${record?.key ?? ""}: ${input.reason}`,
         patch: { enabled: 0, rolloutPercent: 0, status: "off", note: input.reason },
@@ -356,6 +358,7 @@ export const flagTool = defineTool<FeatureFlag>({
         productionExposureIncrease,
         rolloutIncrease,
       ],
+      suggest: () => ({ reason: "Widening the rollout in stages." }),
       decide: ({ record, input }) => ({
         summary: `Set ${record?.key ?? ""} rollout to ${input.percent}%: ${input.reason}`,
         patch: {
@@ -375,6 +378,7 @@ export const flagTool = defineTool<FeatureFlag>({
       input: z.object({ reason: z.string().min(5).max(500) }),
       fromStatus: ["off"],
       rules: [notArchived],
+      suggest: () => ({ reason: "Code path removed; retiring the flag." }),
       decide: ({ record, input }) => ({
         summary: `Archive ${record?.key ?? ""}: ${input.reason}`,
         patch: { enabled: 0, rolloutPercent: 0, status: "archived", note: input.reason },

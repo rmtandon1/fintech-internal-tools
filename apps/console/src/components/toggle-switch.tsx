@@ -16,7 +16,7 @@ import {
 import { Input } from "@console/ui/input";
 import { Label } from "@console/ui/label";
 import { Switch } from "@console/ui/switch";
-import { Textarea } from "@console/ui/textarea";
+import { SuggestTextarea } from "@/components/suggest-textarea";
 import type { InputFieldDesc } from "@console/engine/policy/preview";
 import { titleCase } from "@console/ui/format";
 
@@ -31,6 +31,8 @@ export interface ToggleItem {
   available: boolean;
   unavailableReason?: string;
   inputFields: InputFieldDesc[];
+  /** Tab-to-fill text for free-text inputs, keyed by input name. */
+  suggestions: Partial<Record<string, string>>;
 }
 
 /**
@@ -111,7 +113,12 @@ export function ToggleSwitch({ tool, item }: { tool: string; item: ToggleItem })
                     {field.optional ? " (optional)" : ""}
                   </Label>
                   {type === "string" ? (
-                    <Textarea id={id} name={name} rows={3} className="text-sm" autoFocus />
+                    <SuggestTextarea
+                      id={id}
+                      name={name}
+                      suggestion={item.suggestions[field.name]}
+                      autoFocus
+                    />
                   ) : (
                     <Input id={id} name={name} type="number" className="h-7 text-xs" />
                   )}

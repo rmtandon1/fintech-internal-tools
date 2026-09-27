@@ -130,7 +130,7 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
 
       <details className="text-xs">
         <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-          Technical details
+          Show attributes
         </summary>
         <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
           <dt className="text-muted-foreground">Change</dt>

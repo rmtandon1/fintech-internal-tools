@@ -44,6 +44,7 @@ export function ToggleGrid({
       available: preview?.offered ?? false,
       unavailableReason: preview?.unavailableReason,
       inputFields: preview?.inputFields ?? [],
+      suggestions: preview?.suggestions ?? {},
     });
     groups.set(group, items);
   }

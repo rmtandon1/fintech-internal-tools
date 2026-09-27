@@ -14,7 +14,7 @@ import {
 } from "@console/ui/dialog";
 import { Input } from "@console/ui/input";
 import { Label } from "@console/ui/label";
-import { Textarea } from "@console/ui/textarea";
+import { SuggestTextarea } from "@/components/suggest-textarea";
 import type { ActionPreview } from "@console/engine/policy/preview";
 import type { StatusDecl } from "@console/engine/types";
 import { humanize } from "@console/ui/format";
@@ -217,7 +217,7 @@ function ActionDialog({
                 <SuggestTextarea
                   id={`${preview.action}-${field.name}`}
                   name={`input:string${field.optional ? "?" : ""}:${field.name}`}
-                  suggestion={suggestionFor(preview)}
+                  suggestion={suggestionFor(preview, field.name)}
                 />
               ) : field.type === "enum" ? (
                 <select
@@ -287,55 +287,15 @@ function ActionDialog({
   );
 }
 
-/** What the system already knows about why this action is held, as a ready-made note. */
-function suggestionFor(preview: ActionPreview): string | null {
-  const reason = preview.decision?.effect !== "allow" ? preview.decision?.reason : undefined;
-  if (!reason) return null;
-  return reason.endsWith(".") ? reason : `${reason}.`;
-}
-
 /**
- * A note box that offers the known reason as grey suggested text. Tab fills
- * it in while the box is empty or holds the start of it; typing anything else
- * leaves the analyst's own words alone.
+ * A short message for one free-text input. A note offers the reason the
+ * action is held, when it is; a required reason offers the tool's own
+ * suggestion first.
  */
-function SuggestTextarea({
-  id,
-  name,
-  suggestion,
-}: {
-  id: string;
-  name: string;
-  suggestion: string | null;
-}) {
-  const [value, setValue] = useState("");
-  const offer =
-    suggestion !== null &&
-    value !== suggestion &&
-    suggestion.toLowerCase().startsWith(value.toLowerCase());
-
-  return (
-    <div className="relative">
-      <Textarea
-        id={id}
-        name={name}
-        rows={3}
-        value={value}
-        placeholder={suggestion ?? undefined}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Tab" && !e.shiftKey && offer && suggestion) {
-            e.preventDefault();
-            setValue(suggestion);
-          }
-        }}
-        className={offer ? "pr-16" : undefined}
-      />
-      {offer ? (
-        <kbd className="pointer-events-none absolute right-2 bottom-2 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
-          Tab
-        </kbd>
-      ) : null}
-    </div>
-  );
+function suggestionFor(preview: ActionPreview, field: string): string | null {
+  const held = preview.decision?.effect !== "allow" ? preview.decision?.reason : undefined;
+  const own = preview.suggestions[field];
+  const pick = field === "note" ? (held ?? own) : (own ?? held);
+  if (!pick) return null;
+  return pick.endsWith(".") ? pick : `${pick}.`;
 }

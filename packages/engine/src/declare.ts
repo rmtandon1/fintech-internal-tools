@@ -29,6 +29,7 @@ export function defineAction<
   tone?: "default" | "destructive" | "primary";
   createsRecord?: boolean;
   rules: Rule<TRecord, z.infer<TSchema>>[];
+  suggest?: (record: TRecord | null) => Partial<Record<string, string>>;
   decide: (ctx: RuleContext<TRecord, z.infer<TSchema>>) => Decision<TPatch>;
   apply: (
     ctx: ApplyContext<TRecord, z.infer<TSchema>>,

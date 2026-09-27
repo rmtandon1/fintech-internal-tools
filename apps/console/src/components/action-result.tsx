@@ -116,7 +116,7 @@ export function ActionResult({
               aria-expanded={details}
               className="ml-auto text-xs text-muted-foreground hover:text-foreground"
             >
-              {details ? "Hide technical details" : "Technical details"}
+              {details ? "Hide attributes" : "Show attributes"}
             </button>
           </div>
           {details ? (
@@ -193,15 +193,13 @@ function Verdict({ result, statuses }: { result: SubmitResult; statuses: StatusD
       const approval = outcome.trace.find((o) => o.type === "require_approval");
       const tier = approval && approval.type === "require_approval" ? approval.tier : "an approver";
       return (
-        <Banner tone="approval" title={`Sent to ${tier} for approval`}>
-          {outcome.reason}.{before ? <> It stays <strong>{before}</strong> until they decide.</> : null}
-        </Banner>
+        <Banner tone="approval" title={`Sent to ${tier} for approval`} />
       );
     }
     case "denied":
       return (
         <Banner tone="block" title="Not allowed">
-          {outcome.reason}. Nothing was changed.
+          Nothing was changed.
         </Banner>
       );
     case "error":

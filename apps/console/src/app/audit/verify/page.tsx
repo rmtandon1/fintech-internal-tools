@@ -59,7 +59,7 @@ export default async function VerifyPage() {
 
       <details>
         <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
-          Technical details
+          Show attributes
         </summary>
         <dl className="mt-2 grid gap-2 sm:grid-cols-2">
           <Row label="First hash" value={GENESIS_HASH} mono />

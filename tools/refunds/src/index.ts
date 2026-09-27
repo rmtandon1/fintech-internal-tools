@@ -304,6 +304,7 @@ export const refundTool = defineTool<Refund>({
       fromStatus: ["requested", "failed"],
       tone: "primary",
       rules: [withinCapturedAmount, notDisputed, amountApproval, goodwillApproval],
+      suggest: () => ({ note: "Checks passed; sending to the processor." }),
       decide: ({ record, input }) => ({
         summary: `Send ${record?.id ?? ""} to processor: ${money(record?.amountMinor ?? 0, record?.currency ?? "USD")} to ${record?.merchant ?? ""}`,
         patch: { status: "executing", note: input.note ?? null },
@@ -319,6 +320,16 @@ export const refundTool = defineTool<Refund>({
       fromStatus: ["requested", "failed"],
       tone: "destructive",
       rules: [allow("reject_always_permitted")],
+      suggest: (record) => ({
+        reason:
+          record?.disputed === 1
+            ? "Customer has an open chargeback on this payment."
+            : record && record.refundedMinor + record.amountMinor > record.capturedMinor
+              ? "Refund is more than what is left on the payment."
+              : record?.reasonCode === "duplicate"
+                ? "Duplicate of a refund already paid."
+                : "Not eligible for a refund.",
+      }),
       decide: ({ record, input }) => ({
         summary: `Reject ${record?.id ?? ""}: ${input.reason}`,
         patch: { status: "rejected", note: input.reason },
@@ -347,6 +358,7 @@ export const refundTool = defineTool<Refund>({
       input: z.object({ reason: z.string().min(5).max(500) }),
       fromStatus: ["executing"],
       rules: [allow("failure_is_a_record_keeping_step")],
+      suggest: () => ({ reason: "Processor rejected the refund." }),
       decide: ({ record, input }) => ({
         summary: `${record?.id ?? ""} failed at the processor: ${input.reason}`,
         patch: { status: "failed", note: input.reason },

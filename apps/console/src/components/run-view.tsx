@@ -13,6 +13,9 @@ import { phaseLine } from "@/lib/run-checklist";
 import type { RunViewPayload } from "@/lib/devin-route";
 import type { ReplayFrame, StructuredOutput } from "@console/tool-automation";
 
+/** Offered as the stop reason; Tab fills it in. */
+const STOP_SUGGESTION = "No longer needed.";
+
 const TERMINAL = new Set(["merged", "stopped", "dispatch_failed"]);
 
 async function fetchRun(runId: string): Promise<RunViewPayload | null> {
@@ -383,8 +386,16 @@ export function RunView({
               <input
                 name="reason"
                 required
-                placeholder="Reason"
-                className="h-6 w-32 rounded-md border border-input bg-transparent px-1.5 text-[11px]"
+                placeholder={STOP_SUGGESTION}
+                title="Tab fills in the suggested reason"
+                onKeyDown={(e) => {
+                  const box = e.currentTarget;
+                  if (e.key === "Tab" && !e.shiftKey && STOP_SUGGESTION.toLowerCase().startsWith(box.value.toLowerCase()) && box.value !== STOP_SUGGESTION) {
+                    e.preventDefault();
+                    box.value = STOP_SUGGESTION;
+                  }
+                }}
+                className="h-6 w-40 rounded-md border border-input bg-transparent px-1.5 text-[11px]"
               />
               <Button size="sm" variant="destructive" className="h-6 text-[11px]" disabled={pending}>
                 Stop
