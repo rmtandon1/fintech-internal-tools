@@ -17,6 +17,7 @@ import {
 } from "@console/ui/dialog";
 import { Input } from "@console/ui/input";
 import type { Role } from "@console/engine/types";
+import { humanize } from "@console/ui/format";
 import { cn } from "@console/ui/utils";
 
 export interface PaletteMode {
@@ -129,7 +130,7 @@ export function CommandPaletteProvider({
           showCloseButton={false}
           onKeyDown={onListKeyDown}
         >
-          <DialogTitle className="sr-only">Search modes</DialogTitle>
+          <DialogTitle className="sr-only">Search apps</DialogTitle>
           <Input
             autoFocus
             value={query}
@@ -137,8 +138,8 @@ export function CommandPaletteProvider({
               setQuery(e.target.value);
               setSelected(0);
             }}
-            placeholder="Search modes, actions…"
-            className="h-8 border-0 bg-transparent text-xs shadow-none focus-visible:ring-0"
+            placeholder="Search apps and actions"
+            className="h-9 border-0 bg-transparent text-sm shadow-none focus-visible:ring-0"
           />
           <div className="max-h-80 overflow-y-auto">
             {filtered.map((mode, index) => (
@@ -151,7 +152,7 @@ export function CommandPaletteProvider({
                   onClick={() => pick(mode)}
                   onMouseMove={() => setSelected(index)}
                   className={cn(
-                    "flex h-8 w-full items-center gap-2 rounded-sm px-2 text-left text-xs",
+                    "flex h-9 w-full items-center gap-2 rounded-sm px-2 text-left text-sm",
                     index === selected
                       ? "bg-accent text-accent-foreground"
                       : "text-foreground",
@@ -162,12 +163,12 @@ export function CommandPaletteProvider({
                     className="size-3.5 shrink-0 text-muted-foreground"
                   />
                   <span className="truncate">{mode.name}</span>
-                  <span className="hidden truncate font-mono text-[11px] text-muted-foreground sm:inline">
-                    {mode.actions.slice(0, 3).join(" ")}
+                  <span className="hidden truncate text-xs text-muted-foreground sm:inline">
+                    {mode.actions.slice(0, 3).map(humanize).join(", ")}
                   </span>
                   {!mode.live ? (
-                    <span className="ml-auto shrink-0 text-[10px] uppercase text-muted-foreground">
-                      pending
+                    <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                      Coming soon
                     </span>
                   ) : null}
                 </button>

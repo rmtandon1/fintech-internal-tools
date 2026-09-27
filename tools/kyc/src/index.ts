@@ -52,7 +52,7 @@ const documentsComplete: CaseRule = ({ record }) =>
     ? {
         type: "deny",
         rule: "documents_complete",
-        reason: "Required documents are still outstanding",
+        reason: "Documents are still missing",
       }
     : { type: "allow", rule: "documents_complete" };
 
@@ -61,7 +61,7 @@ const noSanctionsHit: CaseRule = ({ record }) =>
     ? {
         type: "deny",
         rule: "no_sanctions_hit",
-        reason: "Open sanctions hit: clear screening before approving",
+        reason: "Open sanctions match: clear screening first",
       }
     : { type: "allow", rule: "no_sanctions_hit" };
 
@@ -71,7 +71,7 @@ const countryPermitted: CaseRule = ({ record, constants }) => {
     ? {
         type: "deny",
         rule: "country_permitted",
-        reason: `${record.country} is on the prohibited country list`,
+        reason: `${record.country} is a prohibited country`,
       }
     : { type: "allow", rule: "country_permitted" };
 };
@@ -86,7 +86,7 @@ const riskTierApproval: CaseRule = ({ record, constants }) => {
       rule: "risk_tier_approval",
       tier: "admin",
       allowedRoles: ["admin"],
-      reason: `Risk score ${score} is at or above the ${adminScore} admin threshold`,
+      reason: "Risk score exceeds admin threshold",
     };
   }
   if (score >= managerScore) {
@@ -95,7 +95,7 @@ const riskTierApproval: CaseRule = ({ record, constants }) => {
       rule: "risk_tier_approval",
       tier: "manager",
       allowedRoles: rolesFor("kyc", "manager"),
-      reason: `Risk score ${score} is at or above the ${managerScore} manager threshold`,
+      reason: "Risk score exceeds manager threshold",
     };
   }
   return { type: "allow", rule: "risk_tier_approval" };
@@ -108,7 +108,7 @@ const escalatedNeedsManager: CaseRule = ({ record }) =>
         rule: "escalated_needs_manager",
         tier: "manager",
         allowedRoles: rolesFor("kyc", "manager"),
-        reason: "The case was escalated, so a manager owns the decision",
+        reason: "Escalated cases need a manager",
       }
     : { type: "allow", rule: "escalated_needs_manager" };
 
@@ -132,8 +132,8 @@ function order(sort?: SortOption) {
 
 export const kycTool = defineTool<KycCase>({
   name: "kyc",
-  displayName: "KYC review queue",
-  description: "Customer due diligence cases awaiting a decision.",
+  displayName: "KYC review",
+  description: "Approve or reject new customers after their identity checks.",
   icon: "IdCard",
   group: "Risk & Compliance",
   recordType: "kyc_case",
@@ -167,7 +167,7 @@ export const kycTool = defineTool<KycCase>({
     { name: "sanctionsHit", label: "Sanctions hit", type: "boolean" },
     { name: "documentsComplete", label: "Documents complete", type: "boolean" },
     { name: "openedAt", label: "Opened", type: "date" },
-    { name: "dueAt", label: "SLA due", type: "date" },
+    { name: "dueAt", label: "Due", type: "date" },
     { name: "lastNote", label: "Last note", type: "text" },
     { name: "decidedBy", label: "Decided by", type: "string" },
   ],
@@ -248,20 +248,20 @@ export const kycTool = defineTool<KycCase>({
     },
     {
       key: "awaiting_approval",
-      label: "Awaiting your approval",
+      label: "Need your approval",
       roles: ["kyc_manager", "admin"],
       source: { kind: "approvals", scope: "decidable" },
     },
     {
       key: "denied_24h",
-      label: "Denied 24h",
+      label: "Blocked in the last day",
       roles: ["admin"],
       tone: "warning",
       source: { kind: "audit", event: "denied", sinceHours: 24 },
     },
     {
       key: "policy_changes_7d",
-      label: "Policy changes 7d",
+      label: "Setting changes this week",
       roles: ["admin"],
       source: { kind: "audit", event: "constant_changed", sinceHours: 24 * 7 },
     },
@@ -297,28 +297,28 @@ export const kycTool = defineTool<KycCase>({
       key: MANAGER_REVIEW_SCORE_KEY,
       value: 70,
       type: "number",
-      description: "Risk score at which an approval needs a manager",
+      description: "Approving a customer at or above this risk score needs a manager.",
       tool: "kyc",
     },
     {
       key: ADMIN_REVIEW_SCORE_KEY,
       value: 85,
       type: "number",
-      description: "Risk score at which an approval needs an admin",
+      description: "Approving a customer at or above this risk score needs an admin.",
       tool: "kyc",
     },
     {
       key: PROHIBITED_COUNTRIES_KEY,
       value: ["IR", "KP", "SY", "CU"],
       type: "string_list",
-      description: "ISO country codes that may never be approved",
+      description: "Customers from these countries can never be approved. Two-letter country codes.",
       tool: "kyc",
     },
   ],
   actions: [
     defineAction<KycCase, z.ZodObject<{ note: z.ZodOptional<z.ZodString> }>, Patch>({
       name: "approve",
-      label: "Approve case",
+      label: "Approve",
       description: "Accept the customer onto the platform.",
       allowedRoles: rolesFor("kyc", "agent"),
       input: z.object({ note: z.string().max(500).optional() }),
@@ -339,7 +339,7 @@ export const kycTool = defineTool<KycCase>({
     }),
     defineAction<KycCase, z.ZodObject<{ reason: z.ZodString }>, Patch>({
       name: "reject",
-      label: "Reject case",
+      label: "Reject",
       description: "Decline the customer and close the case.",
       allowedRoles: rolesFor("kyc", "agent"),
       input: z.object({ reason: z.string().min(5).max(500) }),
@@ -414,6 +414,17 @@ export const kycTool = defineTool<KycCase>({
       .all();
     const total = db.select({ id: kycCases.id }).from(kycCases).where(where).all().length;
     return { rows, total };
+  },
+  ruleLabels: {
+    documents_complete: "Documents complete",
+    no_sanctions_hit: "No sanctions match",
+    country_permitted: "Country allowed",
+    risk_tier_approval: "Risk approval",
+    escalated_needs_manager: "Escalation",
+    reject_always_permitted: "Rejecting is always allowed",
+    request_info_always_permitted: "Asking for information is always allowed",
+    escalate_always_permitted: "Escalating is always allowed",
+    linked_refund_hold: "Linked refund hold",
   },
   get: getCase,
   seed: seedKycCases,

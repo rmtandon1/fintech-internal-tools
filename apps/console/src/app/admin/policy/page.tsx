@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { ConstantEditor } from "@/components/constant-editor";
 import { Panel } from "@/components/panel";
 import { RulesCard, type RuleRow } from "@/components/rules-card";
@@ -17,7 +17,7 @@ import { currentActor } from "@/lib/session";
 
 export default async function PolicyConstantsPage() {
   const actor = await currentActor();
-  if (actor.role !== "admin") notFound();
+  if (actor.role !== "admin") redirect("/");
 
   const constants = listConstants();
 
@@ -60,7 +60,7 @@ export default async function PolicyConstantsPage() {
       className="h-full"
       title={
         <span>
-          Policy constants · <span className="tabular-nums">{constants.length}</span>
+          Rule settings · <span className="tabular-nums">{constants.length}</span>
         </span>
       }
       bodyClassName="space-y-2 p-3"
@@ -73,7 +73,7 @@ export default async function PolicyConstantsPage() {
       </div>
       {constants.length === 0 ? (
         <p className="py-10 text-center text-xs text-muted-foreground">
-          No constants registered yet — they arrive with the tools that use them.
+          No settings yet. Each tool adds its own.
         </p>
       ) : (
         constants.map((constant) => (

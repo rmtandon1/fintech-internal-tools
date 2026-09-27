@@ -40,6 +40,8 @@ describe("refunds clusters", () => {
     expect(kestrel.qualifier).toBe("not_received");
     expect(kestrel.windowDays).toBe(14);
     expect(kestrel.totalUsdMinor).toBe(188_000);
+    expect(kestrel.headline).toBe("4 refunds from Kestrel Outdoors add up to $1,880");
+    expect(kestrel.limit).toEqual({ usdMinor: 50_000, label: "$500 needs a manager" });
     expect([...kestrel.recordIds].sort()).toEqual([
       "rfnd_0011",
       "rfnd_0012",
@@ -119,6 +121,9 @@ describe("refunds clusters", () => {
         "totalUsdMinor",
         "windowDays",
         "recordIds",
+        "headline",
+        "detail",
+        "limit",
       ]);
       for (const field of piiFields) expect(group).not.toHaveProperty(field);
       expect(JSON.stringify(group)).not.toMatch(/@example\.com/);

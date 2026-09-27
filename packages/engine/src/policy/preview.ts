@@ -6,6 +6,7 @@ import type {
   RuleContext,
   ToolDeclaration,
 } from "../types";
+import { roleLabel } from "@console/permissions";
 import { loadConstants } from "./constants";
 import { evaluatePolicy } from "./evaluate";
 
@@ -61,7 +62,7 @@ export function previewActions(
       return {
         ...base,
         offered: false,
-        unavailableReason: `Restricted to ${action.allowedRoles.join(", ")}`,
+        unavailableReason: `Only ${listOf(action.allowedRoles.map(roleLabel))} can do this`,
         decision: null,
       };
     }
@@ -69,7 +70,7 @@ export function previewActions(
       return {
         ...base,
         offered: false,
-        unavailableReason: `Only available from status ${action.fromStatus.join(" or ")}`,
+        unavailableReason: `Not available while the status is ${statusLabel(decl, status)}`,
         decision: null,
       };
     }
@@ -90,6 +91,17 @@ export function previewActions(
 
     return { ...base, offered: true, decision: evaluatePolicy(action.rules, ctx) };
   });
+}
+
+function statusLabel(decl: ToolDeclaration, value: string): string {
+  return decl.statuses.find((s) => s.value === value)?.label ?? value.replace(/_/g, " ");
+}
+
+/** `a`, `a or b`, `a, b or c`. */
+function listOf(items: string[]): string {
+  return items.length <= 1
+    ? (items[0] ?? "")
+    : `${items.slice(0, -1).join(", ")} or ${items[items.length - 1]}`;
 }
 
 interface ZodInternals {

@@ -18,6 +18,7 @@ import {
   getSpec,
   IMPLEMENTATION_KINDS,
   IN_FLIGHT_STATUSES,
+  RUN_KIND_LABELS,
   RUN_KINDS,
   RUN_SCOPES,
   RUN_STATUSES,
@@ -57,11 +58,11 @@ export interface DevinRun extends GovernedRecord {
 export const AUTOMATION_ROLES: Role[] = ["refunds_manager", "kyc_manager", "admin", "engineer"];
 
 const STATUS_LABELS: Record<(typeof RUN_STATUSES)[number], string> = {
-  dispatched: "Dispatched",
-  dispatch_failed: "Dispatch failed",
-  running: "Running",
+  dispatched: "Sent to Devin",
+  dispatch_failed: "Couldn't start",
+  running: "Devin working",
   approved: "Approved",
-  merged: "Merged",
+  merged: "Live",
   stopped: "Stopped",
 };
 
@@ -307,34 +308,33 @@ function order(sort?: SortOption) {
 
 export const automationTool = defineTool<DevinRun>({
   name: "automation",
-  displayName: "Automation",
-  description: "Devin runs against the console's rules: dispatched, approved and merged under audit.",
+  displayName: "Rule changes",
+  description: "Rules Devin writes, reviewed by an engineer before they go live.",
   icon: "Bot",
   group: "Platform",
   recordType: "devin_run",
   visibleTo: AUTOMATION_ROLES,
   fields: [
-    { name: "spec", label: "Spec", type: "string" },
-    { name: "kind", label: "Kind", type: "enum", enumValues: RUN_KINDS },
+    { name: "spec", label: "Brief", type: "string" },
+    { name: "kind", label: "Type", type: "enum", enumValues: RUN_KINDS, enumLabels: RUN_KIND_LABELS },
     { name: "tool", label: "Tool", type: "string" },
-    { name: "scope", label: "Scope", type: "enum", enumValues: RUN_SCOPES },
-    { name: "intent", label: "Intent", type: "text" },
-    { name: "contextSha256", label: "Context SHA-256", type: "string" },
-    { name: "sessionId", label: "Session", type: "string" },
+    { name: "scope", label: "Allowed to change", type: "enum", enumValues: RUN_SCOPES },
+    { name: "intent", label: "Request", type: "text" },
+    { name: "contextSha256", label: "Evidence fingerprint", type: "string" },
+    { name: "sessionId", label: "Devin session", type: "string" },
     { name: "prUrl", label: "Pull request", type: "string" },
     { name: "mergeCommit", label: "Merge commit", type: "string" },
-    { name: "reverses", label: "Reverses", type: "string" },
+    { name: "reverses", label: "Undoes", type: "string" },
     { name: "requestedBy", label: "Requested by", type: "string" },
-    { name: "requestedByRole", label: "Requested as", type: "string" },
+    { name: "requestedByRole", label: "Role", type: "string" },
     { name: "approvedBy", label: "Approved by", type: "string" },
     { name: "lastNote", label: "Last note", type: "text" },
     { name: "requestedAt", label: "Requested", type: "date" },
     { name: "updatedAt", label: "Updated", type: "date" },
   ],
   listColumns: [
-    { field: "spec", sortable: true },
+    { field: "intent" },
     { field: "kind", sortable: true },
-    { field: "scope" },
     { field: "status", sortable: true },
     { field: "requestedBy" },
     { field: "requestedAt", sortable: true },
@@ -348,14 +348,14 @@ export const automationTool = defineTool<DevinRun>({
     },
     {
       field: "kind",
-      label: "Kind",
+      label: "Type",
       type: "enum",
-      options: RUN_KINDS.map((value) => ({ value, label: value })),
+      options: RUN_KINDS.map((value) => ({ value, label: RUN_KIND_LABELS[value] })),
     },
   ],
   sections: [
-    { title: "Run", fields: ["spec", "kind", "tool", "scope", "intent", "reverses"] },
-    { title: "Session", fields: ["contextSha256", "sessionId", "prUrl", "mergeCommit"] },
+    { title: "Request", fields: ["intent", "kind", "tool", "reverses"] },
+    { title: "Technical details", fields: ["spec", "scope", "sessionId", "prUrl", "mergeCommit", "contextSha256"] },
     {
       title: "People",
       fields: ["requestedBy", "requestedByRole", "approvedBy", "lastNote", "requestedAt", "updatedAt"],
@@ -376,7 +376,7 @@ export const automationTool = defineTool<DevinRun>({
   actions: [
     defineAction<DevinRun, typeof DispatchInput, DispatchInput>({
       name: "dispatch",
-      label: "Dispatch",
+      label: "Ask Devin",
       description: "Ask Devin to run a spec. Creates the run; the session is recorded separately.",
       allowedRoles: ["refunds_manager", "kyc_manager", "admin"],
       input: DispatchInput,
@@ -466,7 +466,7 @@ export const automationTool = defineTool<DevinRun>({
     }),
     defineAction<DevinRun, typeof ApproveInput, Transition>({
       name: "approve_pr",
-      label: "Approve PR",
+      label: "Approve change",
       description:
         "Approve the run's pull request. The server reads the checks and the branch's context.json from GitHub.",
       allowedRoles: ["engineer"],

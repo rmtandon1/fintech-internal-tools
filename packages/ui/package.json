@@ -4,6 +4,7 @@
   "private": true,
   "exports": {
     "./format": "./src/format.ts",
+    "./gauge": "./src/gauge.ts",
     "./utils": "./src/utils.ts",
     "./*": "./src/*.tsx"
   },

@@ -1,4 +1,4 @@
-import { REFUND_CLUSTERING_HOLD, type RunKind } from "@console/tool-automation";
+import { REFUND_CLUSTERING_HOLD, RUN_KIND_LABELS, type RunKind } from "@console/tool-automation";
 import { StructuredOutput } from "@console/tool-automation/run-files";
 import { runChecklist, type ChecklistLine } from "@/lib/run-checklist";
 
@@ -12,11 +12,17 @@ import { runChecklist, type ChecklistLine } from "@/lib/run-checklist";
 export interface SimulatedRun {
   spec: string;
   kind: RunKind;
+  /** How the kind is named on screen. */
+  kindLabel: string;
   intent: string;
   /** What the operator would read as the run progresses, in order. */
   sentences: string[];
+  /** The phase each sentence belongs to, one per sentence; the replay lands it there. */
+  beats: StructuredOutput["phase"][];
   /** The run view's checklist for the finished run, from the same projection a live run uses. */
   checklist: ChecklistLine[];
+  /** The finished run's structured output, which the run report lays out. */
+  output: StructuredOutput;
 }
 
 const SIM_CONTEXT_SHA = "5e".repeat(32);
@@ -105,31 +111,37 @@ const SIMULATIONS: SimulatedRun[] = [
   {
     spec: REFUND_CLUSTERING_HOLD.file,
     kind: "IMPLEMENTATION/ADDITION",
+    kindLabel: RUN_KIND_LABELS["IMPLEMENTATION/ADDITION"],
     intent: REFUND_CLUSTERING_HOLD.intents["IMPLEMENTATION/ADDITION"] ?? "",
     sentences: [
-      "Reads AGENTS.md, the run protocol and REFUND_CLUSTERING_HOLD.md, then checks the attached context.json against the integration branch head.",
-      "Runs pnpm verify at the base commit and records the test count per file.",
-      "Commits runs/<run_id>/plan.json before any edit: five files, all inside the spec's scope.",
-      "Adds clustering_hold after goodwill_approval. It reads the manager line from refunds.manager_approval_usd_minor and the window from refunds.clustering_window_days, where 0 switches it off.",
-      "Leaves out rejected refunds and sums USD at the rate frozen when each refund was requested. The one-sentence request mentioned neither.",
-      "Adds linked_refund_hold to KYC approve. It reuses the cluster query instead of summing a second time.",
-      "Writes eight acceptance tests, with the fixture built from the four Kestrel amounts in the evidence.",
-      "pnpm verify passes and every run guard passes. Opens a pull request against cognition-dashboard-devin-integration and waits for an engineer to approve it.",
+      "Read your request and the four Kestrel refunds you sent, then checked how refund approvals work today.",
+      "Ran the full test suite before changing anything. All 246 tests pass.",
+      "Wrote down which five files it would change before touching any code.",
+      "Added a rule that holds a merchant's \"not received\" refunds for a manager once together they pass the manager limit. An admin can switch it off on the rule settings page.",
+      "Left out rejected refunds and used the exchange rate from the day each refund was requested. Your request didn't mention either.",
+      "Made KYC approvals for those customers go to a manager too.",
+      "Added eight tests built from the four Kestrel refunds.",
+      "Every check passes. The change is waiting for an engineer to review and approve it.",
     ],
+    beats: ["intake", "baseline", "plan", "edit", "edit", "edit", "edit", "verify"],
     checklist: runChecklist(ADDITION),
+    output: ADDITION,
   },
   {
     spec: REFUND_CLUSTERING_HOLD.file,
     kind: "REVERSAL",
+    kindLabel: RUN_KIND_LABELS.REVERSAL,
     intent: REFUND_CLUSTERING_HOLD.intents.REVERSAL ?? "",
     sentences: [
-      "Starts from git revert of the merged clustering hold on a fresh branch.",
-      "The revert conflicts in tools/refunds/src/index.ts. Keeps the later partial_delivery reason code and removes only the clustering rule.",
-      "Removes linked_refund_hold and the refunds.clustering_window_days constant. Deletes only the eight tests that assert the hold, and lists them in plan.json.",
-      "Only undo passes against the implementation's base: nothing new comes in with the removal.",
-      "The PR lists what code can't undo: refunds still held in the manager inbox, and the window row an admin set to 0.",
+      "Started from the change that added the hold.",
+      "A later change edited the same file to add the \"partial delivery\" reason. Kept that and removed only the hold.",
+      "Removed the KYC link and the window setting, and deleted only the eight tests that checked the hold.",
+      "Checked that the undo adds nothing new.",
+      "Listed what code can't undo: refunds still waiting in the manager inbox, and the window setting an admin set to 0.",
     ],
+    beats: ["intake", "edit", "edit", "verify", "pull_request"],
     checklist: runChecklist(REVERSAL),
+    output: REVERSAL,
   },
 ];
 

@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { ulid } from "ulid";
 import { executeIntent } from "@console/engine/execute-intent";
+import { previewActions } from "@console/engine/policy/preview";
 import { registerConstants } from "@console/engine/policy/register";
 import type { Actor } from "@console/engine/types";
 import { flagTool } from "@console/tool-flags";
@@ -216,5 +217,34 @@ describe("flags stats", () => {
       expect(Number(row.expiresAt)).toBeLessThan(now);
       expect(["on", "partial"]).toContain(row.status);
     }
+  });
+});
+
+describe("feature flag switches", () => {
+  const toggle = flagTool.toggle;
+  if (!toggle) throw new Error("flags declares no switches");
+
+  it("declares switch actions that exist on the tool", () => {
+    const names = flagTool.actions.map((a) => a.name);
+    expect(names).toContain(toggle.on);
+    expect(names).toContain(toggle.off);
+    expect(flagTool.fields.map((f) => f.name)).toContain(toggle.groupBy);
+  });
+
+  it("offers the flipping action for every live flag, and none for archived ones", () => {
+    const { rows } = flagTool.list({ filters: {}, limit: 500, offset: 0 });
+    for (const row of rows) {
+      const action = row[toggle.field] ? toggle.off : toggle.on;
+      const preview = previewActions(flagTool, row, kycManager).find((p) => p.action === action);
+      expect(preview?.offered, `${row.key} (${row.status})`).toBe(row.status !== "archived");
+    }
+  });
+
+  it("turns a flag off through the write path when its switch is flipped", () => {
+    const { rows } = flagTool.list({ filters: { status: "on" }, limit: 1, offset: 0 });
+    const flag = rows[0];
+    const result = act(kycManager, toggle.off, flag.id, { reason: "Switch flipped off in test" });
+    expect(result.outcome.status).toBe("applied");
+    expect(flagTool.get(flag.id)?.[toggle.field]).toBe(0);
   });
 });

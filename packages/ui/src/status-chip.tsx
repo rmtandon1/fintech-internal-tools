@@ -4,10 +4,10 @@ import { titleCase } from "./format";
 
 const TONES: Record<StatusTone, string> = {
   neutral: "border-border bg-muted text-muted-foreground",
-  positive: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
-  negative: "border-red-500/30 bg-red-500/10 text-red-400",
-  warning: "border-amber-500/30 bg-amber-500/10 text-amber-400",
-  info: "border-sky-500/30 bg-sky-500/10 text-sky-400",
+  positive: "border-success/30 bg-success/10 text-success",
+  negative: "border-destructive/30 bg-destructive/10 text-destructive",
+  warning: "border-warning/30 bg-warning/10 text-warning",
+  info: "border-info/30 bg-info/10 text-info",
 };
 
 export function StatusChip({

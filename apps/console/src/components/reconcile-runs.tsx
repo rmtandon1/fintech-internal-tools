@@ -26,7 +26,7 @@ export function ReconcileRuns() {
         })
       }
     >
-      {pending ? "Reconciling…" : "Reconcile"}
+      {pending ? "Syncing…" : "Sync with GitHub"}
     </Button>
   );
 }

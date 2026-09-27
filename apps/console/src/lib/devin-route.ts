@@ -11,6 +11,7 @@ import {
   IN_FLIGHT_STATUSES,
   type ReplayFrame,
   type RunKind,
+  runKindLabel,
   type RunStatus,
 } from "@console/tool-automation";
 import {
@@ -66,6 +67,8 @@ export interface RunViewPayload {
   summary: string;
   /** The spec's once-merged line for this kind, when it names one. */
   outcome: string | null;
+  /** The operator-facing name of the run's kind. */
+  kindLabel: string;
   /** The id of the run's latest audit row, or null before the first intent. */
   lastAuditId: string | null;
   offers: RunOffers;
@@ -130,6 +133,7 @@ export async function handleGet(
         : null,
     summary: getSpec(run.spec)?.summaries?.[run.kind as RunKind] ?? run.intent,
     outcome: getSpec(run.spec)?.outcomes?.[run.kind as RunKind] ?? null,
+    kindLabel: runKindLabel(run.kind),
     lastAuditId: listAuditEvents({ recordId: run.id, limit: 1 }).rows[0]?.id ?? null,
     offers: await runOffers(
       run,

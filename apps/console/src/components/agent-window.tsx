@@ -37,7 +37,7 @@ function AgentWindowContent({ children }: { children?: React.ReactNode }) {
 export function AgentWindow({
   children,
   mode = "live",
-  source = "source: none",
+  source = "",
 }: {
   children?: React.ReactNode;
   mode?: DevinMode;
@@ -57,9 +57,9 @@ export function AgentWindow({
 
   const label =
     agentFocus?.kind === "handoff"
-      ? "source: context preview"
+      ? "Request preview"
       : agentFocus?.kind === "run"
-        ? "source: run view"
+        ? "Live run"
         : source;
 
   return (
@@ -68,30 +68,30 @@ export function AgentWindow({
         type="button"
         onClick={toggleAgent}
         aria-pressed={agentOpen}
-        title={mode === "simulation" ? "Toggle Devin window (]) · simulation mode" : "Toggle Devin window (])"}
+        title={mode === "simulation" ? "Devin (preview: not connected)" : "Devin"}
         className={cn(
-          "flex h-7 items-center gap-1.5 rounded-md border border-input px-2 text-[11px]",
-          agentOpen ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground",
+          "flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-sm shadow-xs transition-colors",
+          agentOpen ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-accent",
         )}
       >
-        <Icon name="Bot" className="size-3.5" />
+        <Icon name="Bot" className="size-4" />
         Devin
         {mode === "simulation" ? (
           <span
-            className="rounded-sm bg-amber-500/15 px-1 font-mono text-[9px] tracking-wider text-amber-300"
+            className="rounded-sm bg-warning/15 px-1.5 text-[10px] font-medium text-warning"
             data-testid="devin-simulation-chip"
           >
-            SIM
+            Preview
           </span>
         ) : null}
       </button>
       <Dialog open={agentOpen} onOpenChange={setAgentOpen}>
-        <DialogContent className="max-w-xl gap-0 overflow-hidden p-0 sm:max-w-2xl">
+        <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-3xl">
           <DialogTitle className="sr-only">Devin</DialogTitle>
           <Panel
             title="Devin"
             actions={<span className="mr-6 text-[10px] text-muted-foreground">{label}</span>}
-            className="h-[70vh] rounded-none border-0"
+            className="h-[80vh] rounded-none border-0"
             bodyClassName="flex flex-col"
           >
             <AgentWindowContent>{children}</AgentWindowContent>

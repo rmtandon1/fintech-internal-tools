@@ -11,6 +11,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@console/ui/sheet";
+import { Icon } from "@console/ui/icon";
+import { CountUp } from "@console/ui/motion";
 import { StatusChip } from "@console/ui/status-chip";
 import { Button } from "@console/ui/button";
 import { useWorkspace } from "@/components/workspace";
@@ -28,34 +30,113 @@ export interface ClusterRow {
   currency: string;
   usdMinor: number;
   requestedAt: number | null;
-  /** Masked PII fields, label to value. */
-  identity: { label: string; value: string }[];
   /** The policy outcome of the cluster's trace action for the current actor. */
   trace: RuleOutcome[] | null;
   pendingApproval: boolean;
 }
 
+/** `$1,880`, or `$1,880.50` when there are cents. */
+function usd(minor: number): string {
+  return (minor / 100).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: minor % 100 === 0 ? 0 : 2,
+  });
+}
+
+/**
+ * Each record as a short bar under the limit line, then one bar for all of
+ * them together. The picture is the point: every bar passes on its own, the
+ * last one clearly doesn't.
+ */
+function LimitChart({
+  rows,
+  totalUsdMinor,
+  limit,
+}: {
+  rows: ClusterRow[];
+  totalUsdMinor: number;
+  limit: { usdMinor: number; label: string };
+}) {
+  const max = Math.max(totalUsdMinor, limit.usdMinor) * 1.2;
+  const pct = (minor: number) => `${(minor / max) * 100}%`;
+  const bars = [...rows].sort((a, b) => (a.requestedAt ?? 0) - (b.requestedAt ?? 0));
+  // Each refund rises in turn, then the total climbs through the limit line.
+  const step = 110;
+  const togetherDelay = bars.length * step + 250;
+
+  return (
+    <figure
+      className="px-4 pt-5 pb-2"
+      aria-label={`${bars.length} refunds each under ${limit.label}; ${usd(totalUsdMinor)} together`}
+    >
+      <div className="relative flex h-52 items-end gap-3 border-b border-border">
+        <div
+          className="pointer-events-none absolute inset-x-0 border-t border-dashed border-foreground/60"
+          style={{ bottom: pct(limit.usdMinor) }}
+        >
+          <span className="absolute left-0 -top-6 rounded-sm bg-background px-1.5 py-0.5 text-xs font-medium text-foreground">
+            {limit.label}
+          </span>
+        </div>
+        {bars.map((row, i) => (
+          <div
+            key={row.id}
+            className="flex-1 origin-bottom rounded-t-[4px] bg-muted-foreground/45 motion-safe:animate-rise"
+            style={{ height: pct(row.usdMinor), animationDelay: `${i * step}ms` }}
+            title={`${row.title}: ${usd(row.usdMinor)}`}
+          />
+        ))}
+        <div className="mx-2 h-3/4 self-center border-l border-border" />
+        <div className="flex h-full flex-[1.4] flex-col justify-end" title={`Together: ${usd(totalUsdMinor)}`}>
+          <CountUp
+            value={totalUsdMinor / 100}
+            format={{ style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: totalUsdMinor % 100 === 0 ? 0 : 2 }}
+            durationMs={1000}
+            delayMs={togetherDelay}
+            className="mb-1 text-center text-base font-semibold tabular-nums text-foreground"
+          />
+          <div
+            className="origin-bottom rounded-t-[4px] bg-warning shadow-[0_0_28px_-6px] shadow-warning/60 motion-safe:animate-rise motion-safe:[animation-duration:1000ms]"
+            style={{ height: pct(totalUsdMinor), animationDelay: `${togetherDelay}ms` }}
+          />
+        </div>
+      </div>
+      <figcaption className="mt-1.5 flex gap-3 text-center">
+        {bars.map((row) => (
+          <span key={row.id} className="flex-1">
+            <span className="block text-xs font-medium tabular-nums text-foreground">{usd(row.usdMinor)}</span>
+            <span className="block text-[11px] text-muted-foreground">
+              {row.requestedAt ? formatRelative(row.requestedAt) : ""}
+            </span>
+          </span>
+        ))}
+        <span className="mx-2 w-px" />
+        <span className="flex-[1.4] text-xs font-medium text-foreground">Together</span>
+      </figcaption>
+    </figure>
+  );
+}
+
 export function ClusterDrawer({
   label,
-  clusterLabel,
-  count,
-  qualifier,
+  headline,
+  detail,
+  limit,
   totalUsdMinor,
-  windowDays,
-  traceAction,
   statuses,
+  ruleLabels,
   rows,
   canRequestRule,
   dispatch,
 }: {
   label: string;
-  clusterLabel: string;
-  count: number;
-  qualifier?: string;
+  headline: string;
+  detail?: string;
+  limit?: { usdMinor: number; label: string };
   totalUsdMinor: number;
-  windowDays?: number;
-  traceAction?: string;
   statuses: StatusDecl[];
+  ruleLabels?: Record<string, string>;
   rows: ClusterRow[];
   canRequestRule: boolean;
   /** Handoffs this actor may ask Devin for from the cluster's spec. */
@@ -79,84 +160,84 @@ export function ClusterDrawer({
     <Sheet open onOpenChange={(open) => (open ? undefined : close())}>
       <SheetContent
         side="right"
-        className="w-full gap-0 overflow-hidden p-0 sm:max-w-2xl"
+        className="w-full gap-0 overflow-hidden p-0 sm:max-w-xl"
         data-testid="cluster-drawer"
       >
-        <SheetHeader className="border-b border-border pr-12">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-            {clusterLabel}
-          </p>
-          <SheetTitle className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span>{label}</span>
-            <span className="text-sm font-normal text-muted-foreground tabular-nums">
-              {count} {qualifier ?? (count === 1 ? "record" : "records")}
-              {windowDays ? ` · ${windowDays}d` : ""}
-            </span>
-          </SheetTitle>
-          <SheetDescription asChild>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-semibold text-foreground tabular-nums">
-                {formatMinorUnits(totalUsdMinor, "USD")}
-              </span>
-              <span className="text-xs text-muted-foreground">total USD equivalent</span>
-            </div>
-          </SheetDescription>
+        <SheetHeader className="gap-1 border-b border-border pr-12">
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <SheetTitle className="text-lg leading-snug">{headline}</SheetTitle>
+          {detail ? (
+            <SheetDescription className="text-sm leading-relaxed">{detail}</SheetDescription>
+          ) : null}
         </SheetHeader>
 
-        <ol className="min-h-0 flex-1 divide-y divide-border overflow-auto">
-          {rows.map((row) => (
-            <li key={row.id} className="px-4 py-3" data-testid="cluster-row">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <Link
-                  href={row.href}
-                  className="font-mono text-xs font-medium text-foreground hover:underline"
-                >
-                  {row.title}
-                </Link>
-                <StatusChip value={row.status} statuses={statuses} />
-                <span className="ml-auto text-xs tabular-nums">
-                  {formatMinorUnits(row.amountMinor, row.currency)}
-                  {row.currency !== "USD" ? (
-                    <span className="text-muted-foreground">
-                      {" "}
-                      · {formatMinorUnits(row.usdMinor, "USD")}
+        <div className="min-h-0 flex-1 overflow-auto">
+          {limit ? <LimitChart rows={rows} totalUsdMinor={totalUsdMinor} limit={limit} /> : null}
+
+          <h3 className="px-4 pt-4 pb-1 text-sm font-semibold text-foreground">
+            The {rows.length} refunds
+          </h3>
+          <ol className="divide-y divide-border">
+            {rows.map((row) => {
+              const checks = row.trace?.length ?? 0;
+              const passed = row.trace?.every((r) => r.type === "allow") ?? false;
+              return (
+                <li key={row.id} className="px-4 py-2.5" data-testid="cluster-row">
+                  <div className="flex items-center gap-3">
+                    <Link
+                      href={row.href}
+                      className="font-mono text-xs font-medium text-foreground hover:underline"
+                    >
+                      {row.title}
+                    </Link>
+                    <StatusChip value={row.status} statuses={statuses} />
+                    <span className="ml-auto text-sm font-medium tabular-nums">
+                      {row.currency === "USD"
+                        ? usd(row.amountMinor)
+                        : formatMinorUnits(row.amountMinor, row.currency)}
                     </span>
-                  ) : null}
-                </span>
-              </div>
-              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
-                {row.identity.map((field) => (
-                  <span key={field.label}>
-                    {field.label}{" "}
-                    <span className="font-mono text-foreground">{field.value}</span>
-                  </span>
-                ))}
-                {row.requestedAt ? <span>{formatRelative(row.requestedAt)}</span> : null}
-              </div>
-              <div className="mt-2 rounded-md border border-border bg-card">
-                <div className="flex h-7 items-center border-b border-border px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Policy trace
-                  {traceAction ? (
-                    <span className="ml-1 font-mono normal-case tracking-normal">
-                      · {traceAction}
-                    </span>
-                  ) : null}
-                </div>
-                {row.trace ? (
-                  <PolicyTraceList trace={row.trace} className="py-0.5" />
-                ) : (
-                  <p className="px-3 py-2 text-xs text-muted-foreground">
-                    Policy runs once required input is supplied.
-                  </p>
-                )}
-              </div>
-            </li>
-          ))}
-        </ol>
+                  </div>
+                  <details className="group mt-1 text-xs">
+                    <summary className="flex cursor-pointer list-none items-center gap-1.5 text-muted-foreground hover:text-foreground">
+                      {row.trace ? (
+                        passed ? (
+                          <>
+                            <Icon name="CircleCheck" className="size-3.5 text-success" />
+                            Passed all {checks} checks, no manager needed
+                          </>
+                        ) : row.pendingApproval ? (
+                          <>
+                            <Icon name="Clock" className="size-3.5 text-warning" />
+                            Needs a manager
+                          </>
+                        ) : (
+                          <>
+                            <Icon name="CircleX" className="size-3.5 text-destructive" />
+                            Blocked by a rule
+                          </>
+                        )
+                      ) : (
+                        "Checks run once the details are filled in"
+                      )}
+                      {row.trace ? (
+                        <Icon name="ChevronDown" className="size-3 transition-transform group-open:rotate-180" />
+                      ) : null}
+                    </summary>
+                    {row.trace ? (
+                      <div className="mt-2 rounded-md border border-border bg-card">
+                        <PolicyTraceList trace={row.trace} labels={ruleLabels} className="py-0.5" />
+                      </div>
+                    ) : null}
+                  </details>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
 
         <SheetFooter className="mt-0 flex-row items-center gap-3 border-t border-border text-xs text-muted-foreground">
-          {uncovered ? <p>No rule covers this pattern.</p> : null}
-          {!canRequestRule ? <p>A refunds manager can ask for a rule.</p> : null}
+          {uncovered ? <p>No rule catches this today.</p> : null}
+          {!canRequestRule ? <p>A refunds manager can ask for one.</p> : null}
           {dispatch && dispatch.length > 0 ? (
             <div className="ml-auto">
               <Button

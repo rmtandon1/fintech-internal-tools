@@ -38,25 +38,25 @@ function isEditable(target: EventTarget | null): boolean {
 
 export function AppSidebar({
   actor,
+  roleChosen,
   tools,
   runs,
   pendingApprovals,
-  showRuns,
 }: {
   actor: Actor;
+  /** False until a role is picked; the rail then offers only Home. */
+  roleChosen: boolean;
   tools: ToolLink[];
   /** Whether this role sees the `automation` tool, and so the RUNS list. */
   runs: boolean;
   pendingApprovals: number;
-  /** The /runs page is for roles that may see the automation tool. */
-  showRuns?: boolean;
 }) {
   const pathname = usePathname();
   const [expanded, setExpanded] = useState(false);
   const asideRef = useRef<HTMLElement>(null);
 
   const items: RailItem[] = [
-    { href: "/", label: "Home", icon: "Home", active: pathname === "/" },
+    { href: "/", label: "Home", icon: "Home", active: pathname === "/" || pathname.startsWith("/roadmap") },
     ...tools.map((tool) => ({
       href: `/t/${tool.name}`,
       label: tool.displayName,
@@ -67,13 +67,13 @@ export function AppSidebar({
       ? [
           {
             href: "/runs",
-            label: "Runs",
+            label: "Rule changes",
             icon: "Bot",
             active: pathname.startsWith("/runs") || pathname.startsWith("/t/automation"),
           },
         ]
       : []),
-    ...(canApprove(actor.role)
+    ...(roleChosen && canApprove(actor.role)
       ? [
           {
             href: "/inbox",
@@ -84,33 +84,27 @@ export function AppSidebar({
           },
         ]
       : []),
-    {
-      href: "/audit",
-      label: "Audit",
-      icon: "ScrollText",
-      active: pathname === "/audit",
-    },
-    ...(showRuns
+    ...(roleChosen
       ? [
           {
-            href: "/runs",
-            label: "Runs",
-            icon: "Bot",
-            active: pathname === "/runs",
+            href: "/audit",
+            label: "Audit log",
+            icon: "ScrollText",
+            active: pathname === "/audit",
           },
         ]
       : []),
-    ...(actor.role === "admin"
+    ...(roleChosen && actor.role === "admin"
       ? [
           {
             href: "/audit/verify",
-            label: "Chain verify",
+            label: "Verify audit log",
             icon: "ShieldCheck",
             active: pathname === "/audit/verify",
           },
           {
             href: "/admin/policy",
-            label: "Policy constants",
+            label: "Rule settings",
             icon: "SlidersHorizontal",
             active: pathname === "/admin/policy",
           },
@@ -174,10 +168,7 @@ export function AppSidebar({
                 <Icon name="PanelLeft" className="size-4" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right" className="flex items-center gap-2">
-              Menu
-              <kbd className="font-mono text-[10px] opacity-70">[</kbd>
-            </TooltipContent>
+            <TooltipContent side="right">Menu</TooltipContent>
           </Tooltip>
 
           {items.map((item) => (
@@ -195,7 +186,7 @@ export function AppSidebar({
                 >
                   <Icon name={item.icon} className="size-4" />
                   {item.badge ? (
-                    <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-amber-400 px-1 text-[9px] font-semibold tabular-nums text-black">
+                    <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-warning px-1 text-[9px] font-semibold tabular-nums text-warning-foreground">
                       {item.badge}
                     </span>
                   ) : null}
@@ -232,7 +223,7 @@ export function AppSidebar({
                 <Icon name={item.icon} className="size-4 shrink-0" />
                 <span className="truncate">{item.label}</span>
                 {item.badge ? (
-                  <span className="ml-auto text-[11px] tabular-nums text-amber-400">
+                  <span className="ml-auto text-[11px] tabular-nums text-warning">
                     {item.badge}
                   </span>
                 ) : null}

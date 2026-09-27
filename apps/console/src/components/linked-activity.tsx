@@ -3,7 +3,7 @@ import { Icon } from "@console/ui/icon";
 import { RevealField } from "@/components/reveal-field";
 import { maskRecord } from "@console/engine/pii/mask";
 import type { Actor, LinkedActivity, ToolDeclaration } from "@console/engine/types";
-import { formatFieldValue } from "@console/ui/format";
+import { formatFieldValue, humanize } from "@console/ui/format";
 import { cn } from "@console/ui/utils";
 
 /** Strip line: count, total, codes and the held marker; no PII. */
@@ -11,21 +11,20 @@ export function LinkedActivitySummaryLine({ activity }: { activity: LinkedActivi
   const { summary } = activity;
   return (
     <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-      <span className="tabular-nums text-foreground">{summary.count}</span>
-      <span aria-hidden>·</span>
+      <span className="tabular-nums text-foreground">{summary.count}</span> totalling
       <span className="tabular-nums text-foreground">{summary.total}</span>
       {summary.codes.length ? (
         <>
           <span aria-hidden>·</span>
-          <span className="font-mono">{summary.codes.join(", ")}</span>
+          <span>{summary.codes.map(humanize).join(", ")}</span>
         </>
       ) : null}
       {summary.held > 0 ? (
         <>
           <span aria-hidden>·</span>
-          <span className="flex items-center gap-1 text-amber-400">
-            held <Icon name="Flag" className="size-3" />
-            <span className="tabular-nums">{summary.held}</span>
+          <span className="flex items-center gap-1 text-warning">
+            <Icon name="Flag" className="size-3" />
+            <span className="tabular-nums">{summary.held}</span> waiting for approval
           </span>
         </>
       ) : null}
@@ -56,26 +55,24 @@ export function LinkedActivityBody({
 
   return (
     <div className="space-y-3">
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
         <dt className="text-muted-foreground">{activity.title}</dt>
         <dd className="tabular-nums">
-          {activity.summary.count} · {activity.summary.total}
+          {activity.summary.count}, totalling {activity.summary.total}
         </dd>
-        <dt className="text-muted-foreground">Reason codes</dt>
-        <dd className="font-mono">{activity.summary.codes.join(", ") || "—"}</dd>
-        <dt className="text-muted-foreground">Held</dt>
-        <dd className={cn("tabular-nums", activity.summary.held > 0 && "text-amber-400")}>
-          {activity.summary.held > 0
-            ? `${activity.summary.held} awaiting approval`
-            : "none"}
+        <dt className="text-muted-foreground">Reasons</dt>
+        <dd>{activity.summary.codes.map(humanize).join(", ") || "—"}</dd>
+        <dt className="text-muted-foreground">Waiting for approval</dt>
+        <dd className={cn("tabular-nums", activity.summary.held > 0 && "text-warning")}>
+          {activity.summary.held > 0 ? activity.summary.held : "None"}
         </dd>
       </dl>
 
       {rows.length > 0 && linked ? (
-        <table className="w-full text-xs">
+        <table className="w-full text-sm">
           <thead>
-            <tr className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              <th className="px-2 text-left font-medium">Id</th>
+            <tr className="text-xs text-muted-foreground">
+              <th className="px-2 text-left font-medium">ID</th>
               {fields.map((field) => (
                 <th
                   key={field.name}
@@ -123,14 +120,14 @@ export function LinkedActivityBody({
                       </td>
                     );
                   })}
-                  <td className="px-2">{String(row.status ?? "—")}</td>
+                  <td className="px-2">{humanize(String(row.status ?? "—"))}</td>
                   <td className="px-2 text-right">
                     {held ? (
                       <span
-                        className="inline-flex items-center gap-1 text-[11px] text-amber-400"
+                        className="inline-flex items-center gap-1 text-[11px] text-warning"
                         title="Awaiting approval"
                       >
-                        <Icon name="Flag" className="size-3" /> held
+                        <Icon name="Flag" className="size-3" /> waiting
                       </span>
                     ) : null}
                   </td>
@@ -146,7 +143,7 @@ export function LinkedActivityBody({
           href={activity.href}
           className="inline-flex items-center gap-1 text-xs text-foreground underline-offset-2 hover:underline"
         >
-          Open cluster in {activity.title}
+          Open these {activity.title.toLowerCase()}
           <Icon name="ArrowRight" className="size-3" />
         </Link>
       ) : null}

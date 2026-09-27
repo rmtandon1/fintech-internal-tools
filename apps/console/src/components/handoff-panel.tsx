@@ -4,22 +4,12 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { dispatchAutomationRun } from "@/app/automation-actions";
 import { Button } from "@console/ui/button";
+import { Label } from "@console/ui/label";
 import { Textarea } from "@console/ui/textarea";
-import { formatMinorUnits, formatRelative } from "@console/ui/format";
+import { formatMinorUnits } from "@console/ui/format";
 import { useWorkspace } from "@/components/workspace";
 import { SimulationBanner, SimulatedRunView } from "@/components/simulated-run";
 import type { HandoffOffer } from "@/lib/handoff";
-
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="border-b border-border px-3 py-2">
-      <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-        {title}
-      </p>
-      {children}
-    </section>
-  );
-}
 
 /**
  * The one-sentence handoff: the requester writes the intent and the system
@@ -32,13 +22,20 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
   const [intent, setIntent] = useState(offer.intent);
   const [pending, startTransition] = useTransition();
   const [simulating, setSimulating] = useState(false);
+  const reversal = offer.kind === "REVERSAL";
   const simulation = offer.simulations?.[offer.kind] ?? null;
+  const live = offer.simulations === null;
 
   if (simulating && simulation) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col text-xs" data-testid="handoff-panel">
+      <div className="flex min-h-0 flex-1 flex-col text-sm" data-testid="handoff-panel">
         <SimulationBanner />
-        <SimulatedRunView run={simulation} />
+        <SimulatedRunView run={{ ...simulation, intent }} />
+        <div className="border-t border-border p-4">
+          <Button variant="outline" onClick={() => setSimulating(false)}>
+            Back
+          </Button>
+        </div>
       </div>
     );
   }
@@ -64,129 +61,129 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col text-xs" data-testid="handoff-panel">
-      <Group title="Request">
-        <div className="mb-1 flex flex-wrap items-baseline gap-x-2 text-[11px] text-muted-foreground">
-          <span className="font-mono text-foreground">{offer.kind}</span>
-          <span>·</span>
-          <span className="font-mono">{offer.spec}</span>
-          {offer.reverses ? (
-            <>
-              <span>·</span>
-              <span>
-                reverses <span className="font-mono">{offer.reverses.runId}</span>
-              </span>
-            </>
-          ) : null}
-        </div>
+    <div
+      className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-5 text-sm"
+      data-testid="handoff-panel"
+    >
+      <div className="space-y-1">
+        <h3 className="text-base font-semibold">
+          {reversal ? "Undo this rule change" : "Ask Devin for a new rule"}
+        </h3>
+        <p className="text-muted-foreground">
+          {reversal
+            ? "Devin removes the rule from the code and keeps everything built since. An engineer reviews the change before it goes live."
+            : "Describe what the rule should do. Devin writes it, tests it, and sends it to an engineer to review before it goes live."}
+        </p>
+      </div>
+
+      {!live ? <SimulationBanner /> : null}
+
+      <div className="space-y-2 rounded-md border border-border bg-muted/20 p-3">
+        <div className="text-xs font-medium text-muted-foreground">What Devin will see</div>
+        {offer.reverses ? (
+          <p>
+            The change to undo: <span className="font-mono">{offer.reverses.runId}</span>
+          </p>
+        ) : null}
+        {offer.evidence.length > 0 ? (
+          <ul className="flex flex-wrap gap-1.5">
+            {offer.evidence.map((row) => (
+              <li
+                key={row.id}
+                className="rounded-md border border-border bg-background px-2 py-1 text-xs"
+              >
+                <span className="font-mono">{row.id}</span>
+                <span className="ml-1.5 tabular-nums text-muted-foreground">
+                  {formatMinorUnits(row.usdMinor, "USD")}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-xs text-muted-foreground">No examples attached.</p>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Customer names, emails and card numbers are not shared.
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="handoff-intent" className="text-sm">
+          {reversal ? "What will be undone" : "What should the rule do?"}
+        </Label>
         <Textarea
-          rows={3}
+          id="handoff-intent"
+          rows={4}
           maxLength={500}
           value={intent}
-          readOnly={offer.kind === "REVERSAL"}
+          readOnly={reversal}
           onChange={(e) => setIntent(e.target.value)}
-          className="text-xs"
+          className="text-sm read-only:bg-muted read-only:text-muted-foreground"
           aria-label="Intent"
         />
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          {offer.kind === "REVERSAL"
-            ? "Fixed by the spec; a reversal carries no free text."
-            : "The only free text in the flow; everything below is supplied by the system."}
-        </p>
-      </Group>
+        {reversal ? (
+          <p className="text-xs text-muted-foreground">
+            Set by the rule&apos;s spec; undoing a change carries no free text.
+          </p>
+        ) : null}
+      </div>
 
-      <Group title="Context">
-        {offer.evidence.length > 0 ? (
-          <table className="w-full text-[11px]">
-            <thead>
-              <tr className="text-left text-muted-foreground">
-                <th className="font-normal">id</th>
-                <th className="font-normal">merchant</th>
-                <th className="font-normal">reason</th>
-                <th className="font-normal text-right">usd</th>
-                <th className="font-normal">requested</th>
-              </tr>
-            </thead>
-            <tbody>
-              {offer.evidence.map((row) => (
-                <tr key={row.id} className="border-t border-border/50">
-                  <td className="py-0.5 pr-2 font-mono">{row.id}</td>
-                  <td className="pr-2">{row.merchant}</td>
-                  <td className="pr-2 font-mono">{row.reasonCode}</td>
-                  <td className="pr-2 text-right tabular-nums">
-                    {formatMinorUnits(row.usdMinor, "USD")}
-                  </td>
-                  <td className="text-muted-foreground">
-                    {formatRelative(Date.parse(row.requestedAt))}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="text-[11px] text-muted-foreground">No evidence rows.</p>
-        )}
-        <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[11px]">
+      <details className="text-xs">
+        <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+          Technical details
+        </summary>
+        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+          <dt className="text-muted-foreground">Change</dt>
+          <dd>
+            {offer.kindLabel} <span className="font-mono text-muted-foreground">{offer.kind}</span>
+          </dd>
+          <dt className="text-muted-foreground">Spec</dt>
+          <dd className="font-mono">{offer.spec}</dd>
+          <dt className="text-muted-foreground">Base</dt>
+          <dd className="font-mono">
+            {offer.base.branch}@{offer.base.commit.slice(0, 7)}
+          </dd>
           {Object.entries(offer.constants).map(([key, value]) => (
             <div key={key} className="contents">
               <dt className="font-mono text-muted-foreground">{key}</dt>
               <dd className="tabular-nums">{value}</dd>
             </div>
           ))}
-          <dt className="text-muted-foreground">base</dt>
-          <dd className="font-mono">
-            {offer.base.branch}@{offer.base.commit.slice(0, 7)}
+          <dt className="text-muted-foreground">Allowed files</dt>
+          <dd>
+            <ul className="space-y-0.5">
+              {offer.scopePaths.map((path) => (
+                <li key={path} className="font-mono">
+                  {path}
+                </li>
+              ))}
+            </ul>
           </dd>
+          <dt className="text-muted-foreground">Checks</dt>
+          <dd>Lint · Typecheck · Boundaries · Test; approved by an engineer who did not ask for it</dd>
+          <dt className="text-muted-foreground">Mode</dt>
+          <dd>{live ? "Live · api.devin.ai" : "Preview · nothing is sent or recorded"}</dd>
         </dl>
-      </Group>
+      </details>
 
-      <Group title="Guardrails">
-        <ul className="space-y-0.5 text-[11px]">
-          {offer.scopePaths.map((path) => (
-            <li key={path} className="font-mono text-muted-foreground">
-              {path}
-            </li>
-          ))}
-        </ul>
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          The PR&rsquo;s checks: Lint · Typecheck · Boundaries · Test. Approval: an engineer who did
-          not request the run
-        </p>
-      </Group>
-
-      <Group title="Execution">
-        <p className="mb-2 text-[11px] text-muted-foreground">
-          {offer.simulations === null ? (
-            <>
-              <span className="font-medium text-foreground">Live</span> · api.devin.ai
-            </>
-          ) : (
-            <>
-              <span className="font-medium text-foreground">Simulation</span> · pre-written run, no
-              key configured — nothing is dispatched or recorded
-            </>
-          )}
-        </p>
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            className="h-7 text-xs"
-            disabled={pending || intent.trim().length === 0 || (offer.simulations !== null && !simulation)}
-            onClick={offer.simulations === null ? start : () => setSimulating(true)}
-            data-testid="start-run"
-          >
-            {pending ? "Dispatching…" : offer.simulations === null ? "Start run" : "Simulate run"}
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 text-xs"
-            onClick={() => setAgentFocus(null)}
-          >
-            Cancel
-          </Button>
-        </div>
-      </Group>
+      <div className="mt-auto flex justify-end gap-2">
+        <Button type="button" variant="ghost" onClick={() => setAgentFocus(null)}>
+          Cancel
+        </Button>
+        <Button
+          disabled={pending || intent.trim().length === 0 || (!live && !simulation)}
+          onClick={live ? start : () => setSimulating(true)}
+          data-testid="start-run"
+        >
+          {!live
+            ? "Preview the result"
+            : pending
+              ? "Sending…"
+              : reversal
+                ? "Ask Devin to undo it"
+                : "Send to Devin"}
+        </Button>
+      </div>
     </div>
   );
 }

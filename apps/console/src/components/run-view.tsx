@@ -9,7 +9,7 @@ import { Icon } from "@console/ui/icon";
 import { StatusChip } from "@console/ui/status-chip";
 import { ApprovalDialog } from "@/components/approval-dialog";
 import { RunSummary, RUN_STATUS_OPTIONS } from "@/components/run-summary";
-import { runChecklist } from "@/lib/run-checklist";
+import { phaseLine } from "@/lib/run-checklist";
 import type { RunViewPayload } from "@/lib/devin-route";
 import type { ReplayFrame, StructuredOutput } from "@console/tool-automation";
 
@@ -298,9 +298,10 @@ export function RunView({
       {showSummary ? (
         <RunSummary
           run={run}
-          checklist={runChecklist(out)}
-          phaseLine={out ? `${out.phase} · ${out.phase_status}` : null}
+          output={out}
+          phaseLine={phaseLine(out)}
           outcome={payload.outcome}
+          kindLabel={payload.kindLabel}
         />
       ) : null}
       <section className="border-b border-border px-3 py-2">

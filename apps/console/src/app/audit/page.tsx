@@ -2,6 +2,7 @@ import { AuditTimeline } from "@/components/audit-timeline";
 import { Panel } from "@/components/panel";
 import { listAuditEvents } from "@console/engine/audit/query";
 import { currentActor } from "@/lib/session";
+import { AUDIT_EVENT_LABELS } from "@/lib/audit-events";
 import { TOOLS } from "@/registry";
 
 export default async function AuditPage({
@@ -37,7 +38,7 @@ export default async function AuditPage({
       className="h-full"
       title={
         <span>
-          Audit stream{since !== undefined ? ` · last ${sinceHours}h` : ""} ·{" "}
+          Audit log{since !== undefined ? ` · last ${sinceHours} hours` : ""} ·{" "}
           <span className="tabular-nums">{total}</span>
           {pick("recordId") ? (
             <span className="font-mono normal-case tracking-normal"> · {pick("recordId")}</span>
@@ -52,9 +53,9 @@ export default async function AuditPage({
           <select
             name="tool"
             defaultValue={pick("tool") ?? "all"}
-            className="h-6 rounded-md border border-input bg-transparent px-1.5 text-[11px] text-foreground"
+            className="h-8 rounded-md border border-input bg-transparent px-1.5 text-sm text-foreground"
           >
-            <option value="all">Tool</option>
+            <option value="all">Any tool</option>
             {TOOLS.map((tool) => (
               <option key={tool.name} value={tool.name}>
                 {tool.displayName}
@@ -64,22 +65,12 @@ export default async function AuditPage({
           <select
             name="event"
             defaultValue={pick("event") ?? "all"}
-            className="h-6 rounded-md border border-input bg-transparent px-1.5 text-[11px] text-foreground"
+            className="h-8 rounded-md border border-input bg-transparent px-1.5 text-sm text-foreground"
           >
-            {[
-              "all",
-              "applied",
-              "applied_after_approval",
-              "denied",
-              "approval_requested",
-              "approval_granted",
-              "approval_rejected",
-              "approval_failed",
-              "pii_revealed",
-              "constant_changed",
-            ].map((event) => (
+            <option value="all">Any event</option>
+            {Object.entries(AUDIT_EVENT_LABELS).map(([event, label]) => (
               <option key={event} value={event}>
-                {event}
+                {label}
               </option>
             ))}
           </select>
@@ -89,14 +80,14 @@ export default async function AuditPage({
           <input
             name="actorId"
             defaultValue={pick("actorId") ?? ""}
-            placeholder="Actor"
-            className="h-6 w-24 rounded-md border border-input bg-transparent px-1.5 text-[11px] text-foreground"
+            placeholder="Person"
+            className="h-8 w-32 rounded-md border border-input bg-transparent px-1.5 text-sm text-foreground"
           />
           <button
             type="submit"
-            className="h-6 rounded-md border border-input px-2 text-[11px] hover:bg-accent"
+            className="h-8 rounded-md border border-input px-2 text-sm hover:bg-accent"
           >
-            Apply
+            Filter
           </button>
         </form>
       }

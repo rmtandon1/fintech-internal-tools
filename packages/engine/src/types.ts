@@ -33,6 +33,8 @@ export interface FieldDecl {
   /** Number of trailing characters left visible when masked. */
   revealTail?: number;
   enumValues?: readonly string[];
+  /** Display label per enum value; unlisted values are shown humanised. */
+  enumLabels?: Readonly<Record<string, string>>;
   /** For `currency` fields: the field holding the ISO currency code. */
   currencyField?: string;
   /** For `currency` fields always denominated in one currency. */
@@ -69,6 +71,13 @@ export interface StatDecl {
     | { kind: "records"; filters: Record<string, string> }
     | { kind: "approvals"; scope: "decidable" | "requested_by_me" }
     | { kind: "audit"; event: "denied" | "constant_changed"; sinceHours: number };
+}
+
+export interface ToggleDecl {
+  field: string;
+  on: string;
+  off: string;
+  groupBy?: string;
 }
 
 export interface SectionDecl {
@@ -227,6 +236,12 @@ export interface ToolDeclaration<TRecord extends GovernedRecord = GovernedRecord
   filters: FilterDecl[];
   /** Role-scoped counts rendered above the queue; omit for no strip. */
   stats?: StatDecl[];
+  /**
+   * Shows the queue as compact on/off switches: a record is on when `field`
+   * is truthy, and flipping a switch runs the `on` or `off` action through
+   * the write path. `groupBy` names a field to section the switches by.
+   */
+  toggle?: ToggleDecl;
   sections: SectionDecl[];
   statuses: StatusDecl[];
   statusField: string;
@@ -236,7 +251,7 @@ export interface ToolDeclaration<TRecord extends GovernedRecord = GovernedRecord
   actions: ActionDecl<TRecord>[];
   list: (opts: ListOptions) => { rows: TRecord[]; total: number };
   get: (id: string) => TRecord | null;
-  /** Statuses that count as open work on the home Work panel. */
+  /** Statuses that count as open work on the home page. */
   openStatuses?: string[];
   /** Returns a short marker (e.g. "overdue") when a record needs attention, else null. */
   attention?: (record: TRecord, now: number) => string | null;
@@ -251,6 +266,11 @@ export interface ToolDeclaration<TRecord extends GovernedRecord = GovernedRecord
   seed?: () => void;
   /** Named groupings an operator can open from the queue and act on. */
   clusters?: ClusterDecl[];
+  /**
+   * Plain-language name for each rule id, shown to operators in place of the
+   * id. Read at render time, so audit rows written earlier get the label too.
+   */
+  ruleLabels?: Record<string, string>;
 }
 
 /** One group within a cluster: an aggregate over records, carrying no PII. */
@@ -264,6 +284,12 @@ export interface ClusterGroup {
   /** Look-back window the group was computed over, in days. */
   windowDays?: number;
   recordIds: string[];
+  /** One plain sentence naming the pattern, shown as the alert and drawer title. */
+  headline?: string;
+  /** Why the pattern matters, in plain words. */
+  detail?: string;
+  /** The line each record sits under on its own, if the pattern is about one. */
+  limit?: { usdMinor: number; label: string };
 }
 
 export interface ClusterDecl {
