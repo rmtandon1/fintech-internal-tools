@@ -7,7 +7,7 @@
 - Engine design, such as a new approval type, stays with engineering. Devin can implement it under engineering review.
 - The console's own policy rules never use feature flags. The fintech's product flags stay flags, governed by the console.
 
-The Loom uses the add, switch-off and remove rows, and shows "Add an app" as a commit, not a run.
+The Loom (`LOOM-VIDEO-SCRIPT.md`) uses four rows: add a rule, switch a rule off, remove a rule, and change a requirement every app shares. "Add an app" appears only as the merged pull request that built `flags`, not as a run.
 
 ## Which path each change takes
 

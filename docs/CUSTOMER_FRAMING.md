@@ -26,7 +26,6 @@ The rule then reaches production one of two ways: a business user edits it direc
 ```
 
 
-Sure
 ### Why the existing options fail
 
 - **Business edits skip review.** A flow edited in Power Apps goes live with no diff, no second approver and no test. The change history records who saved it, but can't prove the history wasn't edited afterwards. A rule that decides whether money leaves the company needs more control than that.
@@ -42,7 +41,7 @@ Moving off Power Apps means owning the software. Each row is a question to put t
 
 | | Power Apps (today) | Owned software, engineers only | Owned software, with Devin |
 |---|---|---|---|
-| **Risk asks for a new rule. How long until it runs in production, and who does the work?** | ~30 minutes. A business user edits the flow in the browser | 1–2 weeks waiting for a sprint, then 4–6 engineer-hours to trace, write and test it | Same day. Devin writes the change in ~30 minutes, and an engineer reviews and merges it |
+| **Risk asks for a new rule. How long until it runs in production, and who does the work?** | ~30 minutes. A business user edits the flow in the browser | 1–2 weeks waiting for a sprint, then 4–6 engineer-hours to trace, write and test it | Same day. Devin writes and tests the change, and an engineer reviews and merges it |
 | **Who checks it before it touches money or customers?** | Nobody. No diff, no second approver, no test | An engineer, 30–60 minutes of review | An engineer, ~5 minutes against the plan Devin committed. CI fails any file outside that plan |
 | **It misfires in production. How fast can we stop it, and who has to be there?** | Another live edit, also unreviewed | A hotfix or an urgent ticket, which needs an engineer | An admin switches it off from the policy page in seconds. No engineer |
 | **Six months on, who cleans up rules nobody wants?** | Nobody owns it. Old flows and formulas stay in each app | Engineers, when a ticket is prioritised. Dead rules and flags pile up | Devin removes the rule in a reviewed pull request and keeps the work built since |
@@ -68,13 +67,13 @@ Stop a rule the moment it misfires, without waiting on engineering. Then have it
 
 **Example:** a courier outage sends a set of genuine refunds to the manager inbox. Every rule Devin adds comes with a setting that switches it off, editable on the admin policy page. The admin turns the rule off there in seconds, with no code change and no engineer, and one audit row records who did it.
 
-**Example:** the admin clicks **Reverse this change**. The codebase has moved on since the rule was added, so a plain `git revert` breaks: Devin has to understand which later behaviour, a `partial_delivery` change to the same file, must survive while it semantically undoes the earlier feature. The PR lists the 60 held refunds for a person to release.
+**Example:** the admin clicks **Undo this change** on the merged run. The codebase has moved on since the rule was added, so a plain `git revert` breaks: Devin has to understand which later behaviour, a `partial_delivery` change to the same file, must survive while it semantically undoes the earlier feature. The PR lists the 60 held refunds for a person to release.
 
 ### For Core Engineering
 
 Stop tracing rules by hand. Review a small PR against a one-sentence request and a plan committed before the first edit all while keeping the final say on every merge.
 
-**Example:** the Kestrel hold arrives as five files: the rule, its setting, the KYC check, eight tests and a green `pnpm verify` at 76 tests. Review takes ~5 minutes instead of 4–6 hours, and CI's Boundaries check fails any code that writes to the database without going through the engine.
+**Example:** the Kestrel hold arrives as one pull request: the rule, its setting, the KYC check, new tests built from the Kestrel amounts, one existing test changed on purpose, and a green `pnpm verify` on top of the 294 tests already there. Review takes ~5 minutes instead of 4–6 hours, and CI's Boundaries check fails any code that writes to the database without going through the engine.
 
 **Example:** a change to the shared engine, such as requiring a reason on every privileged action, also needs the engine owner's approval. Before approving, the reviewer tries each privileged action in the console and runs `/audit/verify`, so a path Devin missed can't reach production.
 
@@ -82,86 +81,50 @@ Stop tracing rules by hand. Review a small PR against a one-sentence request and
 
 Set a control once and see it hold across every app. Every change arrives with its evidence, its test and its approval, in one log an examiner can verify.
 
-**Example:** internal audit asks for the ticket behind each refund sent to the processor, and there isn't one. Compliance pastes the requirement into a Devin session. After the merge, a refund can't be sent without a reason and a ticket, and filtering `/audit` by one ticket returns every row it authorised across KYC, refunds and flags.
+**Example:** internal audit asks for the ticket behind each refund sent to the processor, and there isn't one. Compliance asks Devin from the audit row that shows the gap. After the merge, a refund can't be sent without a reason and a ticket, and every audit row it authorises, across KYC, refunds and flags, carries both.
 
 **Example:** `/audit/verify` checks the whole chain live: the Kestrel request, the approval, the merge, the switch-off and the removal, with rows from before the change still verifying.
 
 ## 3. Scenarios
 
+Three scenarios, one per demonstration in `LOOM-VIDEO-SCRIPT.md`. Each is harder than the last, and each answers a question the buyer asks about owning the software.
 
-
-### 1. Rules from the queue
+### 1. Add a rule nobody predicted
 
 - Turn a pattern operators spot in the queue into a reviewed rule the same day.
   - Four refunds from one merchant each sit just under the $500 manager line, and total $1,880 together
-  - The refunds manager asks Devin for a hold in one sentence, from the screen that shows the pattern
-  - Devin writes the rule, a matching KYC check, a switch-off setting and eight tests, and an engineer approves the pull request
-  - The next refund from that merchant waits for a manager
-- **Traditional:** An analyst joins two apps in Excel, then waits 1–2 weeks for an engineer to spend 4–6 hours tracing rules and writing the change.
+  - The refunds manager asks Devin for a hold in one sentence, from the screen that shows the pattern. Devin gets the sentence, the evidence and the files it may touch, and nothing else
+  - Devin writes the rule, a matching KYC check, a switch-off setting and tests, and changes the one existing test that said these refunds pass
+  - An engineer approves the pull request, and the next refund from that merchant waits for a manager
+- **Question it answers:** what happens when requirements change?
+- **Traditional:** an analyst joins two apps in Excel, then waits 1–2 weeks for an engineer to spend 4–6 hours tracing rules and writing the change.
 
+### 2. Take it back out
 
+- Stop a misfiring rule in seconds, then remove it from code that has moved on.
+  - A courier outage sends a long-standing merchant's genuine refunds to the manager inbox
+  - The admin sets the rule's window to 0 on the policy page. Refunds flow again, and one audit row records who did it
+  - The admin asks Devin to undo the rule. A plain `git revert` conflicts with a later `partial_delivery` change to the same file, so Devin removes the rule, its KYC check and its setting, and keeps the later work
+  - The pull request lists what code can't undo: held refunds for a person to release, and the setting left in the database
+- **Question it answers:** what if we want it gone, after the code has moved on?
+- **Traditional:** the rule stays in the code behind a switch nobody removes, until an auditor asks why it exists.
 
-### 2. Instant switch-off
-
-- Stop a misfiring rule in seconds, without waiting on engineering.
-  - A courier outage sends genuine refunds to the manager inbox
-  - The admin switches the rule off from the policy page
-  - Refunds flow again in 30 seconds, and one audit row records who did it
-- **Traditional:** Another unreviewed Power Apps edit, or an urgent ticket in the same engineering queue.
-
-
-
-### 3. Clean removal
-
-- Take a rule out of the code once it's no longer wanted, and keep everything built since.
-  - A plain `git revert` conflicts with a later `partial_delivery` change to the same file
-  - Devin removes the rule, its KYC check and its setting, and keeps the later work
-  - The pull request lists what code can't undo, such as held refunds for a person to release
-  - Removal pull request in ~30 minutes
-- **Traditional:** The rule stays in the code behind a switch nobody removes, until an auditor asks why it exists.
-
-
-
-### 4. Cross-tool incident response
-
-- Roll back a launch and clean up its damage across apps, from one console.
-  - Instant Payouts at 25% of merchants causes duplicate payouts and double-charged fees
-  - A manager disables the flag in production, with no approval wait
-  - Fee refunds go through maker-checker approval, and a retried request can't pay out twice
-  - One audit filter shows the flag change and every refund tied to it
-- **Traditional:** Three Power Apps, three audit exports and a spreadsheet to reconstruct one incident.
-
-
-
-### 5. One control, every app
+### 3. One requirement, every app
 
 - Change a requirement every app shares once, in the shared engine.
-  - Compliance asks for a reason and a ticket on every privileged action
-  - Devin has to find all five places the console writes audit rows, not only the obvious one
+  - Compliance asks for a reason and a ticket on every privileged action, starting from an audit row that has neither
+  - The request is a real ticket: the requirement plus three policy decisions (which actions are privileged, the ticket format, and that rejections need no ticket)
+  - Devin has to find all five places the console writes audit rows, not only the obvious one the repo's own instructions point at
   - The engine owner and an engineer review, and audit rows written before the change still verify
-  - One ticket filter returns every row it authorised, across KYC, refunds and flags
-- **Traditional:** An edit to every app and every flow, and each new app has to remember the rule.
+- **Question it answers:** can Devin change the shared platform, not just one app?
+- **Traditional:** an edit to every app and every flow, and each new app has to remember the rule.
 
 Every scenario keeps a human gate. In a regulated fintech the gates are the selling point: a rule on money changes as fast as a Power Apps edit and still gets a second reviewer.
 
 ## 4. Demo pitch
 
-Speaker notes: 
-
-- **Open on today's two options.** A rule change is either fast and unreviewed, or reviewed and slow.
-- **Show the pattern.** On `/t/refunds`, open the Kestrel chip. Say it plainly: each refund is clean, and together they are split around the $500 line. Send `rfnd_0012` to the processor. Nothing stops it. Tell the viewer to remember that click.
-- **Make the request.** Click **Ask Devin for a rule** and read the one-sentence request aloud, as the refunds manager would. Note what it leaves out. Point at the evidence panel: this is everything Devin sees, and no customer emails or card numbers are in it.
-- **Pause on the finished run.** Point down it: Devin didn't just add a threshold. It wrote `clustering_hold`, placed it after `goodwill_approval` so the trace reads in order, added a window setting with an off value, added `linked_refund_hold` to KYC, built a regression test from the four Kestrel amounts, and ran `pnpm verify`. Each is a row on screen with its file and lines changed, and CI's four checks are green by name: Lint, Typecheck, Boundaries and Test. Boundaries fails any code that writes to the database without going through the engine.
-- **One beat on the real pull request.** Open it on GitHub: the five files, the CI checks green, the run id in the description.
-- **Approve, then show the proof.** Switch to the engineer role and approve: the GitHub review lands, Devin merges, the audit row writes. Then repeat the earlier click on `rfnd_0013`. It lands in the inbox, and the trace names the rule and the $1,880 total. Open `kyc_0013`: approval now needs a KYC manager. Say it: nothing was switched on, the code changed.
-- **Reverse it (~30 s).** A courier outage sends Fernhill's genuine refunds to the inbox. Set the window to 0: stopped in 30 seconds. Click **Reverse this change**. Show the conflict line Devin resolved and the 60 held refunds it listed for a person to release. Say it: no flag was added, and none was left behind.
-- **Stress-test it (~60 s).** Open `rfnd_0012`'s row on `/audit`: who, when, how much, and no why. Show compliance's requirement as the session prompt. Say why it is the hard case: it changes the engine, and the repo's own `AGENTS.md` points at the wrong place. Show the three-run table: paths covered, where the reason is stored, and whether old rows verify. If a run missed a path, show where the reviewer caught it, then the fix. Point at the second approval: engine changes need the engine owner. Then send a refund: the dialog now asks for a reason and a ticket. Filter `/audit` by that ticket. Say it: this is where Devin needs the most review, and here is how much it needed.
-- **Prove the trail.** Run `/audit/verify` live. The request, approval, merge, switch-off, removal and justification rows are all in one tamper-evident chain, and the rows from before the change still verify.
-- **End on the build receipt (~10 s).** Show the commit that added `flags`, the third app Devin built: `tools/flags/`, a migration, a line in each registry, and nothing under `packages/engine/`. Its manager and admin approvals, maker-checker and audit are inherited, not written. Then click a stub mode: apps four through twenty are the same job. Say it: Devin changed this engine's rules twice today, and it also built the apps they run in. The commit also changes the home grid under `apps/console/src/app/`, so say "engine untouched", not "only the tool folder".
-
-
+The beat-by-beat script, with what to say, what to click and the order to record in, is `LOOM-VIDEO-SCRIPT.md`.
 
 ### The pitch in one paragraph
 
-> Today a rule on money changes one of two ways: fast in Power Apps with nobody reviewing it, or reviewed through a ticket that waits two weeks. In this console a rule is code. When risk spots a pattern, they ask Devin for the rule from the screen that shows it. Devin writes the rule, its setting and a regression test, runs the full suite, and opens a pull request your engineer reviews in minutes. When the rule proves too blunt, one setting switches it off in thirty seconds, and Devin takes it back out of the code the same day. No flag is added and none is left behind. When compliance changes a requirement every app shares, Devin makes that change too, under your engine owner's review, and your reviewer confirms no path was missed before it merges. Every step is a row in a tamper-evident audit log. Power Apps costs $250K a year for apps that each set up their own controls. This is one set of controls, in code you own, that changes as fast as the business asks.
-
+> Today a rule on money changes one of two ways: fast in Power Apps with nobody reviewing it, or reviewed through a ticket that waits two weeks. In this console a rule is code, and Devin changes it. When risk spots a pattern, they ask for the rule in one sentence from the screen that shows it. Devin writes the rule and its tests, runs the full suite, and opens a pull request your engineer reviews in minutes. When the rule misfires, one setting switches it off in seconds, and Devin takes it back out of the code the same day, even after the code has moved on. When compliance changes a requirement every app shares, Devin makes that change across the engine and every app, under your engine owner's review. Once the console is live, every rule change is one request in and one review out, in code you own.
