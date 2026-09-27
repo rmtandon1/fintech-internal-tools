@@ -426,6 +426,12 @@ export const kycTool = defineTool<KycCase>({
     escalate_always_permitted: "Escalating is always allowed",
     linked_refund_hold: "Linked refund hold",
   },
+  ruleFields: {
+    documents_complete: ["documentsComplete"],
+    no_sanctions_hit: ["sanctionsHit"],
+    country_permitted: ["country"],
+    risk_tier_approval: ["riskScore", "riskTier"],
+  },
   get: getCase,
   seed: seedKycCases,
 });

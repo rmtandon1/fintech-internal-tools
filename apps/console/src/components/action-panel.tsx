@@ -19,19 +19,13 @@ import type { ActionPreview } from "@console/engine/policy/preview";
 import type { StatusDecl } from "@console/engine/types";
 import { humanize } from "@console/ui/format";
 
-interface Note {
-  action: string;
-  tone: "approval" | "deny";
-  text: string;
-}
-
 /** The last completed submission per action, so the same payload sent again replays it. */
 type Completed = Record<string, { key: string; payload: string }>;
 
 /**
  * The actions this person can take on the record right now. Actions their
- * role or the record's status rules out are left off entirely; one that needs
- * approval or is blocked says so in a line under the buttons.
+ * role or the record's status rules out are left off entirely. Why one needs
+ * approval or is blocked shows on the record's highlighted fields.
  *
  * The dialog lives here rather than on each button: a successful action
  * usually changes the record's status, which removes its own button, and the
@@ -61,28 +55,6 @@ export function ActionBar({
   const completed = useRef<Completed>({});
   const offered = previews.filter((p) => p.offered);
 
-  const notes = offered.flatMap((preview): Note[] => {
-    const decision = preview.decision;
-    if (decision?.effect === "require_approval") {
-      return [
-        {
-          action: preview.action,
-          tone: "approval",
-          text: `${preview.label} needs ${decision.tier ?? "manager"} approval: ${decision.reason ?? ""}`,
-        },
-      ];
-    }
-    if (decision?.effect === "deny") {
-      return [
-        {
-          action: preview.action,
-          tone: "deny",
-          text: `${preview.label} is blocked: ${decision.reason ?? ""}`,
-        },
-      ];
-    }
-    return [];
-  });
 
   return (
     <div className="flex w-full flex-col gap-2">
@@ -108,18 +80,6 @@ export function ActionBar({
           })}
         </div>
       )}
-      {notes.length > 0 ? (
-        <ul className="space-y-0.5 text-[13px]">
-          {notes.map((note) => (
-            <li
-              key={note.action}
-              className={note.tone === "approval" ? "text-warning" : "text-destructive"}
-            >
-              {note.text}
-            </li>
-          ))}
-        </ul>
-      ) : null}
       {active ? (
         <ActionDialog
           key={active.preview.action}
@@ -194,8 +154,6 @@ function ActionDialog({
   const sent = useRef(false);
 
   const { label: buttonLabel, variant, disabled } = buttonFor(preview);
-  const needsApproval = preview.decision?.effect === "require_approval";
-  const tier = preview.decision?.tier ?? "manager";
   const title = recordLabel ? `${preview.label}: ${recordLabel}` : preview.label;
 
   function submit(form: FormData) {
@@ -256,10 +214,10 @@ function ActionDialog({
               </Label>
               {field.type === "string" &&
               (field.name.includes("reason") || field.name === "note") ? (
-                <Textarea
+                <SuggestTextarea
                   id={`${preview.action}-${field.name}`}
                   name={`input:string${field.optional ? "?" : ""}:${field.name}`}
-                  rows={3}
+                  suggestion={suggestionFor(preview)}
                 />
               ) : field.type === "enum" ? (
                 <select
@@ -293,12 +251,6 @@ function ActionDialog({
               )}
             </div>
           ))}
-          {needsApproval ? (
-            <p className="text-sm text-warning">
-              This goes to a{tier === "admin" ? "n" : ""} {tier} for approval:{" "}
-              {preview.decision?.reason}.
-            </p>
-          ) : null}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={onClose}>
               Cancel
@@ -332,5 +284,58 @@ function ActionDialog({
         ) : null}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** What the system already knows about why this action is held, as a ready-made note. */
+function suggestionFor(preview: ActionPreview): string | null {
+  const reason = preview.decision?.effect !== "allow" ? preview.decision?.reason : undefined;
+  if (!reason) return null;
+  return reason.endsWith(".") ? reason : `${reason}.`;
+}
+
+/**
+ * A note box that offers the known reason as grey suggested text. Tab fills
+ * it in while the box is empty or holds the start of it; typing anything else
+ * leaves the analyst's own words alone.
+ */
+function SuggestTextarea({
+  id,
+  name,
+  suggestion,
+}: {
+  id: string;
+  name: string;
+  suggestion: string | null;
+}) {
+  const [value, setValue] = useState("");
+  const offer =
+    suggestion !== null &&
+    value !== suggestion &&
+    suggestion.toLowerCase().startsWith(value.toLowerCase());
+
+  return (
+    <div className="relative">
+      <Textarea
+        id={id}
+        name={name}
+        rows={3}
+        value={value}
+        placeholder={suggestion ?? undefined}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Tab" && !e.shiftKey && offer && suggestion) {
+            e.preventDefault();
+            setValue(suggestion);
+          }
+        }}
+        className={offer ? "pr-16" : undefined}
+      />
+      {offer ? (
+        <kbd className="pointer-events-none absolute right-2 bottom-2 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+          Tab
+        </kbd>
+      ) : null}
+    </div>
   );
 }

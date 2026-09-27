@@ -271,6 +271,12 @@ export interface ToolDeclaration<TRecord extends GovernedRecord = GovernedRecord
    * id. Read at render time, so audit rows written earlier get the label too.
    */
   ruleLabels?: Record<string, string>;
+  /**
+   * The record fields each rule reads, by rule id. When a rule holds or
+   * blocks an action, the record view highlights these fields and shows the
+   * rule's reason on hover.
+   */
+  ruleFields?: Record<string, readonly string[]>;
 }
 
 /** One group within a cluster: an aggregate over records, carrying no PII. */

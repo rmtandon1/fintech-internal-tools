@@ -363,6 +363,12 @@ export const refundTool = defineTool<Refund>({
     settlement_is_a_record_keeping_step: "Record-keeping step",
     failure_is_a_record_keeping_step: "Record-keeping step",
   },
+  ruleFields: {
+    within_captured_amount: ["amountMinor", "capturedMinor", "refundedMinor"],
+    not_disputed: ["disputed"],
+    amount_approval: ["amountMinor", "usdMinor"],
+    goodwill_approval: ["reasonCode", "amountMinor"],
+  },
   clusters: [
     {
       id: "merchant_not_received",

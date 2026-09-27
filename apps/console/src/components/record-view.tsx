@@ -7,9 +7,10 @@ import { kycTool } from "@console/tool-kyc";
 import { Panel } from "@/components/panel";
 import { PolicyTraceList } from "@console/ui/policy-trace";
 import { RevealField } from "@/components/reveal-field";
+import { FieldHighlight, type HighlightTone } from "@/components/field-highlight";
 import { auditTrailFor } from "@console/engine/audit/query";
 import { maskRecord } from "@console/engine/pii/mask";
-import { previewActions } from "@console/engine/policy/preview";
+import { previewActions, type ActionPreview } from "@console/engine/policy/preview";
 import type { Actor, FieldDecl, GovernedRecord, ToolDeclaration } from "@console/engine/types";
 import { formatFieldValue } from "@console/ui/format";
 import { cn } from "@console/ui/utils";
@@ -40,6 +41,7 @@ export function RecordView({
   // The checks for the first action this person can take, so they can see
   // what would happen before they click.
   const traced = previews.find((p) => p.offered && p.decision);
+  const highlights = heldFields(decl, previews);
   const facts = decl.name === kycTool.name ? customerFacts(record) : null;
   // Fields the customer card already shows are not repeated in the grid.
   const sections = facts
@@ -63,8 +65,8 @@ export function RecordView({
                 if (!field) return null;
                 const numeric =
                   field.type === "number" || field.type === "currency";
-                return (
-                  <div key={name} className="min-w-0 space-y-0.5">
+                const body = (
+                  <>
                     <div className="text-xs text-muted-foreground">
                       {field.label}
                     </div>
@@ -79,6 +81,16 @@ export function RecordView({
                     ) : (
                       <FieldValue field={field} masked={masked.values} numeric={numeric} />
                     )}
+                  </>
+                );
+                const held = highlights.get(name);
+                return held ? (
+                  <FieldHighlight key={name} tone={held.tone} reasons={held.reasons}>
+                    {body}
+                  </FieldHighlight>
+                ) : (
+                  <div key={name} className="min-w-0 space-y-0.5">
+                    {body}
                   </div>
                 );
               })}
@@ -129,6 +141,30 @@ export function RecordView({
       </div>
     </div>
   );
+}
+
+/**
+ * Fields a rule is holding or blocking an offered action on, with the rules'
+ * reasons. A block outranks a hold when both touch the same field.
+ */
+function heldFields(
+  decl: ToolDeclaration,
+  previews: ActionPreview[],
+): Map<string, { tone: HighlightTone; reasons: string[] }> {
+  const held = new Map<string, { tone: HighlightTone; reasons: string[] }>();
+  for (const preview of previews) {
+    if (!preview.offered || !preview.decision) continue;
+    for (const outcome of preview.decision.trace) {
+      if (outcome.type === "allow") continue;
+      for (const field of decl.ruleFields?.[outcome.rule] ?? []) {
+        const entry = held.get(field) ?? { tone: "approval" as HighlightTone, reasons: [] };
+        if (outcome.type === "deny") entry.tone = "block";
+        if (!entry.reasons.includes(outcome.reason)) entry.reasons.push(outcome.reason);
+        held.set(field, entry);
+      }
+    }
+  }
+  return held;
 }
 
 function CustomerCardFor({

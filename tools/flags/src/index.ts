@@ -428,6 +428,14 @@ export const flagTool = defineTool<FeatureFlag>({
     production_exposure_increase: "Production traffic increase",
     kill_switch_is_always_available: "Switching off is always allowed",
   },
+  ruleFields: {
+    permission_flag_tier: ["flagType"],
+    production_enable: ["environment", "customerFacing"],
+    not_archived: ["enabled"],
+    not_expired: ["expiresAt"],
+    rollout_increase: ["rolloutPercent"],
+    production_exposure_increase: ["rolloutPercent", "environment"],
+  },
   get: getFlag,
   seed: seedFeatureFlags,
 });
