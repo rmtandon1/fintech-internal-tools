@@ -1,5 +1,3 @@
-# Customer Framing: Devin vs. Power Apps
-
 ## 1. The problem
 
 **Who changes an internal tool's rules after launch, on what timescale, and with what review?**
@@ -28,7 +26,7 @@ The rule then reaches production one of two ways: a business user edits it direc
 ```
 
 
-
+Sure
 ### Why the existing options fail
 
 - **Business edits skip review.** A flow edited in Power Apps goes live with no diff, no second approver and no test. The change history records who saved it, but can't prove the history wasn't edited afterwards. A rule that decides whether money leaves the company needs more control than that.
