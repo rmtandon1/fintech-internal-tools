@@ -2,12 +2,9 @@
 
 ## Summary
 
-- Most changes to the console need no Devin and no engineer: thresholds and emergency switch-offs are settings, and product flags are rows in the flags app.
+- Most changes to the console need no Devin and no engineer
 - Devin writes code only where a setting can't express the change: adding or removing a rule, adding an app, or changing a requirement every app shares.
 - Engine design, such as a new approval type, stays with engineering. Devin can implement it under engineering review.
-- The console's own policy rules never use feature flags. The fintech's product flags stay flags, governed by the console.
-
-The Loom (`LOOM-VIDEO-SCRIPT.md`) uses four rows: add a rule, switch a rule off, remove a rule, and change a requirement every app shares. "Add an app" appears only as the merged pull request that built `flags`, not as a run.
 
 ## Which path each change takes
 
@@ -45,5 +42,3 @@ Two kinds of switch are easy to confuse.
 - **Nobody can flag a pattern they haven't seen.** This client's rules come from patterns found in the queue. A new rule should cost one reviewed pull request, not a flag built in advance.
 
 **The fintech's product flags** are the rows in the flags app: `payments.instant_payouts` at 25% rollout, `payments.card_network_failover` as an emergency switch, `onboarding.document_autocapture`. In the fiction, the fintech's own product services read them. In the repo, nothing does. They stay flags, because gradual rollouts to customers and seconds-fast failover are what flags are for. The console governs changes to them through its own policy rules: a manager for customer-facing enables, rollout steps of at most 25 points, an admin for permission flags. That is the feature-flag admin panel in the client's brief.
-
-The rule: **console policy rules are code, changed by Devin. Product behaviour that must reach customers gradually, or switch in seconds, stays behind flags the console governs.**
