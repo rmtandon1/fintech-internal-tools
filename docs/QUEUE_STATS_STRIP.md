@@ -2,15 +2,15 @@
 
 ## Summary
 
-- A row of three counts at the top of every tool queue, chosen by role, answering what the person opening the queue needs in the first five seconds.
-- Each count links to exactly the rows it counts. Every number is a query, and none is simulated.
-- Agents see what to work on next, managers see what is breaching or waiting on them, and admins see whether the controls are holding.
+- Three counts at the top of every tool queue based on the selected role, to direct the person opening the queue to what they need to focus on next.
+- Each count links to exactly the rows it counts. Every number is a query.
+- Agents see what to work on next, managers see what is breaching or waiting on them.
 - Switching role changes the numbers, which shows the role model without a line of copy.
-- Stats are declared on the tool, like filters, so a new tool gets a strip without touching the page or the engine. Normal feature work, and `AGENTS.md` applies.
+- Stats are declared on the tool, like filters, so a new tool gets a strip without touching the page or the engine. 
 
 ## Problem
 
-Today the queue panel title shows one number, the total row count (`apps/console/src/app/t/[tool]/page.tsx`). Home's Work panel shows each tool's open count and one attention marker (`apps/console/src/lib/work.ts`), the same for every role that can see the tool. Neither tells a reviewer what to pick up or a manager what is about to breach.
+Currently the queue panel title shows one number, the total row count (`apps/console/src/app/t/[tool]/page.tsx`). Home's Work panel shows each tool's open count and one attention marker (`apps/console/src/lib/work.ts`), the same for every role that can see the tool. Neither tells a reviewer what to pick up or a manager what is about to breach.
 
 Roles are domain-scoped (`packages/permissions/src/roles.ts`). A tool is opened by up to three roles: its domain's agent, its domain's manager, and admin. `toolsForRole` already hides tools a role can't see, so the strip only has to vary what those three are asked:
 
