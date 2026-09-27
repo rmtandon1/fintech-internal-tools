@@ -233,7 +233,7 @@ Devin's job on a REVERSAL:
 
 ## Pull request contents
 
-The sections from `AGENTS.md` (Summary, Updates since last revision, Local testing results, Review and Testing Checklist), plus:
+The sections Summary, Updates since last revision, Local testing results, and Review and Testing Checklist, plus:
 
 - **Run:** run id, kind, spec, base commit, plan commit, session link.
 - **Intent:** the sentence as the requester wrote it.

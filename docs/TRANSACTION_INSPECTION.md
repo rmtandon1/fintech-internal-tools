@@ -6,7 +6,7 @@
 - Clicking it opens a drawer over the queue with the refunds behind the total and the rules that allowed each one.
 - The drawer offers one action to refunds managers and admins: **Ask Devin for a rule**, which opens the handoff panel in `AGENT_TRIGGER_SURFACE.md`.
 - It replaces the analyst's Excel pivot and one-at-a-time email lookups, and it is where the demo's first scenario starts.
-- Clusters are declared on the tool, so a new cluster type is a declaration. Normal feature work by a build agent, and `AGENTS.md` applies.
+- Clusters are declared on the tool, so a new cluster type is a declaration. Normal feature work by a build agent.
 
 ## The problem
 

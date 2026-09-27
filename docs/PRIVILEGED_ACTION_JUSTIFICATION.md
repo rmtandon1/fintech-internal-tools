@@ -4,7 +4,7 @@
 
 - Compliance requires a reason and a ticket reference on every privileged action, recorded in the tamper-evident audit log. Today the actions that let a customer in, send money out, loosen a control or expose personal data record neither.
 - It changes a requirement every app shares, so it lives in the engine, not a tool folder. It runs with engine scope: the engine owner approves as well as an engineer.
-- It is the demo's stress test. The obvious fix covers one of five places the console writes audit rows, and the repo's `AGENTS.md` points at that one.
+- It is the demo's stress test. The obvious fix covers one of five places the console writes audit rows.
 - Three Devin sessions run it in parallel from the same prompt. Each is scored against the reviewer checklist, and all three results are published.
 - Before approving, the reviewer tries each privileged action in the console and runs `/audit/verify`, so a missed path is caught before merge.
 - Framing: `CUSTOMER_FRAMING.md` § 3 › "5. One control, every app". Shared run rules: `DEVIN_RUN_PROTOCOL.md`, scope `engine`.
@@ -36,7 +36,7 @@ Compliance's requirement, pasted into a Devin session as the prompt. No Jira int
 
 > Every privileged action must record a reason and a ticket reference in the audit chain. Apply it to KYC decisions, refunds, feature-flag changes and policy changes.
 
-It doesn't say where writes happen. `AGENTS.md` says "All writes go through `executeIntent`", which is true for tool actions and incomplete for the rest. Leave that line as it is before the runs. Finding the other paths is what the runs are scored on.
+It doesn't say where writes happen. `executeIntent` covers tool actions, and the rest write audit rows elsewhere. Finding the other paths is what the runs are scored on.
 
 ### Scope
 
@@ -47,9 +47,8 @@ The `engine` scope in `DEVIN_RUN_PROTOCOL.md` › Scope, plus each tool's declar
 A run is worth publishing only if Devin could have got it wrong on its own. Check these before dispatch:
 
 - **The base carries no answer key.** This file's reviewer checklist, `CUSTOMER_FRAMING.md`, `DEVIN_RUN_PROTOCOL.md` and `ACTION_OUTCOME.md` name the entry points or the fix, and they are on the default branch. `36b0dbc`, the last commit before they were added, is not usable as a base: it predates the workspace split, so none of the `packages/`, `tools/` or `apps/console/` paths in this run's scope exist there. Instead, cut the base from the current integration head and strip the hints on that branch (below). Check on the stripped commit: `git grep -n "revealField\|appendAudit\|hashableFields" <base> -- '*.md'` returns nothing.
-- **The three stress runs use a throwaway repo.** This doc lives on the default branch, so a session cloned from this repo can read the reviewer-only sections whatever base commit the run names. Branch from the integration head, make one commit that removes everything from "Reviewer checklist" down in this file and the entry-point and fix references in `CUSTOMER_FRAMING.md`, `DEVIN_RUN_PROTOCOL.md` and `ACTION_OUTCOME.md`, and leaves `AGENTS.md` and all code untouched. Push that commit to a separate throwaway repository as its default branch and dispatch the three runs against it. The fairness claim then rests on the stripping commit, and the grep check above is how it is verified. The PRs open there; the best one is cherry-picked here after scoring, which is clean because the code is identical.
+- **The three stress runs use a throwaway repo.** This doc lives on the default branch, so a session cloned from this repo can read the reviewer-only sections whatever base commit the run names. Branch from the integration head, make one commit that removes everything from "Reviewer checklist" down in this file and the entry-point and fix references in `CUSTOMER_FRAMING.md`, `DEVIN_RUN_PROTOCOL.md` and `ACTION_OUTCOME.md`, and leaves all code untouched. Push that commit to a separate throwaway repository as its default branch and dispatch the three runs against it. The fairness claim then rests on the stripping commit, and the grep check above is how it is verified. The PRs open there; the best one is cherry-picked here after scoring, which is clean because the code is identical.
 - **Devin gets only the parts marked "sent to Devin".** The intent, the decided items and the acceptance tests go into the prompt. Nothing from "Reviewer checklist" down is sent.
-- **`AGENTS.md` stays as it is** (see Intent).
 
 The prompt names business actions, never functions or files. A miss has to come from mapping a realistic requirement onto the code, not from a requirement nobody stated.
 
@@ -86,7 +85,6 @@ What a complete run does. The PR is scored against this, and the scores go in "R
 - **Pending approvals.** Requests frozen before the change carry no ticket. The approver supplies one when deciding. Letting them through without one is the quiet miss.
 - **Existing reasons reused.** Flags' and KYC reject's `reason` inputs become the justification's reason. The optional `note` on KYC `approve` and refunds `execute` becomes required.
 - **Tests fixed at the source.** The existing tests call these actions without a ticket. The fix belongs in `apps/console/tests/helpers/harness.ts` and `apps/console/tests/fixtures/widgets.ts`, not in each test.
-- **`AGENTS.md` corrected.** "All writes go through `executeIntent`" names the other audited paths, so the next agent isn't misled.
 - **A run that also marks rejections.** The intent's "KYC decisions" and "refunds" read literally include rejections. A run that follows the decided list is right. One that also marks rejections has over-applied the brief: score it as a note, not a failure.
 - **Idempotency unchanged.** The ticket is part of the request, so it's in the request hash. Retrying under the same key with a different ticket is a conflict, which is correct.
 

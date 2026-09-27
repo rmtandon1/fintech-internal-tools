@@ -114,7 +114,7 @@ Three scenarios, one per demonstration in `LOOM-VIDEO-SCRIPT.md`. Each is harder
 - Change a requirement every app shares once, in the shared engine.
   - Compliance asks for a reason and a ticket on every privileged action, starting from an audit row that has neither
   - The request is a real ticket: the requirement plus three policy decisions (which actions are privileged, the ticket format, and that rejections need no ticket)
-  - Devin has to find all five places the console writes audit rows, not only the obvious one the repo's own instructions point at
+  - Devin has to find all five paths that write audit rows, from 8 call sites in 4 engine files, not only the obvious one
   - The engine owner and an engineer review, and audit rows written before the change still verify
 - **Question it answers:** can Devin change the shared platform, not just one app?
 - **Traditional:** an edit to every app and every flow, and each new app has to remember the rule.
@@ -127,4 +127,4 @@ The beat-by-beat script, with what to say, what to click and the order to record
 
 ### The pitch in one paragraph
 
-> Today a rule on money changes one of two ways: fast in Power Apps with nobody reviewing it, or reviewed through a ticket that waits two weeks. In this console a rule is code, and Devin changes it. When risk spots a pattern, they ask for the rule in one sentence from the screen that shows it. Devin writes the rule and its tests, runs the full suite, and opens a pull request your engineer reviews in minutes. When the rule misfires, one setting switches it off in seconds, and Devin takes it back out of the code the same day, even after the code has moved on. When compliance changes a requirement every app shares, Devin makes that change across the engine and every app, under your engine owner's review. Once the console is live, every rule change is one request in and one review out, in code you own.
+> Today a rule on money changes one of two ways: fast in Power Apps with nobody reviewing it, or reviewed through a ticket that waits two weeks. In this console a rule is code, and Devin changes it. When risk spots a pattern, they ask for the rule in one sentence from the screen that shows it. Devin writes the rule and its tests, runs the full suite, and opens a pull request your engineer reviews in minutes. When the rule misfires, one setting switches it off in seconds, and Devin takes it back out of the code the same day, even after the code has moved on. When compliance changes a requirement every app shares, Devin makes that change across the engine and every app, under your engine owner's review. Fast or reviewed used to be the choice. With Devin, every rule change is both, in code you own.

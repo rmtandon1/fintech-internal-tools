@@ -6,7 +6,7 @@
 - Every line is read from the result and the audit row. A line with no value isn't shown.
 - The panel renders from `IntentOutcome`, so every tool gets it, `flags` included, with no tool code.
 - It is the demo's proof shot: after the clustering hold merges, the panel names the rule that sent `rfnd_0013` to a manager, in one frame.
-- Two pull requests: a small engine change that returns the audit row id, then the component. Normal feature work, and `AGENTS.md` applies.
+- Two pull requests: a small engine change that returns the audit row id, then the component. Normal feature work.
 - The panel shows only what the engine did. Nothing downstream exists yet, so no line claims it.
 
 ## Problem

@@ -6,7 +6,7 @@
 - A **Declared vs found** register lists each difference, for example "Directorships: declared none, Companies House shows three active". Each row is marked minor or material.
 - Two new approval rules on `approve`, both independent of the risk score: a politically exposed person needs a manager (`pep_approval`), and so does a case with a material difference (`declared_vs_found`).
 - Six example cases cover the common shapes of a KYC review. Each has a golden test that pins its policy outcome.
-- All of it is declared in `tools/kyc` and rendered in the app. The engine doesn't change. Normal feature work, and `AGENTS.md` applies.
+- All of it is declared in `tools/kyc` and rendered in the app. The engine doesn't change. Normal feature work.
 
 ## The problem
 
