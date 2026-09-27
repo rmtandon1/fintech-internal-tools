@@ -91,6 +91,7 @@ describe("customer card copy", () => {
       documentType: "passport",
       riskScore: 18,
       sanctionsHit: 0,
+      pep: 0,
       documentsComplete: 1,
       openedAt: 1,
       dueAt: 2,
