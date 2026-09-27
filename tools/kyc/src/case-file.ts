@@ -61,17 +61,24 @@ const CHECK_RESULT_SET = new Set<string>([
 ]);
 
 function checkKind(value: string): CheckKind {
-  return (CHECK_KINDS as readonly string[]).includes(value)
-    ? (value as CheckKind)
-    : "adverse_media";
+  if (!(CHECK_KINDS as readonly string[]).includes(value)) {
+    throw new Error(`unknown check kind ${value}`);
+  }
+  return value as CheckKind;
 }
 
 function checkResult(value: string): CheckResult {
-  return CHECK_RESULT_SET.has(value) ? (value as CheckResult) : "needs_review";
+  if (!CHECK_RESULT_SET.has(value)) {
+    throw new Error(`unknown check result ${value}`);
+  }
+  return value as CheckResult;
 }
 
 function severity(value: string): DifferenceSeverity {
-  return value === "material" ? "material" : "minor";
+  if (value !== "minor" && value !== "material") {
+    throw new Error(`unknown difference severity ${value}`);
+  }
+  return value;
 }
 
 /** The case file for one case: its checks in display order, then the register. */

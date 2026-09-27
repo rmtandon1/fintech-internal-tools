@@ -71,7 +71,7 @@ export function CustomerCard({
             <Signal
               label="Politically exposed"
               value={facts.pep ? "Match" : "Clear"}
-              tone={facts.pep ? "warning" : "positive"}
+              tone={facts.pep ? "negative" : "positive"}
             />
             <Signal
               label="Documents"
