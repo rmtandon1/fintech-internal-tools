@@ -2,31 +2,29 @@
 
 ## 1. The problem
 
-**Who changes an internal tool's rules after launch, how fast, and with what review?**
+**Who changes an internal tool's rules after launch, on what timescale, and with what review?**
 
-### How a rule change happens today
+### What happens today
 
-A new rule either goes live unreviewed or waits weeks for engineering. The request comes from risk or operations when a queue shows something the current rules don't cover. For example: hold a merchant's refunds once together they pass the manager line, and send those customers' KYC approvals to a manager.
-
-Each Power App holds only its own data, so building the case for the rule is manual:
-
-1. An analyst spots the pattern in one app, such as refunds, exports the queue to Excel and uses a Pivot Table to confirm it
-2. They check the same customers in the other systems, such as the KYC app and the payment processor's dashboard, one lookup at a time.
-3. They write it up and ask for the rule.
+A new rule either goes live unreviewed or waits weeks for engineering. 
+- The request comes from risk or operations when a queue shows something the current rules don't cover: "hold a merchant's refunds once together they pass the manager line, and send those customers' KYC approvals to a manager"
+- Each Power App holds only its own data, so building the case for the rule is manual:
+- - An analyst spots an emerging pattern in one app, such as refunds, exports the queue to Excel and uses a Pivot Table to query it
+- - They check the same customers with other systems, such as KYC and payments, one lookup at a time.
+- - This is documentation with a request for a rule implementation
 
 The rule then reaches production one of two ways: a business user edits it directly, or engineering builds it.
 
 ```
- One app ──export──▶ Excel pivot ──▶ lookups in the other apps, one at a time
-      └─────────── the analyst joins the data by hand ───────────┘
-                                 │
-                        request for a new rule
-                   │                                  │
-   A business user edits a Power       Jira ticket to core engineering
-   Automate flow in the browser        waits for sprint planning (1–2 weeks)
-   live in ~30 min                     engineer traces every rule and setting
-   no diff, no reviewer, no test       it touches; writes a test (4–6 h)
-                                       PR ─▶ review ─▶ deploy
+ One app ──▶ Excel pivot ──▶ lookups in other apps
+      └─── analyst joins the data by hand ─────┘
+                          │
+                request for a new rule
+          │                               │
+   BizOps edit a Power          Jira ticket sent to 
+   Automate flow in             the dev team; sprint
+   the browser and              planning, local tests
+   deploy in 30 minutes         review, then deploy  
 ```
 
 
