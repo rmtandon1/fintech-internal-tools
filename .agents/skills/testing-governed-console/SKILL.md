@@ -23,10 +23,10 @@ description: Browser smoke testing for the Meridian governed-write-path console,
 # Devin Secrets Needed
 None for local demo-role testing.
 
-# Agent handoff replay testing
-- For scripted Devin/GitHub replay, leave `DEVIN_API_KEY` and `DEVIN_ORG_ID` unset in the dev server process. Confirm the Devin column's Replay badge before dispatching. Do not interpret replay PR links or merge SHAs as real hosted changes.
-- As Refunds manager, open `/t/refunds`, then the Kestrel Outdoors not-received cluster and Ask Devin for a rule.
-- Start run advances the scripted checklist to PR #990 in roughly 40 seconds. Engineer is a separate demo role for approval; the requester should not receive an approval offer. Engineer may not have access to the Refunds route; `/runs` is the role-appropriate run history page.
+# Agent handoff simulation testing
+- Without `DEVIN_API_KEY` the console runs in simulation mode: the header's Devin button shows a SIM chip and the Devin window shows a pre-written run. Nothing is dispatched or recorded; `devin_runs` and the audit chain are untouched.
+- As Refunds manager, open `/t/refunds`, then the Kestrel Outdoors not-received cluster and Ask Devin for a rule. In simulation mode the handoff panel's Start run reads "Simulate run" and shows the pre-written run in the panel.
+- A real dispatch, approval and merge needs `DEVIN_API_KEY` in a gitignored repo-root `.env` (the org resolves from the key). Do not interpret simulated PR links or merge SHAs as real hosted changes.
 - Admin can open a REVERSAL handoff from a merged row in `/runs`. Do not start a reversal unless the test requires it.
-- A replay dispatch writes both SQLite rows and local `runs/<id>` / replay artifacts. Preserve these together while testing approval or reversal; database seeding is not a run reset.
+- A live dispatch writes both SQLite rows and local `runs/<id>` / replay artifacts. Preserve these together while testing approval or reversal; database seeding is not a run reset.
 - `pnpm dev` may open a new browser tab. Ensure console/DOM inspection targets that tab, rather than a stale background tab, before starting the recording.

@@ -2,8 +2,7 @@
 
 import "@/app/bootstrap";
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
-import { getRun, RUN_KINDS, RUN_SCOPES } from "@console/tool-automation";
+import { getRun } from "@console/tool-automation";
 import {
   approveRun,
   describeIntent,
@@ -17,6 +16,7 @@ import {
 } from "@console/tool-automation/bridge";
 import { bridgeDeps } from "@/lib/bridge";
 import { devinMode } from "@/lib/devin-status";
+import { parseDispatchForm } from "@/lib/dispatch-form";
 import { reversalEvidence } from "@/lib/handoff";
 import { currentActor } from "@/lib/session";
 
@@ -42,39 +42,10 @@ export interface BridgeResult {
   reload?: boolean;
 }
 
-const DispatchForm = z.object({
-  spec: z.string().min(1),
-  kind: z.enum(RUN_KINDS),
-  scope: z.enum(RUN_SCOPES),
-  intent: z.string().min(1).max(500),
-  /** Optional on a REVERSAL: derived from the reversed run's context.json. */
-  clusterKey: z.string().min(1).optional(),
-  evidenceIds: z.array(z.string().min(1)).default([]),
-  reverses: z.string().min(1).optional(),
-});
-
 export async function dispatchAutomationRun(form: FormData): Promise<BridgeResult> {
-  const parsed = DispatchForm.safeParse({
-    spec: form.get("spec"),
-    kind: form.get("kind"),
-    scope: form.get("scope"),
-    intent: form.get("intent"),
-    clusterKey: form.get("clusterKey") ?? undefined,
-    evidenceIds: form.getAll("evidenceIds").map(String),
-    reverses: form.get("reverses") ?? undefined,
-  });
-  if (!parsed.success) {
-    return { ok: false, title: "Invalid dispatch", detail: parsed.error.issues[0]?.message };
-  }
-  if (parsed.data.kind === "REVERSAL" ? !parsed.data.reverses : !parsed.data.clusterKey || parsed.data.evidenceIds.length === 0) {
-    return {
-      ok: false,
-      title: "Invalid dispatch",
-      detail:
-        parsed.data.kind === "REVERSAL"
-          ? "A REVERSAL must name the run it reverses"
-          : "A run needs a cluster key and evidence ids",
-    };
+  const parsed = parseDispatchForm(form);
+  if (!parsed.ok) {
+    return { ok: false, title: "Invalid dispatch", detail: parsed.detail };
   }
   // Simulation mode shows a pre-written run in the dialog; a run that never
   // happened must not reach devin_runs or the audit chain.

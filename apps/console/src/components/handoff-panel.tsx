@@ -83,12 +83,15 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
           rows={3}
           maxLength={500}
           value={intent}
+          readOnly={offer.kind === "REVERSAL"}
           onChange={(e) => setIntent(e.target.value)}
           className="text-xs"
           aria-label="Intent"
         />
         <p className="mt-1 text-[11px] text-muted-foreground">
-          The only free text in the flow; everything below is supplied by the system.
+          {offer.kind === "REVERSAL"
+            ? "Fixed by the spec; a reversal carries no free text."
+            : "The only free text in the flow; everything below is supplied by the system."}
         </p>
       </Group>
 

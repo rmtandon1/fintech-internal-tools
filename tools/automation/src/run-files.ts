@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PHASES } from "./phases";
 import { RUN_KINDS } from "./specs";
 
 /**
@@ -87,7 +88,7 @@ export const PlanFile = z
   .strict();
 export type PlanFile = z.infer<typeof PlanFile>;
 
-export const PHASES = ["intake", "baseline", "plan", "edit", "verify", "pull_request", "merge"] as const;
+export { PHASES } from "./phases";
 
 /** The PR's required checks: exactly what `pnpm verify` runs. */
 export const CI_CHECKS = ["Lint", "Typecheck", "Boundaries", "Test"] as const;
