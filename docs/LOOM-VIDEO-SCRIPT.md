@@ -81,7 +81,9 @@ Section timings add up to about six and a half minutes. Lines in *🎬 italics* 
 
 > This is everything Devin gets. The sentence. The four refunds. The two lines it'll run into, $500 on refunds and a risk score of 70 on KYC. The commit it starts from. And the folders it's allowed to touch. No customer emails, no card numbers, no ticket, no spec.
 >
-> What the sentence leaves out is the interesting part. How far back to look. Whether rejected refunds count. Kestrel also has an £84 goodwill refund and two faulty ones, and those mustn't count. Which approver. Devin works all of that out from the code.
+> What the sentence leaves out is the interesting part. How far back to look. Whether rejected refunds count. Kestrel also has an £84 goodwill refund and two faulty ones, and those mustn't count. Which approver. Nobody tells Devin any of that. There's a spec with those answers in it, and it goes to the reviewer, not to Devin. Devin works all of it out from the code.
+
+*🎬 Optional: open the Devin session in a second tab. The prompt is the sentence, the kind, `Scope: rule` and the run id; the attachment is `context.json`. No spec path anywhere.*
 
 ### What Devin did
 
@@ -108,6 +110,10 @@ Section timings add up to about six and a half minutes. Lines in *🎬 italics* 
 *🎬 Switch role: Engineer. Click **Review and approve**.*
 
 > I'm the engineer now, a different person from the one who asked. Neither Devin nor the refunds manager can merge this.
+
+- The dialog lists the eight acceptance tests from the spec, the checklist Devin never saw. Tick them off against the PR's tests.
+
+> This checklist is the spec. It went to me, not to Devin. Eight behaviours; Devin's tests cover all eight.
 
 - Approve. The dialog fills in row by row: review submitted on GitHub, Devin merging, merged, pulled into the console, audit row written.
 

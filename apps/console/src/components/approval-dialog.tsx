@@ -16,6 +16,23 @@ import type { RunViewPayload } from "@/lib/devin-route";
 
 type Stage = "idle" | "approving" | "merging" | "merged" | "failed";
 
+/** Renders the `code` and **bold** spans the spec's acceptance lines use. */
+function renderInlineMarkdown(text: string) {
+  return text.split(/(`[^`]+`|\*\*[^*]+\*\*)/).map((part, i) => {
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return (
+        <code key={i} className="font-mono">
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+}
+
 function Row({
   mark,
   label,
@@ -163,6 +180,16 @@ export function ApprovalDialog({
             {stage === "approving" || stage === "merging" || stage === "merged" ? "✓" : "…"} · the
             server compares the branch&apos;s context.json digest at approval
           </p>
+          {payload?.reviewerChecklist?.length ? (
+            <div className="space-y-1">
+              <p className="text-muted-foreground">Reviewer checklist · from the spec, not sent to Devin</p>
+              <ol className="list-decimal space-y-0.5 pl-4" data-testid="reviewer-checklist">
+                {payload.reviewerChecklist.map((line) => (
+                  <li key={line}>{renderInlineMarkdown(line)}</li>
+                ))}
+              </ol>
+            </div>
+          ) : null}
           <p className="text-muted-foreground">
             The approver cannot be the requester. Switch to the engineer role if you asked for this
             run.
