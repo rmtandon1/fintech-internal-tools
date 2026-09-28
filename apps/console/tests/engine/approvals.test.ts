@@ -184,6 +184,34 @@ describe("approvals", () => {
     setConstant(admin, SECOND_SIGNOFF_KEY, "false");
   });
 
+  it("applies when the new hold is covered by the approver's role", () => {
+    makeWidget("w_policy_covered", 1000);
+    const id = requestSpend("w_policy_covered", 500);
+
+    // second_signoff holds for an admin; an admin granting covers it.
+    setConstant(admin, SECOND_SIGNOFF_KEY, "true");
+    const result = approve(admin, id, "countersigned");
+
+    expect(result.outcome.status).toBe("applied");
+    if (result.outcome.status !== "applied") throw new Error("unreachable");
+    expect(result.outcome.trace).toContainEqual(
+      expect.objectContaining({ rule: "second_signoff", type: "require_approval" }),
+    );
+    expect(getApproval(id)?.status).toBe("approved");
+    expect(widgetBalance("w_policy_covered")).toBe(500);
+    const applied = listAuditEvents({
+      tool: "widgets",
+      event: "applied_after_approval",
+      recordId: "w_policy_covered",
+    }).rows;
+    expect(applied).toHaveLength(1);
+    const trace = (JSON.parse(applied[0].decisionJson) as { trace: { rule: string; type: string }[] }).trace;
+    expect(trace).toContainEqual(
+      expect.objectContaining({ rule: "second_signoff", type: "require_approval" }),
+    );
+    setConstant(admin, SECOND_SIGNOFF_KEY, "false");
+  });
+
   it("cannot be decided twice", () => {
     makeWidget("w_twice", 1000);
     const id = requestSpend("w_twice", 500);

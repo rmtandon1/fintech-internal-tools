@@ -112,8 +112,10 @@ class EffectFailed extends Error {
  * Executes a frozen request. The payload, the decision, the policy trace and
  * the record version were all captured when the request was raised: the
  * effect itself is never re-decided, but the version check and a policy
- * re-evaluation run first and fail the approval safely if the record moved
- * or the rules now deny or add a hold.
+ * re-evaluation run first. The grant fails safely if the record moved, if
+ * the rules now deny, or if a new hold appeared that the approver's role
+ * does not cover; a hold the approver's role covers is accepted, since the
+ * approver is already the second pair of eyes.
  *
  * The claim, the effect and both audit rows share one transaction, so an
  * approval can never be recorded for an effect that did not land.
@@ -152,8 +154,11 @@ export function approve(actor: Actor, id: string, note?: string): IntentResult {
 
   // The version check only sees the record row. Evidence that lives outside
   // it, or a constant tightened since the request was raised, can turn a
-  // frozen decision into one the rules would no longer allow, so policy is
-  // re-evaluated against the fresh record before the effect lands.
+  // frozen decision into one the rules would no longer allow, so the rules
+  // re-run against the fresh record before the effect lands. A denial fails
+  // the grant, and so does a new hold the approver's role does not cover;
+  // a covered hold is accepted, since the approver is already the second
+  // pair of eyes.
   const requester: Actor = {
     id: approval.requesterId,
     name: approval.requesterRole,
@@ -183,12 +188,13 @@ export function approve(actor: Actor, id: string, note?: string): IntentResult {
       (o): o is Extract<RuleOutcome, { type: "require_approval" }> =>
         o.type === "require_approval" && !frozenHolds.has(o.rule),
     );
-    if (newHolds.length > 0) {
+    const uncovered = newHolds.filter((o) => !o.allowedRoles.includes(actor.role));
+    if (uncovered.length > 0) {
       return failApproval(
         actor,
         approval,
         "policy_changed",
-        `New hold since the request was raised: ${newHolds.map((o) => o.reason).join("; ")}`,
+        `New hold since the request was raised: ${uncovered.map((o) => o.reason).join("; ")}`,
       );
     }
   }
@@ -223,7 +229,7 @@ export function approve(actor: Actor, id: string, note?: string): IntentResult {
         action,
         record,
         input: approval.payload,
-        trace: approval.trace,
+        trace: fresh.trace,
         event: "applied_after_approval",
         recordId: approval.recordId,
         decision: approval.decision,

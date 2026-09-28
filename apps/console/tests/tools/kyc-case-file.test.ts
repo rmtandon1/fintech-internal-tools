@@ -194,12 +194,11 @@ describe("kyc case file", () => {
     expect(kycTool.get("kyc_0002")?.materialDifferences).toBe(0);
   });
 
-  it("granting fails with policy_changed when a material difference appears", () => {
+  it("granting applies when a material difference appears that the manager's role covers", () => {
     const requested = act(kycReviewer, "approve", "kyc_0003");
     if (requested.outcome.status !== "pending_approval") {
       throw new Error(`expected approval, got ${requested.outcome.status}`);
     }
-    const before = kycTool.get("kyc_0003");
     db.insert(kycDiscrepancies)
       .values({
         id: "kyc_0003_diff_recheck",
@@ -213,10 +212,12 @@ describe("kyc case file", () => {
       .run();
     try {
       const result = approve(kycManager, requested.outcome.approvalId, "reviewed");
-      expect(result.outcome).toMatchObject({ status: "error", code: "policy_changed" });
-      const after = kycTool.get("kyc_0003");
-      expect(after?.status).toBe("pending_review");
-      expect(after?.version).toBe(before?.version);
+      expect(result.outcome.status).toBe("applied");
+      if (result.outcome.status !== "applied") throw new Error("unreachable");
+      expect(result.outcome.trace).toContainEqual(
+        expect.objectContaining({ rule: "declared_vs_found", type: "require_approval" }),
+      );
+      expect(kycTool.get("kyc_0003")?.status).toBe("approved");
     } finally {
       db.delete(kycDiscrepancies)
         .where(eq(kycDiscrepancies.id, "kyc_0003_diff_recheck"))

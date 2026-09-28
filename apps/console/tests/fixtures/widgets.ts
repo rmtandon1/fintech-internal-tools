@@ -80,9 +80,9 @@ const secondSignoff: Rule<Widget, { amount: number }> = ({ constants }) =>
     ? {
         type: "require_approval",
         rule: "second_signoff",
-        tier: "manager",
-        allowedRoles: ["kyc_manager"],
-        reason: "Two managers must sign off",
+        tier: "admin",
+        allowedRoles: ["admin"],
+        reason: "An admin must countersign",
       }
     : { type: "allow", rule: "second_signoff" };
 
@@ -136,7 +136,7 @@ export const widgetTool = defineTool<Widget>({
       key: SECOND_SIGNOFF_KEY,
       value: false,
       type: "boolean",
-      description: "Held spends need a second manager sign-off",
+      description: "Held spends need an admin countersignature",
       tool: "widgets",
     },
   ],
