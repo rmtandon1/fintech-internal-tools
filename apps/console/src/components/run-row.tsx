@@ -12,8 +12,8 @@ import type { HandoffOffer } from "@/lib/handoff";
 /** The /runs row's fields, plain data so they cross the server boundary. */
 export interface RunRowData {
   id: string;
-  kind: string;
-  kindLabel: string;
+  operation: string;
+  operationLabel: string;
   intent: string;
   requestedByRole: string;
   requesterLabel: string;
@@ -32,7 +32,7 @@ export function RunRow({
 }: {
   run: RunRowData;
   statuses: ComponentProps<typeof StatusChip>["statuses"];
-  /** Built server-side when this merged IMPLEMENTATION may be reversed. */
+  /** Built server-side when this merged change may be undone. */
   reversalOffer: HandoffOffer | null;
   /** Whether a handoff can be sent right now (`DEVIN_API_KEY` set). */
   devinConnected: boolean;
@@ -45,7 +45,7 @@ export function RunRow({
       onClick={() => setAgentFocus({ kind: "run", runId: run.id })}
     >
       <TableCell>
-        <span className="whitespace-nowrap text-xs">{run.kindLabel}</span>
+        <span className="whitespace-nowrap text-xs">{run.operationLabel}</span>
       </TableCell>
       <TableCell>
         <span className="block max-w-64 truncate">{run.intent}</span>

@@ -22,7 +22,7 @@ import { ToggleGrid } from "@/components/toggle-grid";
 import { buildHandoffOffer, type HandoffOffer } from "@/lib/handoff";
 import { bridgeDeps } from "@/lib/bridge";
 import { devinMode } from "@/lib/devin-status";
-import { getSpec, kindsStartableBy } from "@console/tool-automation";
+import { getSpec, operationsStartableBy } from "@console/tool-automation";
 import { currentActor } from "@/lib/session";
 import { cn } from "@console/ui/utils";
 import { getTool } from "@/registry";
@@ -349,12 +349,12 @@ function dispatchOffer(
   const spec = cluster.handoffSpec ? getSpec(cluster.handoffSpec) : undefined;
   if (!spec) return null;
   const deps = bridgeDeps();
-  const offers = kindsStartableBy(actor.role, spec)
-    .filter((kind) => kind !== "REVERSAL")
-    .map((kind) =>
+  const offers = operationsStartableBy(actor.role, spec)
+    .filter((operation) => operation !== "undo")
+    .map((operation) =>
       buildHandoffOffer(
         spec,
-        kind,
+        operation,
         actor,
         { evidenceKey: group.key, evidenceIds: group.recordIds },
         deps,

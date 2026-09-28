@@ -5,10 +5,10 @@ import { RulesCard, type RuleRow } from "@/components/rules-card";
 import { listConstants } from "@console/engine/policy/constants";
 import { ALL_ROLES, roleLabel } from "@console/permissions";
 import {
-  kindsStartableBy,
+  type Operation,
+  operationsStartableBy,
   roleMayStart,
   SPECS,
-  type RunKind,
   type RunnableSpec,
 } from "@console/tool-automation";
 import { bridgeDeps } from "@/lib/bridge";
@@ -27,22 +27,20 @@ export default async function PolicyConstantsPage() {
 
   const action = (
     spec: RunnableSpec,
-    kind: RunKind,
+    operation: Operation,
     label: string,
   ): RuleRow["actions"][number] | null => {
-    // A spec that never offers this run kind gets no button at all.
-    if (!spec.kinds.includes(kind)) return null;
-    if (!kindsStartableBy(actor.role, spec).includes(kind)) {
-      const who = ALL_ROLES.filter((role) => roleMayStart(role, spec, kind)).map(roleLabel);
-      return { kind, label, enabled: false, reason: `Only ${who.join(", ")} may start this run` };
+    if (!operationsStartableBy(actor.role, spec).includes(operation)) {
+      const who = ALL_ROLES.filter((role) => roleMayStart(role, spec, operation)).map(roleLabel);
+      return { kind: operation, label, enabled: false, reason: `Only ${who.join(", ")} may start this run` };
     }
     try {
-      const offer = buildHandoffOffer(spec, kind, actor, { evidenceKey: "", evidenceIds: [] }, deps);
+      const offer = buildHandoffOffer(spec, operation, actor, { evidenceKey: "", evidenceIds: [] }, deps);
       return offer
-        ? { kind, label, enabled: true, offer }
-        : { kind, label, enabled: false, reason: "Context unavailable" };
+        ? { kind: operation, label, enabled: true, offer }
+        : { kind: operation, label, enabled: false, reason: "Context unavailable" };
     } catch {
-      return { kind, label, enabled: false, reason: "Context unavailable" };
+      return { kind: operation, label, enabled: false, reason: "Context unavailable" };
     }
   };
 
@@ -50,8 +48,7 @@ export default async function PolicyConstantsPage() {
     return {
       spec: spec.file,
       actions: [
-        action(spec, "IMPLEMENTATION/CHANGE", "Ask Devin to change this rule"),
-        action(spec, "IMPLEMENTATION/REMOVAL", "Ask Devin to remove this rule"),
+        action(spec, "change", "Ask Devin to change this rule"),
       ].filter((a): a is RuleRow["actions"][number] => a !== null),
     };
   }).filter((row) => row.actions.length > 0);

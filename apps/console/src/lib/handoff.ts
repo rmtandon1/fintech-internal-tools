@@ -3,8 +3,8 @@ import {
   buildContext,
   ContextFile,
   type EvidenceRow,
-  type RunKind,
-  runKindLabel,
+  type Operation,
+  operationLabel,
   type RunnableSpec,
 } from "@console/tool-automation";
 import { readContextJson, type BridgeDeps } from "@console/tool-automation/bridge";
@@ -17,20 +17,19 @@ import { devinMode } from "@/lib/devin-status";
  */
 export interface HandoffOffer {
   spec: string;
-  kind: RunKind;
-  /** The kind as the operator reads it, e.g. "Addition". */
-  kindLabel: string;
+  operation: Operation;
+  /** The operation as the operator reads it, e.g. "Change". */
+  operationLabel: string;
   /** The panel's heading and the one line under it, from the spec. */
   title: string;
   description: string;
   intent: string;
-  scope: string;
   evidenceKey: string;
   evidenceIds: string[];
   evidence: EvidenceRow[];
   constants: Record<string, number>;
   base: { branch: string; commit: string };
-  scopePaths: string[];
+  allowedPaths: string[];
   /** False without `DEVIN_API_KEY`: the panel shows the brief but can't send it. */
   live: boolean;
   reverses?: { runId: string; mergeCommit: string; prUrl: string | null } | null;
@@ -41,7 +40,7 @@ export type AgentFocus =
   | { kind: "run"; runId: string }
   | null;
 
-/** Evidence a REVERSAL reuses from the reversed run's context.json. */
+/** Evidence an undo reuses from the undone run's context.json. */
 export function reversalEvidence(
   repoRoot: string,
   reverses: string,
@@ -63,7 +62,7 @@ export function reversalEvidence(
  */
 export function buildHandoffOffer(
   spec: RunnableSpec,
-  kind: RunKind,
+  operation: Operation,
   actor: Actor,
   input: { evidenceKey: string; evidenceIds: readonly string[]; reverses?: HandoffOffer["reverses"] },
   deps: Pick<BridgeDeps, "repoRoot">,
@@ -72,10 +71,9 @@ export function buildHandoffOffer(
   try {
     built = buildContext({
       runId: "preview",
-      kind,
+      operation,
       spec,
-      scope: spec.scope,
-      intent: spec.intents[kind] ?? "",
+      intent: spec.intents[operation],
       requestedBy: actor.role,
       evidenceKey: input.evidenceKey,
       evidenceIds: input.evidenceIds,
@@ -89,21 +87,20 @@ export function buildHandoffOffer(
   }
   return {
     spec: spec.file,
-    kind,
-    kindLabel: runKindLabel(kind),
-    title: kind === "REVERSAL" ? "Undo this change" : spec.title,
+    operation,
+    operationLabel: operationLabel(operation),
+    title: operation === "undo" ? "Undo this change" : spec.title,
     description:
-      kind === "REVERSAL"
+      operation === "undo"
         ? "Devin takes the change back out of the code and keeps everything built since. An engineer reviews it before it goes live."
         : spec.description,
     intent: built.context.intent,
-    scope: spec.scope,
     evidenceKey: input.evidenceKey,
     evidenceIds: [...input.evidenceIds],
     evidence: built.context.evidence.rows,
     constants: built.context.constants,
     base: built.context.base,
-    scopePaths: built.context.scope,
+    allowedPaths: built.context.allowed_paths,
     live: devinMode() === "live",
     reverses: input.reverses ?? null,
   };

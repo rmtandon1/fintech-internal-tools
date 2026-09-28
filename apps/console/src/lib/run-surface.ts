@@ -4,10 +4,8 @@ import {
   automationTool,
   type DevinRun,
   getSpec,
-  IMPLEMENTATION_KINDS,
-  kindsStartableBy,
+  operationsStartableBy,
   reversingRun,
-  type RunKind,
   type StructuredOutput,
 } from "@console/tool-automation";
 import { currentPrUrl, isSynced, type BridgeDeps } from "@console/tool-automation/bridge";
@@ -22,7 +20,7 @@ export interface RunOffers {
   stop: { offered: boolean; reason?: string };
   /** The session asked a question; the reply box is offered. */
   reply: boolean;
-  /** A merged IMPLEMENTATION the admin may undo. */
+  /** A merged change the admin may undo. */
   reverse: { offered: boolean; reason?: string };
   /** The merge landed but the local checkout does not have it yet. */
   sync: boolean;
@@ -58,11 +56,11 @@ export async function runOffers(
     ? { offered: false, reason: "The run's spec is not registered" }
     : run.status !== "merged"
       ? { offered: false, reason: "Only a merged run can be reversed" }
-      : !IMPLEMENTATION_KINDS.includes(run.kind as RunKind)
-        ? { offered: false, reason: "Only a completed rule change can be undone" }
+      : run.operation !== "change"
+        ? { offered: false, reason: "Only a completed change can be undone" }
         : reversingRun(run.id)
-          ? { offered: false, reason: "This run is already reversed" }
-          : !kindsStartableBy(actor.role, spec).includes("REVERSAL")
+          ? { offered: false, reason: "This run is already undone" }
+          : !operationsStartableBy(actor.role, spec).includes("undo")
             ? { offered: false, reason: "Only the admin may undo a change" }
             : { offered: true };
 

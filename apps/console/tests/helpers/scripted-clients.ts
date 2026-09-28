@@ -15,7 +15,7 @@ import {
   getRunByPrUrl,
   IN_FLIGHT_STATUSES,
   type ReplayFrame,
-  type RunKind,
+  type Operation,
   type StructuredOutput,
 } from "@console/tool-automation";
 
@@ -63,8 +63,8 @@ interface ScriptFile {
 }
 
 /** A plausible change set for a scripted run; the tests read its shape, not its paths. */
-function scriptFiles(kind: RunKind, runId: string): ScriptFile[] {
-  if (kind === "REVERSAL") {
+function scriptFiles(operation: Operation, runId: string): ScriptFile[] {
+  if (operation === "undo") {
     return [
       {
         path: "tools/refunds/src/clustering-hold.ts",
@@ -157,21 +157,21 @@ const REUSES = [
 ];
 
 /**
- * A compressed timeline for `kind`, paced for camera: intake 0–2s, baseline
+ * A compressed timeline for `operation`, paced for camera: intake 0–2s, baseline
  * to 6s, plan lands at 12s, edits to 26s, the four CI checks flip one per
  * 4s inside verify — slow enough that a 2s UI poll sees each one — and the
  * PR is open by 44s.
  */
 export function scriptedFrames(
-  kind: RunKind,
+  operation: Operation,
   runId: string,
   contextSha: string,
   baseCommit: string,
 ): ReplayFrame[] {
-  const branch = `devin/${kind === "REVERSAL" ? "reverse-hold" : "clustering-hold"}-${runId}`;
+  const branch = `devin/${operation === "undo" ? "reverse-hold" : "clustering-hold"}-${runId}`;
   const planCommit = fakeSha("plan", runId).slice(0, 40);
-  const prUrl = `${REPO_PR_BASE}/${kind === "REVERSAL" ? 991 : 990}`;
-  const files = scriptFiles(kind, runId);
+  const prUrl = `${REPO_PR_BASE}/${operation === "undo" ? 991 : 990}`;
+  const files = scriptFiles(operation, runId);
   const verify = (upto: number): StructuredOutput["verify_steps"] =>
     CI_CHECKS.map((name, i) => ({
       name,
@@ -232,7 +232,7 @@ export function scriptedFrames(
         phase: "edit",
         phase_durations_s: d("plan"),
         plan_commit: planCommit,
-        reuses: kind === "REVERSAL" ? [] : REUSES,
+        reuses: operation === "undo" ? [] : REUSES,
         files: files.map((f) => ({ ...f, additions: 0, deletions: 0 })),
       }),
     ),
@@ -245,10 +245,10 @@ export function scriptedFrames(
         phase: "verify",
         phase_durations_s: d("edit"),
         plan_commit: planCommit,
-        reuses: kind === "REVERSAL" ? [] : REUSES,
+        reuses: operation === "undo" ? [] : REUSES,
         files,
         conflicts:
-          kind === "REVERSAL"
+          operation === "undo"
             ? [
                 {
                   file: "tools/refunds/src/index.ts",
@@ -270,7 +270,7 @@ export function scriptedFrames(
           phase: "verify",
           phase_durations_s: d("edit"),
           plan_commit: planCommit,
-          reuses: kind === "REVERSAL" ? [] : REUSES,
+          reuses: operation === "undo" ? [] : REUSES,
           files,
           verify_steps: verify(i + 1),
         }),
@@ -285,10 +285,10 @@ export function scriptedFrames(
         phase: "pull_request",
         phase_durations_s: d("verify"),
         plan_commit: planCommit,
-        reuses: kind === "REVERSAL" ? [] : REUSES,
+        reuses: operation === "undo" ? [] : REUSES,
         files,
         conflicts:
-          kind === "REVERSAL"
+          operation === "undo"
             ? [
                 {
                   file: "tools/refunds/src/index.ts",
@@ -310,7 +310,7 @@ export function scriptedFrames(
         phase_status: "done",
         phase_durations_s: d("pull_request"),
         plan_commit: planCommit,
-        reuses: kind === "REVERSAL" ? [] : REUSES,
+        reuses: operation === "undo" ? [] : REUSES,
         files,
         verify_steps: verify(CI_CHECKS.length),
         pr_url: prUrl,
@@ -320,8 +320,8 @@ export function scriptedFrames(
 }
 
 /** The frame the session reports once the run is approved: merged, phase done. */
-export function mergedFrame(runId: string, kind: RunKind, contextSha: string): StructuredOutput {
-  const frames = scriptedFrames(kind, runId, contextSha, fakeSha("base", runId));
+export function mergedFrame(runId: string, operation: Operation, contextSha: string): StructuredOutput {
+  const frames = scriptedFrames(operation, runId, contextSha, fakeSha("base", runId));
   const last = frames[frames.length - 1].structured_output;
   return {
     ...last,
@@ -352,7 +352,7 @@ export function replayDevinClient(now: () => number = Date.now): DevinClient {
       return {
         status: "finished",
         statusDetail: "merged",
-        structuredOutput: mergedFrame(session.runId, run.kind as RunKind, run.contextSha256),
+        structuredOutput: mergedFrame(session.runId, run.operation as Operation, run.contextSha256),
       };
     }
     const elapsed = now() - session.startMs;
@@ -376,7 +376,7 @@ export function replayDevinClient(now: () => number = Date.now): DevinClient {
       const session: ReplaySession = {
         runId,
         frames: scriptedFrames(
-          (run?.kind as RunKind) ?? "IMPLEMENTATION/ADDITION",
+          (run?.operation as Operation) ?? "change",
           runId,
           run?.contextSha256 ?? "0".repeat(64),
           fakeSha("base", runId),
@@ -397,7 +397,7 @@ export function replayDevinClient(now: () => number = Date.now): DevinClient {
         if (!run) throw new Error(`replay: no session ${sessionId}`);
         const rebuilt: ReplaySession = {
           runId,
-          frames: scriptedFrames(run.kind as RunKind, runId, run.contextSha256, fakeSha("base", runId)),
+          frames: scriptedFrames(run.operation as Operation, runId, run.contextSha256, fakeSha("base", runId)),
           startMs: Number(sessionId.split("-")[1]) || now(),
         };
         sessions.set(sessionId, rebuilt);
@@ -432,7 +432,7 @@ export function replayGitHubClient(now: () => number = Date.now): GitHubClient {
         (r) =>
           r.sessionId?.startsWith("replay-") &&
           IN_FLIGHT_STATUSES.includes(r.status as (typeof IN_FLIGHT_STATUSES)[number]) &&
-          (pr.number === 991 ? r.kind === "REVERSAL" : r.kind !== "REVERSAL"),
+          (pr.number === 991 ? r.operation === "undo" : r.operation !== "undo"),
       )
       .sort((a, b) => b.updatedAt - a.updatedAt)[0];
     return inFlight ?? getRunByPrUrl(`${REPO_PR_BASE}/${pr.number}`);

@@ -35,13 +35,12 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
   const { setAgentFocus } = useWorkspace();
   const [intent, setIntent] = useState(offer.intent);
   const [pending, startTransition] = useTransition();
-  const reversal = offer.kind === "REVERSAL";
+  const undo = offer.operation === "undo";
 
   function start() {
     const form = new FormData();
     form.set("spec", offer.spec);
-    form.set("kind", offer.kind);
-    form.set("scope", offer.scope);
+    form.set("operation", offer.operation);
     form.set("intent", intent);
     if (offer.reverses) form.set("reverses", offer.reverses.runId);
     if (offer.evidenceKey) form.set("evidenceKey", offer.evidenceKey);
@@ -111,20 +110,20 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
 
       <div className="space-y-1.5">
         <Label htmlFor="handoff-intent" className="text-sm">
-          {reversal ? "What will be undone" : "The request"}
+          {undo ? "What will be undone" : "The request"}
         </Label>
         <Textarea
           id="handoff-intent"
           rows={6}
           maxLength={500}
           value={intent}
-          readOnly={reversal}
+          readOnly={undo}
           onChange={(e) => setIntent(e.target.value)}
           className="text-sm read-only:bg-muted read-only:text-muted-foreground"
           aria-label="Intent"
         />
         <p className="text-xs text-muted-foreground">
-          {reversal
+          {undo
             ? "An undo carries no free text."
             : "Written in advance and yours to edit. This is the whole brief Devin gets."}
         </p>
@@ -137,7 +136,7 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
         <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
           <dt className="text-muted-foreground">Change</dt>
           <dd>
-            {offer.kindLabel} <span className="font-mono text-muted-foreground">{offer.kind}</span>
+            {offer.operationLabel} <span className="font-mono text-muted-foreground">{offer.operation}</span>
           </dd>
           <dt className="text-muted-foreground">Starts from</dt>
           <dd className="font-mono">
@@ -152,7 +151,7 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
           <dt className="text-muted-foreground">Allowed files</dt>
           <dd>
             <ul className="space-y-0.5">
-              {offer.scopePaths.map((path) => (
+              {offer.allowedPaths.map((path) => (
                 <li key={path} className="font-mono">
                   {path}
                 </li>
@@ -163,7 +162,6 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
           <dd>
             Lint · Typecheck · Boundaries · Run guard · Test; approved by an engineer who didn&apos;t
             ask for it
-            {offer.scope === "engine" ? ", and by the engine's owner" : ""}
           </dd>
         </dl>
       </details>
@@ -177,7 +175,7 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
           onClick={start}
           data-testid="start-run"
         >
-          {pending ? "Sending…" : reversal ? "Ask Devin to undo it" : "Send to Devin"}
+          {pending ? "Sending…" : undo ? "Ask Devin to undo it" : "Send to Devin"}
         </Button>
       </div>
     </div>

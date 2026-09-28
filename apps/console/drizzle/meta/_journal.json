@@ -57,6 +57,13 @@
       "when": 1790553295145,
       "tag": "0007_nappy_morgan_stark",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1790569591156,
+      "tag": "0008_fluffy_kingpin",
+      "breakpoints": true
     }
   ]
 }

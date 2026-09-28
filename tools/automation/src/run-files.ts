@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { PHASES } from "./phases";
-import { RUN_KINDS } from "./specs";
+import { OPERATIONS } from "./specs";
 
 /**
  * The files a run exchanges with the console, as zod schemas. These are the
@@ -47,13 +47,13 @@ export type Reverses = z.infer<typeof Reverses>;
 export const ContextFile = z
   .object({
     run_id: z.string().min(1),
-    kind: z.enum(RUN_KINDS),
+    operation: z.enum(OPERATIONS),
     spec: z.string().min(1),
     intent: z.string().min(1),
     requested_by: z.string().min(1),
     base: z.object({ branch: z.string().min(1), commit: commit }).strict(),
     /** Path globs the plan must stay inside. */
-    scope: z.array(z.string().min(1)),
+    allowed_paths: z.array(z.string().min(1)),
     constants: z.record(z.string(), z.number()),
     evidence: Evidence,
     reverses: Reverses.nullable(),
@@ -79,7 +79,7 @@ export const PlanFile = z
     files: z.array(PlannedFile),
     reuses: z.array(Reuse),
     acceptance: z.array(z.string().min(1)),
-    /** Tests a REMOVAL or REVERSAL may delete; absent or empty for other kinds. */
+    /** Tests the run may delete; the reviewer permits exactly the listed removals. */
     removed_tests: z.array(RemovedTest).optional(),
   })
   .strict();

@@ -1,6 +1,6 @@
 # Chargebacks From Power Apps
 
-The reviewer's brief for Part 3 of the demo. This is an engine-scope run, so Devin's prompt names this file,
+The reviewer's brief for Part 3 of the demo. This spec is sent with the run, so Devin's prompt names this file,
 and Devin reads only the section marked as sent to Devin (`.devin/run-protocol.playbook.md`
 § Intake). Everything else here is for the reviewer; the checklist is also in the approval dialog.
 
@@ -13,8 +13,8 @@ and Devin reads only the section marked as sent to Devin (`.devin/run-protocol.p
 - It brings the queue with its fields and the 50 disputes, the deadline alert as a count on the
   queue, and the two riskiest rules. Every other formula and flow step is listed as still to do.
   The app inherits roles, approvals, settings, masking and the audit log from the engine.
-- A new table means a migration and a lockfile change, so it runs in engine scope. The diff
-  should still touch nothing under `packages/`.
+- A new table means a migration and a lockfile change, so `apps/console/drizzle/**` is in its
+  allowed paths. The diff should still touch nothing under `packages/`.
 
 ## What "started" means, and what it doesn't
 
