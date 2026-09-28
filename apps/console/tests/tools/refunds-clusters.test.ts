@@ -130,7 +130,7 @@ describe("refunds clusters", () => {
     }
   });
 
-  it("a window of 0 switches clustering off; a negative window falls back to 14 days", () => {
+  it("a window of 0 switches the hold off but the strip keeps a 14-day window; a negative window falls back to 14 days", () => {
     registerConstants([
       {
         key: CLUSTERING_WINDOW_DAYS_KEY,
@@ -144,8 +144,12 @@ describe("refunds clusters", () => {
 
     expect(setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "0").ok).toBe(true);
     expect(clusteringWindowDays()).toBe(0);
-    expect(notReceivedByMerchant()).toEqual([]);
-    expect(refundTool.clusters?.find((c) => c.id === "merchant_not_received")?.groups()).toEqual([]);
+    const kestrel = notReceivedByMerchant().find((g) => g.key === "Kestrel Outdoors");
+    expect(kestrel?.count).toBe(4);
+    expect(kestrel?.windowDays).toBe(14);
+    expect(
+      refundTool.clusters?.find((c) => c.id === "merchant_not_received")?.groups().some((g) => g.key === "Kestrel Outdoors"),
+    ).toBe(true);
 
     expect(setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "-3").ok).toBe(true);
     expect(clusteringWindowDays()).toBe(14);

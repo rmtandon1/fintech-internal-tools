@@ -979,6 +979,19 @@ describe("syncMergedRun", () => {
     pending = false;
     expect(await isSynced(run, d)).toBe(true);
   });
+
+  it("isSynced stays false while dependencies lag the lockfile", async () => {
+    const run = await merged();
+    let pending = true;
+    const d = deps({
+      git: fakeGit({ ancestors: [MERGE] }).git,
+      installPending: async () => pending,
+      migrationsPending: async () => false,
+    });
+    expect(await isSynced(run, d)).toBe(false);
+    pending = false;
+    expect(await isSynced(run, d)).toBe(true);
+  });
 });
 
 describe("reconcileRuns", () => {
