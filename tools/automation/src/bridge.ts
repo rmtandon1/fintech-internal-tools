@@ -616,10 +616,11 @@ async function syncMergedRunInner(run: DevinRun, deps: BridgeDeps): Promise<Sync
   }
 }
 
-/** True when the checkout has the run's merge commit and no pending migrations. */
+/** True when the checkout has the run's merge commit, installed dependencies and no pending migrations. */
 export async function isSynced(run: DevinRun, deps: BridgeDeps): Promise<boolean> {
   if (!deps.git || !run.mergeCommit) return false;
   if (!(await deps.git.isAncestor(deps.repoRoot, run.mergeCommit, "HEAD"))) return false;
+  if (deps.installPending && (await deps.installPending())) return false;
   if (deps.migrationsPending && (await deps.migrationsPending())) return false;
   return true;
 }
