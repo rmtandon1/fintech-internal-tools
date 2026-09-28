@@ -20,9 +20,9 @@
   h1 { font-size: 46px; line-height: 1.12; color: var(--ink); font-weight: 750; letter-spacing: -.015em; }
   .lede { font-size: 23px; line-height: 1.45; margin-top: 16px; max-width: 1300px; }
   .footer { margin-top: auto; display: flex; justify-content: space-between; font-size: 15px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 34px; font-size: 20px; line-height: 1.35; }
+  table { width: 100%; border-collapse: collapse; margin-top: 40px; font-size: 24px; line-height: 1.35; }
   th { text-align: left; font-size: 15px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; padding: 0 18px 12px; border-bottom: 2px solid var(--ink); }
-  td { padding: 15px 18px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td { padding: 20px 18px; border-bottom: 1px solid var(--line); vertical-align: top; }
   td:first-child { font-weight: 700; color: var(--ink); }
   td.devin { background: var(--accent-soft); color: var(--ink); }
   th.devin { color: var(--accent); }
@@ -30,31 +30,19 @@
   .diagram { margin-top: 30px; flex: 1; display: flex; align-items: center; justify-content: center; }
   .diagram img { width: 100%; max-height: 560px; object-fit: contain; }
   /* Slide 4 */
-  .cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 24px; }
-  .col { border-radius: 12px; padding: 18px 22px 16px; border-top: 5px solid; }
-  .col h2 { font-size: 16px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 10px; }
-  .col ul { list-style: none; }
-  .col li { font-size: 16.5px; line-height: 1.38; padding: 6px 0 6px 18px; position: relative; color: var(--ink); }
-  .col li::before { content: ""; position: absolute; left: 0; top: 14px; width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .5; }
-  .col li b { font-weight: 700; }
+  .cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 40px; }
+  .col { border-radius: 12px; padding: 22px 26px; border-top: 5px solid; }
+  .col h2, .rec h3 { font-size: 15px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 10px; }
+  .col ul, .fit ul { list-style: none; }
+  .col li, .rec li { font-size: 21px; line-height: 1.4; padding: 6px 0; color: var(--ink); }
   .yes { background: var(--green-soft); border-color: var(--green); } .yes h2 { color: var(--green); }
   .no { background: var(--soft); border-color: var(--muted); } .no h2 { color: var(--muted); }
   .risk { background: var(--amber-soft); border-color: var(--amber); } .risk h2 { color: var(--amber); }
-  .rec { display: grid; grid-template-columns: 1.05fr 1fr; gap: 20px; margin-top: 18px; }
-  .verdict { background: var(--ink); color: #e2e8f0; border-radius: 12px; padding: 20px 26px; }
-  .verdict .tag { font-size: 15px; letter-spacing: .1em; text-transform: uppercase; color: #93c5fd; font-weight: 700; }
-  .verdict .call { font-size: 30px; font-weight: 750; color: #fff; margin: 6px 0 8px; line-height: 1.15; }
-  .verdict p { font-size: 16.5px; line-height: 1.42; }
-  .verdict ol { margin: 10px 0 0 20px; font-size: 16px; line-height: 1.4; }
-  .verdict li { margin: 4px 0; }
-  .verdict li b { color: #fff; }
-  .paths { display: grid; grid-template-rows: 1fr auto; gap: 14px; }
-  .path { border: 1px solid var(--line); border-radius: 12px; padding: 16px 22px; }
-  .path h3 { font-size: 17px; color: var(--ink); margin-bottom: 6px; }
-  .path p, .path li { font-size: 16px; line-height: 1.4; }
-  .path ul { margin-left: 18px; }
-  .devin-fit { background: var(--accent-soft); border-color: #bfdbfe; }
-  .devin-fit h3 { color: var(--accent); }
+  .rec { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px; }
+  .next, .fit { border-radius: 12px; padding: 22px 28px; }
+  .next { background: var(--ink); } .next h3 { color: #93c5fd; } .next li { color: #fff; }
+  .next ol { margin-left: 24px; }
+  .fit { background: var(--accent-soft); border: 1px solid #bfdbfe; } .fit h3 { color: var(--accent); }
   .hint { position: fixed; right: 18px; bottom: 12px; font: 13px/1 Helvetica, Arial, sans-serif; color: #64748b; }
   @media print {
     @page { size: 1600px 900px; margin: 0; }
@@ -72,15 +60,15 @@
   <section class="slide" data-title="What Power Apps gives you today">
     <div class="eyebrow">Where we start</div>
     <h1>Power Apps is five products in one</h1>
-    <p class="lede">Licensed per user or per app, at about $250K a year today. Leaving Power Apps means owning all five. Each part of this demo replaces one of them, in code your team owns.</p>
+    <p class="lede">About $250K a year today. Leaving means owning all five.</p>
     <table>
-      <thead><tr><th style="width:22%">Power Apps gives you</th><th style="width:28%">What it does</th><th class="devin" style="width:30%">In this console</th><th style="width:20%">Where you'll see it</th></tr></thead>
+      <thead><tr><th style="width:26%">Power Apps</th><th class="devin" style="width:52%">In this console</th><th style="width:22%">In the demo</th></tr></thead>
       <tbody>
-        <tr><td>App builder</td><td>Canvas or model-driven screens and forms, in the browser and on mobile</td><td class="devin">Each app is a declared tool on one shared shell</td><td>The three live apps; Part 3</td></tr>
-        <tr><td>Dataverse</td><td>Relational tables, with row- and column-level security</td><td class="devin">Tables per app, a role check on every action, masked personal data</td><td>Throughout</td></tr>
-        <tr><td>Connectors</td><td>Links to outside systems; many are premium, licensed per user</td><td class="devin">Code that calls the outside service, with the key kept on the server</td><td>Part 2</td></tr>
-        <tr><td>Power Automate</td><td>Workflows: approvals, alerts, scheduled jobs</td><td class="devin">Rules and approvals on one governed write path</td><td>Part 1</td></tr>
-        <tr><td>Admin plane</td><td>Environments, data policies, who can do what</td><td class="devin">Roles, live rule settings and one audit log</td><td>Part 1</td></tr>
+        <tr><td>App builder</td><td class="devin">Each app is a tool on one shared shell</td><td>Part 3</td></tr>
+        <tr><td>Dataverse</td><td class="devin">Tables per app, role checks, masked personal data</td><td>Throughout</td></tr>
+        <tr><td>Connectors</td><td class="devin">Server-side code that calls the outside service</td><td>Part 2</td></tr>
+        <tr><td>Power Automate</td><td class="devin">Rules and approvals on one governed write path</td><td>Part 1</td></tr>
+        <tr><td>Admin plane</td><td class="devin">Roles, live settings, one audit log</td><td>Part 1</td></tr>
       </tbody>
     </table>
     <div class="footer"><span>After Power Apps · build vs buy</span><span>1 / 4</span></div>
@@ -90,7 +78,7 @@
   <section class="slide" data-title="One loop, three times">
     <div class="eyebrow">The demo</div>
     <h1>Your team asks, Devin builds, an engineer approves</h1>
-    <p class="lede">Today a rule on money is either fast and unreviewed, or reviewed after a two-week queue. This is a third way, shown three times.</p>
+    <p class="lede">A third way to change rules on money: fast, and reviewed.</p>
     <div class="diagram"><img src="demo-loop.svg" alt="The loop: your team asks, Devin builds, an engineer approves, an admin turns it on. Run three times: a rule, a connector, an app."></div>
     <div class="footer"><span>After Power Apps · build vs buy</span><span>2 / 4</span></div>
   </section>
@@ -100,14 +88,12 @@
     <div class="eyebrow">What ownership costs</div>
     <h1>You still pay engineers: to review, not to trace</h1>
     <table>
-      <thead><tr><th style="width:22%"></th><th style="width:24%">Power Apps today</th><th style="width:24%">Owned code, engineers only</th><th class="devin" style="width:30%">Owned code, with Devin</th></tr></thead>
+      <thead><tr><th style="width:22%"></th><th style="width:24%">Power Apps today</th><th style="width:24%">Engineers only</th><th class="devin" style="width:30%">With Devin</th></tr></thead>
       <tbody>
-        <tr><td>New rule, reviewed and merged</td><td>~30 minutes to live, never reviewed</td><td>1–2 weeks, then 4–6 engineer-hours</td><td class="devin">Same day: Devin's run, then minutes of review</td></tr>
-        <tr><td>Who checks it</td><td>Nobody</td><td>An engineer, 30–60 minutes</td><td class="devin">An engineer, against a plan committed before the first edit</td></tr>
-        <tr><td>Stop a misfire</td><td>Another live edit</td><td>A hotfix</td><td class="devin">One admin setting, in seconds</td></tr>
-        <tr><td>Clean up six months on</td><td>Nobody owns it</td><td>When a ticket gets prioritised</td><td class="devin">A reviewed removal pull request</td></tr>
-        <tr><td>Automate a manual step</td><td>A premium connector per user, or nothing</td><td>A ticket and a sprint</td><td class="devin">Same day, reviewed like any other change</td></tr>
-        <tr><td>Next app</td><td>Licences, and its own controls</td><td>Weeks</td><td class="devin">A first pull request, then small requests; seven controls inherited on day one</td></tr>
+        <tr><td>New rule</td><td>~30 minutes, unreviewed</td><td>1–2 weeks</td><td class="devin">Same day, reviewed</td></tr>
+        <tr><td>Stop a misfire</td><td>Another live edit</td><td>A hotfix</td><td class="devin">One setting, in seconds</td></tr>
+        <tr><td>Remove it later</td><td>Nobody owns it</td><td>When a ticket gets prioritised</td><td class="devin">A reviewed pull request</td></tr>
+        <tr><td>Next app</td><td>More licences</td><td>Weeks</td><td class="devin">A first pull request, controls inherited</td></tr>
       </tbody>
     </table>
     <p class="note">The first two columns are estimates. The last is what the demo showed, on seeded data with one reviewer.</p>
@@ -115,70 +101,53 @@
   </section>
 
   <!-- Slide 4 -->
-  <section class="slide" data-title="Assessment and recommendation" style="padding-top:48px">
-    <div class="eyebrow">Honest assessment and recommendation</div>
-    <h1 style="font-size:40px">Build the governed core with Devin, in stages. Retire Power Apps app by app.</h1>
+  <section class="slide" data-title="Build or buy">
+    <div class="eyebrow">Build or buy</div>
+    <h1>Build, one app at a time, if you'll own the engine</h1>
     <div class="cols">
       <div class="col yes">
-        <h2>Replicable with Devin</h2>
+        <h2>What the demo shows</h2>
         <ul>
-          <li><b>Apps</b> on one shared engine: three live, Chargebacks started from its export</li>
-          <li><b>Rules and approvals</b> with maker-checker: added, switched off and removed</li>
-          <li><b>Connectors</b> written from public API docs, tested on recorded responses</li>
-          <li><b>Admin plane:</b> roles, live settings, masked data and one audit log across apps</li>
+          <li>Rules added, switched off and removed, each one reviewed</li>
+          <li>A manual check replaced by a lookup</li>
+          <li>A new app that inherits the same controls</li>
         </ul>
       </div>
       <div class="col no">
-        <h2>Not replicable, or not shown</h2>
+        <h2>What it doesn't</h2>
         <ul>
-          <li><b>Self-service:</b> business users no longer build alone; every change needs an engineer</li>
-          <li><b>The platform:</b> SSO, hosting, deploy pipeline, backups and on-call are not built yet</li>
-          <li><b>Microsoft 365 reach:</b> Teams, Outlook, SharePoint and mobile each become code you own</li>
-          <li><b>Accountability:</b> engine design and security sign-off stay with named engineers</li>
+          <li>Sign-on, hosting, backups and on-call</li>
+          <li>Business users building without an engineer</li>
+          <li>Production data and load</li>
         </ul>
       </div>
       <div class="col risk">
-        <h2>Where the risk lies</h2>
+        <h2>Where it could go wrong</h2>
         <ul>
-          <li><b>Migration tail:</b> undocumented formulas that behave differently on money</li>
-          <li><b>Review at volume:</b> a five-minute review is only as good as the tests and the reviewer</li>
-          <li><b>Cost is unproven:</b> licences go; engineers, hosting and Devin usage arrive</li>
-          <li><b>Thin evidence:</b> one demo, seeded data and test APIs, not production load</li>
+          <li>Formulas nobody wrote down, applied to money</li>
+          <li>Reviews that turn into rubber stamps</li>
+          <li>Savings absorbed by engineers and hosting</li>
         </ul>
       </div>
     </div>
     <div class="rec">
-      <div class="verdict">
-        <div class="tag">Recommendation</div>
-        <div class="call">Build, behind a 90-day gate</div>
-        <p>The pain is rules on money that change often, span apps and need review. Owned code does that well; Power Apps doesn't.</p>
+      <div class="next">
+        <h3>Next 90 days</h3>
         <ol>
-          <li><b>Weeks 0–4:</b> name an engine owner and a second reviewer. Decide SSO, hosting, database and deploys.</li>
-          <li><b>Weeks 4–12:</b> finish Chargebacks. Run it alongside the Power App and compare every decision.</li>
-          <li><b>Day 90 gate:</b> parity, review time, no unreviewed change, cost per change. Pass, then move apps by risk and licence cost.</li>
+          <li>Name an engine owner and a second reviewer</li>
+          <li>Move Chargebacks; run it beside the Power App</li>
+          <li>Go or stop on parity, review time and cost per change</li>
         </ol>
       </div>
-      <div class="paths">
-        <div class="path devin-fit">
-          <h3>Where Devin fits if you build</h3>
-          <ul>
-            <li>Builds the platform pieces your engineers decide: SSO, deploys, database</li>
-            <li>Moves each app: a first pull request, then small requests from its list</li>
-            <li>Makes every later rule, check and removal, reviewed like today</li>
-            <li>Never approves, never merges alone, never owns the engine</li>
-          </ul>
-        </div>
-        <div class="path">
-          <h3>If you buy: stay on Power Apps, or move to another platform</h3>
-          <ul>
-            <li>Add governance: managed environments, solutions in source control, approval pipelines</li>
-            <li>Devin's role is smaller: custom connectors such as Companies House, and tests and docs for flows</li>
-            <li>The review gap remains wherever the platform still allows live edits</li>
-          </ul>
-        </div>
+      <div class="fit">
+        <h3>Where Devin fits</h3>
+        <ul>
+          <li><b>If you build:</b> writes each change; engineers approve and merge</li>
+          <li><b>If you stay:</b> custom connectors, tests and docs for flows</li>
+        </ul>
       </div>
     </div>
-    <div class="footer" style="padding-top:10px"><span>After Power Apps · build vs buy</span><span>4 / 4</span></div>
+    <div class="footer"><span>After Power Apps · build vs buy</span><span>4 / 4</span></div>
   </section>
 
 </div>

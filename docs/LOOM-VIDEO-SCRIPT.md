@@ -13,7 +13,7 @@ Four slides in [`DEMO-SLIDES.html`](DEMO-SLIDES.html) (PDF copy: [`DEMO-SLIDES.p
 | 1 · Power Apps is five products in one | First shot of the recording | After "in code your team owns." Press → to slide 2 |
 | 2 · Your team asks, Devin builds, an engineer approves | Opening | After "then a whole new app." ◀ CONSOLE, on home |
 | 3 · What ownership costs | After Part 3's last line | After "not to trace." ◀ CONSOLE, for Future improvements |
-| 4 · Honest assessment and recommendation | After the closing request is typed, not sent | Stay on it to the end of the recording |
+| 4 · Build or buy | After the closing request is typed, not sent | Stay on it to the end of the recording |
 
 ## Client questions
 
@@ -24,7 +24,7 @@ Four slides in [`DEMO-SLIDES.html`](DEMO-SLIDES.html) (PDF copy: [`DEMO-SLIDES.p
 | 1. Rules: from added to removed | When requirements change, how fast, and who checks it? Can we switch it off, and take it out? | A Kestrel refund settles, then waits for a manager; switched off in seconds; removed from code that has moved on |
 | 2. Connectors: automating manual steps | Is this only rules, or real engineering against outside systems? | A hand-typed Companies House check becomes a lookup, on test data here, that holds approval |
 | 3. Apps: starting the next one | Can this hold twenty tools? What does the next one cost? | Chargebacks lands as a first pull request, switched off until an admin turns it on, with the rest of the move as a list |
-| Assessment | Should we build or buy, and where does Devin fit? | Slide 4: what's replicable, what's not, where the risk lies, and a recommendation with next steps |
+| Assessment | Should we build or buy, and where does Devin fit? | Slide 4: what the demo shows and doesn't, where it could go wrong, the next 90 days, and where Devin fits |
 
 ## How to read this script
 
@@ -61,13 +61,13 @@ Four slides in [`DEMO-SLIDES.html`](DEMO-SLIDES.html) (PDF copy: [`DEMO-SLIDES.p
 
 [Press → to slide 2.]
 
-| Power Apps gives you | What it does | In this console | Where you'll see it |
-|---|---|---|---|
-| App builder (canvas or model-driven apps) | Screens and forms, in the browser and on mobile | Each app is a declared tool on one shared shell | The three live apps; Part 3, Apps |
-| Dataverse | Relational tables, with row- and column-level security | Tables per app, a role check on every action, masked personal data | Throughout |
-| Connectors | Links to outside systems; many are premium, licensed per user | Code that calls the outside service, with the key kept on the server | Part 2, Connectors |
-| Power Automate | Workflows: approvals, alerts, scheduled jobs | Rules and approvals on one governed write path | Part 1, Rules |
-| Admin plane | Environments, data policies, who can do what | Roles, live rule settings and one audit log | Part 1, Rules |
+| Power Apps | In this console | In the demo |
+|---|---|---|
+| App builder | Each app is a tool on one shared shell | Part 3 |
+| Dataverse | Tables per app, role checks, masked personal data | Throughout |
+| Connectors | Server-side code that calls the outside service | Part 2 |
+| Power Automate | Rules and approvals on one governed write path | Part 1 |
+| Admin plane | Roles, live settings, one audit log | Part 1 |
 
 ---
 
@@ -465,14 +465,12 @@ Same loop, biggest change: a new app. Not built to production in a video, but st
 
 > "Three ways to own this. The first two columns are estimates. The last is what you just watched."
 
-| | Power Apps today | Owned code, engineers only | Owned code, with Devin |
+| | Power Apps today | Engineers only | With Devin |
 |---|---|---|---|
-| New rule, reviewed and merged | ~30 minutes to live, never reviewed | 1–2 weeks, then 4–6 engineer-hours | Same day: Devin's run, then minutes of review |
-| Who checks it | Nobody | An engineer, 30–60 minutes | An engineer, against a plan committed before the first edit |
-| Stop a misfire | Another live edit | A hotfix | One admin setting, in seconds |
-| Clean up six months on | Nobody owns it | When a ticket gets prioritised | A reviewed removal pull request |
-| Automate a manual step | A premium connector per user, or nothing | A ticket and a sprint | Same day, reviewed like any other change |
-| Next app | Licences, and its own controls | Weeks | A first pull request, then small requests; seven controls inherited on day one |
+| New rule | ~30 minutes, unreviewed | 1–2 weeks | Same day, reviewed |
+| Stop a misfire | Another live edit | A hotfix | One setting, in seconds |
+| Remove it later | Nobody owns it | When a ticket gets prioritised | A reviewed pull request |
+| Next app | More licences | Weeks | A first pull request, controls inherited |
 
 > "You still pay engineers. You pay them to review, not to trace."
 
@@ -492,49 +490,37 @@ Same loop, biggest change: a new app. Not built to production in a video, but st
 
 ---
 
-## ⚖️ Honest Assessment and Recommendation (75 seconds)
+## ⚖️ Build or Buy (60 seconds)
 
-**▶ SLIDE 4 · Honest assessment and recommendation.** Stay on it to the end.
+**▶ SLIDE 4 · Build or buy.** Stay on it to the end.
 
-[Point at the green column, **Replicable with Devin**.]
+[Point at **What the demo shows**.]
 
-> "Here's my honest read. What you watched is replicable: apps, rules, approvals, connectors and one audit log."
+> "What you watched holds up: a rule, a connector and a new app, each one reviewed."
 
-[Point at the grey column, **Not replicable, or not shown**.]
+[Point at **What it doesn't**.]
 
-> "What isn't: business users building alone. Every change now needs an engineer."
+> "What it doesn't show is the platform around it: sign-on, hosting, backups, on-call."
 >
-> "Nor is the platform. Single sign-on, hosting, deploys and on-call aren't built yet."
+> "And business users stop building alone. Every change goes through an engineer."
+
+[Point at **Where it could go wrong**.]
+
+> "The risk sits in three places. Formulas nobody wrote down, applied to money."
 >
-> "And every Microsoft 365 connection you rely on becomes code you own."
-
-[Point at the amber column, **Where the risk lies**.]
-
-> "The risk is in the migration tail: formulas nobody documented, behaving differently on money."
+> "Reviews that turn into rubber stamps as volume grows."
 >
-> "In review at volume. Five minutes is only as good as the tests and the reviewer."
+> "And savings that engineers and hosting quietly absorb. Those numbers are still estimates."
+
+[Point at **Next 90 days**.]
+
+> "So I'd build, one app at a time, but only if you'll name someone to own the engine."
 >
-> "And in cost. Licences go, but engineers, hosting and Devin usage arrive. That's estimated, not measured."
+> "Start with Chargebacks. Run it beside the Power App, then decide on parity, review time and cost per change."
 
-[Point at **Recommendation**.]
+[Point at **Where Devin fits**.]
 
-> "My recommendation is build, behind a ninety-day gate."
->
-> "Your pain is rules on money that change often, span apps and need review. Owned code does that well."
->
-> "First month: name an engine owner and a second reviewer, and decide the platform."
->
-> "Then finish Chargebacks and run it alongside the Power App, decision by decision."
->
-> "At day ninety, check parity, review time and cost per change. Then move apps by risk."
-
-[Point at **Where Devin fits if you build**.]
-
-> "Devin writes the platform, the migration and every later change. It never approves, and never owns the engine."
-
-[Point at **If you buy**.]
-
-> "If you'd rather stay on a platform, add governance. Devin's role gets smaller: connectors, tests and docs."
+> "If you build, Devin writes each change and your engineers approve it. If you stay, it still helps with connectors, tests and docs."
 >
 > "After Power Apps, your team asks, Devin builds, and an engineer approves."
 >
@@ -602,7 +588,7 @@ One row per shot, in order. Clicks marked **once** change data. To retake them, 
 | 11 | Thornbury Couriers before, handoff, finished run, check switched on at `/admin/policy`, after | KYC reviewer, Admin, Engineer | Companies House run recorded |
 | 12 | Chargebacks Coming soon, handoff, pull request, **Switched off** tile, `app.chargebacks` enabled, live queue, `DSP-20401` **Accept** (**once**) | Admin, Engineer, Refunds agent | Chargebacks run recorded |
 | 13 | Slide 3, what ownership costs; then the closing request typed and not sent | Refunds manager | — |
-| 14 | Slide 4, honest assessment and recommendation | — | Deck on slide 4 |
+| 14 | Slide 4, build or buy | — | Deck on slide 4 |
 
 - Open `docs/DEMO-SLIDES.html` in a second browser window, the same size as the console, before shot 0.
 - Pause for a beat after each click so the cut has room.
@@ -614,7 +600,7 @@ One row per shot, in order. Clicks marked **once** change data. To retake them, 
 ## 📤 After Recording
 
 - **Edit.** Trim the dead air, speed-ramp the run waits, and check each cut shows the real "Took …" time.
-- **Chapters.** Add Loom chapters at the real timestamps: Power Apps today, Opening, The console, Part 1 · Rules, Part 2 · Connectors, Part 3 · Apps, What ownership costs, Future, Assessment and recommendation.
+- **Chapters.** Add Loom chapters at the real timestamps: Power Apps today, Opening, The console, Part 1 · Rules, Part 2 · Connectors, Part 3 · Apps, What ownership costs, Future, Build or buy.
 - **Description.** Paste the one message, attach `docs/DEMO-SLIDES.pdf`, then link the repository and the five pull requests (Kestrel add, `partial_delivery`, Kestrel undo, Companies House, Chargebacks).
 - **Tags.** In Loom: `devin`, `internal-tools`, `power-apps-migration`. In git: tag the commit you recorded, such as `loom-2026-09-28`.
 - **Numbers.** Record each run's time, ACUs and test total in the Loom description, so the claims can be checked.

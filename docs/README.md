@@ -127,4 +127,4 @@ guard report on every pull request. Details: [CODE_QUALITY.md](CODE_QUALITY.md).
 ## Video Demo Script
 
 See [LOOM-VIDEO-SCRIPT.md](LOOM-VIDEO-SCRIPT.md) for the complete demo script showing all features in action.
-Its four slides are [DEMO-SLIDES.html](DEMO-SLIDES.html) (PDF: [DEMO-SLIDES.pdf](DEMO-SLIDES.pdf)); the script cues each one, and the last gives the build-vs-buy assessment and recommendation.
+Its four slides are [DEMO-SLIDES.html](DEMO-SLIDES.html) (PDF: [DEMO-SLIDES.pdf](DEMO-SLIDES.pdf)); the script cues each one, and the last gives the build-vs-buy recommendation.
