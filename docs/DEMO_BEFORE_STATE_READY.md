@@ -65,8 +65,7 @@ pnpm verify                                # Test Files 39 passed · Tests 325 p
    then Companies House and Chargebacks.
 3. After each Devin-built merge, switch it on: `app.chargebacks` on `/t/flags`,
    `kyc.companies_house_check` to 1 on `/admin/policy`.
-4. Within the hour before recording: stop `pnpm dev`, `rm -rf apps/console/data && pnpm db:setup`,
-   start `pnpm dev`, pick a role again.
+4. Within the hour before recording: stop `pnpm dev`, `pnpm db:reset`, start `pnpm dev`.
 5. Delete stray `runs/<id>/` folders left by stopped runs, so the merge sync isn't blocked.
 
 ### Optional enhancements

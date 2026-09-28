@@ -313,8 +313,8 @@ Five runs at 30–60 minutes each. Order matters:
 |---|---|
 | Main checkout on `cognition-dashboard-devin-integration` at the tagged demo commit: `git fetch --tags`, then `git checkout -B cognition-dashboard-devin-integration <demo-tag>` | The script's app, tile and test counts are read there. Stay on the branch: a detached HEAD makes **Pull merged code** refuse |
 | `pnpm install`, and `git status` clean | A new workspace package won't resolve without it; the merge sync refuses a dirty tree, stray `runs/` folders included |
-| Stop `pnpm dev`, then `rm -rf apps/console/data && pnpm db:setup`, then `pnpm dev`, within the hour | Seeded dates count from seed time |
-| Pick a role again after a reset | The reset regenerates the role cookie's secret |
+| Stop `pnpm dev`, then `pnpm db:reset`, then `pnpm dev`, within the hour | Seeded dates count from seed time. It rebuilds the demo data but keeps the recorded runs, their audit rows and replays; `rm -rf apps/console/data` would delete them |
+| Pick a role again only after `rm -rf apps/console/data` | That regenerates the role cookie's secret; `pnpm db:reset` keeps it |
 | `.env` has `DEVIN_API_KEY` and `GITHUB_TOKEN`; `/api/devin/status` reports `live` | Without the GitHub token, approval and the merge check don't work |
 | `pnpm verify` green; test count matches the script (328) | The count moved five times in two days (294, 305, 288, 331, 320, 328) |
 | Fresh browser window, 1440×900, notifications off | Every take the same size, no pop-ups |

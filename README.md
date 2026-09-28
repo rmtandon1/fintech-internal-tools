@@ -67,8 +67,8 @@ submits, masked personal data and one audit log.
 - **Engineer approval.** **Review and approve** opens a dialog with the CI checks, the reviewer's
   checklist and a context check. Approving posts a GitHub review and tells Devin to merge.
 - **Merge sync.** After a merge an engineer clicks **Pull merged code**. The console pulls the code
-  into its own checkout, installs dependencies if packages changed, migrates its database and loads
-  new settings, so the change is live without a restart.
+  into its own checkout, installs dependencies if packages changed, migrates its database, loads
+  new settings and seeds tools whose queue is still empty, so the change is live without a restart.
 - **Audit log.** `/audit` lists every action, approval, setting change and Devin run, with the rule
   outcomes and before/after values.
 - **Run history and undo.** `/runs` lists every Devin run. A merged change carries **Undo this
@@ -189,7 +189,7 @@ sequenceDiagram
     S->>E: record_merge
     S-->>UI: Merged
     Eng->>UI: Pull merged code
-    S->>S: git pull --ff-only, pnpm install if packages changed, pnpm db:migrate, load new settings
+    S->>S: git pull --ff-only, pnpm install if packages changed, pnpm db:migrate, seed empty tool queues, load new settings
     S-->>UI: Local code updated · pulled a1b2c3d → e4f5a6b
 ```
 
@@ -548,7 +548,7 @@ Chargebacks still runs in a Power App with two Power Automate flows. Its export 
 | `dispatchAutomationRun` | **Send to Devin**, **Ask Devin to undo it** | Governed `dispatch`, writes `context.json`, opens the session, `record_session` |
 | `approveAutomationRun` | **Approve as engineer** | Checks CI and the context hash, `approve_pr`, posts the GitHub review, messages Devin to merge |
 | `observeAutomationMerge` | **Check merge** | Asks GitHub whether the PR merged; records and pulls it |
-| `syncAutomationRun` | **Pull merged code** | Engineer only. `git pull --ff-only`, `pnpm install --frozen-lockfile` if a package file changed, then `pnpm db:migrate` if migrations are pending |
+| `syncAutomationRun` | **Pull merged code** | Engineer only. `git pull --ff-only`, `pnpm install --frozen-lockfile` if a package file changed, `pnpm db:migrate` if migrations are pending, then `pnpm db:seed:new` |
 | `reconcileAutomationRuns` | **Reconcile** | Rechecks every approved run on GitHub and pulls the newest merge |
 | `stopAutomationRun` | **Stop run** | Terminates the session and records `stop` with a reason |
 
@@ -558,7 +558,7 @@ Chargebacks still runs in a Power App with two Power Automate flows. Its export 
 |---|---|
 | Devin v3 (`https://api.devin.ai/v3`) | `GET /self` · `POST /organizations/{org}/attachments` · `POST …/sessions` · `GET …/sessions/{id}` · `POST …/sessions/{id}/messages` · `DELETE …/sessions/{id}` |
 | GitHub REST | `GET /repos/{o}/{r}/pulls/{n}` · `GET …/commits/{sha}/check-runs` and `/status` · `GET …/contents/runs/<id>/context.json?ref=<head>` · `GET` and `POST …/pulls/{n}/reviews` |
-| git + pnpm | `git pull --ff-only origin cognition-dashboard-devin-integration` · `pnpm install --frozen-lockfile` · `pnpm db:migrate` |
+| git + pnpm | `git pull --ff-only origin cognition-dashboard-devin-integration` · `pnpm install --frozen-lockfile` · `pnpm db:migrate` · `pnpm db:seed:new` |
 
 ### Managed entity schema
 
@@ -598,9 +598,11 @@ The console keeps no copies of source files. Git already holds every version exa
   copy differs.
 - **Restoring:** an undo reverts the run's merge commit and resolves conflicts against later work.
   Restoring a removed rule is a new request; the original request and plan are still in `runs/`.
-- **The database is disposable.** `rm -rf apps/console/data && pnpm db:setup` rebuilds it. Recorded
-  runs worth keeping are copied from `apps/console/data/replays/<run_id>.json` to
-  `runs/<run_id>/replay.json` and committed.
+- **The database is disposable.** `pnpm db:reset` rebuilds it while keeping recorded runs and their
+  audit rows; `rm -rf apps/console/data && pnpm db:setup` rebuilds it from nothing. `pnpm db:seed:new`
+  seeds only tools whose queue is still empty — the merge sync runs it so a newly merged app lands
+  with its demo data. Recorded runs worth keeping are copied from
+  `apps/console/data/replays/<run_id>.json` to `runs/<run_id>/replay.json` and committed.
 
 ### Devin automation workflow
 
@@ -625,8 +627,8 @@ The canonical pipeline. Each phase passes or stops the run; there is no "continu
    green and `context.json` must match.
 9. **Merge.** Devin squash-merges only after the console's message, and reports the merge commit.
 10. **Sync → verify.** The console records the merge. An engineer clicks **Pull merged code**, and
-    the console pulls, installs if packages changed, migrates and loads new settings. The
-    next matching record goes through the new rule.
+    the console pulls, installs if packages changed, migrates, seeds any tool whose queue is still
+    empty and loads new settings. The next matching record goes through the new rule.
 
 Every run leaves five audit rows on the normal path: dispatch, session started, PR opened, approved,
 merged. The guard checks are named so a PR comment reads as a sentence: **Stays in plan**, **Plan
@@ -661,7 +663,7 @@ state:
 | GitHub polling | Once approved, each poll asks GitHub whether the PR merged; **Check merge** and **Reconcile** do the same on demand |
 | Post-merge pull | **Pull merged code**, **Check merge** and **Reconcile** run `git pull --ff-only`. The pull refuses a dirty tree or the wrong branch |
 | Dependencies | `pnpm install --frozen-lockfile` runs when the pull changed a `package.json`, `pnpm-lock.yaml` or `pnpm-workspace.yaml`, and retries on the next sync while installed packages lag the lockfile |
-| Migrations and settings | `pnpm db:migrate` runs when the journal is ahead of the database; new settings and app flags register without a re-seed or restart |
+| Migrations and settings | `pnpm db:migrate` runs when the journal is ahead of the database; new settings and app flags register without a re-seed or restart, and `pnpm db:seed:new` seeds tools whose queue is still empty |
 | Dev server reload | `next dev` picks up pulled source on the next request. A production build must be rebuilt |
 
 The console doesn't use HTML no-cache meta tags or query-string cache busting: pages are server
@@ -772,6 +774,8 @@ Find the layer first, then the symptom.
 | `pnpm build` / `pnpm start` | Production build / serve on `:3001` |
 | `pnpm db:setup` | `db:migrate` then `db:seed` (not `pnpm setup`, which pnpm reserves) |
 | `pnpm db:migrate` / `pnpm db:seed` | Apply migrations / restore demo records (idempotent) |
+| `pnpm db:reset` | Rebuild demo data, keeping recorded runs, their audit rows and replays |
+| `pnpm db:seed:new` | Seed only tools whose queue is still empty (the merge sync runs this) |
 | `pnpm db:generate` | Regenerate migrations from `apps/console/src/schema.ts` |
 | `pnpm db:scenario courier-outage` | Insert 60 Fernhill Home `not_received` refunds through the engine |
 | `pnpm test` / `pnpm test:watch` | Vitest |
