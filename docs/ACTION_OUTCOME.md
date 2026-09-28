@@ -24,7 +24,7 @@ One panel per outcome, docked at the foot of the record panel where the action b
 A `kyc_reviewer` approves a low-risk case:
 
 ```
-APPROVED · kyc_0014 · pending_review → approved · v1 → v2
+APPROVED · kyc_0014 · pending_review → approved
 ✓ Permission   kyc_reviewer is allowed to approve in kyc
 ✓ Policy       5 rules checked, all passed             [trace]
 ✓ Recorded     by usr_kyc_reviewer at 2026-09-25 14:02:11 UTC
