@@ -9,18 +9,17 @@ export const devinRuns = sqliteTable(
   "devin_runs",
   {
     id: text("id").primaryKey(),
-    kind: text("kind").notNull(),
+    operation: text("operation").notNull(),
     spec: text("spec").notNull(),
     /** The tool whose rules the run changes; one run in flight per tool. */
     tool: text("tool").notNull(),
-    scope: text("scope").notNull(),
     intent: text("intent").notNull(),
     contextSha256: text("context_sha256").notNull(),
     sessionId: text("session_id"),
     status: text("status").notNull(),
     prUrl: text("pr_url"),
     mergeCommit: text("merge_commit"),
-    /** For a REVERSAL, the id of the merged IMPLEMENTATION it undoes. */
+    /** For an undo, the id of the merged change it undoes. */
     reverses: text("reverses"),
     requestedBy: text("requested_by").notNull(),
     requestedByRole: text("requested_by_role").notNull(),

@@ -60,7 +60,7 @@ export async function dispatchAutomationRun(form: FormData): Promise<BridgeResul
   try {
     const deps = bridgeDeps();
     const evidence =
-      parsed.data.kind === "REVERSAL" && parsed.data.reverses
+      parsed.data.operation === "undo" && parsed.data.reverses
         ? reversalEvidence(deps.repoRoot, parsed.data.reverses)
         : { evidenceKey: parsed.data.evidenceKey ?? "", evidenceIds: parsed.data.evidenceIds };
     const outcome = await dispatchRun(

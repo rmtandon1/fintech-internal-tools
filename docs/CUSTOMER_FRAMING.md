@@ -87,7 +87,7 @@ Turn a check your analysts do by hand into one that runs from the case, with its
 
 ## 3. Scenarios
 
-![Changing a console rule](rule-change-workflow.svg)
+![How work reaches the console](rule-change-workflow.svg)
 
 Editable source: [`rule-change-workflow.excalidraw`](rule-change-workflow.excalidraw).
 

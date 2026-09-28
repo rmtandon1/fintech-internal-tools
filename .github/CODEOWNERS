@@ -7,6 +7,8 @@
 /packages/db-core/   @rmtandon1
 /packages/db/        @rmtandon1
 /packages/permissions/ @rmtandon1
+/apps/console/drizzle/ @rmtandon1
+/apps/console/src/app/actions.ts @rmtandon1
 
 # The boundary script and the run guard are part of the governance surface,
 # and runs/ is the permanent record of every Devin run.

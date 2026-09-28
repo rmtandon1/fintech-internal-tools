@@ -13,7 +13,7 @@ A KYC record shows the same customer's refunds in a drawer (`linkedActivity` on 
 | Open cluster in Refunds | Hidden | Hidden | Yes |
 | Approve a held refund | Hidden | Hidden (a refunds decision) | Yes, unless they requested it (maker ≠ checker) |
 
-Run controls start where the evidence is: "Ask Devin for a rule" in the refunds cluster drawer for the refunds manager, "Ask Devin to add a check" on a UK business case, "Ask Devin to start this app" on the Chargebacks Coming soon page (`AGENT_TRIGGER_SURFACE.md`), "Ask Devin to change/remove this rule" on `/admin/policy` (rendered disabled when the spec offers no such kind), and "Reverse this change" on `/runs` for an admin on a merged run. Their placement on a KYC case, and per-role visibility, is open for the UI rework.
+Run controls start where the evidence is: "Ask Devin for a rule" in the refunds cluster drawer for the refunds manager, "Ask Devin to add a check" on a UK business case, "Ask Devin to start this app" on the Chargebacks Coming soon page (`AGENT_TRIGGER_SURFACE.md`), "Ask Devin to change this rule" on `/admin/policy`, and "Undo this change" on `/runs` for an admin on a merged run. Their placement on a KYC case, and per-role visibility, is open for the UI rework.
 
 The join is KYC `email` = refunds `customerEmail`, run on the server with the read client so no unmasked email reaches the browser. Covered by `apps/console/tests/tools/kyc-linked-activity.test.ts`.
 

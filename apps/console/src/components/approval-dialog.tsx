@@ -13,6 +13,7 @@ import {
 import { Label } from "@console/ui/label";
 import { SuggestTextarea } from "@/components/suggest-textarea";
 import type { RunViewPayload } from "@/lib/devin-route";
+import { sharedPathsTouched } from "@/lib/run-surface";
 
 type Stage = "idle" | "approving" | "merging" | "merged" | "failed";
 
@@ -79,6 +80,7 @@ export function ApprovalDialog({
   const [note, setNote] = useState("");
 
   const latest = payload?.latest?.structured_output ?? null;
+  const shared = sharedPathsTouched(latest);
   const checks = latest?.verify_steps ?? [];
   const pr = payload?.run.prUrl ?? latest?.pr_url ?? null;
   const prNumber = pr?.match(/pull\/(\d+)/)?.[1];
@@ -194,6 +196,11 @@ export function ApprovalDialog({
             The approver cannot be the requester. Switch to the engineer role if you asked for this
             run.
           </p>
+          {shared.length > 0 ? (
+            <p className="text-muted-foreground" data-testid="engine-owner-review">
+              The engine&rsquo;s owner reviews this too: the diff touches {shared.join(", ")}.
+            </p>
+          ) : null}
 
           {stage === "idle" || stage === "failed" ? (
             <div className="space-y-2">

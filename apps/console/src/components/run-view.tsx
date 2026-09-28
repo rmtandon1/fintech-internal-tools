@@ -304,12 +304,12 @@ export function RunView({
           output={out}
           phaseLine={phaseLine(out)}
           outcome={payload.outcome}
-          kindLabel={payload.kindLabel}
+          operationLabel={payload.operationLabel}
         />
       ) : null}
       <section className="border-b border-border px-3 py-2">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="text-[11px]">{payload.kindLabel}</span>
+          <span className="text-[11px]">{payload.operationLabel}</span>
           <StatusChip value={run.status} statuses={RUN_STATUSES} />
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
             {mode === "live" ? "Live · session" : "Recorded · replay.json"}

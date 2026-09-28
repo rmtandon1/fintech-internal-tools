@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -20,6 +20,7 @@ import {
   httpGitHubClient,
   IN_FLIGHT_STATUSES,
   parsePullUrl,
+  CHARGEBACKS_FROM_POWER_APPS,
   COMPANIES_HOUSE_CHECK,
   type SessionSnapshot,
   type StructuredOutput,
@@ -37,6 +38,7 @@ import {
   stopRun,
   syncMergedRun,
 } from "@console/tool-automation/bridge";
+import { listExport } from "@console/tool-automation/context";
 import { db } from "@console/db";
 import { kycTool } from "@console/tool-kyc";
 import { devinRuns } from "@console/tool-automation/schema";
@@ -44,6 +46,7 @@ import { refundTool } from "@console/tool-refunds";
 import { fakeGit } from "../helpers/fake-git";
 import { admin, kycManager, refundsAgent, refundsManager, setupHarness } from "../helpers/harness";
 
+const REPO_ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"]).toString().trim();
 const engineer: Actor = { id: "usr_engineer", name: "Engineer", role: "engineer" };
 const CASE = ["kyc_0003"];
 const PR = "https://github.com/rmtandon1/buy-v-build-cog-demo/pull/99";
@@ -126,9 +129,8 @@ function deps(over: Partial<BridgeDeps>): BridgeDeps {
 
 const request = {
   spec: COMPANIES_HOUSE_CHECK.file,
-  kind: "IMPLEMENTATION/ADDITION" as const,
-  scope: "rule" as const,
-  intent: COMPANIES_HOUSE_CHECK.intents["IMPLEMENTATION/ADDITION"] ?? "",
+  operation: "change" as const,
+  intent: COMPANIES_HOUSE_CHECK.intents.change,
   evidenceKey: "kyc_0003",
   evidenceIds: CASE,
 };
@@ -192,24 +194,36 @@ describe("dispatchRun", () => {
     expect(req.tags).toContain(`run:${out.runId}`);
     expect(req.structuredOutputSchema).toHaveProperty("properties");
     expect(req.prompt).toContain(request.intent);
-    expect(req.prompt).toContain("Scope: rule.");
+    expect(req.prompt).toContain(`Operation: change. Run: ${out.runId}.`);
     expect(req.prompt).not.toContain("COMPANIES_HOUSE_CHECK");
     expect(req.title).not.toContain("COMPANIES_HOUSE_CHECK");
     expect(req.prompt).toContain(".devin/run-protocol.playbook.md");
     expect(req.prompt).not.toContain("Repository:");
   });
 
-  it("names the spec only for engine scope", async () => {
+  it("names the spec only when the spec opts in to being sent", async () => {
     stopAll();
+    cpSync(
+      join(REPO_ROOT, "fixtures/power-apps/chargebacks"),
+      join(repoRoot, "fixtures/power-apps/chargebacks"),
+      { recursive: true },
+    );
     const devin = fakeDevin({});
     const out = await dispatchRun(
       admin,
-      { ...request, scope: "engine" },
+      {
+        spec: CHARGEBACKS_FROM_POWER_APPS.file,
+        operation: "change" as const,
+        intent: CHARGEBACKS_FROM_POWER_APPS.intents.change,
+        evidenceKey: "chargebacks",
+        evidenceIds: listExport(repoRoot, "chargebacks"),
+      },
       deps({ devin: devin.client }),
     );
     expect(out.dispatch.outcome.status).toBe("applied");
     const req = devin.created[0];
-    expect(req.prompt).toContain("Scope: engine. Spec: docs/COMPANIES_HOUSE_CHECK.md");
+    expect(req.prompt).toContain("Operation: change.");
+    expect(req.prompt).toContain("Spec: docs/CHARGEBACKS_FROM_POWER_APPS.md");
     expect(req.prompt).not.toContain("The attachment is the whole brief");
   });
 
@@ -568,7 +582,7 @@ describe("observeMerge and stopRun", () => {
     expect(after?.prUrl).toBe(PR);
   });
 
-  it("builds a reversal's context from the merged run's evidence, not the caller's", async () => {
+  it("builds an undo's context from the merged run's evidence, not the caller's", async () => {
     const run = await approved();
     await observeMerge(admin, run, deps({ github: fakeGitHub({ merged: true }).client }));
     const devin = fakeDevin({});
@@ -576,8 +590,8 @@ describe("observeMerge and stopRun", () => {
       admin,
       {
         ...request,
-        kind: "REVERSAL",
-        intent: COMPANIES_HOUSE_CHECK.intents.REVERSAL ?? "",
+        operation: "undo",
+        intent: COMPANIES_HOUSE_CHECK.intents.undo,
         evidenceKey: "kyc_0001",
         evidenceIds: [],
         reverses: run.id,
@@ -854,10 +868,9 @@ describe("reconcileRuns", () => {
       db.insert(devinRuns)
         .values({
           id,
-          kind: "IMPLEMENTATION/ADDITION",
+          operation: "change",
           spec: COMPANIES_HOUSE_CHECK.file,
           tool: "kyc",
-          scope: "rule",
           intent: "seeded approved run",
           contextSha256: "f".repeat(64),
           sessionId: null,

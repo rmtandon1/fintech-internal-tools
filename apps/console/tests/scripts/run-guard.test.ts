@@ -50,26 +50,26 @@ const BASE_FILES: Record<string, string> = {
 };
 
 interface ContextOverrides {
-  kind?: string;
-  scope?: string[];
+  operation?: string;
+  allowed_paths?: string[];
 }
 
 interface PlanOverrides {
   files?: Array<{ path: string; op: "create" | "modify" | "delete"; reason: string }>;
 }
 
-const DEFAULT_SCOPE = ["tools/refunds/**", "apps/console/tests/**", `${RUN_DIR}/**`];
+const DEFAULT_PATHS = ["tools/refunds/**", "apps/console/tests/**", `${RUN_DIR}/**`];
 
 function contextJson(o: ContextOverrides = {}): string {
   return JSON.stringify(
     {
       run_id: RUN_ID,
-      kind: o.kind ?? "IMPLEMENTATION/ADDITION",
+      operation: o.operation ?? "change",
       spec: "REFUND_CLUSTERING_HOLD.md",
       intent: "Hold clustered refunds.",
       requested_by: "refunds_manager",
       base: { branch: BASE_BRANCH, commit: "1a67f60a1a67f60a1a67f60a1a67f60a1a67f60a" },
-      scope: o.scope ?? DEFAULT_SCOPE,
+      allowed_paths: o.allowed_paths ?? DEFAULT_PATHS,
       constants: { "refunds.manager_approval_usd_minor": 50000 },
       evidence: { source: "refunds:rfnd_0015", rows: [] },
       reverses: null,
@@ -216,7 +216,7 @@ describe("run-guard", () => {
       "Stays in plan",
       "Plan stays in scope",
       "Run dir frozen",
-      "Engine untouched",
+      "Shared code reported",
     ]);
   });
 
@@ -245,7 +245,7 @@ describe("run-guard", () => {
     const f = fixture().startRun().editInPlan();
     const { status, out } = f.guard();
     expect(status).toBe(0);
-    for (const name of ["Stays in plan", "Plan stays in scope", "Run dir frozen", "Engine untouched"]) {
+    for (const name of ["Stays in plan", "Plan stays in scope", "Run dir frozen", "Shared code reported"]) {
       expect(line(out, name)).toMatch(/^PASS/);
     }
     for (const name of ["Humans approve", "Engine owner approves", "No live writes"]) {
@@ -285,7 +285,7 @@ describe("run-guard", () => {
   });
 
   describe("Plan stays in scope", () => {
-    it("fails when a planned path matches no scope glob", () => {
+    it("fails when a planned path matches no allowed-path glob", () => {
       const f = fixture()
         .startRun({}, { files: [{ path: TOOL_FILE, op: "modify", reason: "x" }, { path: TEST_FILE, op: "modify", reason: "x" }, { path: "tools/kyc/src/index.ts", op: "create", reason: "x" }] })
         .editInPlan();
@@ -295,7 +295,7 @@ describe("run-guard", () => {
     });
 
     it("passes when every planned path matches a glob", () => {
-      const f = fixture().startRun({ scope: ["tools/*/src/*.ts", "apps/console/tests/tools/refunds.test.ts", `${RUN_DIR}/**`] }).editInPlan();
+      const f = fixture().startRun({ allowed_paths: ["tools/*/src/*.ts", "apps/console/tests/tools/refunds.test.ts", `${RUN_DIR}/**`] }).editInPlan();
       const { status, out } = f.guard();
       expect(status).toBe(0);
       expect(line(out, "Plan stays in scope")).toMatch(/^PASS/);
@@ -314,7 +314,7 @@ describe("run-guard", () => {
 
     it("fails when context.json changes after the plan commit", () => {
       const f = fixture().startRun().editInPlan();
-      f.write({ [`${RUN_DIR}/context.json`]: contextJson({ scope: [...DEFAULT_SCOPE, "tools/kyc/**"] }) });
+      f.write({ [`${RUN_DIR}/context.json`]: contextJson({ allowed_paths: [...DEFAULT_PATHS, "tools/kyc/**"] }) });
       f.commit("widen context");
       const { status, out } = f.guard();
       expect(status).toBe(1);
@@ -349,42 +349,11 @@ describe("run-guard", () => {
     });
   });
 
-  describe("Engine untouched", () => {
-    it("fails when a rule-scope run changes an engine file, even one in its plan", () => {
-      const f = fixture()
-        .startRun({}, { files: [{ path: TOOL_FILE, op: "modify", reason: "x" }, { path: TEST_FILE, op: "modify", reason: "x" }, { path: ENGINE_FILE, op: "modify", reason: "x" }] })
-        .editInPlan();
-      f.write({ [ENGINE_FILE]: "export const policy = 2;\n" });
-      f.commit("engine");
-      const { status, out } = f.guard();
-      expect(status).toBe(1);
-      expect(line(out, "Engine untouched")).toMatch(/^FAIL.*packages\/engine\/src\/policy\.ts/);
-    });
-
-    it("fails when a rule-scope run edits the guard itself", () => {
-      const f = fixture().startRun({}, { files: [{ path: TOOL_FILE, op: "modify", reason: "x" }, { path: TEST_FILE, op: "modify", reason: "x" }, { path: "scripts/run-guard.ts", op: "create", reason: "x" }] }).editInPlan();
-      f.write({ "scripts/run-guard.ts": "process.exit(0);\n" });
-      f.commit("guard");
-      const { status, out } = f.guard();
-      expect(status).toBe(1);
-      expect(line(out, "Engine untouched")).toMatch(/^FAIL.*scripts\/run-guard\.ts/);
-    });
-
-    it("is waived for an engine-scope run", () => {
-      const ENGINE_SCOPE = [
-        "packages/engine/**",
-        "packages/db/**",
-        "packages/db-core/**",
-        "packages/db-write/**",
-        "packages/permissions/**",
-        "apps/console/drizzle/**",
-        "apps/console/src/app/actions.ts",
-        "apps/console/src/components/**",
-        "AGENTS.md",
-      ];
+  describe("Shared code reported", () => {
+    it("lists a touched packages/** path in its reason and still passes", () => {
       const f = fixture()
         .startRun(
-          { scope: [...DEFAULT_SCOPE, ...ENGINE_SCOPE] },
+          { allowed_paths: [...DEFAULT_PATHS, "packages/engine/**"] },
           { files: [{ path: TOOL_FILE, op: "modify", reason: "x" }, { path: TEST_FILE, op: "modify", reason: "x" }, { path: ENGINE_FILE, op: "modify", reason: "x" }] },
         )
         .editInPlan();
@@ -392,8 +361,36 @@ describe("run-guard", () => {
       f.commit("engine");
       const { status, out } = f.guard();
       expect(status).toBe(0);
-      expect(out).toContain("scope engine");
-      expect(line(out, "Engine untouched")).toMatch(/^PASS.*engine scope/);
+      expect(line(out, "Shared code reported")).toMatch(/^PASS.*packages\/engine\/src\/policy\.ts/);
+    });
+
+    it("reports the touched shared paths, not just the first", () => {
+      const DRIZZLE_FILE = "apps/console/drizzle/0009_run.sql";
+      const f = fixture()
+        .startRun(
+          { allowed_paths: [...DEFAULT_PATHS, "packages/engine/**", "apps/console/drizzle/**"] },
+          {
+            files: [
+              { path: TOOL_FILE, op: "modify", reason: "x" },
+              { path: TEST_FILE, op: "modify", reason: "x" },
+              { path: ENGINE_FILE, op: "modify", reason: "x" },
+              { path: DRIZZLE_FILE, op: "create", reason: "x" },
+            ],
+          },
+        )
+        .editInPlan();
+      f.write({ [ENGINE_FILE]: "export const policy = 2;\n", [DRIZZLE_FILE]: "SELECT 1;\n" });
+      f.commit("shared");
+      const { status, out } = f.guard();
+      expect(status).toBe(0);
+      expect(line(out, "Shared code reported")).toMatch(/^PASS.*apps\/console\/drizzle\/0009_run\.sql.*packages\/engine\/src\/policy\.ts/);
+    });
+
+    it("reports no shared path touched for a tools-only diff", () => {
+      const f = fixture().startRun().editInPlan();
+      const { status, out } = f.guard();
+      expect(status).toBe(0);
+      expect(line(out, "Shared code reported")).toMatch(/^PASS.*no shared path touched/);
     });
   });
 

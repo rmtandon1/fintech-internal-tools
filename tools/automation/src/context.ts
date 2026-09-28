@@ -11,13 +11,12 @@ import { kycCases, kycChecks } from "@console/tool-kyc/schema";
 import { refundTool } from "@console/tool-refunds";
 import { refunds } from "@console/tool-refunds/schema";
 import { ContextFile, type Evidence, type EvidenceRow, type Reverses } from "./run-files";
-import { scopePaths, type RunKind, type RunScope, type RunnableSpec } from "./specs";
+import { allowedPaths, type Operation, type RunnableSpec } from "./specs";
 
 export interface ContextRequest {
   runId: string;
-  kind: RunKind;
+  operation: Operation;
   spec: RunnableSpec;
-  scope: RunScope;
   intent: string;
   requestedBy: Role;
   /** The record the request starts from: a case id, a refund id or an app's id. */
@@ -47,14 +46,14 @@ export function buildContext(req: ContextRequest): BuiltContext {
   const reversed = req.reverses ? readContext(root, req.reverses.runId) : null;
   const context = ContextFile.parse({
     run_id: req.runId,
-    kind: req.kind,
+    operation: req.operation,
     spec: req.spec.file,
     intent: req.intent,
     requested_by: req.requestedBy,
     base: { branch: git(root, "rev-parse", "--abbrev-ref", "HEAD"), commit: git(root, "rev-parse", "HEAD") },
-    scope: scopePaths(req.spec, req.scope, req.runId),
+    allowed_paths: allowedPaths(req.spec, req.runId),
     constants,
-    // A REVERSAL reproduces the run it undoes: its evidence rows are the
+    // An undo reproduces the run it undoes: its evidence rows are the
     // ones the original run carried, verbatim, since the records may have
     // changed since. Constants and the audit head are still live reads.
     evidence: reversed?.evidence ?? readEvidence(req.spec, req.evidenceKey, req.evidenceIds, root),
@@ -220,7 +219,7 @@ function exportFiles(root: string, key: string, ids: readonly string[]): Evidenc
 
 /**
  * `runs/<id>/context.json`, falling back to the data-dir copy a successful
- * dispatch leaves for later REVERSALs to read.
+ * dispatch leaves for later undos to read.
  */
 export function readContextJson(repoRoot: string, runId: string): string | null {
   const candidates = [

@@ -3,11 +3,11 @@
 ## Summary
 
 - A business rule in this console is code. Devin adds, changes or removes it in a run, and a person approves every merge.
-- Feature specs (`REFUND_CLUSTERING_HOLD.md`, `COMPANIES_HOUSE_CHECK.md`, `CHARGEBACKS_FROM_POWER_APPS.md`) supply each run's intent sentence, scope and the reviewer's acceptance checklist. A rule run's session never reads the spec; an engine run reads only its sections marked as sent to Devin.
+- Feature specs (`REFUND_CLUSTERING_HOLD.md`, `COMPANIES_HOUSE_CHECK.md`, `CHARGEBACKS_FROM_POWER_APPS.md`) supply each run's intent sentence, allowed paths and the reviewer's acceptance checklist. A session never reads the spec unless the spec asks to be sent; then it reads only the sections marked as sent to Devin.
 - Starting a run is a governed write, like any other action. Each run appears in the audit chain five times, when it is requested, picked up, opens its pull request, is approved, and merges.
 - The console hands Devin a context file with the live settings and evidence, without customer data. Devin commits its plan before its first edit, and security checks in CI hold the diff to that plan.
 - An engineer approves, then Devin merges.
-- A reversal removes one earlier change from the code as it is now, keeping everything merged since.
+- An undo removes one earlier change from the code as it is now, keeping everything merged since.
 - Switching a rule off is a setting change on `/admin/policy`, in seconds, with no run.
 - The console talks to the Devin v3 API from the server. `DEVIN_API_KEY` is the only setting it needs. Without it the console says Devin is not connected and dispatches nothing.
 
@@ -19,35 +19,24 @@ A business rule in this console is code. When risk wants a rule changed, Devin c
 
 That puts two requirements on every run. It must be as safe to undo as it was to make. And the undo must work on the codebase as it is at undo time, not as it was when the change merged.
 
-## Run kinds
+## Operations
 
 
-| Kind                      | What it does                                                       | Who starts it                                                   | Devin session? |
-| ------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------- | -------------- |
-| `IMPLEMENTATION/ADDITION` | Adds a rule, with its constants and tests                          | Manager of the domain whose context shows the problem, or admin | Yes            |
-| `IMPLEMENTATION/CHANGE`   | Changes what an existing rule decides, not just its threshold      | Manager of the rule's domain, or admin                          | Yes            |
-| `IMPLEMENTATION/REMOVAL`  | Removes a rule, its constants and the tests that assert it         | Admin                                                           | Yes            |
-| `REVERSAL`                | Undoes one earlier IMPLEMENTATION, keeping everything merged since | Admin                                                           | Yes            |
+| Operation | What it does                                                       | Who starts it                                                            | Devin session? |
+| --------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------ | -------------- |
+| `change`  | Adds, changes or removes code under the spec's allowed paths       | Manager whose domain matches the spec's, or admin                        | Yes            |
+| `undo`    | Undoes one earlier merged change, keeping everything merged since  | Admin                                                                    | Yes            |
 
 
 Moving a threshold or switching a rule off is a setting change on `/admin/policy`, in seconds and audited. A run is for changes a setting can't express.
 
-### Scope
+### Allowed paths and who reviews
 
-The kind says what a run does. Its scope says where it may do it, and so how much review it needs. Engine scope exists for changes that touch shared paths, such as a new app, whose table and lockfile sit under engine paths (`CHARGEBACKS_FROM_POWER_APPS.md`).
-
-
-| Scope            | May change                                                                                      | Extra gate                                                                                                                |
-| ---------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `rule` (default) | Tool folders, tests, `runs/`                                                                    | None                                                                                                                        |                                                                                        |
-| `engine`         | Also `packages/engine/`, `packages/db/`, `packages/db-core/`, `packages/db-write/`, `packages/permissions/`, `apps/console/drizzle/`, `apps/console/src/app/actions.ts`, shared components, `AGENTS.md` | The engine owner approves as well as the engineer. The reviewer checks the audit log on a database migrated to the branch |
-
-
-Only an admin may dispatch a run with engine scope.
+What a change may touch is the spec's `allowedPaths` list — the path globs the console copies into `context.json` at dispatch. There is no scope: a spec that reaches shared paths, such as a new app whose table sits under `apps/console/drizzle/` (`CHARGEBACKS_FROM_POWER_APPS.md`), simply lists them. Who reviews is decided by CODEOWNERS from the diff: a run that touches shared paths — `packages/`, `apps/console/drizzle/`, `apps/console/src/app/actions.ts`, shared components, `AGENTS.md` — pulls in the paths' owners as well as the approving engineer, and the guard's **Shared code reported** check names them on the PR.
 
 ### Switching a rule off in seconds (KILL_SWITCH)
 
-Every rule a run adds reads its thresholds from admin-editable constants, and its spec names one value that makes the rule inert. For the clustering hold, that is a window of 0 days. The admin sets it on `/admin/policy`: immediate, audited, and no flag in the code. It covers the minutes a REVERSAL takes to open and be approved, while the rule may be holding genuine refunds. The REVERSAL then removes the rule from the code.
+Every rule a run adds reads its thresholds from admin-editable constants, and its spec names one value that makes the rule inert. For the clustering hold, that is a window of 0 days. The admin sets it on `/admin/policy`: immediate, audited, and no flag in the code. It covers the minutes an undo takes to open and be approved, while the rule may be holding genuine refunds. The undo then removes the rule from the code.
 
 Policy rules use constants, and product flags such as `payments.card_network_failover` stay flags, governed by the console. Reasoning: `CHANGE_TYPES.md` › Policy rules and product flags.
 
@@ -57,10 +46,10 @@ Dispatch goes through `executeIntent` like every other write. A small `automatio
 
 `dispatch` rules:
 
-- The role may start this kind (table above).
+- The role may start this operation (table above).
 - No other run is in flight against the same tool.
-- A REVERSAL names a merged IMPLEMENTATION that has not already been reversed.
-- An IMPLEMENTATION carries evidence, such as a non-empty cluster.
+- An undo names a merged change that has not already been undone.
+- A change carries evidence, such as a non-empty cluster.
 
 The effect writes the run row and the audit row in one transaction. The HTTP call to Devin happens after the commit, never inside it. `record_session` then stores the session id. If the call fails, the run row is marked `dispatch_failed` through the same intent path.
 
@@ -88,12 +77,12 @@ Devin's VM runs a freshly seeded database. It cannot see `apps/console/data/cons
 ```json
 {
   "run_id": "01K5Z3Q8M4V7N2X9C6B1D0F3GH",
-  "kind": "IMPLEMENTATION/ADDITION",
+  "operation": "change",
   "spec": "REFUND_CLUSTERING_HOLD.md",
   "intent": "Once a merchant's \"not received\" refunds add up past the manager limit, send them to a manager for approval. Send those customers' KYC approvals to a manager too.",
   "requested_by": "refunds_manager",
   "base": { "branch": "cognition-dashboard-devin-integration", "commit": "1a67f60…" },
-  "scope": [
+  "allowed_paths": [
     "tools/refunds/src/clustering-hold.ts",
     "tools/refunds/src/index.ts",
     "tools/kyc/src/index.ts",
@@ -116,20 +105,20 @@ Devin's VM runs a freshly seeded database. It cannot see `apps/console/data/cons
 ```
 
 - **Evidence rows carry no PII.** Emails and card numbers are dropped, not masked. Devin needs the amounts, merchant, reason and timing to write a regression test. It doesn't need the customer.
-- **`scope` is the spec's Scope list as path globs.** The console copies it from the spec at dispatch (engine scope adds the paths from § Scope). It is what makes the plan checkable: the reviewing engineer matches every `plan.json` path against these globs, rather than parsing the spec's prose.
+- **`allowed_paths` is the spec's allowed-paths list as path globs.** The console copies it from the spec at dispatch and adds `runs/<run_id>/`. It is what makes the plan checkable: the reviewing engineer matches every `plan.json` path against these globs, rather than parsing the spec's prose.
 - **The dispatch audit row stores the SHA-256 of this file.** The `approve_pr` rule checks that the file committed on the branch hashes to the same value, so what Devin worked from is provably what the console sent. CI cannot do this check, because it cannot read the console's SQLite.
-- **For a REVERSAL**, `reverses` names the IMPLEMENTATION's run id and merge commit. `constants` then carries both the values at that IMPLEMENTATION's dispatch and the values now.
+- **For an undo**, `reverses` names the change's run id and merge commit. `constants` then carries both the values at that change's dispatch and the values now.
 
 The session itself gets:
 
 - `playbook_id`: the Devin playbook holding this protocol.
-- `prompt`: the intent sentence, the kind, the scope and the run id. Only an engine run's prompt names its spec path.
+- `prompt`: the intent sentence, the operation and the run id. The prompt names its spec path only when the spec asks to be sent.
 - The attachment above.
 - `structured_output_schema`: see § Progress.
 - `max_acu_limit`: the run's budget.
-- `tags`: `run:<run_id>`, `kind:<kind>`.
+- `tags`: `run:<run_id>`, `operation:<operation>`.
 
-It never gets reference code. A rule run never gets the spec at all. The spec's acceptance tests are the engineer's checklist in the approval dialog (`RunnableSpec.acceptance`), so the time window, which refunds count and where the rule sits in the trace are Devin's to work out from the code, and the reviewer checks them afterwards. Specs include a reference implementation for the reviewer, and Devin works out its own.
+It never gets reference code. A run never gets the spec unless the spec asks to be sent. The spec's acceptance tests are the engineer's checklist in the approval dialog (`RunnableSpec.acceptance`), so the time window, which refunds count and where the rule sits in the trace are Devin's to work out from the code, and the reviewer checks them afterwards. Specs include a reference implementation for the reviewer, and Devin works out its own.
 
 ## Phases
 
@@ -147,9 +136,9 @@ Each phase passes or stops the run. There is no "continue with warnings".
 | Merge        | After an engineer's `approve_pr`, Devin merges (squash) and reports `merge_commit`                                                                           | Report why (checks re-running, conflict with a newer merge) and wait. Rebase inside the plan if the base moved |
 
 
-The plan is Devin's own, committed before any edit. The spec gives a scope the plan must stay inside. Committing first is what makes scope checkable: the reviewing engineer compares the diff with a list Devin wrote before it knew what the diff would be.
+The plan is Devin's own, committed before any edit. The spec's allowed paths bound what the plan may touch. Committing first is what makes the boundary checkable: the reviewing engineer compares the diff with a list Devin wrote before it knew what the diff would be.
 
-`plan.json` holds `files[]` (path, `create | modify | delete`, one-line reason), `reuses[]` (existing modules the change builds on, each with a one-line reason), `acceptance[]` (the tests it will write, one per behaviour; an engine run names the spec's acceptance tests) and, for `IMPLEMENTATION/REMOVAL` and `REVERSAL`, `removed_tests[]` of `{ file, name }`: each test the run will delete because it asserts the rule being taken out. The reviewer permits exactly those removals and no others; for other kinds the array is absent or empty. `reuses[]` is informational and not a scope boundary.
+`plan.json` holds `files[]` (path, `create | modify | delete`, one-line reason), `reuses[]` (existing modules the change builds on, each with a one-line reason), `acceptance[]` (the tests it will write, one per behaviour; when the spec is sent it names the spec's acceptance tests) and, for a change that removes a rule or an undo, `removed_tests[]` of `{ file, name }`: each test the run will delete because it asserts the rule being taken out. The reviewer permits exactly those removals and no others; otherwise the array is absent or empty. `reuses[]` is informational and not a boundary.
 
 ## Progress
 
@@ -187,7 +176,7 @@ The Devin API doesn't stream sub-steps. The session's `structured_output` is the
 
 - `reuses` is copied from `plan.json` when the Plan phase lands and does not change after. It drives the "Reusing …" lines of the run checklist.
 - `files` fills during Edit. Before that, the plan's paths come from `plan.json`.
-- `conflicts` is used by REVERSAL: one entry per conflicted file, with what was kept (`"partial_delivery reason code, PR #7"`) and what was removed (`"clustering_hold registration"`).
+- `conflicts` is used by an undo: one entry per conflicted file, with what was kept (`"partial_delivery reason code, PR #7"`) and what was removed (`"clustering_hold registration"`).
 
 The console polls the session (`GET /v3/organizations/{org_id}/sessions/{devin_id}`) and reads `status`, `status_detail` and `structured_output`. `status_detail = waiting_for_user` surfaces as a reply box, and the reply is sent through the messages endpoint. **Stop run** calls the terminate endpoint (`DELETE` on the same path) and marks the run `stopped` through an intent.
 
@@ -195,38 +184,38 @@ Phase names, spinners and timings shown in the UI are copy. They exist to make a
 
 ## Guard checks
 
-The playbook states these as prose, and `scripts/run-guard.ts` (in `pnpm verify`, plus a GitHub Action on every PR) enforces the four that carry the core claim against `git diff <base>...HEAD`: the diff is the plan, the plan is in scope, the plan never moved, and the engine never moved. They have names, not numbers, so a PR comment reads as a sentence.
+The playbook states these as prose, and `scripts/run-guard.ts` (in `pnpm verify`, plus a GitHub Action on every PR) enforces the ones that carry the core claim against `git diff <base>...HEAD`: the diff is the plan, the plan stays inside the allowed paths, and the plan never moved. They have names, not numbers, so a PR comment reads as a sentence.
 
 
 | Check                     | Fails when                                                                                                                                                                                            |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Stays in plan**         | A file outside `plan.json ∪ runs/<run_id>/` is created, changed, renamed or deleted, or a planned file gets a different `op` than `plan.json` declares (a rename is a delete plus a create)             |
-| **Plan stays in scope**   | A `plan.json` path matches none of the globs in `context.json`'s `scope`                                                                                                                              |
+| **Plan stays in scope**   | A `plan.json` path matches none of the globs in `context.json`'s `allowed_paths`                                                                                                                        |
 | **Run dir frozen**        | The plan commit (first on the branch) adds anything but `runs/<run_id>/context.json` and `plan.json`, or either file changes in a later commit, even if reverted afterwards (other files there, such as `replay.json`, may change)                |
 | **Context untouched**     | `approve_pr` only: the branch's `context.json` doesn't hash (SHA-256) to `contextSha256` in the dispatch audit row. CI can't read the console's SQLite, so the console's own rule does this half           |
-| **Engine untouched**      | Scope `rule` only. Anything under `packages/engine/`, `packages/db/`, `packages/db-core/`, `packages/db-write/`, `packages/permissions/`, `apps/console/drizzle/`, `scripts/check-boundaries.ts`, the guard itself, `AGENTS.md`, `package.json` or `pnpm-lock.yaml` changes                      |
+| **Shared code reported**  | Always passes. Names the shared paths the diff touched — `packages/`, `apps/console/drizzle/`, `apps/console/src/app/actions.ts`, shared components, `AGENTS.md` — or reports none, so the review knows whether CODEOWNERS pulls in more owners                      |
 
 Three more rules are enforced by review, CODEOWNERS and the playbook rather than the script; the guard's report ends with a note saying so:
 
 | Rule                      | Fails when                                                                                                                                                                                            |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Humans approve**        | The session merges without an approving review from someone other than itself, force-pushes, or pushes to the default branch                                                                          |
-| **Engine owner approves** | Scope `engine` only. A change under `packages/engine/`, `packages/db/`, `packages/db-core/`, `packages/db-write/`, `packages/permissions/` or `apps/console/drizzle/` merges without an approving review from the engine owner in CODEOWNERS, in addition to `approve_pr`                        |
+| **Engine owner approves** | A change under `packages/engine/`, `packages/db/`, `packages/db-core/`, `packages/db-write/`, `packages/permissions/` or `apps/console/drizzle/` merges without an approving review from the engine owner in CODEOWNERS, in addition to `approve_pr`                        |
 | **No live writes**        | The session runs `pnpm db:setup` or `db:seed`, or writes SQL against anything but a test database                                                                                        |
 
-Test counts, type escapes, seed edits and the shape of a REVERSAL are for the engineer's review; the PR lists per-file test counts and every rewritten test by name (see § Pull request contents).
+Test counts, type escapes, seed edits and the shape of an undo are for the engineer's review; the PR lists per-file test counts and every rewritten test by name (see § Pull request contents).
 
 `runs/` and the guard sit under CODEOWNERS, so changing either needs a human reviewer.
-## Reversal
+## Undo
 
-A REVERSAL is not `git revert` run by a machine. A clean revert only works if nothing has touched the same lines since the merge. In practice other runs and ordinary PRs will have landed on top. An admin will have tuned the rule's constants. Refunds may be sitting in the inbox, held by a rule that is about to disappear. Working through that is the autonomous part.
+An undo is not `git revert` run by a machine. A clean revert only works if nothing has touched the same lines since the merge. In practice other runs and ordinary PRs will have landed on top. An admin will have tuned the rule's constants. Refunds may be sitting in the inbox, held by a rule that is about to disappear. Working through that is the autonomous part.
 
-Devin's job on a REVERSAL:
+Devin's job on an undo:
 
 1. Start from `git revert -m 1 <merge_commit>` on a fresh branch.
-2. Resolve conflicts so that the reversed IMPLEMENTATION's effect is gone, and every later change stays.
-3. Remove the constants that IMPLEMENTATION declared. Restore any constant it changed to the value in its `context.json`, unless an admin has set it since. In that case, report both values in the PR and leave the declared default alone.
-4. Rewrite, don't delete, any later test that depended on the reversed rule. Name each one.
+2. Resolve conflicts so that the undone change's effect is gone, and every later change stays.
+3. Remove the constants that change declared. Restore any constant it changed to the value in its `context.json`, unless an admin has set it since. In that case, report both values in the PR and leave the declared default alone.
+4. Rewrite, don't delete, any later test that depended on the undone rule. Name each one.
 5. List in the PR anything the code can't undo: held refunds still awaiting approval, and constant rows still in the live database. These become operator steps.
 
 ## Snapshots
@@ -237,7 +226,7 @@ Devin's job on a REVERSAL:
 
 The sections Summary, Updates since last revision, Local testing results, and Review and Testing Checklist, plus:
 
-- **Run:** run id, kind, scope, base commit, plan commit, session link.
+- **Run:** run id, operation, base commit, plan commit, session link.
 - **Intent:** the sentence as the requester wrote it.
 - **Tests:** per-file counts before and after. Every new or rewritten test is named, with its reason.
 - **Live state:** constants from `context.json` next to any declared default the PR changes.
