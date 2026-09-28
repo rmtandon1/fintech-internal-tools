@@ -474,6 +474,24 @@ describe("context.json", () => {
     expect(undo.context.evidence.rows.map((r) => r.id)).toEqual(["kyc_since_closed"]);
     expect(undo.context.reverses?.constants_at_dispatch).toEqual(saved.constants);
   });
+
+  it("parses a context file written under the kind/scope model", () => {
+    const { json } = build("run_ctx");
+    const legacy = JSON.parse(json) as Record<string, unknown>;
+    delete legacy.operation;
+    legacy.kind = "IMPLEMENTATION/ADDITION";
+    legacy.scope = legacy.allowed_paths;
+    delete legacy.allowed_paths;
+
+    const parsed = ContextFile.parse(legacy);
+    expect(parsed.operation).toBe("change");
+    expect(parsed.allowed_paths).toEqual(legacy.scope);
+    expect(parsed).not.toHaveProperty("kind");
+    expect(parsed).not.toHaveProperty("scope");
+
+    legacy.kind = "REVERSAL";
+    expect(ContextFile.parse(legacy).operation).toBe("undo");
+  });
 });
 
 describe("run files", () => {

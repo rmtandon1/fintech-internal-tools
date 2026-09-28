@@ -44,7 +44,7 @@ export const Reverses = z
   .strict();
 export type Reverses = z.infer<typeof Reverses>;
 
-export const ContextFile = z
+const ContextFileShape = z
   .object({
     run_id: z.string().min(1),
     operation: z.enum(OPERATIONS),
@@ -60,7 +60,26 @@ export const ContextFile = z
     audit_head: z.object({ seq: z.number().int(), rowHash: z.string() }).strict(),
   })
   .strict();
-export type ContextFile = z.infer<typeof ContextFile>;
+/**
+ * Context files written before the operation model carry `kind` + `scope`
+ * where the current shape has `operation` + `allowed_paths`. Map them on read;
+ * the bytes — and the dispatch SHA over them — are untouched.
+ */
+export const ContextFile = z.preprocess((value) => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return value;
+  const input = value as Record<string, unknown>;
+  const out = { ...input };
+  if (typeof input.kind === "string" && input.operation === undefined) {
+    out.operation = input.kind === "REVERSAL" ? "undo" : "change";
+    delete out.kind;
+  }
+  if (Array.isArray(input.scope) && input.allowed_paths === undefined) {
+    out.allowed_paths = input.scope;
+    delete out.scope;
+  }
+  return out;
+}, ContextFileShape);
+export type ContextFile = z.infer<typeof ContextFileShape>;
 
 export const PlannedFile = z
   .object({
