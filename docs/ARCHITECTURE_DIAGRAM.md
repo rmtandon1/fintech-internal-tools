@@ -496,7 +496,7 @@ The audit log records every step in a rule's life.
 |---|---|
 | [`README.md`](../README.md) | Overview, usage, technical details and troubleshooting |
 | [`SETUP.md`](SETUP.md) | Installation and install-time fixes |
-| [`CUSTOMER_FRAMING.md`](CUSTOMER_FRAMING.md) | The problem, stakeholders and scenarios |
+| [`CUSTOMER_FRAMING.md`](../CUSTOMER_FRAMING.md) | The problem, stakeholders and scenarios |
 | [`DEVIN_RUN_PROTOCOL.md`](DEVIN_RUN_PROTOCOL.md) | Run types, phases, guard checks and reversal |
 | [`AGENT_TRIGGER_SURFACE.md`](AGENT_TRIGGER_SURFACE.md) | Where requests start, and the run and approval screens |
 | [`DEVIN-NO-DEVIN.md`](DEVIN-NO-DEVIN.md) | Which changes need Devin and which are settings |

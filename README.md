@@ -817,7 +817,7 @@ Find the layer first, then the symptom.
 |---|---|
 | [`docs/SETUP.md`](docs/SETUP.md) | Installation in detail, with fixes for install-time problems |
 | [`docs/ARCHITECTURE_DIAGRAM.md`](docs/ARCHITECTURE_DIAGRAM.md) | Layers, the governed write, integrations, workflows, rule lifecycle, screen-to-code map |
-| [`docs/CUSTOMER_FRAMING.md`](docs/CUSTOMER_FRAMING.md) | The problem, stakeholders, scenarios and each capability in depth |
+| [`CUSTOMER_FRAMING.md`](CUSTOMER_FRAMING.md) | The problem, stakeholders, scenarios and each capability in depth |
 | [`docs/DEVIN_RUN_PROTOCOL.md`](docs/DEVIN_RUN_PROTOCOL.md) | Run types, phases, guard checks, undo, approval and merge |
 | [`docs/AGENT_TRIGGER_SURFACE.md`](docs/AGENT_TRIGGER_SURFACE.md) | Where requests start, the handoff panel, run view and approval dialog |
 | [`docs/REAL_TIME_PROGRESS_READY.md`](docs/REAL_TIME_PROGRESS_READY.md) | How live run progress is polled and drawn |
