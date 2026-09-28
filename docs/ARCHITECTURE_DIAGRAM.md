@@ -1,6 +1,4 @@
-# Architecture
-
-## How a one-sentence request becomes a reviewed change
+# Architecture: From one sentence to reviewed code
 
 ```
 ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
