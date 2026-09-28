@@ -8,6 +8,7 @@ It's one demo: the same loop runs three times, each time on a bigger change. Ask
 
 | Part | The client is asking | What answers it on screen |
 |---|---|---|
+| Power Apps today | What are we paying Power Apps for, and what would we have to own instead? | Power Apps is five products in one; each part of the demo replaces one of them in owned code |
 | The console | Is the build itself credible? | Three live apps on one engine, 288 tests, and seven controls every new app inherits |
 | 1. A rule, from added to removed | When requirements change, how fast, and who checks it? Can we switch it off, and take it out? | A Kestrel refund settles, then waits for a manager; switched off in seconds; removed from code that has moved on |
 | 2. A manual step removed | Is this only rules, or real engineering against outside systems? | A hand-typed Companies House check becomes a live lookup that holds approval |
@@ -19,7 +20,37 @@ It's one demo: the same loop runs three times, each time on a bigger change. Ask
 - **[Bracketed lines]** are on-screen actions: what to click, open or point at. Nothing in brackets is said.
 - *(Parentheses inside a quote)* mark a value you read off the screen, such as a run's time.
 - Record ids like `rfnd_0013` appear only in brackets. Spoken lines use names.
-- Section timings add up to about seven minutes. Run the **Before recording** checklist at the end first.
+- Section timings add up to about seven and a half minutes. Run the **Before recording** checklist at the end first.
+
+---
+
+## 🧭 What Power Apps Gives You Today (35 seconds)
+
+[Show the five-part slide: the table below, one row per product.]
+
+> "Power Apps is five products in one, licensed per user or per app."
+>
+> "An app builder, for canvas or model-driven apps, in the browser and on mobile."
+>
+> "Dataverse, a relational database with security down to the row and the column."
+>
+> "Connectors to outside systems. Many, like calling any web API, need a premium licence."
+>
+> "Power Automate, the workflow engine behind approvals, alerts and scheduled jobs."
+>
+> "And an admin plane: environments, data policies, and who can do what."
+>
+> "Leaving Power Apps means owning all five."
+>
+> "Each part of this demo replaces one of them, in code your team owns."
+
+| Power Apps gives you | What it does | In this console | Where you'll see it |
+|---|---|---|---|
+| App builder (canvas or model-driven apps) | Screens and forms, in the browser and on mobile | Each app is a declared tool on one shared shell | The three live apps; Part 3 |
+| Dataverse | Relational tables, with row- and column-level security | Tables per app, a role check on every action, masked personal data | Throughout |
+| Connectors | Links to outside systems; many are premium, licensed per user | Code that calls the outside service, with the key kept on the server | Part 2 |
+| Power Automate | Workflows: approvals, alerts, scheduled jobs | Rules and approvals on one governed write path | Part 1 |
+| Admin plane | Environments, data policies, who can do what | Roles, live rule settings and one audit log | Part 1 |
 
 ---
 
@@ -472,6 +503,7 @@ One row per shot, in order. Clicks marked **once** change data. To retake them, 
 
 | # | Shot | Viewing as | State it needs |
 |---|---|---|---|
+| 0 | Five-part slide for "What Power Apps gives you today" | — | The table from that section, as a slide |
 | 1 | Home: opening and the console | Refunds manager | Fresh seed; three live apps |
 | 2 | Transaction monitoring's Coming soon page | Refunds manager | — |
 | 3 | Refunds queue, monitor, cluster drawer | Refunds manager | Before the Kestrel merge |
@@ -495,7 +527,7 @@ One row per shot, in order. Clicks marked **once** change data. To retake them, 
 ## 📤 After Recording
 
 - **Edit.** Trim the dead air, speed-ramp the run waits, and check each cut shows the real "Took …" time.
-- **Chapters.** Add Loom chapters at the real timestamps: Opening, The console, Part 1, Part 2, Part 3, What ownership costs, Future.
+- **Chapters.** Add Loom chapters at the real timestamps: Power Apps today, Opening, The console, Part 1, Part 2, Part 3, What ownership costs, Future.
 - **Description.** Paste the one message, then link the repository and the five pull requests (Kestrel add, `partial_delivery`, Kestrel undo, Companies House, Chargebacks).
 - **Tags.** In Loom: `devin`, `internal-tools`, `power-apps-migration`. In git: tag the commit you recorded, such as `loom-2026-09-28`. Never move `demo-start`.
 - **Numbers.** Record each run's time, ACUs and test total in the Loom description, so the claims can be checked.
