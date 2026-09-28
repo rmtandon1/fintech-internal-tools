@@ -333,18 +333,21 @@ Each claim on camera, what backs it, and where to show it. If a line has no evid
 
 ## Before Recording
 
-**A day ahead, in this order:**
+**A day ahead, before the runs:**
+
+- [ ] `pnpm devin:playbook` if `.devin/run-protocol.playbook.md` changed
+- [ ] For every run: watch until it opens its pull request, answer at once if it asks
+- [ ] For every run: note its time, files, lines, test total and ACUs
+
+**The runs, in this order:**
 
 - [ ] Kestrel rule: add it, approve, merge
+- [ ] Check the Kestrel session never opened the spec
 - [ ] Merge the `partial_delivery` reason code in `tools/refunds/src/index.ts` (must land after the rule, or the undo won't conflict)
 - [ ] Confirm the conflict with `git revert --no-commit` in a scratch worktree
 - [ ] `pnpm db:scenario courier-outage`, then switch the rule off
 - [ ] Undo the Kestrel rule, approve, merge
 - [ ] Companies House check, then the Chargebacks first pull request
-- [ ] Watch each run until it opens its pull request; answer at once if it asks
-- [ ] `pnpm devin:playbook` after any change to `.devin/run-protocol.playbook.md`
-- [ ] Note each run's time, files, lines, test total and ACUs
-- [ ] Check the Kestrel session never opened the spec
 
 **On the day:**
 
@@ -385,7 +388,7 @@ Show every sped-up run with its real "Took …" time.
 ## After Recording
 
 - [ ] Chapters: Power Apps today, Opening, The console, Rules, Connectors, Apps, Deployment drift, Cost, Build or buy
-- [ ] Description, with `docs/DEMO-SLIDES.pdf`, the five pull requests, and each run's time, ACUs and test total
+- [ ] Description, with the one message, `docs/DEMO-SLIDES.pdf`, the repo link, the five pull requests, and each run's time, ACUs and test total
 - [ ] Copy each `apps/console/data/replays/<run_id>.json` to `runs/<run_id>/replay.json` and commit
 - [ ] Stop running Devin sessions
 - [ ] Delete stray `runs/` folders
