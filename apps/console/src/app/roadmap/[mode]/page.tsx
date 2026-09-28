@@ -9,6 +9,7 @@ import { modeTriggers } from "@/lib/run-triggers";
 import { currentActor } from "@/lib/session";
 import { roleLabel } from "@console/permissions";
 import { enabledFlagKeys } from "@console/tool-flags";
+import { getTool } from "@/registry";
 
 /** What every tool gets from the engine, so a pending mode would too. */
 const INHERITED = [
@@ -34,11 +35,12 @@ export default async function RoadmapPage({
   const mode = OPS_MODES.find((m) => m.id === id);
   const flags = enabledFlagKeys();
   if (!mode || modeIsLive(mode, flags)) notFound();
-  const switchedOff = mode.flag !== undefined && !flags.has(mode.flag);
+  const switchedOff =
+    getTool(id) !== undefined && mode.flag !== undefined && !flags.has(mode.flag);
   const actor = await currentActor();
   const columns = mode.columns ?? ["Record", "Customer", "Amount", "Status"];
   const triggers = switchedOff ? [] : modeTriggers(mode.id, actor);
-  const canToggle = actor.role === "admin" || actor.role === "engineer";
+  const canToggle = getTool("flags")?.visibleTo.includes(actor.role) ?? false;
 
   return (
     <div className="flex h-full flex-col gap-3 overflow-auto">

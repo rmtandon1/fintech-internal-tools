@@ -1,6 +1,10 @@
+import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
+import { db } from "@console/db";
 import { enabledFlagKeys, flagTool } from "@console/tool-flags";
+import { featureFlags } from "@console/tool-flags/schema";
 import { allModes, modeEntry, modeIsLive, modesFor, OPS_MODES, type OpsMode } from "@/lib/modes";
+import { ensureModeFlags, modeFlagOff } from "@/lib/mode-flags";
 import { admin, setupHarness } from "../helpers/harness";
 
 beforeAll(() => {
@@ -50,6 +54,43 @@ describe("ModeEntry.switchedOff", () => {
     for (const entry of allModes(new Set())) {
       expect(entry.switchedOff).toBe(false);
     }
+  });
+});
+
+describe("ensureModeFlags", () => {
+  it("inserts an off flag row for a registered flagged mode, once", () => {
+    ensureModeFlags([flaggedKyc]);
+    const row = flagTool.get("flag_app.kyc_test");
+    expect(row?.key).toBe("app.kyc_test");
+    expect(row?.enabled).toBe(0);
+    expect(row?.status).toBe("off");
+    expect(row?.environment).toBe("production");
+    expect(row?.customerFacing).toBe(0);
+
+    ensureModeFlags([flaggedKyc]);
+    const { total } = flagTool.list({ filters: {}, search: "app.kyc_test", limit: 10, offset: 0 });
+    expect(total).toBe(1);
+  });
+
+  it("skips a flagged mode whose tool is not registered", () => {
+    const unbuilt = OPS_MODES.find((m) => m.id === "aml_alerts");
+    if (!unbuilt) throw new Error("no aml_alerts mode");
+    ensureModeFlags([{ ...unbuilt, flag: "app.aml_test" }]);
+    const { total } = flagTool.list({ filters: {}, search: "app.aml_test", limit: 10, offset: 0 });
+    expect(total).toBe(0);
+  });
+});
+
+describe("modeFlagOff", () => {
+  it("is true while the flag is off and false once enabled", () => {
+    ensureModeFlags([flaggedKyc]);
+    expect(modeFlagOff("kyc", [flaggedKyc])).toBe(true);
+    db.update(featureFlags).set({ enabled: 1 }).where(eq(featureFlags.key, "app.kyc_test")).run();
+    expect(modeFlagOff("kyc", [flaggedKyc])).toBe(false);
+  });
+
+  it("is false for a mode with no flag", () => {
+    expect(modeFlagOff("kyc", [kyc])).toBe(false);
   });
 });
 

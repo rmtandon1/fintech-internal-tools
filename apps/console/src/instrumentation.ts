@@ -4,5 +4,7 @@ export async function register() {
     loadRepoEnv();
     const { registerToolConstants } = await import("@/lib/register-tool-constants");
     registerToolConstants();
+    const { ensureModeFlags } = await import("@/lib/mode-flags");
+    ensureModeFlags();
   }
 }

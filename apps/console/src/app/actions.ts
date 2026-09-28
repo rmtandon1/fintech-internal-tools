@@ -14,6 +14,7 @@ import type { IntentResult, Role } from "@console/engine/types";
 import { ROLES } from "@console/permissions";
 import { AUTOMATION_ROLES } from "@console/tool-automation";
 import { OPS_MODES } from "@/lib/modes";
+import { modeFlagOff } from "@/lib/mode-flags";
 import { THEME_COOKIE } from "@/lib/theme";
 import { readOutcomeAudit, type OutcomeAudit } from "@/lib/outcome-audit";
 import { getTool } from "@/registry";
@@ -45,6 +46,7 @@ export async function switchRole(role: string, pathname?: string): Promise<void>
 export async function openApp(id: string): Promise<void> {
   const mode = OPS_MODES.find((m) => m.id === id);
   if (!mode) redirect("/");
+  if (modeFlagOff(id)) redirect(`/roadmap/${id}`);
   if (mode.launchRole) {
     const store = await cookies();
     store.set(ACTOR_COOKIE, signRole(mode.launchRole), {
@@ -93,6 +95,13 @@ export async function submitIntent(form: FormData): Promise<SubmitResult> {
     const raw = String(value);
     if (raw === "" && (optional || type === "number")) continue;
     input[name] = coerce(type, raw);
+  }
+
+  if (modeFlagOff(tool)) {
+    return {
+      outcome: { status: "error", code: "internal_error", message: "This app is switched off" },
+      replayed: false,
+    };
   }
 
   const result = executeIntent(actor, { tool, action, recordId, input, idempotencyKey });

@@ -47,8 +47,10 @@ Prefilled from `tools/automation/src/specs.ts`, and editable:
 > its fields, seeded from disputes.csv; the deadline alert as a count on the queue; and the two
 > riskiest rules, fraud accepts over $500 and fights over $2,500, each needing a refunds manager.
 > Use the refunds roles. In the pull request, list every formula and flow step as done or still
-> to do. Put the app behind the feature flag `app.chargebacks` in Feature flags, off by default
-> and not customer-facing, so an admin turns it on from the console after the merge.
+> to do. Put the app behind the feature flag `app.chargebacks` in Feature flags: set the mode's
+> `flag` and seed the row off and not customer-facing in `tools/flags/src/seed.ts` for fresh
+> databases — the console registers it on start for existing ones — so an admin turns it on
+> after the merge.
 
 ## Where it starts
 
@@ -69,9 +71,10 @@ file list with line counts. It reads the files themselves from the repository.
 - **The engine is untouched.** New files under `tools/chargebacks/`, one line in
   `apps/console/src/registry.ts`, a schema re-export, a migration, the package dependency, the
   lockfile and one seeded flag row in `tools/flags/src/seed.ts`. Nothing under `packages/`.
-- **Behind a flag.** The app sits behind the `app.chargebacks` feature flag: one seeded row in
-  `tools/flags/src/seed.ts`, off, not customer-facing, and the mode's `flag` set; the tile reads
-  Switched off until an admin turns it on.
+- **Behind a flag.** The app sits behind the `app.chargebacks` feature flag: the mode's `flag`
+  is `app.chargebacks`, and the row is seeded off and not customer-facing in
+  `tools/flags/src/seed.ts` for fresh databases — the console registers it on start for existing
+  ones; the tile reads Switched off until an admin turns it on.
 - **Tests:** the two rules, the count and the seed.
 
 ## After merge
