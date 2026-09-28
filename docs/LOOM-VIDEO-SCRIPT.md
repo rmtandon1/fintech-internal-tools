@@ -10,9 +10,9 @@ It's one demo: the same loop runs three times, each time on a bigger change. Ask
 |---|---|---|
 | Power Apps today | What are we paying Power Apps for, and what would we have to own instead? | Power Apps is five products in one; each part of the demo replaces one of them in owned code |
 | The console | Is the build itself credible? | Three live apps on one engine, 288 tests, and seven controls every new app inherits |
-| 1. A rule, from added to removed | When requirements change, how fast, and who checks it? Can we switch it off, and take it out? | A Kestrel refund settles, then waits for a manager; switched off in seconds; removed from code that has moved on |
-| 2. A manual step removed | Is this only rules, or real engineering against outside systems? | A hand-typed Companies House check becomes a live lookup that holds approval |
-| 3. The next app, started | Can this hold twenty tools? What does the next one cost? | Chargebacks goes live as a first pull request, with the rest of the move as a list |
+| 1. Rules: from added to removed | When requirements change, how fast, and who checks it? Can we switch it off, and take it out? | A Kestrel refund settles, then waits for a manager; switched off in seconds; removed from code that has moved on |
+| 2. Connectors: automating manual steps | Is this only rules, or real engineering against outside systems? | A hand-typed Companies House check becomes a live lookup that holds approval |
+| 3. Apps: starting the next one | Can this hold twenty tools? What does the next one cost? | Chargebacks goes live as a first pull request, with the rest of the move as a list |
 
 ## How to read this script
 
@@ -46,11 +46,11 @@ It's one demo: the same loop runs three times, each time on a bigger change. Ask
 
 | Power Apps gives you | What it does | In this console | Where you'll see it |
 |---|---|---|---|
-| App builder (canvas or model-driven apps) | Screens and forms, in the browser and on mobile | Each app is a declared tool on one shared shell | The three live apps; Part 3 |
+| App builder (canvas or model-driven apps) | Screens and forms, in the browser and on mobile | Each app is a declared tool on one shared shell | The three live apps; Part 3, Apps |
 | Dataverse | Relational tables, with row- and column-level security | Tables per app, a role check on every action, masked personal data | Throughout |
-| Connectors | Links to outside systems; many are premium, licensed per user | Code that calls the outside service, with the key kept on the server | Part 2 |
-| Power Automate | Workflows: approvals, alerts, scheduled jobs | Rules and approvals on one governed write path | Part 1 |
-| Admin plane | Environments, data policies, who can do what | Roles, live rule settings and one audit log | Part 1 |
+| Connectors | Links to outside systems; many are premium, licensed per user | Code that calls the outside service, with the key kept on the server | Part 2, Connectors |
+| Power Automate | Workflows: approvals, alerts, scheduled jobs | Rules and approvals on one governed write path | Part 1, Rules |
+| Admin plane | Environments, data policies, who can do what | Roles, live rule settings and one audit log | Part 1, Rules |
 
 ---
 
@@ -72,7 +72,7 @@ It's one demo: the same loop runs three times, each time on a bigger change. Ask
 >
 > "I'll show you a third way, three times: your team asks, Devin builds, an engineer approves."
 >
-> "First a rule, then a manual step, then a whole new app."
+> "First a rule, then a connector that replaces a manual step, then a whole new app."
 
 ---
 
@@ -104,7 +104,7 @@ It's one demo: the same loop runs three times, each time on a bigger change. Ask
 
 ---
 
-## 🧩 Part 1: A Rule, From Added to Removed (2½ minutes)
+## 🧩 Part 1 · Rules: From Added to Removed (2½ minutes)
 
 One rule, one app: introduce it, switch it off, take it out.
 
@@ -298,7 +298,7 @@ One rule, one app: introduce it, switch it off, take it out.
 
 ---
 
-## 🔎 Part 2: A Manual Step Removed (75 seconds)
+## 🔎 Part 2 · Connectors: Automating Manual Steps (75 seconds)
 
 Same loop, bigger change: outside data replaces a lookup people do by hand.
 
@@ -364,7 +364,7 @@ Same loop, bigger change: outside data replaces a lookup people do by hand.
 
 ---
 
-## 📦 Part 3: The Next App, Started (90 seconds)
+## 📦 Part 3 · Apps: Starting the Next One (90 seconds)
 
 Same loop, biggest change: a new app. Not built to production in a video, but started the way a real migration starts.
 
@@ -434,7 +434,7 @@ Same loop, biggest change: a new app. Not built to production in a video, but st
 | Who checks it | Nobody | An engineer, 30–60 minutes | An engineer, against a plan committed before the first edit |
 | Stop a misfire | Another live edit | A hotfix | One admin setting, in seconds |
 | Clean up six months on | Nobody owns it | When a ticket gets prioritised | A reviewed removal pull request |
-| Remove a manual step | A premium connector per user, or nothing | A ticket and a sprint | Same day, reviewed like any other change |
+| Automate a manual step | A premium connector per user, or nothing | A ticket and a sprint | Same day, reviewed like any other change |
 | Next app | Licences, and its own controls | Weeks | A first pull request, then small requests; seven controls inherited on day one |
 
 > "You still pay engineers. You pay them to review, not to trace."
@@ -527,7 +527,7 @@ One row per shot, in order. Clicks marked **once** change data. To retake them, 
 ## 📤 After Recording
 
 - **Edit.** Trim the dead air, speed-ramp the run waits, and check each cut shows the real "Took …" time.
-- **Chapters.** Add Loom chapters at the real timestamps: Power Apps today, Opening, The console, Part 1, Part 2, Part 3, What ownership costs, Future.
+- **Chapters.** Add Loom chapters at the real timestamps: Power Apps today, Opening, The console, Part 1 · Rules, Part 2 · Connectors, Part 3 · Apps, What ownership costs, Future.
 - **Description.** Paste the one message, then link the repository and the five pull requests (Kestrel add, `partial_delivery`, Kestrel undo, Companies House, Chargebacks).
 - **Tags.** In Loom: `devin`, `internal-tools`, `power-apps-migration`. In git: tag the commit you recorded, such as `loom-2026-09-28`. Never move `demo-start`.
 - **Numbers.** Record each run's time, ACUs and test total in the Loom description, so the claims can be checked.
