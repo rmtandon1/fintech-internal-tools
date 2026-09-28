@@ -32,7 +32,7 @@
                                 └────────────────┬────────────────┘
                                                  ▼
                       ┌─────────────────────────────────────────────────────┐
-                      │             New behaviour in production,            │
+                      │          New behaviour live in the console,         │
                       │              recorded in one audit log              │
                       └─────────────────────────────────────────────────────┘
 ```
@@ -88,7 +88,7 @@ Two rules keep the layers separate:
   build if a tool name appears in the engine.
 - **Code reaches production only through a reviewed merge.** Devin never writes to the live
   database. After a merge, the console pulls the code, migrates its own database and loads any
-  new settings.
+  new settings. A production build must then be rebuilt to serve the new code.
 
 ### The governed write
 
@@ -193,8 +193,8 @@ The same flow applies to automating a check and migrating an app.
 
 ### Switch a rule off
 
-Every rule Devin adds reads a setting that turns it off. Changing that setting takes seconds and
-needs no engineer.
+A rule can read a setting that turns it off. The refund clustering hold does: a window of 0 days
+disables it. Changing that setting takes seconds and needs no engineer.
 
 ```
  ADMIN                    CONSOLE                         RESULT
@@ -440,7 +440,6 @@ The audit log records every step in a rule's life.
 | Document | Covers |
 |---|---|
 | [`README.md`](../README.md) | Setup, routes, apps and scripts |
-| [`WORKFLOW_DETAILED.md`](WORKFLOW_DETAILED.md) | The end-to-end workflow |
 | [`CUSTOMER_FRAMING.md`](CUSTOMER_FRAMING.md) | The problem, stakeholders and scenarios |
 | [`DEVIN_RUN_PROTOCOL.md`](DEVIN_RUN_PROTOCOL.md) | Run types, phases, guard checks and reversal |
 | [`AGENT_TRIGGER_SURFACE.md`](AGENT_TRIGGER_SURFACE.md) | Where requests start, and the run and approval screens |
