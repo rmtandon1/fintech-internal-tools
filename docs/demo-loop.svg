@@ -4,41 +4,41 @@
 <circle cx="44" cy="54" r="13" fill="#ffffff" stroke="#d97706" stroke-width="2"/>
 <text x="44" y="59.2" text-anchor="middle" font-size="15" font-weight="700" fill="#d97706">1</text>
 <text x="145.0" y="87.0" text-anchor="middle" font-size="20" font-weight="700" fill="#111827">Your team asks</text>
-<text x="145.0" y="118.2" text-anchor="middle" font-size="17" font-weight="400" fill="#374151">One sentence, on the screen</text>
+<text x="145.0" y="118.2" text-anchor="middle" font-size="17" font-weight="400" fill="#374151">Describes the change</text>
 <path d="M 276 85.0 L 332 85.0" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#arrow)"/>
 <rect x="340" y="30" width="250" height="110" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
 <circle cx="364" cy="54" r="13" fill="#ffffff" stroke="#2563eb" stroke-width="2"/>
 <text x="364" y="59.2" text-anchor="middle" font-size="15" font-weight="700" fill="#2563eb">2</text>
 <text x="465.0" y="87.0" text-anchor="middle" font-size="20" font-weight="700" fill="#111827">Devin builds</text>
-<text x="465.0" y="118.2" text-anchor="middle" font-size="17" font-weight="400" fill="#374151">Plan, code and tests</text>
+<text x="465.0" y="118.2" text-anchor="middle" font-size="17" font-weight="400" fill="#374151">Writes the code and tests</text>
 <path d="M 596 85.0 L 652 85.0" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#arrow)"/>
 <rect x="660" y="30" width="250" height="110" rx="12" fill="#fef3c7" stroke="#d97706" stroke-width="2" stroke-dasharray="8 6"/>
 <circle cx="684" cy="54" r="13" fill="#ffffff" stroke="#d97706" stroke-width="2"/>
 <text x="684" y="59.2" text-anchor="middle" font-size="15" font-weight="700" fill="#d97706">3</text>
 <text x="785.0" y="87.0" text-anchor="middle" font-size="20" font-weight="700" fill="#111827">An engineer approves</text>
-<text x="785.0" y="118.2" text-anchor="middle" font-size="17" font-weight="400" fill="#374151">A different person</text>
+<text x="785.0" y="118.2" text-anchor="middle" font-size="17" font-weight="400" fill="#374151">Reviews and approves</text>
 <path d="M 916 85.0 L 972 85.0" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#arrow)"/>
 <rect x="980" y="30" width="250" height="110" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
 <circle cx="1004" cy="54" r="13" fill="#ffffff" stroke="#16a34a" stroke-width="2"/>
 <text x="1004" y="59.2" text-anchor="middle" font-size="15" font-weight="700" fill="#16a34a">4</text>
 <text x="1105.0" y="87.0" text-anchor="middle" font-size="20" font-weight="700" fill="#111827">An admin turns it on</text>
-<text x="1105.0" y="118.2" text-anchor="middle" font-size="17" font-weight="400" fill="#374151">Merged, but off until then</text>
+<text x="1105.0" y="118.2" text-anchor="middle" font-size="17" font-weight="400" fill="#374151">Switches it on when ready</text>
 <path d="M 1105.0 146 L 1105.0 192 L 145.0 192 L 145.0 150" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#arrow)"/>
-<text x="625.0" y="177.2" text-anchor="middle" font-size="16" font-weight="400" fill="#4b5563" font-style="italic">the next request runs the same loop</text>
-<text x="20" y="257.1" text-anchor="start" font-size="18" font-weight="700" fill="#111827">Three times today, each change bigger than the last</text>
+<text x="625.0" y="177.2" text-anchor="middle" font-size="16" font-weight="400" fill="#4b5563" font-style="italic">every change goes through the same steps</text>
+<text x="20" y="257.1" text-anchor="start" font-size="18" font-weight="700" fill="#111827">What this demo covers</text>
 <rect x="20" y="276" width="386" height="84" rx="12" fill="#f3f4f6" stroke="#6b7280" stroke-width="2"/>
 <text x="213.0" y="310.1" text-anchor="middle" font-size="19" font-weight="700" fill="#111827">Part 1 · A rule</text>
-<text x="213.0" y="340.1" text-anchor="middle" font-size="17" font-weight="400" fill="#374151">Kestrel refund hold</text>
+<text x="213.0" y="340.1" text-anchor="middle" font-size="17" font-weight="400" fill="#374151">A refund rule for Kestrel</text>
 <rect x="426" y="276" width="386" height="84" rx="12" fill="#f3f4f6" stroke="#6b7280" stroke-width="2"/>
 <text x="619.0" y="310.1" text-anchor="middle" font-size="19" font-weight="700" fill="#111827">Part 2 · A connector</text>
-<text x="619.0" y="340.1" text-anchor="middle" font-size="17" font-weight="400" fill="#374151">Companies House lookup</text>
+<text x="619.0" y="340.1" text-anchor="middle" font-size="17" font-weight="400" fill="#374151">Automatic Companies House checks</text>
 <rect x="832" y="276" width="386" height="84" rx="12" fill="#f3f4f6" stroke="#6b7280" stroke-width="2"/>
 <text x="1025.0" y="310.1" text-anchor="middle" font-size="19" font-weight="700" fill="#111827">Part 3 · An app</text>
-<text x="1025.0" y="340.1" text-anchor="middle" font-size="17" font-weight="400" fill="#374151">Chargebacks</text>
+<text x="1025.0" y="340.1" text-anchor="middle" font-size="17" font-weight="400" fill="#374151">Chargebacks, moved off Power Apps</text>
 <rect x="20" y="384" width="30" height="18" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="2" stroke-dasharray="8 6"/>
-<text x="60" y="398.2" text-anchor="start" font-size="16" font-weight="400" fill="#374151">Human gate</text>
-<rect x="170" y="384" width="30" height="18" rx="4" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
-<text x="210" y="398.2" text-anchor="start" font-size="16" font-weight="400" fill="#374151">Devin</text>
-<rect x="270" y="384" width="30" height="18" rx="4" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
-<text x="310" y="398.2" text-anchor="start" font-size="16" font-weight="400" fill="#374151">Live</text>
+<text x="60" y="398.2" text-anchor="start" font-size="16" font-weight="400" fill="#374151">A person</text>
+<rect x="150" y="384" width="30" height="18" rx="4" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="190" y="398.2" text-anchor="start" font-size="16" font-weight="400" fill="#374151">Devin</text>
+<rect x="250" y="384" width="30" height="18" rx="4" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+<text x="290" y="398.2" text-anchor="start" font-size="16" font-weight="400" fill="#374151">Live</text>
 </svg>
