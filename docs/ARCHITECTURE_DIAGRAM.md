@@ -1,665 +1,442 @@
-# Architecture Diagram
+# Architecture
 
-How the console is put together, drawn in layers. The rest of `docs/` describes each part in
-prose. This file shows how the parts fit together: what runs where, what calls what, and what
-changes on screen when a rule is added, switched off or removed.
+The console is an internal operations tool for a regulated fintech. Operations teams use it to
+review KYC cases, pay refunds and manage feature flags. Its business rules live in code. When a
+rule needs to change, Devin writes the change and an engineer approves it before it goes live.
 
-Diagrams in other files (see [Documentation map](#documentation-map)):
+This document describes how the system is built and how a change moves through it.
 
-- End-to-end process: `WORKFLOW_DETAILED.md`
-- Buyer's view of the whole system: `CUSTOMER_FRAMING.md`
-- Short overview for a first run: `setup.md`
+## System overview
 
----
-
-## From the screen to reviewed code
-
-The demo does five things, in the order the Loom script does them (`LOOM-VIDEO-SCRIPT.md`).
-Each starts on the screen that shows why it's needed. All five pass through the same governed
-write. After that they split: switching a rule off is a setting, and the other four are Devin
-runs.
+Five operations change how the console behaves. Each one starts from the screen that shows why
+it is needed. All five pass through the same governed write. Switching a rule off is a setting
+change and takes effect immediately. The other four are code changes that Devin makes and an
+engineer approves.
 
 ```
-┌────────────────┐ ┌────────────────┐ ┌────────────────┐ ┌────────────────┐ ┌────────────────┐
-│ Refund clusters│ │ Live thresholds│ │ Merged changes │ │ Registry checks│ │ A Power App's  │
-│ split under the│ │ and the value  │ │ nobody wants   │ │ typed in by    │ │ screens, flows │
-│ manager line   │ │ that turns a   │ │ any more       │ │ hand on each   │ │ and records    │
-│                │ │ rule off       │ │                │ │ business case  │ │                │
-│ /t/refunds     │ │ /admin/policy  │ │ /runs          │ │ /t/kyc/<id>    │ │ /roadmap/<app> │
-└───────┬────────┘ └───────┬────────┘ └───────┬────────┘ └───────┬────────┘ └───────┬────────┘
-        ▼                  ▼                  ▼                  ▼                  ▼
-┌──────────────────┬──────────────────┬──────────────────┬──────────────────┬──────────────────┐
-│    ADD a rule    │  SWITCH it OFF   │    REMOVE it     │ AUTOMATE a check │  MIGRATE an app  │
-└────────┬─────────┴────────┬─────────┴────────┬─────────┴────────┬─────────┴────────┬─────────┘
-         └──────────────────┴──────────────────┼──────────────────┴──────────────────┘
-                                               ▼
-                ┌─────────────────────────────────────────────────────────────┐
-                │ Governed write in one SQLite transaction                    │
-                │ executeIntent / setConstant → hash-chained audit_log row    │
-                └──────────────┬───────────────────────────────┬──────────────┘
-                   SWITCH OFF  │                               │  ADD · REMOVE · AUTOMATE · MIGRATE
-                               ▼                               ▼
-          ┌──────────────────────────────┐   ┌──────────────────────────────────────────┐
-          │ runtime_constants row        │   │ context.json: evidence, live constants,  │
-          │ e.g. clustering_window_days  │   │ scope globs, no PII · SHA-256 audited    │
-          │ 14 → 0                       │   └────────────────────┬─────────────────────┘
-          │                              │                        ▼
-          │ read fresh on every decision │   ┌──────────────────────────────────────────┐
-          │ no Devin, no deploy          │   │ Devin v3 API: session, playbook,         │
-          └──────────────┬───────────────┘   │ attachment, structured_output polling    │
-                         │                   └────────────────────┬─────────────────────┘
-                         │                                        ▼
-                         │                   ┌──────────────────────────────────────────┐
-                         │                   │ plan.json committed before the first edit│
-                         │                   │ run guard: diff = plan, plan in scope    │
-                         │                   └────────────────────┬─────────────────────┘
-                         │                                        ▼
-                         │                   ┌──────────────────────────────────────────┐
-                         │                   │ GitHub Actions: pnpm verify              │
-                         │                   │ Lint · Typecheck · Boundaries · Test     │
-                         │                   └────────────────────┬─────────────────────┘
-                         │                                        ▼
-                         │                   ┌──────────────────────────────────────────┐
-                         │                   │ GitHub API: approving review from an     │
-                         │                   │ engineer who didn't ask · Devin merges   │
-                         │                   └────────────────────┬─────────────────────┘
-                         │                                        ▼
-                         │                   ┌──────────────────────────────────────────┐
-                         │                   │ Merge sync: git pull --ff-only,          │
-                         │                   │ db:migrate, registerToolConstants        │
-                         │                   └────────────────────┬─────────────────────┘
-                         └──────────────────────┬─────────────────┘
-                                                ▼
-              ┌────────────────────────────────────────────────────────────────────┐
-              │ The same click now behaves differently, and one audit log says who │
-              │ asked, who approved and what changed                               │
-              └────────────────────────────────────────────────────────────────────┘
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│ Refunds split   │ │ A rule that     │ │ A rule no       │ │ A check done    │ │ An app still in │
+│ under a limit   │ │ misfires        │ │ longer needed   │ │ by hand         │ │ Power Apps      │
+│                 │ │                 │ │                 │ │                 │ │                 │
+│ /t/refunds      │ │ /admin/policy   │ │ /runs           │ │ /t/kyc/<id>     │ │ /roadmap/<app>  │
+└────────┬────────┘ └────────┬────────┘ └────────┬────────┘ └────────┬────────┘ └────────┬────────┘
+         ▼                   ▼                   ▼                   ▼                   ▼
+┌──────────────────┬───────────────────┬───────────────────┬───────────────────┬──────────────────┐
+│       ADD        │    SWITCH OFF     │      REMOVE       │     AUTOMATE      │      MIGRATE     │
+└────────┬─────────┴─────────┬─────────┴─────────┬─────────┴─────────┬─────────┴─────────┬────────┘
+         └───────────────────┴───────────────────┼───────────────────┴───────────────────┘
+                                                 ▼
+                      ┌─────────────────────────────────────────────────────┐
+                      │                    Governed write                   │
+                      │     Role check, policy check and audit log entry    │
+                      └─────────┬─────────────────────────────────┬─────────┘
+                    SWITCH OFF  │                                 │ ADD, REMOVE,
+                                │                                 │ AUTOMATE, MIGRATE
+                                ▼                                 ▼
+                  ┌───────────────────────────┐ ┌───────────────────────────────────┐
+                  │ Policy setting changed    │ │ 1  Context captured, no PII       │
+                  │                           │ │ 2  Devin session opened           │
+                  │ Applies from the next     │ │ 3  Plan committed first           │
+                  │ decision. No code         │ │ 4  Code and tests written         │
+                  │ change, no deploy.        │ │ 5  CI checks pass                 │
+                  │                           │ │ 6  Engineer approves              │
+                  │                           │ │ 7  Devin merges, console syncs    │
+                  └─────────────┬─────────────┘ └─────────────────┬─────────────────┘
+                                └────────────────┬────────────────┘
+                                                 ▼
+                      ┌─────────────────────────────────────────────────────┐
+                      │             New behaviour in production,            │
+                      │              recorded in one audit log              │
+                      └─────────────────────────────────────────────────────┘
 ```
 
-| Operation | Demo beat | Starts from | Devin run kind | Human gate |
-|---|---|---|---|---|
-| ADD a rule | Part 1, Kestrel hold | **Ask Devin for a rule**, cluster drawer | `IMPLEMENTATION/ADDITION`, scope `rule` | Engineer approves the PR |
-| SWITCH it OFF | Part 1, courier outage | Constant editor, `/admin/policy` | none | Admin only, audited |
-| REMOVE it | Part 1, undo | **Undo this change**, `/runs` | `REVERSAL` | Engineer approves the PR |
-| AUTOMATE a check | Part 2, Companies House | **Ask Devin to add a check**, `/t/kyc/<id>` | `IMPLEMENTATION/ADDITION` | Engineer approves the PR |
-| MIGRATE an app | Part 3, Chargebacks | **Ask Devin to start this app**, `/roadmap/chargebacks` | `IMPLEMENTATION/ADDITION`, scope `engine` | Engineer and engine owner |
-
----
+| Operation | Starts from | Example | Approval |
+|---|---|---|---|
+| **Add** a rule | **Ask Devin for a rule** in the refunds cluster drawer | Hold a merchant's refunds once together they pass the manager limit | Engineer |
+| **Switch off** a rule | The rule's setting on `/admin/policy` | Set `refunds.clustering_window_days` to 0 during a courier outage | Admin only |
+| **Remove** a rule | **Undo this change** on a merged run in `/runs` | Take the refund hold out of the code, keeping later work | Engineer |
+| **Automate** a check | **Ask Devin to add a check** on a KYC case | Look up UK businesses on Companies House from the case | Engineer |
+| **Migrate** an app | **Ask Devin to start this app** on its Coming soon page | Move Chargebacks from Power Apps into the console | Engineer and engine owner |
 
 ## The three-layer system
 
-The console has three layers. People click in the **console**. The **engine** decides every
-write. The **source code** holds the rules the engine runs. Devin and GitHub sit to the side:
-they change layer 3 and never touch layers 1 or 2 directly.
-
 ```
-      Refunds agent · Refunds manager · KYC reviewer · Admin · Engineer
-      (a signed "Viewing as" cookie; roles are enforced again on the server)
-                                     │
-                                     ▼
-┌───────────────────────────────────────────────────────────────────┐
-│ 1  CONSOLE         what people see and click · apps/console       │
-│                                                                   │
-│  Queues      Record       Inbox    Policy         Runs    Devin   │
-│  /t/<tool>   /t/<t>/<id>  /inbox   /admin/policy  /runs   window  │
-│                                                                   │     ┌───────────────────┐
-│  server actions: actions.ts, automation-actions.ts                │     │ DEVIN             │
-│  route handlers: /api/devin/status, /api/devin/<runId> ───────────┼────▶│ v3 API, server    │
-└──────────┬──────────────────────────────▲─────────────────────────┘     │ side only         │
-           │ executeIntent(actor, intent) │ IntentResult + PolicyTrace    │                   │
-           ▼                              │                               │ session, playbook │
-┌─────────────────────────────────────────┴─────────────────────────┐     │ context.json,     │
-│ 2  ENGINE          what decides · packages/engine                 │     │ structured_output │
-│                                                                   │     └─────────┬─────────┘
-│  validate → idempotency → policy → approval → effect → audit      │               │
-│                                                                   │               │ branch,
-│  console.db (SQLite, better-sqlite3 + Drizzle)                    │               │ plan.json,
-│  refunds · kyc_cases · feature_flags · devin_runs                 │               │ edits, PR
-│  approval_requests · runtime_constants · audit_log · audit_head   │               ▼
-└──────────────────────────────────▲────────────────────────────────┘     ┌───────────────────┐
-                                   │ registry.ts imports each tool        │ GITHUB            │
-                                   │ merge sync: git pull, db:migrate,    │ Actions runs      │
-                                   │ registerToolConstants                │ pnpm verify;      │
-┌──────────────────────────────────┴────────────────────────────────┐     │ engineer approves │
-│ 3  SOURCE CODE     what Devin changes · git                       │◀────┤ review; Devin     │
-│                                                                   │     │ merges (squash)   │
-│  tools/<tool>/src/index.ts     rules, actions, constants          │     └───────────────────┘
-│  apps/console/src/registry.ts  the list of live apps              │
-│  apps/console/tests            vitest suite (288 tests)           │
-│  runs/<run_id>/                context.json + plan.json per run   │
-│  scripts/run-guard.ts          the diff must match the plan       │
-└───────────────────────────────────────────────────────────────────┘
+      Operations staff  ·  Managers  ·  Admins  ·  Engineers
+                            │
+                            ▼
+┌───────────────────────────┴───────────────────────────┐        ┌──────────────────────────┐
+│ 1  CONSOLE                                            │ run    │ DEVIN                    │
+│    Queues · Records · Approvals · Policy · Runs       ├───────▶│ Writes the change in     │
+│    Next.js application                                │        │ a governed session       │
+│                                                       │        │                          │
+└─────────────┬───────────────────────────┬─────────────┘        └────────────┬─────────────┘
+              │ request                   ▲ result and policy trace           │ pull request
+              ▼                           │                                   ▼
+┌─────────────┴───────────────────────────┴─────────────┐        ┌────────────┴─────────────┐
+│ 2  ENGINE                                             │        │ GITHUB                   │
+│    validate → idempotency → policy → approval →       │        │ CI checks and            │
+│    effect → audit                                     │        │ engineer approval        │
+│    SQLite database                                    │        │                          │
+└───────────────────────────┬───────────────────────────┘        └────────────┬─────────────┘
+                            ▲ merged code, migrations, new settings           │
+                            │                                                 │ merge
+┌───────────────────────────┴───────────────────────────┐                     │
+│ 3  SOURCE CODE                                        │                     │
+│    Tool rules · Registry · Tests · Run records        │                     │
+│    Git repository                                     │◀────────────────────┘
+│                                                       │
+└───────────────────────────────────────────────────────┘
 ```
 
-| Layer | What it holds | Where | Example |
-|---|---|---|---|
-| 1 Console | Queues, record views, the approval inbox, the policy page, runs, the Devin window | `apps/console/src/app`, `apps/console/src/components` | A refunds agent clicks **Send to processor** on `rfnd_0013` |
-| 2 Engine | The only write path, policy evaluation, approvals, idempotency, masked PII, the audit chain | `packages/engine`, `packages/db-core`, `packages/db-write` | `executeIntent` runs every rule on the refund, finds no hold, and settles it |
-| 3 Source code | Each tool's declaration: its rules, actions, constants and seed | `tools/*`, `apps/console/src/registry.ts` | `tools/refunds/src/index.ts` lists the rules that refund just passed |
-
-Two facts make the layers work:
-
-- **Layer 2 knows no tool by name.** `pnpm check:boundaries` fails if `kyc`, `refunds` or
-  `flags` appears in `packages/engine`, or if anything but the engine depends on
-  `@console/db-write`. A new app is a new folder in layer 3 and one line in the registry.
-- **Layer 3 reaches layer 2 only through a reviewed merge.** Devin never writes to
-  `console.db`. The console pulls merged code, migrates its own database and registers any new
-  constants. Nothing reaches layer 2 until an engineer has approved the change.
-
-### Who does what
-
-```
-┌────────────────┐  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐
-│ CONSOLE        │  │ ENGINE         │  │ DEVIN          │  │ GITHUB         │  │ YOU            │
-│ front door and │  │ runtime        │  │ code editor    │  │ gate           │  │ orchestrator   │
-│ registry       │  │                │  │                │  │                │  │                │
-│                │  │ decides each   │  │ plans, edits,  │  │ runs the four  │  │ ask in one     │
-│ lists apps and │  │ write; holds   │  │ tests and      │  │ checks; takes  │  │ sentence; flip │
-│ runs; carries  │  │ approvals and  │  │ opens the PR;  │  │ the engineer's │  │ the off value; │
-│ the evidence   │  │ the audit log  │  │ merges after   │  │ review; keeps  │  │ approve as a   │
-│ into a request │  │                │  │ approval       │  │ main protected │  │ different role │
-└────────────────┘  └────────────────┘  └────────────────┘  └────────────────┘  └────────────────┘
-```
-
-| Actor | Does | Never does |
+| Layer | Responsibility | Location |
 |---|---|---|
-| Console | Lists live apps (`registry.ts`) and runs (`devin_runs`). Builds the run context from live state. Shows each policy trace | Writes a governed table except through the engine |
-| Engine | Validates, checks idempotency, evaluates policy, freezes approvals, applies the effect and appends the audit row in one transaction | Names a tool, or calls Devin or GitHub |
-| Devin | Reads the code, commits a plan, edits inside it, runs `pnpm verify`, opens the PR, merges after approval | Reads `console.db`, sees the spec on a rule run, or merges without an approving review |
-| GitHub | Runs `verify.yml` on every PR. Branch protection needs one approving review and the four checks | Lets Devin's account bypass review |
-| Engineer | Reviews the PR against the plan and the spec's acceptance checklist, then approves | Approves a run they asked for, or decides refund and KYC approvals |
-| You (presenter or admin) | Ask, switch rules off, ask for undos, and switch roles so a different person approves | Edit rule code by hand during the demo |
+| **1 Console** | Queues, record views, the approval inbox, policy settings, runs and the Devin window | `apps/console` |
+| **2 Engine** | The only path that writes data. Checks roles and policy, holds approvals, masks personal data and keeps the audit log | `packages/engine`, `packages/db-*` |
+| **3 Source code** | Each tool's rules, actions, settings and tests, plus a record of every run | `tools/*`, `apps/console/src/registry.ts`, `runs/` |
 
----
+Two rules keep the layers separate:
+
+- **The engine names no tool.** The engine runs whatever rules a tool declares. A new app is a
+  new folder under `tools/` and one line in the registry. `pnpm check:boundaries` fails the
+  build if a tool name appears in the engine.
+- **Code reaches production only through a reviewed merge.** Devin never writes to the live
+  database. After a merge, the console pulls the code, migrates its own database and loads any
+  new settings.
+
+### The governed write
+
+Every write, whether a refund, a KYC decision, a flag change or a Devin request, runs the same
+six steps. Steps two to six share one database transaction, so an error at any point rolls back
+the whole request.
+
+```
+ Request ──▶ Validate ──▶ Idempotency ──▶ Policy ──▶ Approval ──▶ Effect ──▶ Audit
+                 │             │             │           │
+                 ▼             ▼             ▼           ▼
+             Rejected      Replayed       Denied     Held for
+            no write      or refused      audited   an approver
+                          └──────────────────────────────────────────────────────┘
+                                        one database transaction
+```
+
+Every app inherits seven controls from this path: role access, a policy check on every action,
+approvals, live settings, idempotency, masked personal data and the audit log. The approval
+query excludes the requester, so nobody can approve their own request.
+
+### Roles and responsibilities
+
+| Party | Responsible for | Cannot |
+|---|---|---|
+| **Console** | Showing each queue and its evidence, and sending requests to the engine and to Devin | Write data except through the engine |
+| **Engine** | Deciding every write, and recording it in the audit log | Call Devin or GitHub |
+| **Devin** | Planning, writing and testing each change, opening the pull request, and merging once approved | Read the live database, or merge without approval |
+| **GitHub** | Running CI on every pull request and enforcing branch protection | Let Devin bypass review |
+| **Engineer** | Reviewing each pull request against its plan and acceptance checklist | Approve a change they requested |
+| **Managers and admins** | Requesting changes, approving operational decisions and switching rules off | Approve their own requests |
 
 ## Tech stack
 
-| Concern | Choice | Where |
+| Area | Technology |
+|---|---|
+| Runtime | Node 24, pnpm workspace |
+| Web application | Next.js 15 (App Router, server actions), React 19 |
+| Interface | Tailwind CSS 4, shadcn/ui on Radix primitives |
+| Database | SQLite with better-sqlite3, Drizzle ORM and drizzle-kit migrations |
+| Validation | Zod schemas on every action input |
+| Audit | Hash-chained log: each entry stores the SHA-256 of the one before |
+| Testing | Vitest, 288 tests |
+| Quality checks | ESLint, TypeScript, boundary checks, run guard |
+| CI | GitHub Actions (`.github/workflows/verify.yml`) |
+| Automation | Devin v3 API with a registered playbook |
+
+| Package | Responsibility | Depends on |
 |---|---|---|
-| Runtime | Node 24, pnpm workspace | `package.json`, `pnpm-workspace.yaml` |
-| Web app | Next.js 15 (App Router, server actions), React 19 | `apps/console` |
-| UI | Tailwind CSS 4, shadcn/Radix primitives, sonner toasts | `packages/ui` |
-| Data | SQLite through `better-sqlite3`, Drizzle ORM and drizzle-kit migrations | `packages/db-core`, `apps/console/drizzle` |
-| Validation | Zod schemas on every action input | `tools/*/src/index.ts` |
-| IDs and hashing | ULID ids, SHA-256 over canonical JSON for the audit chain and `context.json` | `packages/engine/src/audit` |
-| Tests | Vitest | `apps/console/tests` |
-| Checks | ESLint 9, `tsc`, `scripts/check-boundaries.ts`, `scripts/run-guard.ts` | `pnpm verify` |
-| CI | GitHub Actions, one `verify` job | `.github/workflows/verify.yml` |
-| Agent | Devin v3 API plus a registered playbook | `tools/automation`, `.devin/run-protocol.playbook.md` |
-
-### Package boundaries
-
-A package can import only what its `package.json` lists, so pnpm enforces the direction of
-every arrow below. `check:boundaries` adds the two rules pnpm can't express.
-
-```
-                          ┌───────────────────────────┐
-                          │ apps/console              │
-                          │ routes, actions, registry │
-                          └──┬───────────┬─────────┬──┘
-                             │           │         │
-               ┌─────────────┘           │         └──────────────┐
-               ▼                         ▼                        ▼
-┌─────────────────────────────┐  ┌───────────────┐  ┌──────────────────────────────┐
-│ tools/kyc     tools/refunds │  │ packages/ui   │  │ packages/permissions         │
-│ tools/flags   tools/automat.│  │ shadcn views  │  │ roles, levels, domains       │
-└──────────────┬──────────────┘  └───────────────┘  └──────────────────────────────┘
-               │ declare(): rules, actions, schema, seed
-               ▼
-┌─────────────────────────────┐        ┌──────────────────────────────────────────┐
-│ packages/engine             │───────▶│ packages/db-write                        │
-│ executeIntent, policy,      │        │ the write handle; only the engine may    │
-│ approvals, audit, pii       │        │ depend on it                             │
-└──────────────┬──────────────┘        └────────────────────┬─────────────────────┘
-               ▼                                            ▼
-┌─────────────────────────────┐        ┌──────────────────────────────────────────┐
-│ packages/db                 │───────▶│ packages/db-core                         │
-│ read client                 │        │ SQLite connection + engine tables        │
-└─────────────────────────────┘        └──────────────────────────────────────────┘
-```
-
----
-
-## The governed write path
-
-Every write in the console, a refund, a KYC approval, a flag rollout or a Devin dispatch, runs
-the same six steps (`packages/engine/src/execute-intent.ts`). Steps 2 to 6 share one
-transaction, so a crash rolls back the effect, the audit row and the idempotency key together.
-
-```
- intent { tool, action, recordId, input, idempotencyKey }
-    │
-    ▼
-┌──────────────┐   role may use the tool and the action? input parses (Zod)?
-│ 1 validate   │   record exists and its status allows this action?
-└──────┬───────┘                                                    no ──▶ error, nothing written
-       ▼          ┌─ one transaction ─────────────────────────────────────────────────────────┐
-┌──────────────┐  │  same key, same payload ──▶ replay the stored result                      │
-│ 2 idempotency│  │  same key, other payload ──▶ idempotency_conflict                         │
-└──────┬───────┘  │                                                                           │
-       ▼          │                                                                           │
-┌──────────────┐  │  every rule runs, constants read fresh ──▶ allow | approval | deny        │
-│ 3 policy     │  │                                                     deny ──▶ audit row    │
-└──────┬───────┘  │                                                                           │
-       ▼          │                                                                           │
-┌──────────────┐  │  require_approval ──▶ approval_requests row with the frozen payload,      │
-│ 4 approval   │  │                       trace and record version; audit row; stop           │
-└──────┬───────┘  │                                                                           │
-       ▼          │                                                                           │
-┌──────────────┐  │  the tool's apply(): the only code that changes a governed row            │
-│ 5 effect     │  │                                                                           │
-└──────┬───────┘  │                                                                           │
-       ▼          │                                                                           │
-┌──────────────┐  │  audit_log row: seq, prev_hash, row_hash, before/after, policy trace      │
-│ 6 audit      │  │  audit_head moves forward in the same write                               │
-└──────────────┘  └───────────────────────────────────────────────────────────────────────────┘
-```
-
-An approval resumes at step 5 with the frozen payload (`executeApproved`). The SQL that picks
-the request excludes the requester, so a manager can't approve their own request.
-
-Every app inherits seven controls from this path: role access, a policy check on every action,
-approvals, live settings, idempotency, masked personal data and the audit log. That's why the
-Coming soon tiles can list them before anyone has written a line of the app.
-
----
+| `apps/console` | Routes, server actions, tool registry, migrations, tests | Tools, engine, UI, permissions |
+| `tools/kyc`, `tools/refunds`, `tools/flags` | One operations app each: schema, rules, actions, seed data | Engine |
+| `tools/automation` | Devin runs: requests, sessions, pull requests, merges | Engine |
+| `packages/engine` | The governed write, policy, approvals, audit, masked data | Database packages |
+| `packages/permissions` | Roles and what each may do | None |
+| `packages/ui` | Shared interface components | None |
+| `packages/db`, `db-write`, `db-core` | Read access, write access and the SQLite connection. Only the engine may write | None |
 
 ## Integrations
 
-The browser never calls an outside service. Every call below starts on the server, and
-`DEVIN_API_KEY` and `GITHUB_TOKEN` stay in the repo-root `.env`.
-
 ```
- BROWSER                  CONSOLE SERVER                          OUTSIDE
- ─────────────            ───────────────────────────────         ─────────────────────────────
-
- Devin window ──fetch──▶  /api/devin/<runId>                      api.devin.ai/v3
- (polls a run)            /api/devin/status  ───────────────────▶ GET    /self                org from key
-                          tools/automation/devin-api              POST   .../attachments      context.json
-                                                                  POST   .../sessions         prompt, playbook
-                                                                  GET    .../sessions/<id>    status, output
-                                                                  POST   .../<id>/messages    reply, merge
-                                                                  DELETE .../sessions/<id>    Stop run
-
- Approval dialog ──────▶  automation-actions.ts                   api.github.com
- (engineer)               tools/automation/github-api  ─────────▶ GET    .../pulls/<n>        head, state
-                                                                  GET    .../check-runs       4 checks
-                                                                  GET    .../contents/<path>  context hash
-                                                                  POST   .../pulls/<n>/reviews  APPROVE
-
- Check merge,             apps/console/src/lib/bridge  ─────────▶ git pull --ff-only origin
- Reconcile                                                        pnpm db:migrate
-                                                                  registerToolConstants()
-
-                          scripts/register-playbook  ───────────▶ Devin playbook
-                          (pnpm devin:playbook)                   "Governed console run"
-
- Part 2, not built yet    tools/kyc Companies House client  ────▶ Companies House API
-                          (recorded responses in tests)           (Devin reads its docs itself)
-
- Part 3 input             fixtures/power-apps/chargebacks         Power Apps export, committed:
-                                                                  2 screens, 2 flows, disputes
+ Browser ──▶ Console server ──┬──▶ Devin API (v3) ....... start, poll, message and stop runs
+                              ├──▶ GitHub REST API ...... PR status, checks, approving review
+                              └──▶ Git and pnpm ......... pull merged code, migrate the database
 ```
 
-| Integration | Needs | Without it |
+| Service | Used for | Configuration |
 |---|---|---|
-| Devin v3 | `DEVIN_API_KEY`. `DEVIN_ORG_ID` and `DEVIN_PLAYBOOK_ID` are optional overrides | The console runs, the Devin window says `Devin not connected`, and dispatch is refused before anything is written |
-| GitHub REST | `GITHUB_TOKEN` (the engineer's) | **Review and approve** and the merge check are unavailable |
-| GitHub Actions | `verify.yml` and branch protection on the integration branch | PRs can't meet the four required checks |
-| Companies House | Added by the Part 2 run | The case keeps its hand-typed check |
-| Power Apps export | `fixtures/power-apps/chargebacks/` | **Ask Devin to start this app** stays unavailable |
+| **Devin v3 API** | Starting, monitoring, messaging and stopping runs | `DEVIN_API_KEY` |
+| **GitHub REST API** | Reading pull request status and checks, and posting the engineer's approval | `GITHUB_TOKEN` |
+| **GitHub Actions** | Running `pnpm verify` on every pull request | `.github/workflows/verify.yml` |
+| **Git and pnpm** | Pulling merged code and migrating the local database | Local checkout |
 
----
+All calls to outside services are made from the server. Keys are read from a `.env` file that
+is never committed and never sent to the browser. Without a Devin key the console runs normally
+and shows Devin as not connected.
 
 ## Workflows
 
-### Change a rule (ADD, AUTOMATE, MIGRATE)
+### Add a rule
 
-Swimlanes for one run, read top to bottom. `▣` marks an audited intent (a `devin_runs` change
-plus an `audit_log` row). `○` marks a state the console reads by polling and keeps in memory.
-
-```
- REQUESTER          CONSOLE + ENGINE            DEVIN                  GITHUB            ENGINEER
- (manager/admin)
- ───────────        ───────────────────         ─────────────          ──────────        ─────────
- sees the pattern
- Ask Devin ───────▶ handoff panel: sentence,
-                    evidence, scope
- Start run ───────▶ ▣ dispatch
-                    context.json + SHA-256
-                    POST /sessions ───────────▶ ○ intake
-                    ▣ record_session             ○ baseline (verify at base)
-                                                 ○ plan: commit context.json
-                                                   + plan.json first
-                                                 ○ edit inside the plan
-                                                 ○ verify ──────────────▶ Lint, Typecheck,
-                                                                          Boundaries, Test
-                                                 ○ pull request ────────▶ PR open
-                    ▣ record_pr ◀── poll sees pr_url
-                                                                                          opens the run
-                    approval dialog ◀─────────────────────────────────────────────────── Review and
-                    checks green? context hash matches? approver ≠ requester?             approve
-                    ▣ approve_pr
-                    POST /reviews APPROVE ───────────────────────────────▶ review on PR
-                    message: merge ────────────▶ squash merge ──────────▶ merged
-                    ▣ record_merge ◀── poll sees merge_commit
-                    git pull · db:migrate ·
-                    registerToolConstants
- same click, new ◀─ rule runs on the next write
- outcome
-```
-
-A normal run leaves five audit rows: `dispatch`, `record_session`, `record_pr`, `approve_pr`
-and `record_merge`. A run that ends early ends with `stop` or `dispatch_failed` instead.
-
-### SWITCH it OFF
+The same flow applies to automating a check and migrating an app.
 
 ```
- ADMIN                     CONSOLE + ENGINE                              EFFECT
- ─────                     ─────────────────────────────────             ─────────────────────────
- /admin/policy
- clustering_window_days
- 14 ──▶ 0, Save ─────────▶ setConstant: admin only, type-checked
-                           runtime_constants row updated          ──▶ next refund: the rule runs,
-                           audit_log row, before 14, after 0           reads 0 and answers allow
+ REQUESTER        CONSOLE                   DEVIN                 GITHUB            ENGINEER
+ ─────────        ───────                   ─────                 ──────            ────────
+ Describes the ─▶ Records the request
+ rule in one      Captures context
+ sentence         Opens a session ────────▶ Reads the code
+                                            Commits a plan
+                                            Writes code and tests
+                                            Opens a PR ─────────▶ Runs CI checks
+                  Records the PR ◀───────── Reports the PR
+                                                                                    Reviews the PR
+                  Checks CI and ◀────────────────────────────────────────────────── Approves
+                  context, then ────────────────────────────────▶ Review posted
+                  asks Devin to merge ────▶ Merges ─────────────▶ Merged
+                  Pulls, migrates and
+                  loads new settings
+ Next request  ◀─ New rule applies
+ follows the rule
 ```
 
-No run, no PR and no deploy. The code doesn't change, so setting the value back to 14 turns
-the rule on again.
+### Switch a rule off
 
-### REMOVE it
-
-```
- ADMIN                CONSOLE + ENGINE            DEVIN                                 ENGINEER
- ─────                ─────────────────           ──────────────────────────────        ─────────
- /runs
- Undo this change ──▶ ▣ dispatch REVERSAL
-                      reverses: run id +
-                      merge commit ─────────────▶ git revert -m 1 <merge>
-                                                  conflict in tools/refunds/src/index.ts
-                                                  keep partial_delivery (merged later)
-                                                  remove clustering_hold, its KYC check,
-                                                  its constant and its tests
-                                                  PR lists what code can't undo:
-                                                  60 held refunds, the constant row
-                      ▣ record_pr ◀────────────── PR open
-                      ▣ approve_pr ◀─────────────────────────────────────────────────── approves
-                      message: merge ───────────▶ squash merge
-                      ▣ record_merge ◀─────────── merge_commit
-                      rule gone from every trace
-```
-
----
-
-## Automation: the run lifecycle
-
-States of one `devin_runs` row. `▣` transitions are audited intents written to the table.
-`○` states come from polling the Devin session and are never stored. Every `○` phase can stop
-the run.
+Every rule Devin adds reads a setting that turns it off. Changing that setting takes seconds and
+needs no engineer.
 
 ```
- Start run
+ ADMIN                    CONSOLE                         RESULT
+ ─────                    ───────                         ──────
+ Sets the rule's ───────▶ Updates the setting ──────────▶ The rule reads its off value
+ off value                Writes an audit entry           and allows. Code unchanged.
+```
+
+Restoring the setting turns the rule back on.
+
+### Remove a rule
+
+Removing a rule is not a plain `git revert`. Other changes may have touched the same files since
+the rule merged. Devin removes the rule and keeps everything merged after it.
+
+```
+ ADMIN             CONSOLE                  DEVIN                             ENGINEER
+ ─────             ───────                  ─────                             ────────
+ Requests an ────▶ Records the request
+ undo              Opens a session ───────▶ Reverts the original merge
+                                            Resolves conflicts, keeping
+                                            later changes
+                                            Removes the rule, its setting
+                                            and its tests
+                                            Lists manual follow-ups
+                                            Opens a pull request ───────────▶ Reviews and
+                                                                              approves
+                   Records the merge ◀───── Merges
+                   Rule no longer runs
+```
+
+The pull request lists what code cannot undo, such as requests the rule is still holding. A
+person clears these after the merge.
+
+## Automation
+
+Each Devin run moves through fixed phases. Every phase must pass for the run to continue.
+States marked ■ are written to the audit log. States marked ○ are read from Devin as the run
+progresses.
+
+```
+ Request
      │
      ▼
- dispatch rules ─── deny ───▶ refused: wrong role, a run already in flight
-     │ allow                  on this tool, or no evidence. Nothing written
+ Dispatch rules ── fail ──▶ Refused. Nothing is written.
+     │ pass
      ▼
- ▣ dispatched ──▶ ▣ session recorded ─── no session ───▶ ▣ dispatch_failed
+ ■ Dispatched ──▶ ■ Session started ── no session ──▶ ■ Dispatch failed
                        │
    ┌───────────────────┘
    ▼
- ○ intake ──▶ ○ baseline ──▶ ○ plan ──▶ ○ edit ──▶ ○ verify ──▶ ○ pull request
+ ○ Intake ──▶ ○ Baseline ──▶ ○ Plan ──▶ ○ Edit ──▶ ○ Verify ──▶ ○ Pull request
    │            │              │          │          │            │
-   └────────────┴───────────┬──┴──────────┴──────────┘            │ poll sees pr_url
-                            │ a phase fails, Stop run,            ▼
-                            │ or the session ends               ▣ pr_open
-                            ▼                                     │ engineer approves
-                          ▣ stopped                               ▼
-                                                                ▣ approved
- ○ waiting for a reply: any ○ phase                               │ Devin merges
-   can pause; the reply box answers it                            ▼
-   and the phase carries on                                     ▣ merged
+   └────────────┴───────────┬──┴──────────┴──────────┘            ▼
+                            │ failure or stop                   ■ PR open
+                            ▼                                     │
+                          ■ Stopped                               ▼
+                                                                ■ Approved
                                                                   │
                                                                   ▼
-                                                  git pull · db:migrate · constants
+                                                                ■ Merged
 ```
 
-| Phase | Passes when | On failure |
+| Phase | Passes when |
+|---|---|
+| Intake | The request is valid and starts from the current code |
+| Baseline | All checks pass before any change |
+| Plan | Devin commits its list of files to change before editing any of them |
+| Edit | Only planned files change |
+| Verify | Lint, type checks, boundary checks and all tests pass, with no fewer tests than before |
+| Pull request | A pull request is open for review |
+| Merge | An engineer who did not request the change has approved it |
+
+Five checks hold each change to its plan. The first four run in CI. The console runs the fifth
+when the engineer approves.
+
+| Check | Fails when |
+|---|---|
+| Stays in plan | A file outside the plan changes |
+| Plan stays in scope | The plan includes a file the request does not allow |
+| Run record frozen | The committed request or plan changes after the first commit |
+| Engine untouched | A rule change modifies the engine or the database schema |
+| Context untouched | The request on the branch differs from the one the console sent |
+
+Each run writes five audit entries: requested, session started, pull request opened, approved
+and merged.
+
+## Interface states
+
+### Requesting a change
+
+The request panel shows exactly what Devin receives. Once the run starts, the same panel shows
+its progress.
+
+```
+┌───────────────────────────────────────┐    ┌───────────────────────────────────────┐
+│ Devin · New rule                      │    │ Devin · New rule · Verifying          │
+├───────────────────────────────────────┤    ├───────────────────────────────────────┤
+│ REQUEST                               │    │ ✓ Intake             base 1a67f60     │
+│ Once a merchant's "not received"      │    │ ✓ Baseline           288 tests        │
+│ refunds add up past the manager       │    │ ✓ Plan committed     5 files          │
+│ limit, send them to a manager.        │    │ ✓ Edit               +146 −3          │
+│                                       │    │ ● Verify                              │
+│ CONTEXT                               │    │     Lint ✓  Typecheck ✓               │
+│ Kestrel Outdoors · 4 refunds          │    │     Boundaries ✓  Test …              │
+│ Manager limit $500 · no PII           │    │ ○ Pull request                        │
+│                                       │    │                                       │
+│ SCOPE                                 │    │ PLAN                                  │
+│ tools/refunds · tools/kyc · tests     │    │ create  refunds/clustering-hold.ts    │
+│                                       │    │ modify  refunds/index.ts, kyc/index.ts│
+│                        [ Start run ]  │    │                                       │
+└───────────────────────────────────────┘    └───────────────────────────────────────┘
+```
+
+### Approving a change
+
+Only an engineer who did not request the change can approve it.
+
+```
+┌───────────────────────────────────────┐    ┌───────────────────────────────────────┐
+│ Approve pull request                  │    │ Approve pull request                  │
+├───────────────────────────────────────┤    ├───────────────────────────────────────┤
+│ 5 files · +146 −3                     │    │ ✓  Review posted to GitHub            │
+│ CI checks  4 of 4 passed ✓            │    │ ✓  Devin merged the PR                │
+│ Context    unchanged ✓                │ ──▶│ ✓  Merged code pulled                 │
+│ Checklist  8 of 8 ticked ✓            │    │ ✓  Audit entry written                │
+│                                       │    │                                       │
+│            [ Cancel ]  [ Approve ]    │    │                         [ Close ]     │
+└───────────────────────────────────────┘    └───────────────────────────────────────┘
+```
+
+### The same action, before and after
+
+A refunds agent sends the same kind of refund to the processor. After the rule merges, the
+policy trace shows the new rule and the refund waits for a manager.
+
+```
+┌── Before ─────────────────────────────┐    ┌── After ──────────────────────────────┐
+│ Refund · Send to processor            │    │ Refund · Send to processor            │
+├───────────────────────────────────────┤    ├───────────────────────────────────────┤
+│ Settled                               │    │ Pending manager approval              │
+│                                       │    │                                       │
+│ within_captured_amount   allow        │    │ within_captured_amount   allow        │
+│ not_disputed             allow        │    │ not_disputed             allow        │
+│ amount_approval          allow        │    │ amount_approval          allow        │
+│ goodwill_approval        allow        │    │ goodwill_approval        allow        │
+│                                       │    │ clustering_hold          hold         │
+│                                       │    │   Kestrel $1,880 over $500 in 14 days │
+└───────────────────────────────────────┘    └───────────────────────────────────────┘
+```
+
+## Rule lifecycle
+
+A live rule and a switched-off rule run the same code. Only a removal takes the rule out of the
+code.
+
+```
+ ┌────────┐           ┌───────────┐                  ┌────────┐                  ┌────────┐
+ │ Absent │──────────▶│ In review │─────────────────▶│  Live  │─────────────────▶│  Off   │
+ │        │  request  │           │  approve, merge  │        │◀─────────────────│        │
+ └────────┘           └───────────┘                  └───┬────┘  switch off, on  └─────┬──┘
+      ▲                                                  │ undo                   undo │
+      │               ┌─────────────┐                    ▼                             │
+      └───────────────┤ Undo review │◀───────────────────┴─────────────────────────────┘
+       approve, merge └─────────────┘
+```
+
+### State snapshots
+
+Example: a rule that holds a merchant's refunds once together they pass the $500 manager limit.
+
+```
+ STATE         CODE                          SETTING                  NEXT KESTREL REFUND
+ ───────────── ────────────────────────────  ───────────────────────  ───────────────────────
+ Before        No clustering rule            No window setting        Settles
+
+ Live          clustering_hold on refunds    Window: 14 days          Held for a manager
+               linked_refund_hold on KYC                              KYC approval of the
+               Tests for both                                         customer needs a
+                                                                      KYC manager
+
+ Off           Unchanged                     Window: 0 days           Settles. The rule
+                                                                      still runs, and allows
+
+ Removed       Rule, KYC check and tests     Setting left in the      Settles. The rule no
+               removed. Later changes to     database, listed as a    longer appears in the
+               the same files kept           manual follow-up         policy trace
+```
+
+### Restoring a rule
+
+| From | To | How |
 |---|---|---|
-| Intake | The spec is registered in `specs.ts`, the context parses and the base commit is current | Stop, no branch |
-| Baseline | `pnpm verify` is green at the base, and per-file test counts are recorded | Stop, no branch |
-| Plan | `context.json` and `plan.json` are the branch's first commit, alone | Stop, delete the branch |
-| Edit | Only files in the plan change | Reset to the plan commit, stop |
-| Verify | `pnpm verify` is green and test counts are at or above baseline | Two fixes inside the plan, then stop |
-| Pull request | A PR is open against the integration branch | Leave the branch, report |
-| Merge | An engineer has approved, and Devin squash-merges | Report and wait, rebasing inside the plan |
+| Off | Live | Restore the setting on `/admin/policy`. Takes effect immediately |
+| Removed | Live | Request the rule again. The original request and plan remain in `runs/` |
 
-The run guard (`scripts/run-guard.ts`, part of `pnpm verify`) checks the four claims that
-matter: **Stays in plan**, **Plan stays in scope**, **Run dir frozen** and, for rule scope,
-**Engine untouched**. The console adds **Context untouched** at approval, because only the
-console can read the hash in its own audit row. Full rules: `DEVIN_RUN_PROTOCOL.md`.
+Git holds every version of the code, and `runs/<run_id>/` holds each run's request and plan.
+No separate backup is needed.
 
----
+### Timeline
 
-## UI states
-
-Sketches of the screens each operation passes through, and how they change. The layout is
-still being revisited (`CONSOLE_ROLE_VIEWS.md`), so these show content and state, not
-pixel-level design.
-
-### Refunds queue and cluster drawer
+The audit log records every step in a rule's life.
 
 ```
- BEFORE THE RULE (refunds manager)             RULE LIVE (refunds manager)
-┌───────────────────────────────────────┐     ┌───────────────────────────────────────┐
-│ Refunds · 14            ◐ monitor     │     │ Refunds · 14            ◐ monitor     │
-│ ┌───────────────────────────────────┐ │     │ ┌───────────────────────────────────┐ │
-│ │ 4 refunds from Kestrel Outdoors   │ │     │ │ 4 refunds from Kestrel Outdoors   │ │
-│ │ add up to $1,880                  │ │     │ │ add up to $1,880                  │ │
-│ │ $465  $460  $475  $480            │ │     │ │ $465  $460  $475  $480 held       │ │
-│ │ each under the $500 manager line  │ │     │ │ covered by clustering_hold        │ │
-│ │                                   │ │     │ │                                   │ │
-│ │ No rule covers this               │ │     │ │ window 14 days · /admin/policy    │ │
-│ │ [ Ask Devin for a rule ]          │ │     │ │ [ View run ]                      │ │
-│ └───────────────────────────────────┘ │     │ └───────────────────────────────────┘ │
-└───────────────────────────────────────┘     └───────────────────────────────────────┘
- A refunds agent sees the rows and the total, but no Ask Devin button.
+    EVENT                               BY                AUDIT ENTRY
+    ────────────────────────────────    ────────────────  ──────────────────────
+ ●  Rule requested                      Refunds manager   dispatch
+ │  Devin session started               Console           record_session
+ │  Pull request opened                 Devin             record_pr
+ │  Pull request approved               Engineer          approve_pr
+ ●  Merged. Rule live                   Devin             record_merge
+ │  Refunds held by the rule            Refunds agent     one per refund
+ ●  Rule switched off                   Admin             setting changed
+ ●  Undo requested                      Admin             dispatch
+ │  Pull request opened                 Devin             record_pr
+ │  Pull request approved               Engineer          approve_pr
+ ●  Merged. Rule removed                Devin             record_merge
 ```
 
-### Devin window: handoff, then run
+## Documentation
 
-```
- HANDOFF (before Start run)                    RUN (after Start run, same window)
-┌───────────────────────────────────────┐     ┌───────────────────────────────────────┐
-│ ◆ Devin              context preview  │     │ ◆ Devin  New rule · verify   [Stop]   │
-├───────────────────────────────────────┤     ├───────────────────────────────────────┤
-│ REQUEST                               │     │ ✓ Inspecting architecture    1a67f60  │
-│ ┌───────────────────────────────────┐ │     │ ✓ Baseline green             288      │
-│ │ Once a merchant's "not received"  │ │     │ ✓ Reusing execute-intent.ts           │
-│ │ refunds add up past the manager   │ │     │ ✓ Reusing approvals.ts                │
-│ │ limit, send them to a manager…    │ │     │ ✓ Plan committed             c7d19e2  │
-│ └───────────────────────────────────┘ │     │ ✓ Editing clustering-hold.ts +84      │
-│ CONTEXT                               │     │ ● Verify  Lint ✓ Types ✓ Bounds ✓     │
-│ Kestrel Outdoors · 4 rows · no PII    │     │           Test …                      │
-│ manager line $500 · KYC score 70      │     │ ○ Tests                  288 → …      │
-│ base 1a67f60                          │     │ ○ Opening pull request                │
-│ GUARDRAILS                            │     ├───────────────────────────────────────┤
-│ tools/refunds/** · tools/kyc/** ·     │     │ Plan                                  │
-│ tests · runs/                         │     │ create tools/refunds/src/clustering-… │
-│ Checks: Lint · Typecheck ·            │     │ modify tools/refunds/src/index.ts     │
-│ Boundaries · Test                     │     │ modify tools/kyc/src/index.ts         │
-│ EXECUTION           [ Start run ]     │     │ …                                     │
-└───────────────────────────────────────┘     └───────────────────────────────────────┘
- Without DEVIN_API_KEY the header reads "Not connected" and Start run is refused.
-```
-
-### Approval dialog
-
-```
- IDLE                                          AFTER APPROVE
-┌───────────────────────────────────────┐     ┌───────────────────────────────────────┐
-│ Approve PR #14 · clustering_hold      │     │ Approve PR #14 · clustering_hold      │
-│ Requested by Refunds manager          │     │ ✓ ⌥GH  Approving review submitted     │
-│ 5 files · +146 −3      View diff ⌥GH  │     │ ◌ ◆D   Devin merging (squash)         │
-│ Checks lint ✓ types ✓ bounds ✓ test ✓ │ ──▶ │ ✓ ◆D   Merged · a3f9c21               │
-│ Context untouched ✓                   │     │ ✓      Pulled into local checkout     │
-│ Acceptance: ☐ ☐ ☐ ☐ ☐ ☐ ☐ ☐           │     │ ✓      Audit row · merge recorded     │
-│         [ Cancel ] [ Approve ]        │     │                           [ Close ]   │
-└───────────────────────────────────────┘     └───────────────────────────────────────┘
- Shown only to an engineer who didn't request the run.
- Failure states: checks re-running, or a merge conflict with a newer merge.
-```
-
-### Record view: the same click, before and after
-
-```
- rfnd_0013, BEFORE (refunds agent)             rfnd_0011, AFTER MERGE (refunds agent)
-┌───────────────────────────────────────┐     ┌───────────────────────────────────────┐
-│ [ Send to processor ]                 │     │ [ Send to processor ]                 │
-│ ✓ Settled                             │     │ Pending approval · manager            │
-│ Policy trace                          │     │ Policy trace                          │
-│  within_captured_amount  allow        │     │  within_captured_amount  allow        │
-│  not_disputed            allow        │     │  not_disputed            allow        │
-│  amount_approval         allow        │     │  amount_approval         allow        │
-│  goodwill_approval       allow        │     │  goodwill_approval       allow        │
-│                                       │     │  clustering_hold   require_approval   │
-│                                       │     │   Kestrel · $1,880 > $500 · 14 days   │
-└───────────────────────────────────────┘     └───────────────────────────────────────┘
-```
-
-### The rule's lifecycle
-
-`live` and `off` run the same code. Only a reversal takes the rule out of the code.
-
-```
- ┌────────┐ Ask Devin ┌───────────┐ PR opens ┌─────────┐ approve + merge ┌────────┐
- │ absent │──────────▶│ requested │─────────▶│ pr_open │────────────────▶│  live  │◀─────┐
- └────────┘           └───────────┘          └─────────┘                 └───┬────┘      │
-     ▲                                                                       │ window    │ window
-     │                                                                       │ 14 → 0    │ 0 → 14
-     │ approve + merge                                                       ▼           │
- ┌───┴────────────┐  PR opens  ┌────────────────┐    Undo this change    ┌────────┐      │
- │ undo pr_open   │◀───────────│ undo requested │◀───────────────────────│  off   │──────┘
- └────────────────┘            └────────────────┘                        └────────┘
-                                                             (Undo also works from live)
-```
-
----
-
-## Before and after: state snapshots
-
-The Kestrel rule across Part 1, one column per layer. Each snapshot is what you'd find if you
-stopped the demo at that point.
-
-```
-                  CODE (layer 3)                 SETTINGS (layer 2)            CLICK ON A KESTREL REFUND
-                  ────────────────────────────   ──────────────────────────   ─────────────────────────
- 1 BEFORE         no clustering-hold.ts          manager line $500            rfnd_0013 settles
-                  Send to processor runs 4       no window constant           trace: 4 rules, all allow
-                  rules, none per merchant
-                                     │
-                                     │ ADD: run, PR, engineer approves, Devin merges
-                                     ▼
- 2 RULE LIVE      clustering-hold.ts             manager line $500            rfnd_0011 held for a
-                  + linked_refund_hold (kyc)     window 14 days               manager; kyc_0013 needs
-                  + tests, 1 test changed        (registered on merge)        a KYC manager
-                                     │
-                                     │ SWITCH OFF: admin sets the window to 0
-                                     ▼
- 3 SWITCHED OFF   unchanged from 2               window 0 days                rfnd_0012 settles;
-                                                 audit row: 14 → 0            trace still lists
-                                                                              clustering_hold: allow
-                                     │
-                                     │ REMOVE: reversal run, conflict resolved, approved, merged
-                                     ▼
- 4 REMOVED        clustering-hold.ts gone        window row still in the      rfnd_0014 settles;
-                  kyc hold gone, tests gone      live database (listed in     clustering_hold gone
-                  partial_delivery KEPT          the PR as an operator step)  from the trace
-```
-
-**Restoring it:**
-
-| From | Back to | How | Time |
-|---|---|---|---|
-| 3 Switched off | 2 Live | Set `refunds.clustering_window_days` back to 14 on `/admin/policy` | Seconds, one audit row |
-| 4 Removed | 2 Live | Ask again with the same sentence. The first run's request and plan are still in `runs/<run_id>/` | One run and one review |
-| 2 Live | 1 Before | Not a separate path. Undo goes to 4, which is 1 plus the work merged since | One run and one review |
-
-Git keeps every version, and `runs/<run_id>/` keeps each run's context and plan. There's no
-separate backup to restore from, and no copy of source files that could drift.
-
----
-
-## Timeline view
-
-The whole demo on one axis. Each tick is a moment the audit log records.
-
-```
- PART 1: A RULE, FROM ADDED TO REMOVED
- ├─ rfnd_0013 settles ($925 from Kestrel so far) ....................... refunds agent
- ├─ Ask Devin for a rule ▣ dispatch ..................................... refunds manager
- │   ├─ ▣ record_session   ○ intake → baseline → plan → edit → verify    Devin
- │   ├─ ▣ record_pr        PR open, 4 checks green                       Devin, GitHub
- │   ├─ ▣ approve_pr       8 acceptance behaviours ticked                engineer
- │   └─ ▣ record_merge     pulled, constant registered                   Devin, console
- ├─ rfnd_0011 held ▣  ·  kyc_0013 needs a KYC manager ▣ ................. agent, KYC reviewer
- ├─ partial_delivery merged (ordinary PR) · courier outage: 60 held ▣ ... setup
- ├─ window 14 → 0 ▣ ..................................................... admin
- ├─ rfnd_0012 settles ▣ ................................................. refunds agent
- ├─ Undo this change ▣ dispatch REVERSAL ................................ admin
- │   └─ conflict resolved · ▣ record_pr · ▣ approve_pr · ▣ record_merge  Devin, engineer
- └─ rfnd_0014 settles, clustering_hold gone ▣ ........................... refunds agent
-
- PART 2: A MANUAL STEP REMOVED
- ├─ kyc_0104: registry check "checked by hand" .......................... KYC reviewer
- ├─ Ask Devin to add a check ▣ dispatch ................................. admin
- │   └─ Companies House client + recorded responses · PR · approve · merge
- └─ run the check → late accounts → Approve needs a manager ▣ ........... KYC reviewer
-
- PART 3: THE NEXT APP, STARTED
- ├─ /roadmap/chargebacks: Power App export, 2 flows ..................... admin
- ├─ Ask Devin to start this app ▣ dispatch (engine scope) ............... admin
- │   └─ tools/chargebacks/ · registry line · migration · to-do list · PR
- │      approved by the engineer and the engine owner
- └─ /t/chargebacks live: accept a $2,480 fraud dispute → manager ▣ ...... refunds agent
-```
-
----
-
-## Documentation map
-
-Where each diagram lives, so a reader can go one level deeper.
-
-```
-                        README.md
-                        setup, routes, apps, scripts, layout,
-                        technical details in brief
-                                    │
-          ┌─────────────────────────┼──────────────────────────┐
-          ▼                         ▼                          ▼
- setup.md                  ARCHITECTURE_DIAGRAM.md     CUSTOMER_FRAMING.md
- small architecture        (this file) layers,          full system diagram,
- overview                  stack, integrations,         problem, stakeholders,
-                           workflows, states            scenarios
-                                    │
-          ┌─────────────────────────┼──────────────────────────┐
-          ▼                         ▼                          ▼
- WORKFLOW_DETAILED.md      DEVIN_RUN_PROTOCOL.md       AGENT_TRIGGER_SURFACE.md
- end to end process        run kinds, phases,          where runs start, handoff
-                           guards, reversal            panel, run view, dialog
-                                    │
-          ┌─────────────────────────┼──────────────────────────┐
-          ▼                         ▼                          ▼
- REFUND_CLUSTERING_HOLD.md  COMPANIES_HOUSE_CHECK.md   CHARGEBACKS_FROM_POWER_APPS.md
- Part 1 spec                Part 2 spec                Part 3 spec
-```
-
-| File | Diagram it holds | Status |
-|---|---|---|
-| `ARCHITECTURE_DIAGRAM.md` | Layers, stack, integrations, workflows, run lifecycle, UI states, snapshots, timeline | This file |
-| `WORKFLOW_DETAILED.md` | End-to-end process, linked from the README as the workflow reference | To be written |
-| Workflow doc for the two core operations (name to be decided) | Adding a rule and removing it, in more detail | To be written |
-| `README.md` | Brief technical details: console architecture, data schema, backups, step-by-step workflows | To be added |
-| `CUSTOMER_FRAMING.md` | Full system architecture diagram | To be added |
-| `setup.md` | Small architecture overview | To be written |
-| `rule-change-workflow.svg` | The rule change as a flowchart, S0 to S11 | Exists |
+| Document | Covers |
+|---|---|
+| [`README.md`](../README.md) | Setup, routes, apps and scripts |
+| [`WORKFLOW_DETAILED.md`](WORKFLOW_DETAILED.md) | The end-to-end workflow |
+| [`CUSTOMER_FRAMING.md`](CUSTOMER_FRAMING.md) | The problem, stakeholders and scenarios |
+| [`DEVIN_RUN_PROTOCOL.md`](DEVIN_RUN_PROTOCOL.md) | Run types, phases, guard checks and reversal |
+| [`AGENT_TRIGGER_SURFACE.md`](AGENT_TRIGGER_SURFACE.md) | Where requests start, and the run and approval screens |
+| [`DEVIN-NO-DEVIN.md`](DEVIN-NO-DEVIN.md) | Which changes need Devin and which are settings |
+| [`REFUND_CLUSTERING_HOLD.md`](REFUND_CLUSTERING_HOLD.md) | Specification: refund clustering hold |
+| [`COMPANIES_HOUSE_CHECK.md`](COMPANIES_HOUSE_CHECK.md) | Specification: Companies House check |
+| [`CHARGEBACKS_FROM_POWER_APPS.md`](CHARGEBACKS_FROM_POWER_APPS.md) | Specification: Chargebacks migration |
