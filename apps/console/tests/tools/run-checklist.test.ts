@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { StructuredOutput } from "@console/tool-automation";
 import { CHECKLIST_GLYPH, runChecklist } from "../../src/lib/run-checklist";
+import { scriptedFrames } from "../helpers/scripted-clients";
 
 /** A structured output with every optional field absent. */
 function output(over: Partial<StructuredOutput> = {}): StructuredOutput {
@@ -66,7 +67,7 @@ describe("runChecklist", () => {
     const failed = runChecklist(
       output({
         phase: "verify",
-        verify_steps: [{ name: "tests", pass: false, before: 68, after: 65 }],
+        verify_steps: [{ name: "Test", pass: false, before: 68, after: 65 }],
         guards: [{ name: "scope", pass: false }],
       }),
     );
@@ -86,7 +87,7 @@ describe("runChecklist", () => {
         reuses: [{ module: "x.ts", reason: "y" }],
         conflicts: [{ file: "c.ts", kept: "a", removed: "b" }],
         files: [{ path: "a.ts", op: "create", reason: "new", additions: 1, deletions: 0 }],
-        verify_steps: [{ name: "tests", pass: true, before: 68, after: 70 }],
+        verify_steps: [{ name: "Test", pass: true, before: 68, after: 70 }],
         guards: [{ name: "scope", pass: true }],
         pr_url: "https://github.com/o/r/pull/1",
         merge_commit: "b".repeat(40),
@@ -95,5 +96,24 @@ describe("runChecklist", () => {
     const fields = new Set(Object.keys(output()));
     expect(lines.length).toBeGreaterThan(0);
     for (const line of lines) expect(fields.has(line.field)).toBe(true);
+  });
+
+  it("shows the test counts a replay run reports", () => {
+    const frames = scriptedFrames("change", "01RUN", "0".repeat(64), "0".repeat(40));
+    const pr = frames[frames.length - 1].structured_output;
+    const tests = runChecklist(pr).filter((l) => l.field === "verify_steps");
+    expect(tests.map((l) => [l.label, l.detail])).toEqual([
+      ["Existing tests pass", "68 tests"],
+      ["Tests", "68 → 76"],
+    ]);
+  });
+
+  it("keeps an undo's resolved clash on every frame after it is reported", () => {
+    const frames = scriptedFrames("undo", "01RUN", "0".repeat(64), "0".repeat(40));
+    const first = frames.findIndex((f) => f.structured_output.conflicts.length > 0);
+    expect(first).toBeGreaterThan(-1);
+    for (const f of frames.slice(first)) {
+      expect(runChecklist(f.structured_output).some((l) => l.field === "conflicts")).toBe(true);
+    }
   });
 });
