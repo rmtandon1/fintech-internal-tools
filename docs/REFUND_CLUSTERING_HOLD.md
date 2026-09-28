@@ -165,6 +165,6 @@ By the time of reversal, the demo's branch should carry at least one later chang
 
 - `pnpm verify` is green.
 - The eight hold tests are gone, and the plan names them. No other test is lost.
-- The **Only undo** guard check passes against the IMPLEMENTATION's base commit.
+- Against the IMPLEMENTATION's base commit, every file it touched is back to its pre-merge content except later merged work, and nothing else changes.
 - After merge, executing the next Kestrel refund settles it, as it did before the IMPLEMENTATION.
 
