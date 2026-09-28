@@ -1,4 +1,4 @@
-# Five-Minute Loom Video Script: Changing Console Rules During Deployment
+# Loom Video Script: After Power Apps, Rules, Connectors and Apps
 
 **The one message.** After Power Apps, your team asks, Devin builds, and an engineer approves, whether it's a rule, a manual step or a whole new app.
 
@@ -9,10 +9,10 @@ It's one demo: the same loop runs three times, each time on a bigger change. Ask
 | Part | The client is asking | What answers it on screen |
 |---|---|---|
 | Power Apps today | What are we paying Power Apps for, and what would we have to own instead? | Power Apps is five products in one; each part of the demo replaces one of them in owned code |
-| The console | Is the build itself credible? | Three live apps on one engine, 288 tests, and seven controls every new app inherits |
+| The console | Is the build itself credible? | Three live apps on one engine, 331 tests, and seven controls every new app inherits |
 | 1. Rules: from added to removed | When requirements change, how fast, and who checks it? Can we switch it off, and take it out? | A Kestrel refund settles, then waits for a manager; switched off in seconds; removed from code that has moved on |
-| 2. Connectors: automating manual steps | Is this only rules, or real engineering against outside systems? | A hand-typed Companies House check becomes a live lookup that holds approval |
-| 3. Apps: starting the next one | Can this hold twenty tools? What does the next one cost? | Chargebacks goes live as a first pull request, with the rest of the move as a list |
+| 2. Connectors: automating manual steps | Is this only rules, or real engineering against outside systems? | A hand-typed Companies House check becomes a lookup, on test data here, that holds approval |
+| 3. Apps: starting the next one | Can this hold twenty tools? What does the next one cost? | Chargebacks lands as a first pull request, switched off until an admin turns it on, with the rest of the move as a list |
 
 ## How to read this script
 
@@ -86,9 +86,11 @@ It's one demo: the same loop runs three times, each time on a bigger change. Ask
 >
 > "Three live apps: KYC review with 104 cases, refunds with 14, and 11 feature flags."
 >
-> "They share one engine. Every write takes the same six steps, in one database transaction."
+> "They share one engine. Every write takes the same six steps."
 >
-> "Validate, idempotency, policy, approval, effect, audit. 288 tests hold it together."
+> "Validate, idempotency, policy, approval, effect, audit. The change and its audit row save together, or not at all."
+>
+> "331 tests hold it together."
 
 [Click **Transaction monitoring**, under Coming soon. Point at **Included automatically**.]
 
@@ -120,7 +122,7 @@ One rule, one app: introduce it, switch it off, take it out.
 >
 > "The manager line is $500, so each one passes on its own. Together it's $1,880."
 >
-> "Payments people call this structuring. You split the money so no piece gets a second look."
+> "It's the refund version of structuring. You split the money so no piece gets a second look."
 >
 > "Lowering the limit doesn't fix it. At $400, every honest $450 refund lands on a manager's desk."
 >
@@ -186,7 +188,7 @@ One rule, one app: introduce it, switch it off, take it out.
 >
 > "The run guard: every change was in the plan, and nothing in the engine moved."
 >
-> "Then the suite: 288 tests before, *(new total)* after."
+> "Then the suite: 331 tests before, *(new total)* after."
 
 ### Review and merge
 
@@ -194,11 +196,11 @@ One rule, one app: introduce it, switch it off, take it out.
 
 > "I'm the engineer now. A different person from the one who asked."
 >
-> "Neither Devin nor the refunds manager can merge this."
+> "Neither Devin nor the refunds manager can approve this. Devin merges only after I do."
 
 [Point at the checklist in the dialog: the eight behaviours from the spec.]
 
-> "This checklist is the spec. It came to me, not to Devin. Its tests cover all eight."
+> "This checklist is the spec. It came to me, not to Devin. I check there's a test for each of the eight."
 
 [Click **Approve as engineer**. Let the rows fill in: GitHub review, Devin merging, merged, pulled in, audit row.]
 
@@ -286,7 +288,7 @@ One rule, one app: introduce it, switch it off, take it out.
 
 ### After it's gone
 
-[Switch role: Engineer. Approve. Then switch to Refunds agent. On `rfnd_0014`, click **Send to processor**.]
+[Switch role: Engineer. Approve, and let Devin merge. Then switch to Refunds agent. On `rfnd_0014`, click **Send to processor**.]
 
 > "It settles, and the rule is gone from the trace entirely."
 
@@ -346,15 +348,19 @@ Same loop, bigger change: outside data replaces a lookup people do by hand.
 
 > "This took Devin *(time)*."
 
-[Point at the files, all inside `tools/kyc/`.]
+[Point at the files: the code all inside `tools/kyc/`, plus one test file.]
 
 > "A Companies House client. Recorded responses, so no test calls the live API."
 >
 > "And a KYC action that writes the result into the case."
 >
-> "It didn't add a rule. It reused the one that already holds material differences."
+> "It added no new hold. Approval already waits on a material difference, so it reuses that."
 
-[Switch role: Engineer. Approve and let it merge.]
+[Switch role: Engineer. Approve, and let Devin merge.]
+
+[Switch role: Admin. Open `/admin/policy`. Set `kyc.companies_house_check` from 0 to 1. Save.]
+
+> "Merged isn't the same as on. The check ships switched off, and an admin turns it on."
 
 [Switch role: KYC reviewer. Back on `kyc_0104`, run the Companies House check, then click **Approve**.]
 
@@ -402,13 +408,17 @@ Same loop, biggest change: a new app. Not built to production in a video, but st
 
 > "Every formula and flow step, marked done or still to do. Nothing is dropped silently."
 
-[Point at the file list: `tools/chargebacks/`, one registry line, one migration, nothing under `packages/`.]
+[Point at the file list: `tools/chargebacks/`, one registry entry, one database migration, nothing under `packages/`.]
 
-> "A new folder, one registry line, one migration. Nothing in the engine."
+> "A new folder, one registry entry, one database migration. Nothing in the engine."
 
-[Switch role: Engineer. Approve and let it merge. Then switch to Refunds agent and open `/t/chargebacks`.]
+[Switch role: Engineer. Approve, and let Devin merge. Back on home, point at the Chargebacks tile: **Switched off**.]
 
-> "The tile is live. The refunds team works it with the roles they already have."
+> "It merged switched off. Nobody sees it until an admin turns it on."
+
+[Switch role: Admin. Open **Feature flags**. On `app.chargebacks`, click **Enable**. Then switch to Refunds agent and open `/t/chargebacks`.]
+
+> "Now the tile is live. The refunds team works it with the roles they already have."
 
 [Point at the count: 3 due within 48 hours.]
 
@@ -430,7 +440,7 @@ Same loop, biggest change: a new app. Not built to production in a video, but st
 
 | | Power Apps today | Owned code, engineers only | Owned code, with Devin |
 |---|---|---|---|
-| New rule to production | ~30 minutes, unreviewed | 1–2 weeks, then 4–6 engineer-hours | Same day: Devin's run, then minutes of review |
+| New rule, reviewed and merged | ~30 minutes to live, never reviewed | 1–2 weeks, then 4–6 engineer-hours | Same day: Devin's run, then minutes of review |
 | Who checks it | Nobody | An engineer, 30–60 minutes | An engineer, against a plan committed before the first edit |
 | Stop a misfire | Another live edit | A hotfix | One admin setting, in seconds |
 | Clean up six months on | Nobody owns it | When a ticket gets prioritised | A reviewed removal pull request |
@@ -492,7 +502,7 @@ The five runs take 30–60 minutes each, so record them before the narration tak
 | Pick a role again in the header after a reset | The reset regenerates the secret that signs the role cookie, so the old role no longer works |
 | `/runs` shows no stale runs | A stopped Kestrel run lingered in `/runs` and the database until the reset |
 | `.env` has `DEVIN_API_KEY` and `GITHUB_TOKEN`, and `/api/devin/status` reports `live` | Without the GitHub token, **Review and approve** and the merge check don't work |
-| `pnpm verify` is green, and the test count matches the script (288) | The count changed three times in one day (294, 305, 288) as pull requests landed |
+| `pnpm verify` is green, and the test count matches the script (331) | The count changed four times in two days (294, 305, 288, 331) as pull requests landed |
 | Browser: a fresh window, 1440×900, zoom 100–110%, notifications off, one theme chosen | Keeps every take the same size and stops pop-ups landing in shot |
 
 ---
@@ -514,8 +524,8 @@ One row per shot, in order. Clicks marked **once** change data. To retake them, 
 | 8 | Inbox with sixty Fernhill refunds | Refunds manager | Courier scenario run |
 | 9 | Switch-off on `/admin/policy`; `rfnd_0012` send (**once**) | Admin, Refunds agent | — |
 | 10 | Undo from `/runs`, finished undo, `rfnd_0014` send (**once**), reason dropdown | Admin, Engineer, Refunds agent | `partial_delivery` merged before the undo |
-| 11 | Thornbury Couriers before, handoff, finished run, after | KYC reviewer, Admin, Engineer | Companies House run recorded |
-| 12 | Chargebacks Coming soon, handoff, pull request, live queue, `DSP-20401` **Accept** (**once**) | Admin, Engineer, Refunds agent | Chargebacks run recorded |
+| 11 | Thornbury Couriers before, handoff, finished run, check switched on at `/admin/policy`, after | KYC reviewer, Admin, Engineer | Companies House run recorded |
+| 12 | Chargebacks Coming soon, handoff, pull request, **Switched off** tile, `app.chargebacks` enabled, live queue, `DSP-20401` **Accept** (**once**) | Admin, Engineer, Refunds agent | Chargebacks run recorded |
 | 13 | Cost table, then the closing request typed and not sent | Refunds manager | — |
 
 - Pause for a beat after each click so the cut has room.
@@ -529,7 +539,7 @@ One row per shot, in order. Clicks marked **once** change data. To retake them, 
 - **Edit.** Trim the dead air, speed-ramp the run waits, and check each cut shows the real "Took …" time.
 - **Chapters.** Add Loom chapters at the real timestamps: Power Apps today, Opening, The console, Part 1 · Rules, Part 2 · Connectors, Part 3 · Apps, What ownership costs, Future.
 - **Description.** Paste the one message, then link the repository and the five pull requests (Kestrel add, `partial_delivery`, Kestrel undo, Companies House, Chargebacks).
-- **Tags.** In Loom: `devin`, `internal-tools`, `power-apps-migration`. In git: tag the commit you recorded, such as `loom-2026-09-28`. Never move `demo-start`.
+- **Tags.** In Loom: `devin`, `internal-tools`, `power-apps-migration`. In git: tag the commit you recorded, such as `loom-2026-09-28`.
 - **Numbers.** Record each run's time, ACUs and test total in the Loom description, so the claims can be checked.
 - **Replays.** Copy each recorded run's `apps/console/data/replays/<run_id>.json` to `runs/<run_id>/replay.json` and commit it, so the demo can be replayed without Devin.
 - **Clean up.** Stop any Devin session still running, delete stray `runs/` folders, and reset the database so the next take starts clean.
