@@ -30,8 +30,7 @@ needed only for **Review and approve** and the merge check. `GET /api/devin/stat
 the mode, the organisation and whether the key works; it never returns the key.
 
 **Devin not connected.** Without `DEVIN_API_KEY` the console still runs. The Devin window and
-the "Ask Devin for a rule" button say `Devin not connected`, the header's Devin button shows a
-`Not connected` chip, and dispatch is refused — nothing is sent and nothing is written to
+the "Ask Devin for a rule" button say `Devin not connected`, and dispatch is refused — nothing is sent and nothing is written to
 `devin_runs` or the audit chain.
 
 `pnpm dev` fails to render until `pnpm db:setup` has created the database. To start over at
@@ -41,10 +40,12 @@ any point, delete the data folder and re-seed:
 rm -rf apps/console/data && pnpm db:setup
 ```
 
-Role switching is a signed cookie (no auth), chosen from the header. Roles are
-domain-scoped — `kyc_reviewer`, `kyc_manager`, `refunds_agent`, `refunds_manager` and
-`admin` — and still enforced server-side: a refunds agent who posts a kyc action is
-rejected by the engine, not by the UI.
+Role switching is a signed cookie (no auth), chosen from the header's "Viewing as"
+switcher, which offers five demo roles: `refunds_manager`, `refunds_agent`,
+`kyc_reviewer`, `admin` and `engineer`. A sixth role, `kyc_manager`, exists in the
+engine (and tests) but is not a switchable lens. Roles are domain-scoped and still
+enforced server-side: a refunds agent who posts a kyc action is rejected by the
+engine, not by the UI.
 
 ## Where to look
 

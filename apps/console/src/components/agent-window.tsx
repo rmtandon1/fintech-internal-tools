@@ -2,11 +2,8 @@
 
 import { useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@console/ui/dialog";
-import { Icon } from "@console/ui/icon";
 import { Panel } from "@/components/panel";
 import { shouldToggleAgentWindow } from "@/lib/agent-window-shortcut";
-import type { DevinMode } from "@/lib/devin-status";
-import { cn } from "@console/ui/utils";
 import { HandoffPanel } from "@/components/handoff-panel";
 import { RunView } from "@/components/run-view";
 import { useWorkspace } from "@/components/workspace";
@@ -27,20 +24,18 @@ function AgentWindowContent({ children }: { children?: React.ReactNode }) {
 }
 
 /**
- * Devin's work shows in a centred modal window rather than a column. The
- * header button or `]` toggles it; Esc, the close button, or `]` closes it.
- * "Ask Devin" buttons open it by focusing a handoff or a run. Open state is
- * shared through the workspace so focusing can reveal the window. The empty
- * state is rendered on the server and mounts into `children`; `source`
- * names where it comes from, and simulation mode is marked on the button.
+ * Devin's work shows in a centred modal window rather than a column. `]`
+ * toggles it; Esc, the close button, or `]` closes it. "Ask Devin" buttons
+ * open it by focusing a handoff or a run. Open state is shared through the
+ * workspace so focusing can reveal the window. The empty state is rendered
+ * on the server and mounts into `children`; `source` labels where it comes
+ * from.
  */
 export function AgentWindow({
   children,
-  mode = "live",
   source = "",
 }: {
   children?: React.ReactNode;
-  mode?: DevinMode;
   source?: string;
 }) {
   const { agentOpen, setAgentOpen, toggleAgent, agentFocus } = useWorkspace();
@@ -63,41 +58,18 @@ export function AgentWindow({
         : source;
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={toggleAgent}
-        aria-pressed={agentOpen}
-        title={mode === "simulation" ? "Devin (not connected)" : "Devin"}
-        className={cn(
-          "flex h-8 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-sm shadow-xs transition-colors",
-          agentOpen ? "bg-accent text-accent-foreground" : "text-foreground hover:bg-accent",
-        )}
-      >
-        <Icon name="Bot" className="size-4" />
-        Devin
-        {mode === "simulation" ? (
-          <span
-            className="rounded-sm bg-warning/15 px-1.5 text-[10px] font-medium text-warning"
-            data-testid="devin-simulation-chip"
-          >
-            Not connected
-          </span>
-        ) : null}
-      </button>
-      <Dialog open={agentOpen} onOpenChange={setAgentOpen}>
-        <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-3xl">
-          <DialogTitle className="sr-only">Devin</DialogTitle>
-          <Panel
-            title="Devin"
-            actions={<span className="mr-6 text-[10px] text-muted-foreground">{label}</span>}
-            className="h-[80vh] rounded-none border-0"
-            bodyClassName="flex flex-col"
-          >
-            <AgentWindowContent>{children}</AgentWindowContent>
-          </Panel>
-        </DialogContent>
-      </Dialog>
-    </>
+    <Dialog open={agentOpen} onOpenChange={setAgentOpen}>
+      <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-3xl">
+        <DialogTitle className="sr-only">Devin</DialogTitle>
+        <Panel
+          title="Devin"
+          actions={<span className="mr-6 text-[10px] text-muted-foreground">{label}</span>}
+          className="h-[80vh] rounded-none border-0"
+          bodyClassName="flex flex-col"
+        >
+          <AgentWindowContent>{children}</AgentWindowContent>
+        </Panel>
+      </DialogContent>
+    </Dialog>
   );
 }
