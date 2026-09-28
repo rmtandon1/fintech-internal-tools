@@ -1,5 +1,7 @@
 # Architecture
 
+## Summary
+
 The console is an internal operations tool for a regulated fintech. Operations teams use it to
 review KYC cases, pay refunds and manage feature flags. Its business rules live in code. When a
 rule needs to change, Devin writes the change and an engineer approves it before it goes live.
