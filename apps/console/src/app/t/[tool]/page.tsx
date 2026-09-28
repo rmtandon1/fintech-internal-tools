@@ -21,6 +21,7 @@ import { ReconcileRuns } from "@/components/reconcile-runs";
 import { ToggleGrid } from "@/components/toggle-grid";
 import { buildHandoffOffer, type HandoffOffer } from "@/lib/handoff";
 import { bridgeDeps } from "@/lib/bridge";
+import { devinMode } from "@/lib/devin-status";
 import { getSpec, kindsStartableBy } from "@console/tool-automation";
 import { currentActor } from "@/lib/session";
 import { cn } from "@console/ui/utils";
@@ -312,6 +313,7 @@ export default async function ToolQueuePage({
           ruleLabels={decl.ruleLabels}
           rows={clusterRows(decl, open.cluster, open.group, actor)}
           canRequestRule={decl.revealRoles.includes(actor.role)}
+          devinConnected={devinMode() === "live"}
           dispatch={dispatchOffer(decl, open.cluster, open.group, actor)}
         />
       ) : null}

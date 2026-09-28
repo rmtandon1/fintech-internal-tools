@@ -128,6 +128,7 @@ export function ClusterDrawer({
   ruleLabels,
   rows,
   canRequestRule,
+  devinConnected,
   dispatch,
 }: {
   label: string;
@@ -139,6 +140,8 @@ export function ClusterDrawer({
   ruleLabels?: Record<string, string>;
   rows: ClusterRow[];
   canRequestRule: boolean;
+  /** Whether a handoff can be sent right now (`DEVIN_API_KEY` set). */
+  devinConnected: boolean;
   /** Handoffs this actor may ask Devin for from the cluster's spec. */
   dispatch?: HandoffOffer[] | null;
 }) {
@@ -244,12 +247,14 @@ export function ClusterDrawer({
                 size="sm"
                 className="h-7 text-xs"
                 data-testid="dispatch-run"
+                disabled={!devinConnected}
+                title={devinConnected ? undefined : "Set DEVIN_API_KEY to connect Devin"}
                 onClick={() => {
                   setAgentFocus({ kind: "handoff", offer: dispatch[0] });
                   close();
                 }}
               >
-                Ask Devin for a rule
+                {devinConnected ? "Ask Devin for a rule" : "Devin not connected"}
               </Button>
             </div>
           ) : null}
