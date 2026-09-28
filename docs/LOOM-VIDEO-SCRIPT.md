@@ -331,42 +331,39 @@ Each claim on camera, what backs it, and where to show it. If a line has no evid
 
 ---
 
-## 🧰 Before Recording
+## Before Recording
 
-### The Devin runs, a day ahead
+**A day ahead, in this order:**
 
-Five runs at 30–60 minutes each. Order matters:
+- [ ] Kestrel rule: add it, approve, merge
+- [ ] Merge the `partial_delivery` reason code in `tools/refunds/src/index.ts` (must land after the rule, or the undo won't conflict)
+- [ ] Confirm the conflict with `git revert --no-commit` in a scratch worktree
+- [ ] `pnpm db:scenario courier-outage`, then switch the rule off
+- [ ] Undo the Kestrel rule, approve, merge
+- [ ] Companies House check, then the Chargebacks first pull request
+- [ ] Watch each run until it opens its pull request; answer at once if it asks
+- [ ] `pnpm devin:playbook` after any change to `.devin/run-protocol.playbook.md`
+- [ ] Note each run's time, files, lines, test total and ACUs
+- [ ] Check the Kestrel session never opened the spec
 
-1. Kestrel rule: add it, approve, merge.
-2. Merge an ordinary pull request that adds a `partial_delivery` reason code to `tools/refunds/src/index.ts`. The undo only conflicts if this lands after the rule. Confirm with `git revert --no-commit` in a scratch worktree.
-3. `pnpm db:scenario courier-outage`, then switch the rule off.
-4. Undo the Kestrel rule, approve, merge.
-5. Companies House check, then the Chargebacks first pull request.
+**On the day:**
 
-| Check | Why |
-|---|---|
-| Watch each run until it opens its pull request; answer at once if it asks | Run `01M3HBQ` stopped to ask, then suspended with nobody answering |
-| `pnpm devin:playbook` after any change to `.devin/run-protocol.playbook.md` | Devin keeps its old copy until re-registered |
-| Note each run's time, files, lines, test total and ACUs | The script reads these off screen; dry-run figures (#61: 5 files, +856; #62: 14 files, +2,166) will differ |
-| Check the Kestrel session never opened the spec | The script says the prompt tells it not to; the session log is the proof if asked |
-
-### The machine, on the day
-
-| Check | Why |
-|---|---|
-| Main checkout on `cognition-dashboard-devin-integration` at the tagged demo commit: `git fetch --tags`, then `git checkout -B cognition-dashboard-devin-integration <demo-tag>` | The script's app, tile and test counts are read there. Stay on the branch: a detached HEAD makes **Pull merged code** refuse |
-| `pnpm install`, and `git status` clean | A new workspace package won't resolve without it; the merge sync refuses a dirty tree, stray `runs/` folders included |
-| Stop `pnpm dev`, then `rm -rf apps/console/data && pnpm db:setup`, then `pnpm dev`, within the hour | Seeded dates count from seed time |
-| Pick a role again after a reset | The reset regenerates the role cookie's secret |
-| `.env` has `DEVIN_API_KEY` and `GITHUB_TOKEN`; `/api/devin/status` reports `live` | Without the GitHub token, approval and the merge check don't work |
-| `pnpm verify` green; test count matches the script (328) | The count moved five times in two days (294, 305, 288, 331, 320, 328) |
-| Fresh browser window, 1440×900, notifications off | Every take the same size, no pop-ups |
+- [ ] `git fetch --tags`, then `git checkout -B cognition-dashboard-devin-integration <demo-tag>` (stay on the branch; a detached HEAD breaks **Pull merged code**)
+- [ ] `pnpm install`
+- [ ] `git status` clean (delete stray `runs/` folders)
+- [ ] Within the hour: stop `pnpm dev`, `rm -rf apps/console/data && pnpm db:setup`, `pnpm dev`
+- [ ] Pick a role again after the reset
+- [ ] `.env` has `DEVIN_API_KEY` and `GITHUB_TOKEN`
+- [ ] `/api/devin/status` reports `live` (if not, stop)
+- [ ] `pnpm verify` green (328 tests)
+- [ ] Fresh browser window, 1440×900, notifications off
+- [ ] `docs/DEMO-SLIDES.html` open in a second window, same size, on slide 1
 
 ---
 
-## 🎥 Shot List
+## Shot List
 
-Clicks marked **once** change data. To retake them, `pnpm db:seed`: it restores the demo refunds and cases, but not after `pnpm db:scenario courier-outage`, whose sixty refunds and audit rows it leaves in place.
+Clicks marked **once** change data; retake with `pnpm db:seed` (it won't undo `pnpm db:scenario courier-outage`).
 
 | # | Shot | Viewing as | State it needs |
 |---|---|---|---|
@@ -381,15 +378,16 @@ Clicks marked **once** change data. To retake them, `pnpm db:seed`: it restores 
 | 8 | Toast screenshot, then the four-layer table in `docs/POST_MERGE_DEPLOYMENT_DRIFT.md` | — | Screenshot from shot 7 |
 | 9 | Slide 3, what it costs; then slide 4, build or buy | — | Deck on slide 3 |
 
-- Open `docs/DEMO-SLIDES.html` in a second browser window, the same size as the console, before shot 0.
-- Show every sped-up run with its real "Took …" time.
-- If Devin isn't connected, stop.
+Show every sped-up run with its real "Took …" time.
 
 ---
 
-## 📤 After Recording
+## After Recording
 
-- **Chapters:** Power Apps today, Opening, The console, Rules, Connectors, Apps, Deployment drift, Cost, Build or buy.
-- **Description:** the one message, `docs/DEMO-SLIDES.pdf` attached, the repo, the five pull requests, and each run's time, ACUs and test total.
-- **Replays:** copy each run's `apps/console/data/replays/<run_id>.json` to `runs/<run_id>/replay.json` and commit it.
-- **Clean up:** stop running Devin sessions, delete stray `runs/` folders, reset the database. Tag the recorded commit, e.g. `loom-2026-09-28`.
+- [ ] Chapters: Power Apps today, Opening, The console, Rules, Connectors, Apps, Deployment drift, Cost, Build or buy
+- [ ] Description, with `docs/DEMO-SLIDES.pdf`, the five pull requests, and each run's time, ACUs and test total
+- [ ] Copy each `apps/console/data/replays/<run_id>.json` to `runs/<run_id>/replay.json` and commit
+- [ ] Stop running Devin sessions
+- [ ] Delete stray `runs/` folders
+- [ ] Reset the database
+- [ ] Tag the recorded commit (e.g. `loom-2026-09-28`)
