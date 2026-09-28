@@ -9,7 +9,7 @@
 - An engineer approves, then Devin merges.
 - A reversal removes one earlier change from the code as it is now, keeping everything merged since.
 - Switching a rule off is a setting change on `/admin/policy`, in seconds, with no run.
-- The console talks to the Devin v3 API from the server. `DEVIN_API_KEY` is the only setting it needs. Without it the console runs in simulation mode and dispatches nothing.
+- The console talks to the Devin v3 API from the server. `DEVIN_API_KEY` is the only setting it needs. Without it the console says Devin is not connected and dispatches nothing.
 
 
 
@@ -272,4 +272,4 @@ Demo setup: the engineer's GitHub token sits in the server environment next to `
 
 With the key set, the console dispatches, polls and terminates through the v3 API. If the session can't be created, `dispatch` still applies and `record_session` records the error, so the run lands as `dispatch_failed` with its audit rows.
 
-Without the key, the console runs in **simulation mode** (`apps/console/src/lib/simulation.ts`). The Devin window and the dispatch dialog show a pre-written finished run for the spec and kind, under a Simulation banner. `dispatchAutomationRun` refuses, so a run that never happened never reaches `devin_runs` or the audit chain.
+Without the key, Devin is **not connected**. The Devin window and the "Ask Devin for a rule" button say `Devin not connected`. `dispatchAutomationRun` refuses, so a run that never happened never reaches `devin_runs` or the audit chain.

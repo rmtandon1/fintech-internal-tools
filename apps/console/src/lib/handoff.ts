@@ -8,8 +8,6 @@ import {
   type RunnableSpec,
 } from "@console/tool-automation";
 import { readContextJson, type BridgeDeps } from "@console/tool-automation/bridge";
-import { devinMode } from "@/lib/devin-status";
-import { simulationsFor, type SimulatedRun } from "@/lib/simulation";
 
 /**
  * Everything the handoff panel shows and the dispatch needs, built on the
@@ -29,8 +27,6 @@ export interface HandoffOffer {
   constants: Record<string, number>;
   base: { branch: string; commit: string };
   scopePaths: string[];
-  /** Pre-written runs for simulation mode; null when live (`DEVIN_API_KEY` set). */
-  simulations: Partial<Record<string, SimulatedRun>> | null;
   reverses?: { runId: string; mergeCommit: string; prUrl: string | null } | null;
 }
 
@@ -92,7 +88,6 @@ export function buildHandoffOffer(
     constants: built.context.constants,
     base: built.context.base,
     scopePaths: built.context.scope,
-    simulations: devinMode() === "simulation" ? simulationsFor(spec.file, [kind]) : null,
     reverses: input.reverses ?? null,
   };
 }

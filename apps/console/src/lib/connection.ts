@@ -40,7 +40,7 @@ export function connectionChecks(
       signal: devin.mode === "simulation" ? "degraded" : devin.error ? "down" : "ok",
       detail:
         devin.mode === "simulation"
-          ? "Preview: runs are simulated, nothing is written"
+          ? "Not connected: set DEVIN_API_KEY"
           : devin.error
             ? "Can't reach Devin"
             : "Connected",
