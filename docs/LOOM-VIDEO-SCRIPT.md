@@ -1,6 +1,6 @@
 # 5-Minute Loom Video Script: Devin-Driven Ownership of Platform Tools
 
-## 🎯 Opening (30 seconds)
+## 🎯 Opening (50 seconds)
 
 **▶ SLIDE 1 · Your team asks, Devin builds, an engineer approves.** The recording opens on it. Point along the four boxes.
 
@@ -9,6 +9,10 @@
 > "Someone edits a flow in the browser, live in minutes, unreviewed. Or it's a ticket, and weeks."
 >
 > "There's another option. Your team asks for a change, Devin builds it, and an engineer approves it."
+>
+> "I built Solon, this console, with Devin AI: a full-stack operations console for a regulated fintech. Next.js 15, React 19, Tailwind 4 and shadcn in front; a governed engine on SQLite behind it, and only the engine writes to the database."
+>
+> "The console drives Devin through the Devin v3 API and GitHub's REST API. Devin coordinates the files, runs the test suite, opens the pull request and merges it. The person asking sends one sentence, and an engineer reviews."
 
 [Press → to slide 2.]
 
@@ -40,7 +44,7 @@
 
 > "Three live apps on one engine. Devin wrote the code; I wrote the specs and reviewed every pull request."
 >
-> "Only the engine writes to the database. A check in every build fails if anything else tries."
+> "A check in every build fails if anything but the engine writes to the database."
 
 [Click **Transaction monitoring**, under Coming soon. Point at **Included automatically**.]
 
@@ -267,7 +271,7 @@
 
 ## Before Recording
 
-The recording runs just over seven minutes; ▶ SLIDE and ◀ CONSOLE cues mark switches between the deck and the app and are never said.
+The recording runs just under eight minutes; ▶ SLIDE and ◀ CONSOLE cues mark switches between the deck and the app and are never said.
 
 **A day ahead, before the runs:**
 
