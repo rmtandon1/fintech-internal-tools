@@ -31,7 +31,9 @@ Prefilled in the handoff panel from `tools/automation/src/specs.ts`, and editabl
 > number. If it is dissolved, in liquidation or late with its accounts, add that to Declared vs
 > found as material, so a manager has to approve. Read the Companies House API docs on the web
 > first. Without COMPANIES_HOUSE_API_KEY, use recorded responses and label the result as test
-> data; record 09318842 as late with its accounts.
+> data; record 09318842 as late with its accounts. Put the check behind a setting
+> `kyc.companies_house_check` in rule settings, off by default, so an admin turns it on after
+> the merge; when off, cases are unchanged.
 
 ## Where it starts
 
@@ -58,13 +60,16 @@ status, and today's hand-typed registry check. No contact email, no person's nam
   `declared_vs_found` does the holding. A second rule that duplicates it is a finding.
 - **Tests cover each outcome:** active, dissolved, in liquidation, accounts overdue, not found,
   and an API error. No test calls the live API.
+- **A settings switch.** With `kyc.companies_house_check` off (the default) no case changes; on,
+  the check runs. The setting is declared by the KYC tool.
 
 ## After merge
 
-1. As KYC reviewer, open `kyc_0104` and run the Companies House check.
-2. The Company registry check reads "Accounts overdue" from Companies House (test data), and
+1. An admin turns `kyc.companies_house_check` on in `/admin/policy` (rule settings).
+2. As KYC reviewer, open `kyc_0104` and run the Companies House check.
+3. The Company registry check reads "Accounts overdue" from Companies House (test data), and
    Declared vs found gains a material row.
-3. **Approve** now needs a KYC manager, and the trace names `declared_vs_found`.
+4. **Approve** now needs a KYC manager, and the trace names `declared_vs_found`.
 
 Before the merge, the same click approves Thornbury Couriers on the strength of a check typed
-by hand at onboarding.
+by hand at onboarding, and until the setting is on the merge changes nothing.

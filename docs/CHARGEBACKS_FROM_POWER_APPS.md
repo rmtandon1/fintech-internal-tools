@@ -47,7 +47,8 @@ Prefilled from `tools/automation/src/specs.ts`, and editable:
 > its fields, seeded from disputes.csv; the deadline alert as a count on the queue; and the two
 > riskiest rules, fraud accepts over $500 and fights over $2,500, each needing a refunds manager.
 > Use the refunds roles. In the pull request, list every formula and flow step as done or still
-> to do.
+> to do. Put the app behind the feature flag `app.chargebacks` in Feature flags, off by default
+> and not customer-facing, so an admin turns it on from the console after the merge.
 
 ## Where it starts
 
@@ -66,13 +67,18 @@ file list with line counts. It reads the files themselves from the repository.
   09:00 UTC), so three disputes are due soon on the day of the demo.
 - **The refunds roles work it**, with nothing new in the role catalog.
 - **The engine is untouched.** New files under `tools/chargebacks/`, one line in
-  `apps/console/src/registry.ts`, a schema re-export, a migration, the package dependency and
-  the lockfile. Nothing under `packages/`.
+  `apps/console/src/registry.ts`, a schema re-export, a migration, the package dependency, the
+  lockfile and one seeded flag row in `tools/flags/src/seed.ts`. Nothing under `packages/`.
+- **Behind a flag.** The app sits behind the `app.chargebacks` feature flag: one seeded row in
+  `tools/flags/src/seed.ts`, off, not customer-facing, and the mode's `flag` set; the tile reads
+  Switched off until an admin turns it on.
 - **Tests:** the two rules, the count and the seed.
 
 ## After merge
 
-1. The Chargebacks tile on home moves from Coming soon to Live.
-2. The queue's count reads 3: open disputes over $1,000 due within 48 hours.
-3. As refunds agent, accept `DSP-20401` (fraud, $2,480): it waits for a refunds manager.
-4. The pull request's list is the rest of the migration, one small request per line.
+1. The Chargebacks tile on home moves from Coming soon to Switched off.
+2. An admin turns `app.chargebacks` on in Feature flags: the tile goes Live.
+3. The queue's count reads 3: open disputes over $1,000 due within 48 hours.
+4. As refunds agent, accept `DSP-20401` (fraud, $2,480): it waits for a refunds manager.
+5. Turning the flag off puts the tile back to Switched off. The pull request's list is the rest
+   of the migration, one small request per line.

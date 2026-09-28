@@ -133,7 +133,7 @@ export const COMPANIES_HOUSE_CHECK: RunnableSpec = {
   sendSpec: false,
   intents: {
     change:
-      "Add a Companies House check to UK business cases. Look the company up by its registration number. If it is dissolved, in liquidation or late with its accounts, add that to Declared vs found as material, so a manager has to approve. Read the Companies House API docs on the web first. Without COMPANIES_HOUSE_API_KEY, use recorded responses and label the result as test data; record 09318842 as late with its accounts.",
+      "Add a Companies House check to UK business cases. Look the company up by its registration number. If it is dissolved, in liquidation or late with its accounts, add that to Declared vs found as material, so a manager has to approve. Read the Companies House API docs on the web first. Without COMPANIES_HOUSE_API_KEY, use recorded responses and label the result as test data; record 09318842 as late with its accounts. Put the check behind a setting `kyc.companies_house_check` in rule settings, off by default, so an admin turns it on after the merge; when off, cases are unchanged.",
     undo: "Undo the Companies House check: remove the lookup, its recorded responses and what it adds to the case file, and keep every change made since.",
   },
   summaries: {
@@ -143,10 +143,10 @@ export const COMPANIES_HOUSE_CHECK: RunnableSpec = {
   },
   outcomes: {
     change:
-      "UK business cases get a Companies House check. A dissolved company, one in liquidation or one late with its accounts needs a KYC manager to approve.",
+      "The Companies House check is built and off; turning `kyc.companies_house_check` on in rule settings runs it on every UK business case and sends late or dissolved companies to a manager.",
     undo: "The Companies House check is removed. The company registry check goes back to being filled in by hand.",
   },
-  constantKeys: [],
+  constantKeys: ["kyc.companies_house_check"],
   evidence: { tool: "kyc" },
   acceptance: {
     change: [
@@ -157,6 +157,7 @@ export const COMPANIES_HOUSE_CHECK: RunnableSpec = {
       "A timeout, an error or an unknown number shows \"couldn't check\" and holds approval.",
       "Results land in `kyc_checks` and `kyc_discrepancies`, and `declared_vs_found` does the holding; no duplicate rule.",
       "Tests cover active, dissolved, in liquidation, accounts overdue, not found and an API error, with no live call.",
+      "With `kyc.companies_house_check` off (the default) no case changes; on, the check runs. The setting is declared by the KYC tool.",
     ],
     undo: [
       "`pnpm verify` is green.",
@@ -181,12 +182,13 @@ export const CHARGEBACKS_FROM_POWER_APPS: RunnableSpec = {
     "apps/console/package.json",
     "apps/console/drizzle/**",
     "pnpm-lock.yaml",
+    "tools/flags/src/seed.ts",
     TESTS,
   ],
   sendSpec: true,
   intents: {
     change:
-      "Start moving the Chargebacks Power App into the console, from the export in fixtures/power-apps/chargebacks. This is the first pull request, not the whole app: the queue with its fields, seeded from disputes.csv; the deadline alert as a count on the queue; and the two riskiest rules, fraud accepts over $500 and fights over $2,500, each needing a refunds manager. Use the refunds roles. In the pull request, list every formula and flow step as done or still to do.",
+      "Start moving the Chargebacks Power App into the console, from the export in fixtures/power-apps/chargebacks. This is the first pull request, not the whole app: the queue with its fields, seeded from disputes.csv; the deadline alert as a count on the queue; and the two riskiest rules, fraud accepts over $500 and fights over $2,500, each needing a refunds manager. Use the refunds roles. In the pull request, list every formula and flow step as done or still to do. Put the app behind the feature flag `app.chargebacks` in Feature flags, off by default and not customer-facing, so an admin turns it on from the console after the merge.",
     undo: "Remove the Chargebacks app: its tool, tables, seed and registry lines, and keep every change made since.",
   },
   summaries: {
@@ -196,7 +198,7 @@ export const CHARGEBACKS_FROM_POWER_APPS: RunnableSpec = {
   },
   outcomes: {
     change:
-      "Chargebacks is live in the console with its queue, the 50 disputes, a count of those due within 48 hours, and manager approval for large fraud accepts and fights.",
+      "Chargebacks is built and switched off; turning on `app.chargebacks` in Feature flags shows the queue, the 50 disputes, a count of those due within 48 hours, and manager approval for large fraud accepts and fights.",
     undo: "Chargebacks goes back to Coming soon.",
   },
   constantKeys: [],
@@ -209,6 +211,7 @@ export const CHARGEBACKS_FROM_POWER_APPS: RunnableSpec = {
       "Accepting a fraud dispute over $500, and fighting one over $2,500, each need a refunds manager.",
       "The refunds roles work it; nothing new in the role catalog.",
       "New files sit under `tools/chargebacks/`, plus a registry line, a schema re-export, a migration and the lockfile; nothing under `packages/`.",
+      "The app sits behind the `app.chargebacks` feature flag: one seeded row in `tools/flags/src/seed.ts`, off, not customer-facing, and the mode's `flag` set; the tile reads Switched off until an admin turns it on.",
     ],
     undo: [
       "`pnpm verify` is green.",

@@ -484,3 +484,13 @@ function write(
 function getFlag(id: string): FeatureFlag | null {
   return db.select().from(featureFlags).where(eq(featureFlags.id, id)).get() ?? null;
 }
+
+/** The keys of enabled production flags: what the console gates Devin-built apps on. */
+export function enabledFlagKeys(): Set<string> {
+  const rows = db
+    .select({ key: featureFlags.key })
+    .from(featureFlags)
+    .where(and(eq(featureFlags.enabled, 1), eq(featureFlags.environment, "production")))
+    .all();
+  return new Set(rows.map((row) => row.key));
+}
