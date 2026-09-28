@@ -13,7 +13,7 @@ import {
   type DevinClient,
   getRun,
   IN_FLIGHT_STATUSES,
-  REFUND_CLUSTERING_HOLD,
+  COMPANIES_HOUSE_CHECK,
   type SessionSnapshot,
 } from "@console/tool-automation";
 import { replayDevinClient, replayGitHubClient, scriptedFrames } from "../helpers/scripted-clients";
@@ -25,7 +25,7 @@ import type { AppBridgeDeps } from "@/lib/bridge";
 import { admin, refundsAgent, setupHarness } from "../helpers/harness";
 
 const engineer: Actor = { id: "usr_engineer", name: "Engineer", role: "engineer" };
-const KESTREL = ["rfnd_0011", "rfnd_0012", "rfnd_0013", "rfnd_0014"];
+const CASE = ["kyc_0003"];
 
 let repoRoot: string;
 let replaysDir: string;
@@ -34,6 +34,7 @@ beforeAll(() => {
   setupHarness();
   registerConstants([...(refundTool.constants ?? []), ...(kycTool.constants ?? [])]);
   refundTool.seed?.();
+  kycTool.seed?.();
   repoRoot = mkdtempSync(join(tmpdir(), "route-repo-"));
   replaysDir = mkdtempSync(join(tmpdir(), "route-replays-"));
   const git = (...args: string[]) =>
@@ -43,12 +44,12 @@ beforeAll(() => {
 });
 
 const request = {
-  spec: REFUND_CLUSTERING_HOLD.file,
+  spec: COMPANIES_HOUSE_CHECK.file,
   kind: "IMPLEMENTATION/ADDITION" as const,
   scope: "rule" as const,
-  intent: REFUND_CLUSTERING_HOLD.intents["IMPLEMENTATION/ADDITION"] ?? "",
-  clusterKey: "Kestrel Outdoors",
-  evidenceIds: KESTREL,
+  intent: COMPANIES_HOUSE_CHECK.intents["IMPLEMENTATION/ADDITION"] ?? "",
+  evidenceKey: "kyc_0003",
+  evidenceIds: CASE,
 };
 
 let t = Date.now();
@@ -101,7 +102,7 @@ describe("GET /api/devin/<runId>", () => {
     expect(earlyBody.mode).toBe("simulation");
     expect(earlyBody.sessionUrl).toBeNull();
     expect(earlyBody.summary).toBe(
-      REFUND_CLUSTERING_HOLD.summaries["IMPLEMENTATION/ADDITION"],
+      COMPANIES_HOUSE_CHECK.summaries["IMPLEMENTATION/ADDITION"],
     );
     expect(earlyBody.lastAuditId).toBe(
       listAuditEvents({ recordId: out.runId, limit: 1 }).rows[0]?.id,
@@ -123,8 +124,8 @@ describe("GET /api/devin/<runId>", () => {
     const d = deps();
     const out = await dispatchRun(admin, request, d);
     const body = (await handleGet(out.runId, admin, d)).body as RunViewPayload;
-    expect(body.reviewerChecklist).toHaveLength(8);
-    expect(body.reviewerChecklist[0]).toMatch(/^The first refund in a cluster/);
+    expect(body.reviewerChecklist).toHaveLength(7);
+    expect(body.reviewerChecklist[0]).toMatch(/^Only UK business cases are checked/);
   });
 
   it("observes the merge once the approved run is four seconds old", async () => {

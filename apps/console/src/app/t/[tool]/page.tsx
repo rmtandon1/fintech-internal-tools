@@ -19,10 +19,6 @@ import { ClusterDrawer, type ClusterRow } from "@/components/cluster-drawer";
 import { PatternMonitor } from "@/components/pattern-monitor";
 import { ReconcileRuns } from "@/components/reconcile-runs";
 import { ToggleGrid } from "@/components/toggle-grid";
-import { buildHandoffOffer, type HandoffOffer } from "@/lib/handoff";
-import { bridgeDeps } from "@/lib/bridge";
-import { devinMode } from "@/lib/devin-status";
-import { getSpec, kindsStartableBy } from "@console/tool-automation";
 import { currentActor } from "@/lib/session";
 import { cn } from "@console/ui/utils";
 import { getTool } from "@/registry";
@@ -306,9 +302,6 @@ export default async function ToolQueuePage({
           statuses={decl.statuses}
           ruleLabels={decl.ruleLabels}
           rows={clusterRows(decl, open.cluster, open.group, actor)}
-          canRequestRule={decl.revealRoles.includes(actor.role)}
-          devinConnected={devinMode() === "live"}
-          dispatch={dispatchOffer(decl, open.cluster, open.group, actor)}
         />
       ) : null}
 
@@ -337,31 +330,6 @@ export default async function ToolQueuePage({
       ) : null}
     </div>
   );
-}
-
-/** The handoffs this actor may ask Devin for from the open group. */
-function dispatchOffer(
-  decl: ToolDeclaration,
-  cluster: ClusterDecl,
-  group: ClusterGroup,
-  actor: Actor,
-): HandoffOffer[] | null {
-  const spec = cluster.handoffSpec ? getSpec(cluster.handoffSpec) : undefined;
-  if (!spec) return null;
-  const deps = bridgeDeps();
-  const offers = kindsStartableBy(actor.role, spec)
-    .filter((kind) => kind !== "REVERSAL")
-    .map((kind) =>
-      buildHandoffOffer(
-        spec,
-        kind,
-        actor,
-        { clusterKey: group.key, evidenceIds: group.recordIds },
-        deps,
-      ),
-    )
-    .filter((o): o is HandoffOffer => o !== null);
-  return offers.length > 0 ? offers : null;
 }
 
 function resolveGroup(

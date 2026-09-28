@@ -2,8 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Button } from "@console/ui/button";
 import { Icon } from "@console/ui/icon";
+import { AskDevin } from "@/components/ask-devin";
 import { Panel } from "@/components/panel";
 import { OPS_MODES } from "@/lib/modes";
+import { modeTriggers } from "@/lib/run-triggers";
+import { currentActor } from "@/lib/session";
 import { roleLabel } from "@console/permissions";
 import { getTool } from "@/registry";
 
@@ -31,6 +34,7 @@ export default async function RoadmapPage({
   const mode = OPS_MODES.find((m) => m.id === id);
   if (!mode || getTool(id)) notFound();
   const columns = mode.columns ?? ["Record", "Customer", "Amount", "Status"];
+  const triggers = modeTriggers(mode.id, await currentActor());
 
   return (
     <div className="flex h-full flex-col gap-3 overflow-auto">
@@ -65,6 +69,7 @@ export default async function RoadmapPage({
             ))}
           </div>
         </div>
+        <AskDevin triggers={triggers} />
       </section>
 
       <div className="grid min-h-0 gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">

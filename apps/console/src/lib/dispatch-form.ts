@@ -6,8 +6,8 @@ const DispatchForm = z.object({
   kind: z.enum(RUN_KINDS),
   scope: z.enum(RUN_SCOPES),
   intent: z.string().min(1).max(500),
-  /** Optional on a REVERSAL: derived from the reversed run's context.json. */
-  clusterKey: z.string().min(1).optional(),
+  /** The record the request starts from. Optional on a REVERSAL: read from the reversed run. */
+  evidenceKey: z.string().min(1).optional(),
   evidenceIds: z.array(z.string().min(1)).default([]),
   reverses: z.string().min(1).optional(),
 });
@@ -27,7 +27,7 @@ export function parseDispatchForm(
     kind: form.get("kind"),
     scope: form.get("scope"),
     intent: form.get("intent"),
-    clusterKey: form.get("clusterKey") ?? undefined,
+    evidenceKey: form.get("evidenceKey") ?? undefined,
     evidenceIds: form.getAll("evidenceIds").map(String),
     reverses: form.get("reverses") ?? undefined,
   });
@@ -35,13 +35,13 @@ export function parseDispatchForm(
     return { ok: false, detail: parsed.error.issues[0]?.message ?? "invalid form" };
   }
   const data = parsed.data;
-  if (data.kind === "REVERSAL" ? !data.reverses : !data.clusterKey || data.evidenceIds.length === 0) {
+  if (data.kind === "REVERSAL" ? !data.reverses : !data.evidenceKey || data.evidenceIds.length === 0) {
     return {
       ok: false,
       detail:
         data.kind === "REVERSAL"
           ? "A REVERSAL must name the run it reverses"
-          : "A run needs a cluster key and evidence ids",
+          : "A run needs the record it starts from and its evidence ids",
     };
   }
   if (data.kind === "REVERSAL" && data.intent !== getSpec(data.spec)?.intents.REVERSAL) {

@@ -330,6 +330,29 @@ const CASES: SeedCase[] = [
       },
     ],
   },
+  {
+    id: "kyc_0104",
+    customerName: "Thornbury Couriers Ltd",
+    email: "compliance@thornburycouriers.example.com",
+    dateOfBirth: "2014-03-11",
+    documentType: "company_registry",
+    documentNumber: "GB09318842",
+    country: "GB",
+    segment: "business",
+    riskScore: 34,
+    sanctionsHit: false,
+    documentsComplete: true,
+    status: "pending_review",
+    openedHoursAgo: 5,
+    lastNote: "Applying for a business account to pay drivers. Registry checked by hand at onboarding.",
+    checks: {
+      company_registry: {
+        result: "clear",
+        source: "Companies House",
+        detail: "Checked by hand: active, directors match",
+      },
+    },
+  },
 ];
 
 /**

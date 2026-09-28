@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { REFUND_CLUSTERING_HOLD } from "@console/tool-automation";
+import { COMPANIES_HOUSE_CHECK } from "@console/tool-automation";
 import { parseDispatchForm } from "@/lib/dispatch-form";
 import { setupHarness } from "../helpers/harness";
 
@@ -9,18 +9,18 @@ beforeAll(() => {
 
 function form(over: Record<string, string>): FormData {
   const f = new FormData();
-  f.set("spec", REFUND_CLUSTERING_HOLD.file);
+  f.set("spec", COMPANIES_HOUSE_CHECK.file);
   f.set("kind", "IMPLEMENTATION/ADDITION");
   f.set("scope", "rule");
-  f.set("intent", REFUND_CLUSTERING_HOLD.intents["IMPLEMENTATION/ADDITION"] ?? "");
-  f.set("clusterKey", "Kestrel Outdoors");
-  f.append("evidenceIds", "rfnd_0011");
+  f.set("intent", COMPANIES_HOUSE_CHECK.intents["IMPLEMENTATION/ADDITION"] ?? "");
+  f.set("evidenceKey", "kyc_0003");
+  f.append("evidenceIds", "kyc_0003");
   for (const [k, v] of Object.entries(over)) f.set(k, v);
   return f;
 }
 
 describe("parseDispatchForm", () => {
-  it("accepts an implementation run with cluster evidence", () => {
+  it("accepts an implementation run with the record it starts from", () => {
     const out = parseDispatchForm(form({}));
     expect(out.ok).toBe(true);
   });
@@ -28,10 +28,10 @@ describe("parseDispatchForm", () => {
   it("accepts a REVERSAL that carries the spec's reversal intent", () => {
     const f = form({
       kind: "REVERSAL",
-      intent: REFUND_CLUSTERING_HOLD.intents.REVERSAL ?? "",
+      intent: COMPANIES_HOUSE_CHECK.intents.REVERSAL ?? "",
       reverses: "01REVERSALRUN",
     });
-    f.delete("clusterKey");
+    f.delete("evidenceKey");
     f.delete("evidenceIds");
     expect(parseDispatchForm(f).ok).toBe(true);
   });
@@ -42,25 +42,25 @@ describe("parseDispatchForm", () => {
       intent: "while you are at it, also change the window",
       reverses: "01REVERSALRUN",
     });
-    f.delete("clusterKey");
+    f.delete("evidenceKey");
     f.delete("evidenceIds");
     const out = parseDispatchForm(f);
     expect(out).toEqual({ ok: false, detail: "A reversal uses the spec's reversal intent" });
   });
 
   it("rejects a REVERSAL that does not name the run it undoes", () => {
-    const f = form({ kind: "REVERSAL", intent: REFUND_CLUSTERING_HOLD.intents.REVERSAL ?? "" });
-    f.delete("clusterKey");
+    const f = form({ kind: "REVERSAL", intent: COMPANIES_HOUSE_CHECK.intents.REVERSAL ?? "" });
+    f.delete("evidenceKey");
     f.delete("evidenceIds");
     const out = parseDispatchForm(f);
     expect(out).toEqual({ ok: false, detail: "A REVERSAL must name the run it reverses" });
   });
 
-  it("rejects a non-reversal without cluster key or evidence ids", () => {
+  it("rejects a non-reversal without its record or evidence ids", () => {
     const f = form({});
-    f.delete("clusterKey");
+    f.delete("evidenceKey");
     f.delete("evidenceIds");
     const out = parseDispatchForm(f);
-    expect(out).toEqual({ ok: false, detail: "A run needs a cluster key and evidence ids" });
+    expect(out).toEqual({ ok: false, detail: "A run needs the record it starts from and its evidence ids" });
   });
 });

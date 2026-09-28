@@ -1,0 +1,47 @@
+Screens:
+  DisputeDetailScreen:
+    Children:
+      - frmDispute:
+          Control: Form
+          Properties:
+            DataSource: =Disputes
+            Item: =selectedDispute
+            DisplayMode: =DisplayMode.View
+            Fields: =["DisputeId", "CardNetwork", "ReasonCode", "ReasonCategory", "Merchant", "AmountUSD", "OpenedOn", "DueDate", "Status", "EvidenceUploaded", "Notes"]
+      - txtNote:
+          Control: TextInput
+          Properties:
+            HintText: ="Why? Required for every decision"
+            Mode: =TextMode.MultiLine
+      - btnAccept:
+          Control: Button
+          Properties:
+            Text: ="Accept"
+            DisplayMode: =If(IsBlank(txtNote.Text), DisplayMode.Disabled, DisplayMode.Edit)
+            OnSelect: |-
+              =If(
+                  selectedDispute.ReasonCategory.Value = "Fraud" && selectedDispute.AmountUSD > varFraudAcceptLimit,
+                  Notify("Fraud disputes over $" & varFraudAcceptLimit & " need a team lead to accept them", NotificationType.Error),
+                  Patch(Disputes, selectedDispute, {Status: {Value: "Accepted"}, Notes: txtNote.Text});
+                  Navigate(DisputesScreen)
+              )
+      - btnFight:
+          Control: Button
+          Properties:
+            Text: ="Fight"
+            DisplayMode: =If(selectedDispute.EvidenceUploaded && !IsBlank(txtNote.Text), DisplayMode.Edit, DisplayMode.Disabled)
+            Tooltip: =If(!selectedDispute.EvidenceUploaded, "Upload evidence before fighting", "")
+            OnSelect: |-
+              =If(
+                  selectedDispute.AmountUSD > varFightApprovalLimit,
+                  FightApproval.Run(selectedDispute.DisputeId, User().Email, txtNote.Text);
+                  Notify("Sent to a team lead to approve", NotificationType.Information),
+                  Patch(Disputes, selectedDispute, {Status: {Value: "Fighting"}, Notes: txtNote.Text})
+              );
+              Navigate(DisputesScreen)
+      - btnRequestEvidence:
+          Control: Button
+          Properties:
+            Text: ="Request evidence"
+            Visible: =!selectedDispute.EvidenceUploaded
+            OnSelect: =Patch(Disputes, selectedDispute, {Status: {Value: "Evidence requested"}, Notes: txtNote.Text})

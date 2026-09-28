@@ -1,15 +1,16 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { inArray } from "drizzle-orm";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { join, relative } from "node:path";
+import { and, eq } from "drizzle-orm";
 import { db } from "@console/db";
 import { auditHead } from "@console/db-core/engine-schema";
 import { canonicalJson, sha256 } from "@console/engine/audit/canonical";
 import { loadConstants } from "@console/engine/policy/constants";
 import type { Role } from "@console/permissions";
-import { refundTool } from "@console/tool-refunds";
+import { kycCases, kycChecks } from "@console/tool-kyc/schema";
+import { ADMIN_APPROVAL_USD_KEY } from "@console/tool-refunds";
 import { refunds } from "@console/tool-refunds/schema";
-import { ContextFile, type EvidenceRow, type Reverses } from "./run-files";
+import { ContextFile, type Evidence, type EvidenceRow, type Reverses } from "./run-files";
 import { scopePaths, type RunKind, type RunScope, type RunnableSpec } from "./specs";
 
 export interface ContextRequest {
@@ -19,9 +20,9 @@ export interface ContextRequest {
   scope: RunScope;
   intent: string;
   requestedBy: Role;
-  /** Cluster group key on the spec's evidence source, e.g. the merchant. */
-  clusterKey: string;
-  /** Record ids the cluster drawer showed; only allowlisted columns are read. */
+  /** The record the request starts from: a case id, a refund id or an app's id. */
+  evidenceKey: string;
+  /** Row ids to include; only allowlisted columns are read. */
   evidenceIds: readonly string[];
   reverses?: { runId: string; mergeCommit: string } | null;
   /** Repository root, for `git rev-parse` and `runs/<id>/context.json`. */
@@ -54,12 +55,9 @@ export function buildContext(req: ContextRequest): BuiltContext {
     scope: scopePaths(req.spec, req.scope, req.runId),
     constants,
     // A REVERSAL reproduces the run it undoes: its evidence rows are the
-    // ones the original run carried, verbatim — today's cluster may have
+    // ones the original run carried, verbatim, since the records may have
     // changed since. Constants and the audit head are still live reads.
-    evidence: reversed?.evidence ?? {
-      cluster: `${req.spec.evidence.cluster}:${req.clusterKey}`,
-      rows: evidenceRows(req.spec, req.clusterKey, req.evidenceIds),
-    },
+    evidence: reversed?.evidence ?? readEvidence(req.spec, req.evidenceKey, req.evidenceIds, root),
     reverses: req.reverses ? reversesBlock(req.reverses, reversed) : null,
     audit_head: readAuditHead(),
   });
@@ -75,38 +73,140 @@ function readConstants(keys: readonly string[]): Record<string, number> {
 }
 
 /**
- * Evidence rows come from the cluster the spec names, computed now by the
- * owning tool, so a stale or mixed selection cannot smuggle in rows the
- * cluster would not show. Columns are an allowlist: anything not named here
- * does not exist to Devin.
+ * Evidence is read now, from the record the request starts on, so a stale or
+ * mixed selection can't smuggle in rows the screen wouldn't show. Columns are
+ * an allowlist per source: anything not named here doesn't exist to Devin.
  */
-function evidenceRows(spec: RunnableSpec, clusterKey: string, ids: readonly string[]): EvidenceRow[] {
-  if (ids.length === 0) return [];
-  if (spec.evidence.tool !== "refunds") {
-    throw new Error(`no evidence reader for tool ${spec.evidence.tool}`);
+function readEvidence(
+  spec: RunnableSpec,
+  key: string,
+  ids: readonly string[],
+  root: string,
+): Evidence {
+  const source = `${spec.evidence.tool}:${key}`;
+  if (ids.length === 0) return { source, rows: [] };
+  switch (spec.evidence.tool) {
+    case "kyc":
+      return { source, rows: [businessCase(key, ids)] };
+    case "refunds":
+      return { source, rows: [largeRefund(key, ids)] };
+    case "roadmap":
+      return { source, rows: exportFiles(root, key, ids) };
+    default:
+      throw new Error(`no evidence reader for ${spec.evidence.tool}`);
   }
-  const cluster = refundTool.clusters?.find((c) => c.id === spec.evidence.cluster);
-  if (!cluster) throw new Error(`refunds has no cluster ${spec.evidence.cluster}`);
-  const group = cluster.groups().find((g) => g.key === clusterKey);
-  if (!group) throw new Error(`cluster ${spec.evidence.cluster} has no group ${clusterKey}`);
-  const members = new Set(group.recordIds);
-  const strays = ids.filter((id) => !members.has(id));
-  if (strays.length > 0) {
-    throw new Error(`evidence rows are not in cluster ${clusterKey}: ${strays.join(", ")}`);
+}
+
+function onlyKey(key: string, ids: readonly string[]): void {
+  if (ids.length !== 1 || ids[0] !== key) {
+    throw new Error(`evidence for ${key} is that record alone, not ${ids.join(", ")}`);
   }
-  return db
+}
+
+/**
+ * A UK business case. A company's name and registration number are public
+ * record; the contact email and any person's details are not read.
+ */
+function businessCase(key: string, ids: readonly string[]): EvidenceRow {
+  onlyKey(key, ids);
+  const row = db
+    .select({
+      id: kycCases.id,
+      company: kycCases.customerName,
+      segment: kycCases.segment,
+      country: kycCases.country,
+      documentType: kycCases.documentType,
+      registrationNumber: kycCases.documentNumber,
+      status: kycCases.status,
+    })
+    .from(kycCases)
+    .where(eq(kycCases.id, key))
+    .get();
+  if (!row) throw new Error(`no KYC case ${key}`);
+  if (row.segment !== "business" || row.country !== "GB" || row.documentType !== "company_registry") {
+    throw new Error(`${key} is not a UK business case`);
+  }
+  const registry = db
+    .select({ result: kycChecks.result, detail: kycChecks.detail, source: kycChecks.source })
+    .from(kycChecks)
+    .where(and(eq(kycChecks.caseId, key), eq(kycChecks.kind, "company_registry")))
+    .get();
+  return {
+    id: row.id,
+    facts: {
+      company: row.company,
+      registrationNumber: row.registrationNumber.replace(/^GB/, ""),
+      country: row.country,
+      status: row.status,
+      registryCheck: registry ? `${registry.result}: ${registry.detail} (${registry.source})` : null,
+    },
+  };
+}
+
+/** A refund at or above the admin line: the amount and why, never who it's for. */
+function largeRefund(key: string, ids: readonly string[]): EvidenceRow {
+  onlyKey(key, ids);
+  const row = db
     .select({
       id: refunds.id,
       merchant: refunds.merchant,
       reasonCode: refunds.reasonCode,
       usdMinor: refunds.usdMinor,
-      requestedAt: refunds.requestedAt,
+      status: refunds.status,
     })
     .from(refunds)
-    .where(inArray(refunds.id, [...ids]))
-    .orderBy(refunds.requestedAt)
-    .all()
-    .map((r) => ({ ...r, requestedAt: new Date(r.requestedAt).toISOString() }));
+    .where(eq(refunds.id, key))
+    .get();
+  if (!row) throw new Error(`no refund ${key}`);
+  const adminLine = loadConstants().number(ADMIN_APPROVAL_USD_KEY, Number.POSITIVE_INFINITY);
+  if (row.usdMinor < adminLine) throw new Error(`${key} is under the admin line`);
+  return {
+    id: row.id,
+    facts: {
+      merchant: row.merchant,
+      reasonCode: row.reasonCode,
+      usdMinor: row.usdMinor,
+      status: row.status,
+    },
+  };
+}
+
+/** The folder a Power Apps export for app `key` is committed in. */
+export function exportDir(root: string, key: string): string {
+  return join(root, "fixtures", "power-apps", key);
+}
+
+/** Every file in an app's export, relative to its folder, sorted. */
+export function listExport(root: string, key: string): string[] {
+  const dir = exportDir(root, key);
+  if (!/^[a-z_]+$/.test(key) || !existsSync(dir)) return [];
+  const out: string[] = [];
+  const walk = (at: string): void => {
+    for (const name of readdirSync(at).sort()) {
+      const path = join(at, name);
+      if (statSync(path).isDirectory()) walk(path);
+      else out.push(relative(dir, path));
+    }
+  };
+  walk(dir);
+  return out;
+}
+
+/** An app's Power Apps export, as a file list with sizes: Devin reads the files themselves. */
+function exportFiles(root: string, key: string, ids: readonly string[]): EvidenceRow[] {
+  const files = new Set(listExport(root, key));
+  const strays = ids.filter((id) => !files.has(id));
+  if (strays.length > 0) throw new Error(`not in the ${key} export: ${strays.join(", ")}`);
+  return [...ids].sort().map((id) => {
+    const text = readFileSync(join(exportDir(root, key), id), "utf8");
+    return {
+      id,
+      facts: {
+        path: `fixtures/power-apps/${key}/${id}`,
+        lines: text.split("\n").length,
+      },
+    };
+  });
 }
 
 /**

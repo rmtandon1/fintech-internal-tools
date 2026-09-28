@@ -14,11 +14,14 @@ import {
   buildContext,
   ContextFile,
   getRun,
-  REFUND_CLUSTERING_HOLD,
+  CHARGEBACKS_FROM_POWER_APPS,
+  COMPANIES_HOUSE_CHECK,
+  TWO_PERSON_APPROVAL,
   STRUCTURED_OUTPUT_JSON_SCHEMA,
   StructuredOutput,
   type DevinRun,
 } from "@console/tool-automation";
+import { listExport } from "@console/tool-automation/context";
 import { kycTool } from "@console/tool-kyc";
 import { refundTool } from "@console/tool-refunds";
 import { admin, kycManager, refundsAgent, refundsManager, setupHarness } from "../helpers/harness";
@@ -29,13 +32,17 @@ const secondEngineer: Actor = { id: "usr_engineer_2", name: "Engineer 2", role: 
 const SHA = "a".repeat(64);
 const OTHER_SHA = "b".repeat(64);
 const PR = "https://github.com/rmtandon1/buy-v-build-cog-demo/pull/99";
-/** The four Kestrel Outdoors not_received refunds the seed ships. */
-const KESTREL = ["rfnd_0011", "rfnd_0012", "rfnd_0013", "rfnd_0014"];
+/** The UK business case the Companies House check starts from. */
+const CASE = "kyc_0003";
+const EVIDENCE = [CASE];
+/** The repository root, where the Power Apps exports are committed. */
+const ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"]).toString().trim();
 
 beforeAll(() => {
   setupHarness();
   registerConstants([...(refundTool.constants ?? []), ...(kycTool.constants ?? [])]);
   refundTool.seed?.();
+  kycTool.seed?.();
 });
 
 function act(actor: Actor, action: string, recordId: string | null, input: Record<string, unknown>) {
@@ -50,12 +57,12 @@ function act(actor: Actor, action: string, recordId: string | null, input: Recor
 
 function dispatch(actor: Actor, overrides: Record<string, unknown> = {}) {
   return act(actor, "dispatch", null, {
-    spec: REFUND_CLUSTERING_HOLD.file,
+    spec: COMPANIES_HOUSE_CHECK.file,
     kind: "IMPLEMENTATION/ADDITION",
     scope: "rule",
-    intent: REFUND_CLUSTERING_HOLD.intents["IMPLEMENTATION/ADDITION"],
+    intent: COMPANIES_HOUSE_CHECK.intents["IMPLEMENTATION/ADDITION"],
     contextSha256: SHA,
-    evidenceIds: KESTREL,
+    evidenceIds: EVIDENCE,
     ...overrides,
   });
 }
@@ -104,28 +111,49 @@ describe("automation tool", () => {
 });
 
 describe("dispatch rules", () => {
-  it("role_may_start_kind: the refunds manager may start an ADDITION of a refunds spec", () => {
-    const run = applied(dispatch(refundsManager));
+  it("role_may_start_kind: the KYC manager may start an ADDITION of a KYC spec", () => {
+    const run = applied(dispatch(kycManager));
     expect(run).toMatchObject({
       status: "dispatched",
       kind: "IMPLEMENTATION/ADDITION",
-      tool: "refunds",
+      tool: "kyc",
       scope: "rule",
       contextSha256: SHA,
-      requestedBy: refundsManager.id,
+      requestedBy: kycManager.id,
       reverses: null,
     });
     stop(run);
   });
 
   it("role_may_start_kind: a manager of another domain is denied", () => {
-    deniedBy(dispatch(kycManager), "role_may_start_kind");
+    deniedBy(dispatch(refundsManager), "role_may_start_kind");
+  });
+
+  it("role_may_start_kind: an engine-scope change and a new app are the admin's to ask for", () => {
+    const twoPerson = {
+      spec: TWO_PERSON_APPROVAL.file,
+      scope: "engine",
+      intent: TWO_PERSON_APPROVAL.intents["IMPLEMENTATION/ADDITION"],
+      evidenceIds: ["rfnd_0015"],
+    };
+    deniedBy(dispatch(refundsManager, twoPerson), "role_may_start_kind");
+    stop(applied(dispatch(admin, twoPerson)));
+
+    const chargebacks = {
+      spec: CHARGEBACKS_FROM_POWER_APPS.file,
+      scope: "engine",
+      intent: CHARGEBACKS_FROM_POWER_APPS.intents["IMPLEMENTATION/ADDITION"],
+      evidenceIds: ["README.md"],
+    };
+    deniedBy(dispatch(refundsManager, chargebacks), "role_may_start_kind");
+    deniedBy(dispatch(kycManager, chargebacks), "role_may_start_kind");
+    stop(applied(dispatch(admin, chargebacks)));
   });
 
   it("role_may_start_kind: only the admin may start a REVERSAL", () => {
     const merged = merge(applied(dispatch(admin)));
     deniedBy(
-      dispatch(refundsManager, { kind: "REVERSAL", reverses: merged.id, evidenceIds: [] }),
+      dispatch(kycManager, { kind: "REVERSAL", reverses: merged.id, evidenceIds: [] }),
       "role_may_start_kind",
     );
     const reversal = applied(
@@ -133,7 +161,7 @@ describe("dispatch rules", () => {
         kind: "REVERSAL",
         reverses: merged.id,
         evidenceIds: [],
-        intent: REFUND_CLUSTERING_HOLD.intents.REVERSAL,
+        intent: COMPANIES_HOUSE_CHECK.intents.REVERSAL,
       }),
     );
     expect(reversal.reverses).toBe(merged.id);
@@ -146,16 +174,16 @@ describe("dispatch rules", () => {
   });
 
   it("engine_scope_admin_only: a manager is denied engine scope, the admin is not", () => {
-    deniedBy(dispatch(refundsManager, { scope: "engine" }), "engine_scope_admin_only");
+    deniedBy(dispatch(kycManager, { scope: "engine" }), "engine_scope_admin_only");
     const run = applied(dispatch(admin, { scope: "engine" }));
     expect(run.scope).toBe("engine");
     stop(run);
   });
 
   it("no_run_in_flight_on_tool: a second run against the same tool is denied until the first ends", () => {
-    const first = applied(dispatch(refundsManager));
+    const first = applied(dispatch(kycManager));
     deniedBy(dispatch(admin), "no_run_in_flight_on_tool");
-    applied(act(refundsManager, "record_session", first.id, { sessionId: "devin-abc" }));
+    applied(act(kycManager, "record_session", first.id, { sessionId: "devin-abc" }));
     deniedBy(dispatch(admin), "no_run_in_flight_on_tool");
     stop(first);
     const second = applied(dispatch(admin));
@@ -163,10 +191,10 @@ describe("dispatch rules", () => {
   });
 
   it("no_run_in_flight_on_tool: a failed dispatch does not hold the tool", () => {
-    const failed = applied(dispatch(refundsManager));
-    applied(act(refundsManager, "record_session", failed.id, { error: "Devin API 503" }));
+    const failed = applied(dispatch(kycManager));
+    applied(act(kycManager, "record_session", failed.id, { error: "Devin API 503" }));
     expect(getRun(failed.id)?.status).toBe("dispatch_failed");
-    const next = applied(dispatch(refundsManager));
+    const next = applied(dispatch(kycManager));
     stop(next);
   });
 
@@ -201,22 +229,22 @@ describe("dispatch rules", () => {
   });
 
   it("implementation_carries_evidence: an ADDITION without evidence is denied", () => {
-    deniedBy(dispatch(refundsManager, { evidenceIds: [] }), "implementation_carries_evidence");
+    deniedBy(dispatch(kycManager, { evidenceIds: [] }), "implementation_carries_evidence");
   });
 
-  it("actor_owns_run_domain: a manager of another domain cannot record or stop a refunds run", () => {
-    const run = applied(dispatch(refundsManager));
-    deniedBy(act(kycManager, "record_session", run.id, { sessionId: "devin-x" }), "actor_owns_run_domain");
-    deniedBy(act(kycManager, "stop", run.id, { reason: "not mine" }), "actor_owns_run_domain");
+  it("actor_owns_run_domain: a manager of another domain cannot record or stop a KYC run", () => {
+    const run = applied(dispatch(kycManager));
+    deniedBy(act(refundsManager, "record_session", run.id, { sessionId: "devin-x" }), "actor_owns_run_domain");
+    deniedBy(act(refundsManager, "stop", run.id, { reason: "not mine" }), "actor_owns_run_domain");
     expect(getRun(run.id)?.status).toBe("dispatched");
-    stop(run, refundsManager);
+    stop(run, kycManager);
   });
 
   it("audits the context SHA and spec, never the context body", () => {
-    const run = applied(dispatch(refundsManager));
+    const run = applied(dispatch(kycManager));
     const [row] = auditRowsFor(run.id);
     const payload = JSON.parse(row.payload) as Record<string, unknown>;
-    expect(payload).toMatchObject({ spec: REFUND_CLUSTERING_HOLD.file, contextSha256: SHA });
+    expect(payload).toMatchObject({ spec: COMPANIES_HOUSE_CHECK.file, contextSha256: SHA });
     expect(Object.keys(payload)).not.toContain("evidence");
     expect(Object.keys(payload)).not.toContain("constants");
     stop(run);
@@ -224,7 +252,7 @@ describe("dispatch rules", () => {
 });
 
 describe("approve_pr", () => {
-  function running(requester: Actor = refundsManager): DevinRun {
+  function running(requester: Actor = kycManager): DevinRun {
     const run = applied(dispatch(requester));
     return applied(act(requester, "record_session", run.id, { sessionId: `devin-${run.id}` }));
   }
@@ -261,7 +289,7 @@ describe("approve_pr", () => {
   });
 
   it("is only offered while the run is running", () => {
-    const run = applied(dispatch(refundsManager));
+    const run = applied(dispatch(kycManager));
     expect(act(engineer, "approve_pr", run.id, green).outcome).toMatchObject({ code: "invalid_status" });
     stop(run);
   });
@@ -272,62 +300,125 @@ describe("context.json", () => {
     return buildContext({
       runId,
       kind: "IMPLEMENTATION/ADDITION",
-      spec: REFUND_CLUSTERING_HOLD,
+      spec: COMPANIES_HOUSE_CHECK,
       scope: "rule",
-      intent: REFUND_CLUSTERING_HOLD.intents["IMPLEMENTATION/ADDITION"] ?? "",
-      requestedBy: "refunds_manager",
-      clusterKey: "Kestrel Outdoors",
-      evidenceIds: KESTREL,
+      intent: COMPANIES_HOUSE_CHECK.intents["IMPLEMENTATION/ADDITION"] ?? "",
+      requestedBy: "kyc_manager",
+      evidenceKey: CASE,
+      evidenceIds: EVIDENCE,
       repoRoot: process.cwd(),
     });
   }
 
-  it("carries only allowlisted evidence columns and no email- or card-like keys", () => {
+  it("carries only a business case's public facts, and no email or document of a person", () => {
     const { context, json } = build();
-    expect(context.evidence.rows).toHaveLength(KESTREL.length);
-    for (const row of context.evidence.rows) {
-      expect(Object.keys(row).sort()).toEqual(["id", "merchant", "reasonCode", "requestedAt", "usdMinor"]);
-    }
-    expect(json).not.toMatch(/email|card|last4|@/i);
+    expect(context.evidence.source).toBe(`kyc:${CASE}`);
+    expect(context.evidence.rows).toHaveLength(1);
+    const [row] = context.evidence.rows;
+    expect(Object.keys(row.facts).sort()).toEqual([
+      "company",
+      "country",
+      "registrationNumber",
+      "registryCheck",
+      "status",
+    ]);
+    expect(row.facts).toMatchObject({ company: "Northwind Freight Ltd", registrationNumber: "10774521" });
+    expect(json).not.toMatch(/email|card|last4|@|dateOfBirth/i);
     expect(ContextFile.parse(context)).toEqual(context);
   });
 
-  it("refuses evidence ids the live cluster does not contain", () => {
-    expect(() =>
+  it("refuses evidence that isn't the one record, or a case that isn't a UK business", () => {
+    const attempt = (evidenceKey: string, evidenceIds: string[]) => () =>
       buildContext({
         runId: "run_stray",
         kind: "IMPLEMENTATION/ADDITION",
-        spec: REFUND_CLUSTERING_HOLD,
+        spec: COMPANIES_HOUSE_CHECK,
         scope: "rule",
         intent: "x",
         requestedBy: "admin",
-        clusterKey: "Kestrel Outdoors",
-        evidenceIds: [...KESTREL, "rfnd_0001"],
-      }),
-    ).toThrow(/not in cluster Kestrel Outdoors: rfnd_0001/);
+        evidenceKey,
+        evidenceIds,
+      });
+    expect(attempt(CASE, [CASE, "kyc_0001"])).toThrow(/that record alone/);
+    expect(attempt("kyc_0001", ["kyc_0001"])).toThrow(/not a UK business case/);
+    expect(attempt("kyc_9999", ["kyc_9999"])).toThrow(/no KYC case/);
+  });
+
+  it("reads a refund at or above the admin line by amount and reason, never by customer", () => {
+    const { context, json } = buildContext({
+      runId: "run_refund",
+      kind: "IMPLEMENTATION/ADDITION",
+      spec: TWO_PERSON_APPROVAL,
+      scope: "engine",
+      intent: "x",
+      requestedBy: "admin",
+      evidenceKey: "rfnd_0015",
+      evidenceIds: ["rfnd_0015"],
+    });
+    expect(context.evidence.rows[0].facts).toEqual({
+      merchant: "Meridian Air Charters",
+      reasonCode: "cancelled",
+      usdMinor: 840_000,
+      status: "requested",
+    });
+    expect(json).not.toMatch(/email|card|last4|@/i);
     expect(() =>
       buildContext({
-        runId: "run_nogroup",
+        runId: "run_small",
         kind: "IMPLEMENTATION/ADDITION",
-        spec: REFUND_CLUSTERING_HOLD,
-        scope: "rule",
+        spec: TWO_PERSON_APPROVAL,
+        scope: "engine",
         intent: "x",
         requestedBy: "admin",
-        clusterKey: "No Such Merchant",
-        evidenceIds: KESTREL,
+        evidenceKey: "rfnd_0001",
+        evidenceIds: ["rfnd_0001"],
       }),
-    ).toThrow(/has no group No Such Merchant/);
+    ).toThrow(/under the admin line/);
+  });
+
+  it("lists an app's committed Power Apps export, and refuses a file that isn't in it", () => {
+    const files = listExport(ROOT, "chargebacks");
+    expect(files).toEqual(
+      expect.arrayContaining(["Data/disputes.csv", "Workflows/DeadlineAlert.json", "Src/App.pa.yaml"]),
+    );
+    const { context } = buildContext({
+      runId: "run_export",
+      kind: "IMPLEMENTATION/ADDITION",
+      spec: CHARGEBACKS_FROM_POWER_APPS,
+      scope: "engine",
+      intent: "x",
+      requestedBy: "admin",
+      evidenceKey: "chargebacks",
+      evidenceIds: files,
+      repoRoot: ROOT,
+    });
+    expect(context.evidence.rows.map((r) => r.id)).toEqual([...files].sort());
+    expect(context.evidence.rows.find((r) => r.id === "Data/disputes.csv")?.facts.lines).toBe(52);
+    expect(() =>
+      buildContext({
+        runId: "run_export_stray",
+        kind: "IMPLEMENTATION/ADDITION",
+        spec: CHARGEBACKS_FROM_POWER_APPS,
+        scope: "engine",
+        intent: "x",
+        requestedBy: "admin",
+        evidenceKey: "chargebacks",
+        evidenceIds: ["../../../.env"],
+        repoRoot: ROOT,
+      }),
+    ).toThrow(/not in the chargebacks export/);
   });
 
   it("snapshots the spec's constants, the scope globs, the base commit and the audit head", () => {
     const { context } = build();
     expect(Object.keys(context.constants).sort()).toEqual(
-      [...REFUND_CLUSTERING_HOLD.constantKeys].sort(),
+      [...COMPANIES_HOUSE_CHECK.constantKeys].sort(),
     );
     for (const value of Object.values(context.constants)) expect(Number.isFinite(value)).toBe(true);
     expect(context.scope).toEqual(
-      expect.arrayContaining([...REFUND_CLUSTERING_HOLD.allowedPaths, "runs/run_ctx/**"]),
+      expect.arrayContaining([...COMPANIES_HOUSE_CHECK.allowedPaths, "runs/run_ctx/**"]),
     );
+    expect(context.scope).toContain("apps/console/tests/**");
     expect(context.base.commit).toMatch(/^[0-9a-f]{40}$/);
     expect(context.audit_head.seq).toBeGreaterThan(0);
     expect(context.reverses).toBeNull();
@@ -342,56 +433,48 @@ describe("context.json", () => {
     expect(build("run_other").sha256).not.toBe(a.sha256);
   });
 
-  it("a REVERSAL copies the target's saved evidence verbatim, even when today's cluster moved on", () => {
+  it("a REVERSAL copies the target's saved evidence verbatim, even when the record changed since", () => {
     const root = mkdtempSync(join(tmpdir(), "ctx-reversal-"));
     const git = (...args: string[]) =>
       execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd: root });
     git("init", "-q", "-b", "devin/test");
     git("commit", "-q", "--allow-empty", "-m", "init");
 
-    // The original run's context, saved only under the data-dir copy — the
+    // The original run's context, saved only under the data-dir copy: the
     // merged branch took the runs/ dir, exactly the fallback path dispatch
     // leaves behind for later reversals.
     const target = buildContext({
       runId: "run_target",
       kind: "IMPLEMENTATION/ADDITION",
-      spec: REFUND_CLUSTERING_HOLD,
+      spec: COMPANIES_HOUSE_CHECK,
       scope: "rule",
-      intent: "hold",
+      intent: "check",
       requestedBy: "admin",
-      clusterKey: "Kestrel Outdoors",
-      evidenceIds: KESTREL,
+      evidenceKey: CASE,
+      evidenceIds: EVIDENCE,
       repoRoot: root,
     });
     const saved = JSON.parse(target.json) as ContextFile;
-    saved.evidence.rows = [
-      {
-        id: "rfnd_since_deleted",
-        merchant: "Kestrel Outdoors",
-        reasonCode: "not_received",
-        usdMinor: 12345,
-        requestedAt: "2024-01-01T00:00:00.000Z",
-      },
-    ];
+    saved.evidence.rows = [{ id: "kyc_since_closed", facts: { company: "Gone Ltd" } }];
     const dir = join(root, "apps", "console", "data", "runs", "run_target");
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "context.json"), JSON.stringify(saved));
 
-    // rfnd_since_deleted is not in today's cluster — a live evidence read
-    // would throw. The reversal must carry the original rows instead.
+    // kyc_since_closed doesn't exist today, so a live read would throw. The
+    // reversal must carry the original rows instead.
     const reversal = buildContext({
       runId: "run_rev",
       kind: "REVERSAL",
-      spec: REFUND_CLUSTERING_HOLD,
+      spec: COMPANIES_HOUSE_CHECK,
       scope: "rule",
-      intent: "undo the hold",
+      intent: "undo the check",
       requestedBy: "admin",
-      clusterKey: "Kestrel Outdoors",
-      evidenceIds: ["rfnd_since_deleted"],
+      evidenceKey: CASE,
+      evidenceIds: ["kyc_since_closed"],
       reverses: { runId: "run_target", mergeCommit: "f".repeat(40) },
       repoRoot: root,
     });
-    expect(reversal.context.evidence.rows.map((r) => r.id)).toEqual(["rfnd_since_deleted"]);
+    expect(reversal.context.evidence.rows.map((r) => r.id)).toEqual(["kyc_since_closed"]);
     expect(reversal.context.reverses?.constants_at_dispatch).toEqual(saved.constants);
   });
 });
@@ -426,8 +509,8 @@ describe("run files", () => {
 
 describe("lifecycle", () => {
   it("dispatch → record_session → approve_pr → record_merge writes exactly four audit rows", () => {
-    const run = applied(dispatch(refundsManager));
-    applied(act(refundsManager, "record_session", run.id, { sessionId: "devin-life" }));
+    const run = applied(dispatch(kycManager));
+    applied(act(kycManager, "record_session", run.id, { sessionId: "devin-life" }));
     expect(getRun(run.id)?.status).toBe("running");
     applied(
       act(secondEngineer, "approve_pr", run.id, { prUrl: PR, checksGreen: true, branchContextSha256: SHA }),

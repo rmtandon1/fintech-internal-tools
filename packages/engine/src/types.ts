@@ -309,8 +309,6 @@ export interface ClusterDecl {
   groups: () => ClusterGroup[];
   /** The action whose policy trace is shown for each row in the group. */
   traceAction?: string;
-  /** The spec a Devin run for this cluster would follow, if any. */
-  handoffSpec?: string;
 }
 
 export interface ListOptions {

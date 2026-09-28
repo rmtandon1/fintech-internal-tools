@@ -273,6 +273,23 @@ const REFUNDS: SeedRefund[] = [
     requestedHoursAgo: 80,
     lastNote: "Merchant has not responded to the delivery query.",
   },
+  {
+    id: "rfnd_0015",
+    paymentId: "pay_7718204",
+    customerEmail: "bookings@meridianair.example.com",
+    cardLast4: "4402",
+    merchant: "Meridian Air Charters",
+    psp: "adyen",
+    currency: "USD",
+    capturedMinor: 840_000,
+    refundedMinor: 0,
+    amountMinor: 840_000,
+    reasonCode: "cancelled",
+    disputed: false,
+    status: "requested",
+    requestedHoursAgo: 6,
+    lastNote: "Charter cancelled by the operator; the booking terms owe a full refund.",
+  },
 ];
 
 /** Idempotent: re-running restores the demo refunds to their opening state. */

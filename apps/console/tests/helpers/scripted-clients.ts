@@ -62,7 +62,7 @@ interface ScriptFile {
   reason: string;
 }
 
-/** The run's change set, taken from REFUND_CLUSTERING_HOLD.md's Scope list. */
+/** A plausible change set for a scripted run; the tests read its shape, not its paths. */
 function scriptFiles(kind: RunKind, runId: string): ScriptFile[] {
   if (kind === "REVERSAL") {
     return [

@@ -1,0 +1,26 @@
+App:
+  Properties:
+    Name: Chargebacks
+    Theme: =PowerAppsTheme
+    StartScreen: =DisputesScreen
+    OnStart: |-
+      =Set(varTeamLeadsGroup, "disputes-leads@fintech.example.com");
+      Set(varFightApprovalLimit, 2500);
+      Set(varFraudAcceptLimit, 500)
+  DataSources:
+    Disputes:
+      Type: SharePointList
+      Site: https://fintech.sharepoint.example.com/sites/Disputes
+      List: Disputes
+      Columns:
+        DisputeId: Text
+        CardNetwork: Choice(Visa, Mastercard, Amex)
+        ReasonCode: Text
+        ReasonCategory: Choice(Fraud, Not received, Not as described, Duplicate, Cancelled)
+        Merchant: Text
+        AmountUSD: Currency
+        OpenedOn: DateTime
+        DueDate: DateTime
+        Status: Choice(Open, Evidence requested, Fighting, Accepted, Won, Lost)
+        EvidenceUploaded: YesNo
+        Notes: MultilineText

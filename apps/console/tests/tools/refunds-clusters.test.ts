@@ -26,7 +26,6 @@ describe("refunds clusters", () => {
     const cluster = refundTool.clusters?.find((c) => c.id === "merchant_not_received");
     expect(cluster).toBeDefined();
     expect(cluster?.traceAction).toBe("execute");
-    expect(cluster?.handoffSpec).toBe("REFUND_CLUSTERING_HOLD.md");
     expect(cluster?.groups()).toEqual(notReceivedByMerchant());
   });
 

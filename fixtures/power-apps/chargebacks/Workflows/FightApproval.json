@@ -1,0 +1,76 @@
+{
+  "name": "FightApproval",
+  "properties": {
+    "displayName": "Chargebacks: fight approval",
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "triggers": {
+        "PowerApps": {
+          "type": "Request",
+          "kind": "PowerAppV2",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "DisputeId": { "type": "string" },
+                "RequestedBy": { "type": "string" },
+                "Note": { "type": "string" }
+              },
+              "required": ["DisputeId", "RequestedBy", "Note"]
+            }
+          }
+        }
+      },
+      "actions": {
+        "Start_and_wait_for_an_approval": {
+          "type": "OpenApiConnectionWebhook",
+          "inputs": {
+            "host": { "connectionName": "shared_approvals", "operationId": "StartAndWaitForAnApproval" },
+            "parameters": {
+              "approvalType": "Basic",
+              "WebhookApprovalCreationInput/title": "Fight dispute @{triggerBody()?['DisputeId']}?",
+              "WebhookApprovalCreationInput/assignedTo": "disputes-leads@fintech.example.com",
+              "WebhookApprovalCreationInput/details": "@{triggerBody()?['Note']}",
+              "WebhookApprovalCreationInput/requestor": "@{triggerBody()?['RequestedBy']}"
+            }
+          }
+        },
+        "If_approved": {
+          "type": "If",
+          "runAfter": { "Start_and_wait_for_an_approval": ["Succeeded"] },
+          "expression": { "equals": ["@body('Start_and_wait_for_an_approval')?['outcome']", "Approve"] },
+          "actions": {
+            "Mark_fighting": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "connectionName": "shared_sharepointonline", "operationId": "PatchItem" },
+                "parameters": {
+                  "table": "Disputes",
+                  "filter": "DisputeId eq '@{triggerBody()?['DisputeId']}'",
+                  "item/Status/Value": "Fighting",
+                  "item/Notes": "@{triggerBody()?['Note']}"
+                }
+              }
+            }
+          },
+          "else": {
+            "actions": {
+              "Post_to_Teams": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": { "connectionName": "shared_teams", "operationId": "PostMessageToConversation" },
+                  "parameters": {
+                    "poster": "Flow bot",
+                    "location": "Channel",
+                    "body/recipient/channelId": "disputes",
+                    "body/messageBody": "Fight on @{triggerBody()?['DisputeId']} was declined"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

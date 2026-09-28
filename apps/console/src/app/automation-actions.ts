@@ -62,7 +62,7 @@ export async function dispatchAutomationRun(form: FormData): Promise<BridgeResul
     const evidence =
       parsed.data.kind === "REVERSAL" && parsed.data.reverses
         ? reversalEvidence(deps.repoRoot, parsed.data.reverses)
-        : { clusterKey: parsed.data.clusterKey ?? "", evidenceIds: parsed.data.evidenceIds };
+        : { evidenceKey: parsed.data.evidenceKey ?? "", evidenceIds: parsed.data.evidenceIds };
     const outcome = await dispatchRun(
       actor,
       { ...parsed.data, ...evidence, reverses: parsed.data.reverses ?? null },

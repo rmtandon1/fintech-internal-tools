@@ -37,7 +37,7 @@ export default async function PolicyConstantsPage() {
       return { kind, label, enabled: false, reason: `Only ${who.join(", ")} may start this run` };
     }
     try {
-      const offer = buildHandoffOffer(spec, kind, actor, { clusterKey: "", evidenceIds: [] }, deps);
+      const offer = buildHandoffOffer(spec, kind, actor, { evidenceKey: "", evidenceIds: [] }, deps);
       return offer
         ? { kind, label, enabled: true, offer }
         : { kind, label, enabled: false, reason: "Context unavailable" };

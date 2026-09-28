@@ -12,22 +12,22 @@
 | Change                                | Example in this console                                          | Path                                                                                                                                  | Devin?                              |
 | ------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
 | Tune a threshold                      | `refunds.manager_approval_usd_minor` from $500 to $750           | `/admin/policy`, seconds, audited                                                                                                     | No                                  |
-| Switch a rule off in an emergency     | `refunds.clustering_window_days` to 0                            | `/admin/policy`, seconds, audited                                                                                                     | No                                  |
+| Switch a rule off in an emergency     | The rule's own setting, at the value that turns it off           | `/admin/policy`, seconds, audited                                                                                                     | No                                  |
 | Move a product flag                   | `payments.instant_payouts` from 25% to 50%                       | Flags app, under its own policy rules                                                                                                 | No                                  |
-| Add a rule                            | Hold clustered `not_received` refunds                            | Devin run, pull request, engineer approval, Devin merge                                                                               | Yes                                 |
-| Remove a rule                         | Take the clustering hold back out                                | Devin reversal, same gates                                                                                                            | Yes                                 |
-| Add an app                            | `flags`, the third app Devin built, with `packages/engine/` untouched | Larger Devin run, same guards                                                                                                         | Yes                                 |
+| Add a rule or a check                 | Check UK businesses on Companies House (Demo 1)                  | Devin run, pull request, engineer approval, Devin merge                                                                               | Yes                                 |
+| Remove a rule                         | Take the Companies House check back out                          | Devin reversal, same gates                                                                                                            | Yes                                 |
+| Add an app                            | Chargebacks, rebuilt from its Power Apps export (Demo 3)         | Larger Devin run, same guards                                                                                                         | Yes                                 |
 | Change a requirement every app shares | A reason and a ticket reference on every privileged action       | Devin run with engine scope. The engine owner approves as well as an engineer, and the reviewer checks every path before merge        | Yes, with the engine owner's review |
-| Change the engine                     | Refunds above a line need two different managers                 | An engineer designs it: a second approval record, a quorum check, a schema migration. Devin can implement it under engineering review | Not on its own                      |
+| Change the engine                     | Refunds above a line need two different approvers (Demo 2)       | An engineer designs it: a record per approver, a quorum check, a migration. Devin implements that design, and the engine owner reviews | Yes, from engineering's design      |
 
 
-Adding a rule is probably the change that needs code most often. That is an assumption, with no client data behind it. The clustering hold is a hard example of it:
+Adding a rule or a check is probably the change that needs code most often. That is an assumption, with no client data behind it. The Companies House check is a hard example of it:
 
-- No setting or flag for it could exist in advance, because nobody had seen the pattern.
-- It reads two apps, which Power Apps keeps apart.
-- It moves money, so review matters.
-- It has edge cases the code already handles: rejected refunds, goodwill refunds, fixed exchange rates.
-- Later it has to be undone.
+- It needs outside data, which a Power Automate flow reaches only through a premium connector licensed per user.
+- It needs a key kept on the server and never shown to the browser.
+- Its failure mode matters: an outage at Companies House must hold a case, not wave it through.
+- It feeds a register and a rule the console already has, so it should reuse them rather than add its own.
+- Later it may have to be undone.
 
 
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Icon } from "@console/ui/icon";
+import { AskDevin } from "@/components/ask-devin";
 import { ContextDrawer } from "@/components/context-drawer";
 import {
   LinkedActivityBody,
@@ -11,6 +12,7 @@ import { RecordView } from "@/components/record-view";
 import { RunView } from "@/components/run-view";
 import { StatusChip } from "@console/ui/status-chip";
 import { automationTool, getRun } from "@console/tool-automation";
+import { recordTriggers } from "@/lib/run-triggers";
 import { currentActor } from "@/lib/session";
 import { getTool } from "@/registry";
 
@@ -31,6 +33,7 @@ export default async function RecordPage({
   const activity = decl.linkedActivity?.(record, actor) ?? null;
   const linked = activity ? getTool(activity.tool) : undefined;
   const run = decl.name === automationTool.name ? getRun(id) : null;
+  const triggers = run ? [] : recordTriggers(decl.name, record, actor);
 
   const panel = (
     <Panel
@@ -71,6 +74,9 @@ export default async function RecordPage({
         </Link>
         <Icon name="ChevronRight" className="size-3" />
         <span>{String(record[decl.titleField] ?? record.id)}</span>
+        <div className="ml-auto">
+          <AskDevin triggers={triggers} />
+        </div>
       </div>
 
       {activity ? (

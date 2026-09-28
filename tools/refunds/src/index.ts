@@ -387,7 +387,6 @@ export const refundTool = defineTool<Refund>({
       label: "Refunds that add up past the manager limit",
       groups: () => notReceivedByMerchant(),
       traceAction: "execute",
-      handoffSpec: "REFUND_CLUSTERING_HOLD.md",
     },
   ],
   list: ({ filters, search, sort, limit, offset }) => {

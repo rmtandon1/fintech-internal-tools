@@ -1,0 +1,56 @@
+Screens:
+  DisputesScreen:
+    Properties:
+      Fill: =RGBA(250, 250, 250, 1)
+    Children:
+      - HeaderLabel:
+          Control: Label
+          Properties:
+            Text: ="Open disputes (" & CountRows(galDisputes.AllItems) & ")"
+      - DueSoonBanner:
+          Control: Label
+          Properties:
+            Visible: =CountRows(Filter(Disputes, Status = "Open" && AmountUSD > 1000 && DueDate <= DateAdd(Now(), 48, TimeUnit.Hours))) > 0
+            Text: =CountRows(Filter(Disputes, Status = "Open" && AmountUSD > 1000 && DueDate <= DateAdd(Now(), 48, TimeUnit.Hours))) & " disputes over $1,000 are due within 48 hours"
+            Color: =RGBA(180, 35, 24, 1)
+      - drpNetwork:
+          Control: Dropdown
+          Properties:
+            Items: =["All", "Visa", "Mastercard", "Amex"]
+            Default: ="All"
+      - galDisputes:
+          Control: Gallery
+          Properties:
+            Items: |-
+              =SortByColumns(
+                  Filter(
+                      Disputes,
+                      Status in ["Open", "Evidence requested", "Fighting"],
+                      drpNetwork.Selected.Value = "All" || CardNetwork.Value = drpNetwork.Selected.Value
+                  ),
+                  "DueDate",
+                  SortOrder.Ascending
+              )
+            OnSelect: =Navigate(DisputeDetailScreen, ScreenTransition.None, {selectedDispute: ThisItem})
+          Children:
+            - lblId:
+                Control: Label
+                Properties:
+                  Text: =ThisItem.DisputeId
+            - lblMerchant:
+                Control: Label
+                Properties:
+                  Text: =ThisItem.Merchant
+            - lblAmount:
+                Control: Label
+                Properties:
+                  Text: =Text(ThisItem.AmountUSD, "$#,##0.00")
+            - lblDue:
+                Control: Label
+                Properties:
+                  Text: =Text(ThisItem.DueDate, "dd mmm yyyy")
+                  Color: =If(ThisItem.DueDate <= DateAdd(Now(), 48, TimeUnit.Hours), RGBA(180, 35, 24, 1), RGBA(51, 51, 51, 1))
+            - lblStatus:
+                Control: Label
+                Properties:
+                  Text: =ThisItem.Status.Value

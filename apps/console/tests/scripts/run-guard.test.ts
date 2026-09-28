@@ -71,7 +71,7 @@ function contextJson(o: ContextOverrides = {}): string {
       base: { branch: BASE_BRANCH, commit: "1a67f60a1a67f60a1a67f60a1a67f60a1a67f60a" },
       scope: o.scope ?? DEFAULT_SCOPE,
       constants: { "refunds.manager_approval_usd_minor": 50000 },
-      evidence: { cluster: "merchant_not_received:Kestrel Outdoors", rows: [] },
+      evidence: { source: "refunds:rfnd_0015", rows: [] },
       reverses: null,
       audit_head: { seq: 1, rowHash: "abc" },
     },

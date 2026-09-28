@@ -8,25 +8,31 @@ import {
   type RunnableSpec,
 } from "@console/tool-automation";
 import { readContextJson, type BridgeDeps } from "@console/tool-automation/bridge";
+import { devinMode } from "@/lib/devin-status";
 
 /**
  * Everything the handoff panel shows and the dispatch needs, built on the
  * server with a placeholder run id. The requester sees exactly what Devin
- * will see: evidence with no PII, the constants snapshot and the base.
+ * will see: evidence with no personal data, the settings snapshot and the base.
  */
 export interface HandoffOffer {
   spec: string;
   kind: RunKind;
-  /** The kind as the operator reads it, e.g. "New rule". */
+  /** The kind as the operator reads it, e.g. "Addition". */
   kindLabel: string;
+  /** The panel's heading and the one line under it, from the spec. */
+  title: string;
+  description: string;
   intent: string;
   scope: string;
-  clusterKey: string;
+  evidenceKey: string;
   evidenceIds: string[];
   evidence: EvidenceRow[];
   constants: Record<string, number>;
   base: { branch: string; commit: string };
   scopePaths: string[];
+  /** False without `DEVIN_API_KEY`: the panel shows the brief but can't send it. */
+  live: boolean;
   reverses?: { runId: string; mergeCommit: string; prUrl: string | null } | null;
 }
 
@@ -39,55 +45,66 @@ export type AgentFocus =
 export function reversalEvidence(
   repoRoot: string,
   reverses: string,
-): { clusterKey: string; evidenceIds: string[] } {
+): { evidenceKey: string; evidenceIds: string[] } {
   const json = readContextJson(repoRoot, reverses);
   if (!json) throw new Error(`No context.json on disk for run ${reverses}`);
   const context = ContextFile.parse(JSON.parse(json));
-  const sep = context.evidence.cluster.indexOf(":");
+  const sep = context.evidence.source.indexOf(":");
   return {
-    clusterKey: sep < 0 ? context.evidence.cluster : context.evidence.cluster.slice(sep + 1),
+    evidenceKey: sep < 0 ? context.evidence.source : context.evidence.source.slice(sep + 1),
     evidenceIds: context.evidence.rows.map((row) => row.id),
   };
 }
 
 /**
- * Build the offer the agent column's handoff panel renders. Returns null
- * when the context cannot be built (for example a stale evidence id), so a
- * caller can simply omit the button.
+ * Build the offer the Devin window's handoff panel renders. Returns null
+ * when the context can't be built (for example a record that no longer
+ * qualifies), so a caller can simply omit the button.
  */
 export function buildHandoffOffer(
   spec: RunnableSpec,
   kind: RunKind,
   actor: Actor,
-  input: { clusterKey: string; evidenceIds: readonly string[]; reverses?: HandoffOffer["reverses"] },
+  input: { evidenceKey: string; evidenceIds: readonly string[]; reverses?: HandoffOffer["reverses"] },
   deps: Pick<BridgeDeps, "repoRoot">,
 ): HandoffOffer | null {
-  const built = buildContext({
-    runId: "preview",
-    kind,
-    spec,
-    scope: "rule",
-    intent: spec.intents[kind] ?? "",
-    requestedBy: actor.role,
-    clusterKey: input.clusterKey,
-    evidenceIds: input.evidenceIds,
-    reverses: input.reverses
-      ? { runId: input.reverses.runId, mergeCommit: input.reverses.mergeCommit }
-      : null,
-    repoRoot: deps.repoRoot,
-  });
+  let built: ReturnType<typeof buildContext>;
+  try {
+    built = buildContext({
+      runId: "preview",
+      kind,
+      spec,
+      scope: spec.scope,
+      intent: spec.intents[kind] ?? "",
+      requestedBy: actor.role,
+      evidenceKey: input.evidenceKey,
+      evidenceIds: input.evidenceIds,
+      reverses: input.reverses
+        ? { runId: input.reverses.runId, mergeCommit: input.reverses.mergeCommit }
+        : null,
+      repoRoot: deps.repoRoot,
+    });
+  } catch {
+    return null;
+  }
   return {
     spec: spec.file,
     kind,
     kindLabel: runKindLabel(kind),
+    title: kind === "REVERSAL" ? "Undo this change" : spec.title,
+    description:
+      kind === "REVERSAL"
+        ? "Devin takes the change back out of the code and keeps everything built since. An engineer reviews it before it goes live."
+        : spec.description,
     intent: built.context.intent,
     scope: spec.scope,
-    clusterKey: input.clusterKey,
+    evidenceKey: input.evidenceKey,
     evidenceIds: [...input.evidenceIds],
     evidence: built.context.evidence.rows,
     constants: built.context.constants,
     base: built.context.base,
     scopePaths: built.context.scope,
+    live: devinMode() === "live",
     reverses: input.reverses ?? null,
   };
 }

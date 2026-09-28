@@ -109,15 +109,18 @@ const specKnown: RunRule<DispatchInput> = ({ input }) => {
 /**
  * DEVIN_RUN_PROTOCOL.md § Run kinds: the manager of the spec's domain or the
  * admin may ask for an addition or change; only the admin may ask for a
- * removal or reversal.
+ * removal or reversal, for an engine-scope change, or for a spec with no
+ * domain.
  */
 export function roleMayStart(role: Role, spec: RunnableSpec, kind: RunKind): boolean {
   const meta = ROLE_META[role];
-  const adminOnly = kind === "IMPLEMENTATION/REMOVAL" || kind === "REVERSAL";
-  return (
-    meta.level === "admin" ||
-    (!adminOnly && meta.level === "manager" && meta.domain === spec.domain)
-  );
+  if (meta.level === "admin") return true;
+  const adminOnly =
+    kind === "IMPLEMENTATION/REMOVAL" ||
+    kind === "REVERSAL" ||
+    spec.scope === "engine" ||
+    spec.domain === null;
+  return !adminOnly && meta.level === "manager" && meta.domain === spec.domain;
 }
 
 /** The kinds of `spec` that `role` may dispatch, in the spec's own order. */

@@ -103,6 +103,13 @@ describe("kyc case file", () => {
     );
   });
 
+  it("kyc_0104, a low-risk UK business checked by hand, approves straight through for a reviewer", () => {
+    const result = act(kycReviewer, "approve", "kyc_0104");
+    expect(result.outcome.status).toBe("applied");
+    expect(traceOf(result.outcome).every((o) => o.type === "allow")).toBe(true);
+    expect(kycTool.get("kyc_0104")?.materialDifferences).toBe(0);
+  });
+
   it("kyc_0103 needs a manager by declared_vs_found only", () => {
     const result = act(kycReviewer, "approve", "kyc_0103");
     expect(result.outcome.status).toBe("pending_approval");

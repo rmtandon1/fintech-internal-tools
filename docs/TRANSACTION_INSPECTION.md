@@ -4,8 +4,8 @@
 
 - The refunds queue gains a strip that shows patterns across rows: `Kestrel Outdoors · 4 not_received · $1,880 · 14d`.
 - Clicking it opens a drawer over the queue with the refunds behind the total and the rules that allowed each one.
-- The drawer offers one action to refunds managers and admins: **Ask Devin for a rule**, which opens the handoff panel in `AGENT_TRIGGER_SURFACE.md`.
-- It replaces the analyst's Excel pivot and one-at-a-time email lookups, and it is where the demo's first scenario starts.
+- The drawer is read-only. It shows the pattern and the rules that allowed each row, so a manager can see what no rule catches.
+- It replaces the analyst's Excel pivot and one-at-a-time email lookups.
 - Clusters are declared on the tool, so a new cluster type is a declaration. Normal feature work by a build agent.
 
 ## The problem
@@ -14,26 +14,21 @@
 
 | Cluster | What it reveals | What the operator does |
 |---|---|---|
-| Merchant × `not_received`, within the window | Refunds stacked just under the manager line | Asks Devin for the clustering hold (`REFUND_CLUSTERING_HOLD.md`) |
+| Merchant × `not_received`, within the window | Refunds stacked just under the manager line | Sees that no rule catches the pattern, and can ask for one |
 
-One cluster type is enough for the demo. `ClusterDecl` is generic, so adding another later is a declaration. Refunds are the transaction stream in this repo.
+One cluster type is enough for now. `ClusterDecl` is generic, so adding another later is a declaration. Refunds are the transaction stream in this repo.
 
 ## Why a drawer
 
-The inspection exists to act on the queue beside it. A drawer keeps the list visible and dimmed behind the cluster. That gives the demo a shot a full page can't: the pattern and the queue on screen together. The drawer is addressable by URL (`/t/refunds?inspect=merchant_not_received:Kestrel%20Outdoors`), so a link in Slack or in a Devin PR opens the same view.
+The inspection exists to act on the queue beside it. A drawer keeps the list visible and dimmed behind the cluster. That gives a view a full page can't: the pattern and the queue on screen together. The drawer is addressable by URL (`/t/refunds?inspect=merchant_not_received:Kestrel%20Outdoors`), so a link in Slack or in a Devin PR opens the same view.
 
 ## Operator flow
 
 1. `/t/refunds` shows a strip above the table: `Kestrel Outdoors · 4 not_received · $1,880 · 14d`.
 2. Clicking it opens the drawer. The drawer shows the group total, the rows behind it (PII masked per role), and the rules that ran on each row, all of which allowed it.
-3. **Ask Devin for a rule** opens the handoff panel with the intent sentence prefilled from the spec. The operator can edit it. Starting the run submits `automation.dispatch` through `submitIntent`, so it follows the same governed path and writes the same kind of audit row as everything else. How the panel behaves from there is in `AGENT_TRIGGER_SURFACE.md`.
-4. Until a rule exists, the drawer reads: "No rule covers this pattern."
+3. Until a rule exists, the drawer reads: "No rule catches this today."
 
-### On camera
-
-This is the gap in scenario 1 (`CUSTOMER_FRAMING.md` § 3 › "1. Rules from the queue"), and it replaces the analyst's Excel pivot and one-at-a-time email lookups. The shot that matters is the drawer open over the dimmed queue: four rows, each with a green `amount_approval` trace, and a $1,880 total above them. Each refund is clean. Together they aren't. The viewer should read that from the screen before the presenter says it.
-
-RBAC: every role can open clusters, because aggregates carry no PII. Row emails and card numbers go through `maskRecord`. **Ask Devin for a rule** renders for `refunds_manager` and `admin`. A `refunds_agent` sees the cluster and a note that a refunds manager can request a rule. KYC roles can't open `/t/refunds` at all (`visibleTo` is `rolesFor("refunds", "agent")`).
+RBAC: every role can open clusters, because aggregates carry no PII. Row emails and card numbers go through `maskRecord`. KYC roles can't open `/t/refunds` at all (`visibleTo` is `rolesFor("refunds", "agent")`).
 
 ## Changes by file
 
@@ -59,8 +54,6 @@ export interface ClusterDecl {
   id: string;
   label: string;
   groups: () => ClusterGroup[];
-  /** The spec a Devin run for this cluster would follow, if any. */
-  handoffSpec?: string;
   /** The action whose policy trace each drawer row shows, e.g. "execute". */
   traceAction?: string;
 }
@@ -82,7 +75,6 @@ Declare the cluster:
       id: "merchant_not_received",
       label: "Stacked under the manager line",
       groups: () => notReceivedByMerchant(),
-      handoffSpec: "REFUND_CLUSTERING_HOLD.md",
       traceAction: "execute",
     },
   ],
@@ -121,6 +113,5 @@ pnpm db:setup && pnpm dev   # open /t/refunds; the chip is visible; the drawer o
 ```
 
 - The cluster appears on a fresh `pnpm db:setup`.
-- As `refunds_agent`, drawer rows show masked email and card, and there is no handoff button.
-- As `refunds_manager`, the handoff button opens the panel.
+- As `refunds_agent`, drawer rows show masked email and card.
 - `/t/kyc` and `/t/flags` render unchanged.

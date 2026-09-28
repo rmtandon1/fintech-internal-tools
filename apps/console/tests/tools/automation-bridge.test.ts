@@ -20,7 +20,7 @@ import {
   httpGitHubClient,
   IN_FLIGHT_STATUSES,
   parsePullUrl,
-  REFUND_CLUSTERING_HOLD,
+  COMPANIES_HOUSE_CHECK,
   type SessionSnapshot,
   type StructuredOutput,
 } from "@console/tool-automation";
@@ -42,10 +42,10 @@ import { kycTool } from "@console/tool-kyc";
 import { devinRuns } from "@console/tool-automation/schema";
 import { refundTool } from "@console/tool-refunds";
 import { fakeGit } from "../helpers/fake-git";
-import { admin, refundsAgent, refundsManager, setupHarness } from "../helpers/harness";
+import { admin, kycManager, refundsAgent, refundsManager, setupHarness } from "../helpers/harness";
 
 const engineer: Actor = { id: "usr_engineer", name: "Engineer", role: "engineer" };
-const KESTREL = ["rfnd_0011", "rfnd_0012", "rfnd_0013", "rfnd_0014"];
+const CASE = ["kyc_0003"];
 const PR = "https://github.com/rmtandon1/buy-v-build-cog-demo/pull/99";
 const HEAD = "c".repeat(40);
 const MERGE = "d".repeat(40);
@@ -56,6 +56,7 @@ beforeAll(() => {
   setupHarness();
   registerConstants([...(refundTool.constants ?? []), ...(kycTool.constants ?? [])]);
   refundTool.seed?.();
+  kycTool.seed?.();
   repoRoot = mkdtempSync(join(tmpdir(), "bridge-repo-"));
   const git = (...args: string[]) =>
     execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd: repoRoot });
@@ -124,12 +125,12 @@ function deps(over: Partial<BridgeDeps>): BridgeDeps {
 }
 
 const request = {
-  spec: REFUND_CLUSTERING_HOLD.file,
+  spec: COMPANIES_HOUSE_CHECK.file,
   kind: "IMPLEMENTATION/ADDITION" as const,
   scope: "rule" as const,
-  intent: REFUND_CLUSTERING_HOLD.intents["IMPLEMENTATION/ADDITION"] ?? "",
-  clusterKey: "Kestrel Outdoors",
-  evidenceIds: KESTREL,
+  intent: COMPANIES_HOUSE_CHECK.intents["IMPLEMENTATION/ADDITION"] ?? "",
+  evidenceKey: "kyc_0003",
+  evidenceIds: CASE,
 };
 
 function output(over: Partial<StructuredOutput> = {}): StructuredOutput {
@@ -171,7 +172,7 @@ describe("dispatchRun", () => {
   it("writes context.json, dispatches, creates the session with the context attached, then records it", async () => {
     stopAll();
     const devin = fakeDevin({});
-    const out = await dispatchRun(refundsManager, request, deps({ devin: devin.client }));
+    const out = await dispatchRun(kycManager, request, deps({ devin: devin.client }));
     expect(out.dispatch.outcome.status).toBe("applied");
     expect(out.session?.outcome.status).toBe("applied");
     expect(out.sessionUrl).toBe("https://app.devin.ai/sessions/abc");
@@ -192,8 +193,8 @@ describe("dispatchRun", () => {
     expect(req.structuredOutputSchema).toHaveProperty("properties");
     expect(req.prompt).toContain(request.intent);
     expect(req.prompt).toContain("Scope: rule.");
-    expect(req.prompt).not.toContain("REFUND_CLUSTERING_HOLD");
-    expect(req.title).not.toContain("REFUND_CLUSTERING_HOLD");
+    expect(req.prompt).not.toContain("COMPANIES_HOUSE_CHECK");
+    expect(req.title).not.toContain("COMPANIES_HOUSE_CHECK");
     expect(req.prompt).toContain(".devin/run-protocol.playbook.md");
     expect(req.prompt).not.toContain("Repository:");
   });
@@ -208,14 +209,14 @@ describe("dispatchRun", () => {
     );
     expect(out.dispatch.outcome.status).toBe("applied");
     const req = devin.created[0];
-    expect(req.prompt).toContain("Scope: engine. Spec: docs/REFUND_CLUSTERING_HOLD.md");
+    expect(req.prompt).toContain("Scope: engine. Spec: docs/COMPANIES_HOUSE_CHECK.md");
     expect(req.prompt).not.toContain("The attachment is the whole brief");
   });
 
   it("names the repository and base branch in the prompt when it is known", async () => {
     stopAll();
     const devin = fakeDevin({});
-    await dispatchRun(refundsManager, request, deps({ devin: devin.client, repository: "acme/ops-console" }));
+    await dispatchRun(kycManager, request, deps({ devin: devin.client, repository: "acme/ops-console" }));
     expect(devin.created[0].prompt).toMatch(
       /Repository: https:\/\/github\.com\/acme\/ops-console\. Branch from devin\/test at [0-9a-f]{7} and open the pull request against devin\/test\./,
     );
@@ -229,13 +230,13 @@ describe("dispatchRun", () => {
       lookups.push("lookup");
       return "playbook-found";
     };
-    await dispatchRun(refundsManager, request, deps({ devin: found.client, resolvePlaybookId }));
+    await dispatchRun(kycManager, request, deps({ devin: found.client, resolvePlaybookId }));
     expect(found.created[0].playbookId).toBe("playbook-found");
 
     stopAll();
     const configured = fakeDevin({});
     await dispatchRun(
-      refundsManager,
+      kycManager,
       request,
       deps({ devin: configured.client, playbookId: "playbook-env", resolvePlaybookId }),
     );
@@ -247,7 +248,7 @@ describe("dispatchRun", () => {
     stopAll();
     const devin = fakeDevin({});
     const out = await dispatchRun(
-      refundsManager,
+      kycManager,
       request,
       deps({ devin: devin.client, resolvePlaybookId: () => Promise.reject(new Error("HTTP 500")) }),
     );
@@ -260,7 +261,7 @@ describe("dispatchRun", () => {
     const devin = fakeDevin({
       create: () => Promise.reject(new Error("Devin API 401 on /sessions: bad key")),
     });
-    const out = await dispatchRun(refundsManager, request, deps({ devin: devin.client }));
+    const out = await dispatchRun(kycManager, request, deps({ devin: devin.client }));
     expect(out.dispatch.outcome.status).toBe("applied");
     const run = getRun(out.runId);
     expect(run?.status).toBe("dispatch_failed");
@@ -411,7 +412,7 @@ describe("observeRun", () => {
   it("records nothing while the session reports no pull request", async () => {
     const run = await running();
     const devin = fakeDevin({ snapshot: { status: "working", statusDetail: null, structuredOutput: output() } });
-    const out = await observeRun(refundsManager, run, deps({ devin: devin.client }));
+    const out = await observeRun(kycManager, run, deps({ devin: devin.client }));
     expect(out.poll.kind).toBe("output");
     expect(out.record).toBeNull();
     expect(getRun(run.id)?.version).toBe(run.version);
@@ -419,8 +420,7 @@ describe("observeRun", () => {
 
   it("skips recording for a manager outside the run's domain, so the next poller can still record", async () => {
     const run = await running();
-    const kycManager: Actor = { id: "usr_kyc_mgr", name: "KYC manager", role: "kyc_manager" };
-    const out = await observeRun(kycManager, run, deps({ devin: reportingPr().client }));
+    const out = await observeRun(refundsManager, run, deps({ devin: reportingPr().client }));
     expect(out.record).toBeNull();
     expect(getRun(run.id)?.prUrl).toBeNull();
     expect(getRun(run.id)?.version).toBe(run.version);
@@ -521,7 +521,7 @@ describe("approveRun", () => {
   it("denies a non-engineer before touching the review endpoint", async () => {
     const run = await runningWithPr();
     const github = fakeGitHub({ green: true, contextSha: run.contextSha256 });
-    const out = await approveRun(refundsManager, run, undefined, deps({ github: github.client, devin: reportingPr().client }));
+    const out = await approveRun(kycManager, run, undefined, deps({ github: github.client, devin: reportingPr().client }));
     expect(out.approve.outcome.status).not.toBe("applied");
     expect(github.calls).not.toContain("approve");
   });
@@ -568,7 +568,7 @@ describe("observeMerge and stopRun", () => {
     expect(after?.prUrl).toBe(PR);
   });
 
-  it("builds a reversal's context from the merged run's cluster, not the caller's", async () => {
+  it("builds a reversal's context from the merged run's evidence, not the caller's", async () => {
     const run = await approved();
     await observeMerge(admin, run, deps({ github: fakeGitHub({ merged: true }).client }));
     const devin = fakeDevin({});
@@ -577,8 +577,8 @@ describe("observeMerge and stopRun", () => {
       {
         ...request,
         kind: "REVERSAL",
-        intent: REFUND_CLUSTERING_HOLD.intents.REVERSAL ?? "",
-        clusterKey: "Forged Merchant",
+        intent: COMPANIES_HOUSE_CHECK.intents.REVERSAL ?? "",
+        evidenceKey: "kyc_0001",
         evidenceIds: [],
         reverses: run.id,
       },
@@ -586,7 +586,7 @@ describe("observeMerge and stopRun", () => {
     );
     expect(out.dispatch.outcome.status).toBe("applied");
     const context = JSON.parse(readFileSync(join(repoRoot, "runs", out.runId, "context.json"), "utf8"));
-    expect(context.evidence.cluster).toBe(`${REFUND_CLUSTERING_HOLD.evidence.cluster}:Kestrel Outdoors`);
+    expect(context.evidence.source).toBe("kyc:kyc_0003");
     expect(context.reverses).toMatchObject({ run_id: run.id, merge_commit: MERGE });
     expect(getRun(out.runId)?.reverses).toBe(run.id);
   });
@@ -855,8 +855,8 @@ describe("reconcileRuns", () => {
         .values({
           id,
           kind: "IMPLEMENTATION/ADDITION",
-          spec: REFUND_CLUSTERING_HOLD.file,
-          tool: "refunds",
+          spec: COMPANIES_HOUSE_CHECK.file,
+          tool: "kyc",
           scope: "rule",
           intent: "seeded approved run",
           contextSha256: "f".repeat(64),

@@ -65,7 +65,7 @@ export interface DispatchRequest {
   kind: RunKind;
   scope: RunScope;
   intent: string;
-  clusterKey: string;
+  evidenceKey: string;
   evidenceIds: readonly string[];
   reverses?: string | null;
 }
@@ -105,14 +105,14 @@ export function readReplay(
   return [];
 }
 
-/** The cluster a run's `context.json` was built from, or null when it is missing or malformed. */
-function contextClusterKey(repoRoot: string, runId: string): string | null {
+/** The record a run's `context.json` was built from, or null when it is missing or malformed. */
+function contextEvidenceKey(repoRoot: string, runId: string): string | null {
   const raw = readContextJson(repoRoot, runId);
   if (!raw) return null;
   const parsed = ContextFile.safeParse(JSON.parse(raw));
   if (!parsed.success) return null;
-  const at = parsed.data.evidence.cluster.indexOf(":");
-  return at < 0 ? null : parsed.data.evidence.cluster.slice(at + 1) || null;
+  const at = parsed.data.evidence.source.indexOf(":");
+  return at < 0 ? null : parsed.data.evidence.source.slice(at + 1) || null;
 }
 
 function key(runId: string, step: string): string {
@@ -157,13 +157,13 @@ export async function dispatchRun(
   const runId = ulid();
 
   let reverses: { runId: string; mergeCommit: string } | null = null;
-  let clusterKey = req.clusterKey;
+  let evidenceKey = req.evidenceKey;
   if (req.reverses) {
     const target = getRun(req.reverses);
     if (!target?.mergeCommit) throw new Error(`${req.reverses} has no merge commit to reverse`);
     reverses = { runId: target.id, mergeCommit: target.mergeCommit };
     // A reversal's evidence is the merged run's, never the caller's.
-    clusterKey = contextClusterKey(deps.repoRoot, target.id) ?? "";
+    evidenceKey = contextEvidenceKey(deps.repoRoot, target.id) ?? "";
   }
 
   const built = buildContext({
@@ -173,7 +173,7 @@ export async function dispatchRun(
     scope: req.scope,
     intent: req.intent,
     requestedBy: actor.role,
-    clusterKey,
+    evidenceKey,
     evidenceIds: req.evidenceIds,
     reverses,
     repoRoot: deps.repoRoot,

@@ -1,0 +1,79 @@
+{
+  "name": "DeadlineAlert",
+  "properties": {
+    "displayName": "Chargebacks: deadline alert",
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "triggers": {
+        "Recurrence": {
+          "type": "Recurrence",
+          "recurrence": { "frequency": "Hour", "interval": 1 }
+        }
+      },
+      "actions": {
+        "Get_open_disputes": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "connectionName": "shared_sharepointonline", "operationId": "GetItems" },
+            "parameters": {
+              "dataset": "https://fintech.sharepoint.example.com/sites/Disputes",
+              "table": "Disputes",
+              "$filter": "Status eq 'Open' or Status eq 'Evidence requested'"
+            }
+          }
+        },
+        "For_each_dispute": {
+          "type": "Foreach",
+          "foreach": "@outputs('Get_open_disputes')?['body/value']",
+          "runAfter": { "Get_open_disputes": ["Succeeded"] },
+          "actions": {
+            "Deadline_missed": {
+              "type": "If",
+              "expression": { "less": ["@items('For_each_dispute')?['DueDate']", "@utcNow()"] },
+              "actions": {
+                "Close_as_lost": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": { "connectionName": "shared_sharepointonline", "operationId": "PatchItem" },
+                    "parameters": {
+                      "table": "Disputes",
+                      "id": "@items('For_each_dispute')?['ID']",
+                      "item/Status/Value": "Lost",
+                      "item/Notes": "Closed automatically: response deadline missed"
+                    }
+                  }
+                }
+              },
+              "else": {
+                "actions": {
+                  "Big_and_due_within_48h": {
+                    "type": "If",
+                    "expression": {
+                      "and": [
+                        { "greater": ["@items('For_each_dispute')?['AmountUSD']", 1000] },
+                        { "lessOrEquals": ["@items('For_each_dispute')?['DueDate']", "@addHours(utcNow(), 48)"] }
+                      ]
+                    },
+                    "actions": {
+                      "Email_team_lead": {
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "host": { "connectionName": "shared_office365", "operationId": "SendEmailV2" },
+                          "parameters": {
+                            "emailMessage/To": "disputes-leads@fintech.example.com",
+                            "emailMessage/Subject": "Dispute @{items('For_each_dispute')?['DisputeId']} over $1,000 is due within 48 hours",
+                            "emailMessage/Body": "@{items('For_each_dispute')?['Merchant']}, $@{items('For_each_dispute')?['AmountUSD']}, due @{items('For_each_dispute')?['DueDate']}"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

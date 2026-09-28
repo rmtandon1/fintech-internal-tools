@@ -3,13 +3,13 @@
 ## Summary
 
 - A business rule in this console is code. Devin adds, changes or removes it in a run, and a person approves every merge.
-- Feature specs (`REFUND_CLUSTERING_HOLD.md`, `PRIVILEGED_ACTION_JUSTIFICATION.md`) supply each run's intent sentence, scope and the reviewer's acceptance checklist. A rule run's session never reads the spec; an engine run reads only its sections marked as sent to Devin.
+- Each runnable change has a prompt written in advance (`tools/automation/src/specs.ts`), which the requester can edit, and a brief in `docs/` (`COMPANIES_HOUSE_CHECK.md`, `TWO_PERSON_APPROVAL.md`, `CHARGEBACKS_FROM_POWER_APPS.md`) holding the reviewer's checklist. A rule run's session never reads the brief; an engine run reads only its sections marked as sent to Devin.
 - Starting a run is a governed write, like any other action. Each run appears in the audit chain five times, when it is requested, picked up, opens its pull request, is approved, and merges.
 - The console hands Devin a context file with the live settings and evidence, without customer data. Devin commits its plan before its first edit, and security checks in CI hold the diff to that plan.
 - An engineer approves, then Devin merges.
 - A reversal removes one earlier change from the code as it is now, keeping everything merged since.
 - Switching a rule off is a setting change on `/admin/policy`, in seconds, with no run.
-- The console talks to the Devin v3 API from the server. `DEVIN_API_KEY` is the only setting it needs. Without it the console says Devin is not connected and dispatches nothing.
+- The console talks to the Devin v3 API from the server. `DEVIN_API_KEY` is the only setting it needs. Without it the console shows each request but sends nothing.
 
 
 
@@ -34,7 +34,7 @@ Moving a threshold or switching a rule off is a setting change on `/admin/policy
 
 ### Scope
 
-The kind says what a run does. Its scope says where it may do it, and so how much review it needs. Engine scope exists for the reason-and-ticket change (`PRIVILEGED_ACTION_JUSTIFICATION.md`).
+The kind says what a run does. Its scope says where it may do it, and so how much review it needs. Engine scope is for a change to how every app works, such as two-person approval (`TWO_PERSON_APPROVAL.md`), and for a new app, whose table and lockfile change touch engine paths (`CHARGEBACKS_FROM_POWER_APPS.md`).
 
 
 | Scope            | May change                                                                                      | Extra gate                                                                                                                |
@@ -47,9 +47,9 @@ Only an admin may dispatch a run with engine scope.
 
 ### Switching a rule off in seconds (KILL_SWITCH)
 
-Every rule a run adds reads its thresholds from admin-editable constants, and its spec names one value that makes the rule inert. For the clustering hold, that is a window of 0 days. The admin sets it on `/admin/policy`: immediate, audited, and no flag in the code. It covers the minutes a REVERSAL takes to open and be approved, while the rule may be holding genuine refunds. The REVERSAL then removes the rule from the code.
+Every rule a run adds reads its thresholds from admin-editable constants, and one value of them makes the rule inert, such as a limit set out of reach. The admin sets it on `/admin/policy`: immediate, audited, and no flag in the code. It covers the minutes a REVERSAL takes to open and be approved, while the rule may be holding genuine work. The REVERSAL then removes the rule from the code.
 
-Policy rules use constants, and product flags such as `payments.card_network_failover` stay flags, governed by the console. Reasoning: `CHANGE_TYPES.md` › Policy rules and product flags.
+Policy rules use constants, and product flags such as `payments.card_network_failover` stay flags, governed by the console. Reasoning: `DEVIN-NO-DEVIN.md` › Policy rules and product flags.
 
 ## Starting a run is a governed write
 
@@ -89,25 +89,30 @@ Devin's VM runs a freshly seeded database. It cannot see `apps/console/data/cons
 {
   "run_id": "01K5Z3Q8M4V7N2X9C6B1D0F3GH",
   "kind": "IMPLEMENTATION/ADDITION",
-  "spec": "REFUND_CLUSTERING_HOLD.md",
-  "intent": "Once a merchant's \"not received\" refunds add up past the manager limit, send them to a manager for approval. Send those customers' KYC approvals to a manager too.",
-  "requested_by": "refunds_manager",
-  "base": { "branch": "cognition-dashboard-devin-integration", "commit": "1a67f60…" },
+  "spec": "COMPANIES_HOUSE_CHECK.md",
+  "intent": "Add a Companies House check to UK business cases. Look the company up by its registration number. …",
+  "requested_by": "kyc_manager",
+  "base": { "branch": "cognition-dashboard-devin-integration", "commit": "be797b4…" },
   "scope": [
-    "tools/refunds/src/clustering-hold.ts",
-    "tools/refunds/src/index.ts",
-    "tools/kyc/src/index.ts",
-    "apps/console/tests/tools/refunds-clustering-hold.test.ts",
-    "apps/console/tests/tools/kyc.test.ts"
+    "tools/kyc/**",
+    ".env.example",
+    "apps/console/tests/**",
+    "runs/01K5Z3Q8M4V7N2X9C6B1D0F3GH/**"
   ],
-  "constants": {
-    "refunds.manager_approval_usd_minor": 50000,
-    "kyc.manager_review_score": 70
-  },
+  "constants": {},
   "evidence": {
-    "cluster": "merchant_not_received:Kestrel Outdoors",
+    "source": "kyc:kyc_0003",
     "rows": [
-      { "id": "rfnd_0011", "merchant": "Kestrel Outdoors", "reasonCode": "not_received", "usdMinor": 48000, "requestedAt": "2026-09-20T09:12:00Z" }
+      {
+        "id": "kyc_0003",
+        "facts": {
+          "company": "Northwind Freight Ltd",
+          "registrationNumber": "10774521",
+          "country": "GB",
+          "status": "pending_review",
+          "registryCheck": "needs_review: Two of three owners verified; third pending (Companies House)"
+        }
+      }
     ]
   },
   "reverses": null,
@@ -115,8 +120,8 @@ Devin's VM runs a freshly seeded database. It cannot see `apps/console/data/cons
 }
 ```
 
-- **Evidence rows carry no PII.** Emails and card numbers are dropped, not masked. Devin needs the amounts, merchant, reason and timing to write a regression test. It doesn't need the customer.
-- **`scope` is the spec's Scope list as path globs.** The console copies it from the spec at dispatch (engine scope adds the paths from § Scope). It is what makes the plan checkable: the reviewing engineer matches every `plan.json` path against these globs, rather than parsing the spec's prose.
+- **Evidence rows carry no personal data.** Each source reads an allowlist of columns (`tools/automation/src/context.ts`): a business's public registration, a refund's amount and reason, an export's file list. Emails, card numbers, people's names and ID documents are never read, so they can't be leaked.
+- **`scope` is the spec's allowed paths as globs.** The console copies them from `specs.ts` at dispatch, adds `apps/console/tests/**` to every run, and adds the engine paths for engine scope. Every `plan.json` path must match one: the **Plan stays in scope** check fails any that doesn't. Tests are always in scope because changing an existing test is how a behaviour change gets written down. The reviewer reads every changed or removed test; the plan names any test a removal takes out.
 - **The dispatch audit row stores the SHA-256 of this file.** The `approve_pr` rule checks that the file committed on the branch hashes to the same value, so what Devin worked from is provably what the console sent. CI cannot do this check, because it cannot read the console's SQLite.
 - **For a REVERSAL**, `reverses` names the IMPLEMENTATION's run id and merge commit. `constants` then carries both the values at that IMPLEMENTATION's dispatch and the values now.
 
@@ -129,7 +134,7 @@ The session itself gets:
 - `max_acu_limit`: the run's budget.
 - `tags`: `run:<run_id>`, `kind:<kind>`.
 
-It never gets reference code. A rule run never gets the spec at all. The spec's acceptance tests are the engineer's checklist in the approval dialog (`RunnableSpec.acceptance`), so the time window, which refunds count and where the rule sits in the trace are Devin's to work out from the code, and the reviewer checks them afterwards. Specs include a reference implementation for the reviewer, and Devin works out its own.
+It never gets reference code or the reviewer's checklist. A rule run never gets the brief at all. The checklist is the engineer's, in the approval dialog (`RunnableSpec.acceptance`), so what the request leaves unsaid is Devin's to work out from the code, and the reviewer checks it afterwards.
 
 ## Phases
 
@@ -147,7 +152,7 @@ Each phase passes or stops the run. There is no "continue with warnings".
 | Merge        | After an engineer's `approve_pr`, Devin merges (squash) and reports `merge_commit`                                                                           | Report why (checks re-running, conflict with a newer merge) and wait. Rebase inside the plan if the base moved |
 
 
-The plan is Devin's own, committed before any edit. The spec gives a scope the plan must stay inside. Committing first is what makes scope checkable: the reviewing engineer compares the diff with a list Devin wrote before it knew what the diff would be.
+The plan is Devin's own, committed before any edit. The context's scope is the outer bound the plan must stay inside. Committing first is what makes scope checkable: the reviewing engineer compares the diff with a list Devin wrote before it knew what the diff would be.
 
 `plan.json` holds `files[]` (path, `create | modify | delete`, one-line reason), `reuses[]` (existing modules the change builds on, each with a one-line reason), `acceptance[]` (the tests it will write, one per behaviour; an engine run names the spec's acceptance tests) and, for `IMPLEMENTATION/REMOVAL` and `REVERSAL`, `removed_tests[]` of `{ file, name }`: each test the run will delete because it asserts the rule being taken out. The reviewer permits exactly those removals and no others; for other kinds the array is absent or empty. `reuses[]` is informational and not a scope boundary.
 
@@ -162,22 +167,22 @@ The Devin API doesn't stream sub-steps. The session's `structured_output` is the
   "phase_durations_s": { "intake": 41, "baseline": 212, "plan": 96, "edit": 604 },
   "base_commit": "1a67f60",
   "context_sha256": "9f2c41ab…",
-  "branch": "devin/01K5Z3Q8-clustering-hold",
+  "branch": "devin/01K5Z3Q8-companies-house-check",
   "plan_commit": "c7d19e2",
   "reuses": [
-    { "module": "packages/engine/src/execute-intent.ts", "reason": "hold is registered as an intent, not a side path" },
-    { "module": "packages/engine/src/approvals.ts", "reason": "held refunds go to the existing manager tier" },
-    { "module": "packages/engine/src/audit", "reason": "every hold decision is an audit row" }
+    { "module": "packages/engine/src/execute-intent.ts", "reason": "the lookup is a KYC action on the governed write path" },
+    { "module": "tools/kyc/src/case-file.ts", "reason": "results land in the existing checks and Declared vs found tables" },
+    { "module": "declared_vs_found rule", "reason": "a material row already holds approval for a manager" }
   ],
   "files": [
-    { "path": "tools/refunds/src/clustering-hold.ts", "op": "create", "additions": 84, "deletions": 0, "reason": "clustering_hold rule and shared cluster query" },
-    { "path": "tools/kyc/src/index.ts", "op": "modify", "additions": 12, "deletions": 1, "reason": "linked_refund_hold on approve" }
+    { "path": "tools/kyc/src/companies-house.ts", "op": "create", "additions": 96, "deletions": 0, "reason": "API client and recorded responses" },
+    { "path": "tools/kyc/src/index.ts", "op": "modify", "additions": 18, "deletions": 1, "reason": "check_registry action on business cases" }
   ],
   "verify_steps": [
     { "name": "Lint", "pass": true },
     { "name": "Typecheck", "pass": true },
     { "name": "Boundaries", "pass": true },
-    { "name": "Test", "pass": null, "before": 68, "after": null }
+    { "name": "Test", "pass": null, "before": 300, "after": null }
   ],
   "conflicts": [],
   "pr_url": null,
@@ -187,7 +192,7 @@ The Devin API doesn't stream sub-steps. The session's `structured_output` is the
 
 - `reuses` is copied from `plan.json` when the Plan phase lands and does not change after. It drives the "Reusing …" lines of the run checklist.
 - `files` fills during Edit. Before that, the plan's paths come from `plan.json`.
-- `conflicts` is used by REVERSAL: one entry per conflicted file, with what was kept (`"partial_delivery reason code, PR #7"`) and what was removed (`"clustering_hold registration"`).
+- `conflicts` is used by REVERSAL: one entry per conflicted file, with what was kept (`"partial_delivery reason code, PR #7"`) and what was removed (`"the check_registry action"`).
 
 The console polls the session (`GET /v3/organizations/{org_id}/sessions/{devin_id}`) and reads `status`, `status_detail` and `structured_output`. `status_detail = waiting_for_user` surfaces as a reply box, and the reply is sent through the messages endpoint. **Stop run** calls the terminate endpoint (`DELETE` on the same path) and marks the run `stopped` through an intent.
 
@@ -262,7 +267,7 @@ Demo setup: the engineer's GitHub token sits in the server environment next to `
 ## After merge
 
 1. The console writes `record_merge` with the merge commit Devin reports. That closes the run in the audit chain.
-2. The local checkout pulls the integration branch (`git pull --ff-only origin cognition-dashboard-devin-integration`) when **Check merge** records the merge, or later through **Pull merged code** or **Reconcile** on `/t/automation` (both `engineer`-only). The pull is refused on another branch or a dirty tree — except an untracked `runs/<id>/context.json` that hashes to the merged run's `contextSha256`, which dispatch itself wrote; that one is deleted and the merge recreates it. `pnpm db:migrate` runs whenever drizzle's journal has entries past `__drizzle_migrations`, and retries on the next sync if it fails. See `MERGE_SYNC.md`.
+2. The local checkout pulls the integration branch (`git pull --ff-only origin cognition-dashboard-devin-integration`) when **Check merge** records the merge, or later through **Pull merged code** or **Reconcile** on `/t/automation` (both `engineer`-only). The pull is refused on another branch or a dirty tree — except an untracked `runs/<id>/context.json` that hashes to the merged run's `contextSha256`, which dispatch itself wrote; that one is deleted and the merge recreates it. `pnpm db:migrate` runs whenever drizzle's journal has entries past `__drizzle_migrations`, and retries on the next sync if it fails. The pull and migrate live in `tools/automation/src/bridge.ts` (`syncMergedRun`).
 3. Constants a run declares must exist in the live database without a re-seed. `registerToolConstants` (`registerConstants`, which skips existing keys) runs on server start via `instrumentation.ts`, and again in-process right after the merge sync's `db:migrate`, so a merged rule works without a browser reload or restart. A production build still needs a rebuild to serve new source.
 4. The next matching record goes through the new rule. That moment is the demo.
 
@@ -274,4 +279,4 @@ Demo setup: the engineer's GitHub token sits in the server environment next to `
 
 With the key set, the console dispatches, polls and terminates through the v3 API. If the session can't be created, `dispatch` still applies and `record_session` records the error, so the run lands as `dispatch_failed` with its audit rows.
 
-Without the key, Devin is **not connected**. The Devin window and the "Ask Devin for a rule" button say `Devin not connected`. `dispatchAutomationRun` refuses, so a run that never happened never reaches `devin_runs` or the audit chain.
+Without the key, every "Ask Devin" button still opens the request and shows what would be sent, with the send button disabled. `dispatchAutomationRun` refuses, so a run that never happened never reaches `devin_runs` or the audit chain. Nothing invented stands in for a run.

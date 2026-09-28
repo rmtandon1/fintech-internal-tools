@@ -11,27 +11,24 @@ import { RUN_KINDS } from "./specs";
 
 const sha = z.string().regex(/^[0-9a-f]{64}$/, "SHA-256 hex digest");
 const commit = z.string().regex(/^[0-9a-f]{7,40}$/, "git commit");
-const isoDate = z.string().datetime();
 
 /**
- * One refund as Devin sees it: enough to reproduce the pattern in a test,
- * nothing that identifies the customer. `strict` rejects any other key, so a
- * row carrying an email or card number fails to build rather than leaking.
+ * One record as Devin sees it: an id and a few named facts, read column by
+ * column from an allowlist in `context.ts`. Nothing else can be carried, so a
+ * row that would need an email or a card number to make sense can't be built.
  */
 export const EvidenceRow = z
   .object({
     id: z.string().min(1),
-    merchant: z.string().min(1),
-    reasonCode: z.string().min(1),
-    usdMinor: z.number().int().nonnegative(),
-    requestedAt: isoDate,
+    facts: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])),
   })
   .strict();
 export type EvidenceRow = z.infer<typeof EvidenceRow>;
 
 export const Evidence = z
   .object({
-    cluster: z.string().min(1),
+    /** `<tool>:<key>`: where the rows were read from, e.g. `kyc:kyc_0003`. */
+    source: z.string().min(1),
     rows: z.array(EvidenceRow),
   })
   .strict();
