@@ -1,13 +1,11 @@
 import Link from "next/link";
 import { openApp } from "@/app/actions";
-import { listApprovals } from "@console/engine/approvals";
 import { Icon } from "@console/ui/icon";
 import { cn } from "@console/ui/utils";
 import { Wordmark } from "@/components/brand-mark";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { currentTheme } from "@/lib/theme";
 import { BRAND } from "@/lib/brand";
-import { devinMode } from "@/lib/devin-status";
 import { allModes, MODE_AREAS, type ModeArea, type ModeEntry } from "@/lib/modes";
 import { workSummary } from "@/lib/work";
 import { getTool } from "@/registry";
@@ -50,9 +48,6 @@ export default async function HomePage() {
   const live = modes.filter((m) => m.live);
   const soon = modes.filter((m) => !m.live);
   const now = Date.now();
-
-  const waiting = listApprovals("pending").length;
-  const devin = devinMode();
   const theme = await currentTheme();
 
   return (
@@ -66,26 +61,6 @@ export default async function HomePage() {
             <ThemeToggle initial={theme} />
           </div>
           <p className="max-w-2xl text-lg leading-relaxed text-muted-foreground">{BRAND.tagline}</p>
-          <ul className="flex flex-wrap gap-2">
-            <Status
-              tone={waiting > 0 ? "attention" : "good"}
-              hint="Actions across every app that are held for a manager or admin to approve."
-              label={
-                waiting === 0
-                  ? "No approvals waiting"
-                  : `${waiting} ${waiting === 1 ? "approval" : "approvals"} waiting`
-              }
-            />
-            <Status
-              tone={devin === "live" ? "good" : "neutral"}
-              hint={
-                devin === "live"
-                  ? "Asking Devin for a rule starts a real Devin session."
-                  : "Devin isn't connected: set DEVIN_API_KEY to ask for rule changes."
-              }
-              label={devin === "live" ? "Devin connected" : "Devin not connected"}
-            />
-          </ul>
         </header>
 
         <section className="flex flex-col gap-5">
@@ -117,36 +92,6 @@ export default async function HomePage() {
         </section>
       </div>
     </div>
-  );
-}
-
-/** One live reading, set like a status line in a terminal; the hint says what it measures. */
-function Status({
-  tone,
-  label,
-  hint,
-}: {
-  tone: "good" | "attention" | "bad" | "neutral";
-  label: string;
-  hint: string;
-}) {
-  const styles = {
-    good: { chip: "border-success/30 bg-success/[0.08] text-success", dot: "bg-success" },
-    attention: { chip: "border-warning/30 bg-warning/[0.08] text-warning", dot: "bg-warning" },
-    bad: { chip: "border-destructive/40 bg-destructive/10 text-destructive", dot: "bg-destructive" },
-    neutral: { chip: "border-border bg-card text-muted-foreground", dot: "bg-muted-foreground/60" },
-  }[tone];
-  return (
-    <li
-      title={hint}
-      className={cn(
-        "inline-flex cursor-help items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-[13px]",
-        styles.chip,
-      )}
-    >
-      <span className={cn("size-1.5 rounded-full", styles.dot)} />
-      {label}
-    </li>
   );
 }
 

@@ -22,7 +22,8 @@ export function ContextDrawer({
   content: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(true);
+  // Closed at first: the open sheet would cover the record's action bar.
+  const [open, setOpen] = useState(false);
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
 
   return (

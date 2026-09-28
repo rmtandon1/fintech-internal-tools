@@ -15,6 +15,19 @@ export const ROLES = [
 
 export type Role = (typeof ROLES)[number];
 
+/**
+ * The roles the demo header offers in its switcher: the ones the walkthrough
+ * uses. `kyc_manager` stays in `ROLES` for the engine and tests but is not a
+ * pickable lens.
+ */
+export const DEMO_ROLES: readonly Role[] = [
+  "refunds_manager",
+  "refunds_agent",
+  "kyc_reviewer",
+  "admin",
+  "engineer",
+];
+
 export type RoleDomain = "kyc" | "refunds";
 
 export type RoleLevel = "engineer" | "agent" | "manager" | "admin";

@@ -60,8 +60,8 @@ export default async function ToolQueuePage({
   const direction: "asc" | "desc" = query.dir === "asc" ? "asc" : "desc";
   const sort = sortField ? { field: sortField, direction } : undefined;
 
-  // A tool with switches opens on them; `view=table` shows the full columns.
-  const view = decl.toggle && query.view !== "table" ? "toggles" : "table";
+  // A tool with switches shows only them.
+  const view = decl.toggle ? "toggles" : "table";
 
   const requestedPage = Number(query.page);
   const page = Number.isSafeInteger(requestedPage) && requestedPage >= 1 ? requestedPage : 1;
@@ -84,7 +84,6 @@ export default async function ToolQueuePage({
     const next = new URLSearchParams();
     for (const [key, value] of Object.entries(filters)) next.set(key, value);
     if (search) next.set("q", search);
-    if (view === "table" && decl.toggle) next.set("view", "table");
     if (sortField) {
       next.set("sort", sortField);
       next.set("dir", direction);
@@ -106,7 +105,23 @@ export default async function ToolQueuePage({
       page: "1",
     });
 
-  const filterRow = (
+  // Switch tools (flags) get just the search box; tables keep the filters.
+  const filterRow = decl.toggle ? (
+    <form
+      key={new URLSearchParams({ ...filters, q: search ?? "" }).toString()}
+      className="flex flex-wrap items-center gap-2 font-normal"
+    >
+      {Object.entries(filters).map(([key, value]) => (
+        <input key={key} type="hidden" name={key} value={value} />
+      ))}
+      <input
+        name="q"
+        defaultValue={search ?? ""}
+        placeholder="Search"
+        className="h-8 w-44 rounded-md border border-input bg-card px-2 text-sm text-foreground shadow-xs"
+      />
+    </form>
+  ) : (
     <form
       key={new URLSearchParams({ ...filters, q: search ?? "" }).toString()}
       className="flex flex-wrap items-center gap-2 font-normal"
@@ -139,7 +154,6 @@ export default async function ToolQueuePage({
       )}
       {sortField ? <input type="hidden" name="sort" value={sortField} /> : null}
       {sortField ? <input type="hidden" name="dir" value={direction} /> : null}
-      {view === "table" && decl.toggle ? <input type="hidden" name="view" value="table" /> : null}
       <input
         name="q"
         defaultValue={search ?? ""}
@@ -172,26 +186,6 @@ export default async function ToolQueuePage({
         </div>
         <div className="ml-auto flex items-center gap-2">
           {decl.name === "automation" && actor.role === "engineer" ? <ReconcileRuns /> : null}
-          {decl.toggle ? (
-            <div className="flex h-8 items-center rounded-md border border-border bg-card p-0.5 text-sm shadow-xs">
-              {(["toggles", "table"] as const).map((option) => (
-                <Link
-                  key={option}
-                  href={href({ view: option, page: "1" })}
-                  aria-current={view === option ? "page" : undefined}
-                  className={cn(
-                    "flex h-full items-center gap-1.5 rounded-[5px] px-2.5",
-                    view === option
-                      ? "bg-accent font-medium text-foreground"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <Icon name={option === "toggles" ? "ToggleRight" : "Table"} className="size-3.5" />
-                  {option === "toggles" ? "Switches" : "Table"}
-                </Link>
-              ))}
-            </div>
-          ) : null}
         </div>
       </div>
 
