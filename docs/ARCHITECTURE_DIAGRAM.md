@@ -297,6 +297,27 @@ and merged.
 
 ## Interface states
 
+### From request to live rule
+
+Four screens take a request to a live rule. Each arrow shows the action that moves to the next
+screen, and which layers it passes between.
+
+```
+┌─ Request ──────────────┐                  ┌─ Run progress ─────────┐
+│ "Once a merchant's…"   │  Start run       │ ✓ Plan    ✓ Edit       │
+│ Context · Scope        │ ───────────────▶ │ ● Verify               │
+│        [ Start run ]   │  Console → Devin │ ○ Pull request         │
+└────────────────────────┘                  └────────────┬───────────┘
+                                                         │ Pull request opened
+                                                         │ Devin → GitHub
+                                                         ▼
+┌─ Refund ───────────────┐                  ┌─ Approve pull request ─┐
+│ Pending manager        │  Merged, synced  │ CI checks   4 of 4 ✓   │
+│ approval               │ ◀─────────────── │ Checklist   8 of 8 ✓   │
+│ clustering_hold   hold │  Code → Engine   │         [ Approve ]    │
+└────────────────────────┘                  └────────────────────────┘
+```
+
 ### Requesting a change
 
 The request panel shows exactly what Devin receives. Once the run starts, the same panel shows
@@ -309,7 +330,7 @@ its progress.
 │ REQUEST                               │    │ ✓ Intake             base 1a67f60     │
 │ Once a merchant's "not received"      │    │ ✓ Baseline           288 tests        │
 │ refunds add up past the manager       │    │ ✓ Plan committed     5 files          │
-│ limit, send them to a manager.        │    │ ✓ Edit               +146 −3          │
+│ limit, send them to a manager.        │ ──▶│ ✓ Edit               +146 −3          │
 │                                       │    │ ● Verify                              │
 │ CONTEXT                               │    │     Lint ✓  Typecheck ✓               │
 │ Kestrel Outdoors · 4 refunds          │    │     Boundaries ✓  Test …              │
