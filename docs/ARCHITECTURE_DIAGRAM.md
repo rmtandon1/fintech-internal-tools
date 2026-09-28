@@ -27,7 +27,7 @@
                   │ decision. No code         │ │ 4  Code and tests written         │
                   │ change, no deploy.        │ │ 5  CI checks pass                 │
                   │                           │ │ 6  Engineer approves              │
-                  │                           │ │ 7  Devin merges, console syncs    │
+                  │                           │ │ 7  Merge, sync; rebuild in prod   │
                   └─────────────┬─────────────┘ └─────────────────┬─────────────────┘
                                 └────────────────┬────────────────┘
                                                  ▼
