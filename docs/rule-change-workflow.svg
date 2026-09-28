@@ -1,65 +1,64 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="588" viewBox="0 0 1100 588" font-family="Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="760" viewBox="0 0 1100 760" font-family="Helvetica, Arial, sans-serif">
 <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#374151"/></marker></defs>
-<rect width="1100" height="588" fill="#ffffff"/>
-<text x="550.0" y="44" text-anchor="middle" font-size="24" font-weight="600" fill="#111827">Changing a console rule</text>
+<rect width="1100" height="760" fill="#ffffff"/>
+<text x="550.0" y="44" text-anchor="middle" font-size="24" font-weight="600" fill="#111827">How work reaches the console</text>
 <rect x="40" y="80" width="210" height="76" rx="10" fill="#e5e7eb" stroke="#6b7280" stroke-width="2"/>
-<text x="52" y="100" font-size="12" font-weight="700" fill="#6b7280">S0</text>
-<text x="145.0" y="126.0" text-anchor="middle" font-size="15" fill="#111827">Pattern in the queue</text>
+<text x="145.0" y="104.0" text-anchor="middle" font-size="15" font-weight="600" fill="#111827">A rule</text>
+<text x="145.0" y="121.0" text-anchor="middle" font-size="11" fill="#4b5563">Refunds cluster drawer</text>
+<text x="145.0" y="135.0" text-anchor="middle" font-size="11" fill="#4b5563">Ask Devin for a rule</text>
+<rect x="40" y="226" width="210" height="76" rx="10" fill="#e5e7eb" stroke="#6b7280" stroke-width="2"/>
+<text x="145.0" y="250.0" text-anchor="middle" font-size="15" font-weight="600" fill="#111827">A manual step</text>
+<text x="145.0" y="267.0" text-anchor="middle" font-size="11" fill="#4b5563">UK business case</text>
+<text x="145.0" y="281.0" text-anchor="middle" font-size="11" fill="#4b5563">Ask Devin to add a check</text>
+<rect x="40" y="372" width="210" height="76" rx="10" fill="#e5e7eb" stroke="#6b7280" stroke-width="2"/>
+<text x="145.0" y="396.0" text-anchor="middle" font-size="15" font-weight="600" fill="#111827">The next app</text>
+<text x="145.0" y="413.0" text-anchor="middle" font-size="11" fill="#4b5563">Coming soon page + export</text>
+<text x="145.0" y="427.0" text-anchor="middle" font-size="11" fill="#4b5563">Ask Devin to start this app</text>
 <rect x="310" y="80" width="210" height="76" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2" stroke-dasharray="8 5"/>
-<text x="322" y="100" font-size="12" font-weight="700" fill="#d97706">S1</text>
-<text x="415.0" y="126.0" text-anchor="middle" font-size="15" fill="#111827">Manager asks for a rule</text>
+<text x="415.0" y="114.0" text-anchor="middle" font-size="15" fill="#111827">Ask from the screen</text>
+<text x="415.0" y="132.0" text-anchor="middle" font-size="15" fill="#111827">that shows the need</text>
 <rect x="580" y="80" width="210" height="76" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
-<text x="592" y="100" font-size="12" font-weight="700" fill="#2563eb">S2</text>
-<text x="685.0" y="126.0" text-anchor="middle" font-size="15" fill="#111827">Read and baseline</text>
+<text x="685.0" y="123.0" text-anchor="middle" font-size="15" fill="#111827">Read and baseline</text>
 <rect x="850" y="80" width="210" height="76" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
-<text x="862" y="100" font-size="12" font-weight="700" fill="#2563eb">S3</text>
-<text x="955.0" y="126.0" text-anchor="middle" font-size="15" fill="#111827">Plan committed</text>
+<text x="955.0" y="123.0" text-anchor="middle" font-size="15" fill="#111827">Plan committed</text>
 <rect x="850" y="226" width="210" height="76" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
-<text x="862" y="246" font-size="12" font-weight="700" fill="#2563eb">S4</text>
-<text x="955.0" y="272.0" text-anchor="middle" font-size="15" fill="#111827">Edit and tests</text>
-<rect x="580" y="226" width="210" height="76" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
-<text x="592" y="246" font-size="12" font-weight="700" fill="#2563eb">S5</text>
-<text x="685.0" y="263.0" text-anchor="middle" font-size="15" fill="#111827">Verify: Lint, Typecheck,</text>
-<text x="685.0" y="281.0" text-anchor="middle" font-size="15" fill="#111827">Boundaries, Test</text>
-<rect x="310" y="226" width="210" height="76" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2" stroke-dasharray="8 5"/>
-<text x="322" y="246" font-size="12" font-weight="700" fill="#d97706">S6</text>
-<text x="415.0" y="263.0" text-anchor="middle" font-size="15" fill="#111827">Engineer reviews and</text>
-<text x="415.0" y="281.0" text-anchor="middle" font-size="15" fill="#111827">approves</text>
-<rect x="40" y="226" width="210" height="76" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
-<text x="52" y="246" font-size="12" font-weight="700" fill="#16a34a">S7</text>
-<text x="145.0" y="272.0" text-anchor="middle" font-size="15" fill="#111827">Rule live</text>
-<rect x="40" y="372" width="210" height="76" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2" stroke-dasharray="8 5"/>
-<text x="52" y="392" font-size="12" font-weight="700" fill="#d97706">S8</text>
-<text x="145.0" y="409.0" text-anchor="middle" font-size="15" fill="#111827">Admin switches it off in</text>
-<text x="145.0" y="427.0" text-anchor="middle" font-size="15" fill="#111827">seconds</text>
-<rect x="310" y="372" width="210" height="76" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
-<text x="322" y="392" font-size="12" font-weight="700" fill="#2563eb">S9</text>
-<text x="415.0" y="418.0" text-anchor="middle" font-size="15" fill="#111827">Devin removes it</text>
+<text x="955.0" y="269.0" text-anchor="middle" font-size="15" fill="#111827">Edit and tests</text>
+<rect x="850" y="372" width="210" height="76" rx="10" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="955.0" y="406.0" text-anchor="middle" font-size="15" fill="#111827">Verify: Lint, Typecheck,</text>
+<text x="955.0" y="424.0" text-anchor="middle" font-size="15" fill="#111827">Boundaries, Test</text>
 <rect x="580" y="372" width="210" height="76" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2" stroke-dasharray="8 5"/>
-<text x="592" y="392" font-size="12" font-weight="700" fill="#d97706">S10</text>
-<text x="685.0" y="409.0" text-anchor="middle" font-size="15" fill="#111827">Engineer reviews the</text>
-<text x="685.0" y="427.0" text-anchor="middle" font-size="15" fill="#111827">removal</text>
-<rect x="850" y="372" width="210" height="76" rx="10" fill="#e5e7eb" stroke="#6b7280" stroke-width="2"/>
-<text x="862" y="392" font-size="12" font-weight="700" fill="#6b7280">S11</text>
-<text x="955.0" y="418.0" text-anchor="middle" font-size="15" fill="#111827">Rule removed</text>
-<line x1="250" y1="118.0" x2="310" y2="118.0" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
-<line x1="520" y1="118.0" x2="580" y2="118.0" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
-<line x1="790" y1="118.0" x2="850" y2="118.0" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
-<line x1="955.0" y1="156" x2="955.0" y2="226" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
-<line x1="850" y1="264.0" x2="790" y2="264.0" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
-<line x1="580" y1="264.0" x2="520" y2="264.0" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
-<line x1="310" y1="264.0" x2="250" y2="264.0" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
-<line x1="145.0" y1="302" x2="145.0" y2="372" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
-<line x1="250" y1="410.0" x2="310" y2="410.0" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
-<line x1="520" y1="410.0" x2="580" y2="410.0" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
-<line x1="790" y1="410.0" x2="850" y2="410.0" stroke="#374151" stroke-width="2" marker-end="url(#arrow)"/>
-<rect x="40" y="488" width="28" height="18" rx="4" fill="#e5e7eb" stroke="#6b7280" stroke-width="2"/>
-<text x="76" y="502" font-size="14" fill="#374151">Start / End</text>
-<rect x="204" y="488" width="28" height="18" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="2" stroke-dasharray="6 4"/>
-<text x="240" y="502" font-size="14" fill="#374151">Human gate</text>
-<rect x="360" y="488" width="28" height="18" rx="4" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
-<text x="396" y="502" font-size="14" fill="#374151">Devin</text>
-<rect x="476" y="488" width="28" height="18" rx="4" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
-<text x="512" y="502" font-size="14" fill="#374151">Live</text>
-<text x="550.0" y="548" text-anchor="middle" font-size="15" font-style="italic" fill="#4b5563">Every step writes a row to the tamper-evident audit log.</text>
+<text x="685.0" y="406.0" text-anchor="middle" font-size="15" fill="#111827">A different person</text>
+<text x="685.0" y="424.0" text-anchor="middle" font-size="15" fill="#111827">approves the pull request</text>
+<rect x="310" y="372" width="210" height="76" rx="10" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+<text x="415.0" y="415.0" text-anchor="middle" font-size="15" fill="#111827">Live</text>
+<rect x="310" y="518" width="210" height="76" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="2" stroke-dasharray="8 5"/>
+<text x="415.0" y="552.0" text-anchor="middle" font-size="15" fill="#111827">Admin switches it off</text>
+<text x="415.0" y="570.0" text-anchor="middle" font-size="15" fill="#111827">in seconds</text>
+<rect x="40" y="518" width="210" height="76" rx="10" fill="#e5e7eb" stroke="#6b7280" stroke-width="2"/>
+<text x="145.0" y="542.0" text-anchor="middle" font-size="15" font-weight="600" fill="#111827">Ask Devin to undo it</text>
+<text x="145.0" y="559.0" text-anchor="middle" font-size="11" fill="#4b5563">Undo this change</text>
+<text x="145.0" y="573.0" text-anchor="middle" font-size="11" fill="#4b5563">on the merged run in /runs</text>
+<polyline points="250,118.0 310,118.0" fill="none" stroke="#374151" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="250,264.0 280,264.0 280,118.0 310,118.0" fill="none" stroke="#374151" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="250,410.0 280,410.0 280,118.0 310,118.0" fill="none" stroke="#374151" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="520,118.0 580,118.0" fill="none" stroke="#374151" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="790,118.0 850,118.0" fill="none" stroke="#374151" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="955.0,156 955.0,226" fill="none" stroke="#374151" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="955.0,302 955.0,372" fill="none" stroke="#374151" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="850,410.0 790,410.0" fill="none" stroke="#374151" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="580,410.0 520,410.0" fill="none" stroke="#374151" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="415.0,372 415.0,156" fill="none" stroke="#374151" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="425.0" y="268.0" font-size="12" font-style="italic" fill="#4b5563">back to the start</text>
+<polyline points="415.0,448 415.0,518" fill="none" stroke="#374151" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="310,575.0 250,575.0" fill="none" stroke="#374151" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="250,537.0 280,537.0 280,118.0 310,118.0" fill="none" stroke="#374151" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="40" y="660" width="28" height="18" rx="4" fill="#e5e7eb" stroke="#6b7280" stroke-width="2"/>
+<text x="76" y="674" font-size="14" fill="#374151">Start / End</text>
+<rect x="204" y="660" width="28" height="18" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="240" y="674" font-size="14" fill="#374151">Human gate</text>
+<rect x="360" y="660" width="28" height="18" rx="4" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+<text x="396" y="674" font-size="14" fill="#374151">Devin</text>
+<rect x="476" y="660" width="28" height="18" rx="4" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+<text x="512" y="674" font-size="14" fill="#374151">Live</text>
+<text x="550.0" y="720" text-anchor="middle" font-size="15" font-style="italic" fill="#4b5563">Every step writes a row to the tamper-evident audit log.</text>
 </svg>

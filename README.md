@@ -93,9 +93,9 @@ tool in `apps/console/src/registry.ts`; the rest open a roadmap preview.
 | Pricing | Change fees, FX spreads and interest rates. | Coming soon |
 | Model overrides | Approve risk model updates and manual score overrides. | Coming soon |
 
-## Changing a console rule
+## How work reaches the console
 
-![Changing a console rule](docs/rule-change-workflow.svg)
+![How work reaches the console](docs/rule-change-workflow.svg)
 
 Editable source: [`docs/rule-change-workflow.excalidraw`](docs/rule-change-workflow.excalidraw).
 
