@@ -11,9 +11,8 @@ import type {
 } from "@console/engine/types";
 import { rolesFor } from "@console/permissions";
 import { caseFile, materialDifferences } from "./case-file";
-import { lookupCompany } from "./companies-house";
 import { refundsForCase } from "./linked-activity";
-import { kycCases, kycChecks, kycDiscrepancies } from "./schema";
+import { kycCases } from "./schema";
 import { seedKycCases } from "./seed";
 
 export interface KycCase extends GovernedRecord {
@@ -41,22 +40,6 @@ export interface KycCase extends GovernedRecord {
 }
 
 export { caseFile };
-export {
-  basicAuthorization,
-  COMPANIES_HOUSE_API,
-  interpret,
-  liveTransport,
-  lookupCompany,
-  recordedAnswer,
-  registrationNumber,
-} from "./companies-house";
-export type {
-  CompaniesHouseAnswer,
-  CompaniesHouseCheck,
-  CompaniesHouseRequest,
-  CompaniesHouseTransport,
-  CompanyFinding,
-} from "./companies-house";
 export type {
   CheckKind,
   CheckResult,
@@ -166,25 +149,6 @@ const escalatedNeedsManager: CaseRule = ({ record }) =>
         reason: "Escalated cases need a manager",
       }
     : { type: "allow", rule: "escalated_needs_manager" };
-
-function isUkBusiness(record: KycCase): boolean {
-  return (
-    record.country === "GB" &&
-    record.segment === "business" &&
-    record.documentType === "company_registry"
-  );
-}
-
-const companiesHouseUkBusiness: CaseRule = ({ record }) =>
-  record && isUkBusiness(record)
-    ? { type: "allow", rule: "companies_house_uk_business" }
-    : {
-        type: "deny",
-        rule: "companies_house_uk_business",
-        reason: "Companies House only covers UK business cases",
-      };
-
-const noInput = z.object({});
 
 const allow =
   (rule: string): CaseRule =>
@@ -478,21 +442,6 @@ export const kycTool = defineTool<KycCase>({
       }),
       apply: (ctx, decision) => write(ctx, decision.patch),
     }),
-    defineAction<KycCase, typeof noInput, null>({
-      name: "check_companies_house",
-      label: "Check Companies House",
-      description:
-        "Look the company up at Companies House by its registration number and add what it finds to the case file.",
-      allowedRoles: rolesFor("kyc", "agent"),
-      input: noInput,
-      fromStatus: OPEN_STATUSES,
-      rules: [companiesHouseUkBusiness],
-      decide: ({ record }) => ({
-        summary: `Check Companies House for KYC case ${record?.id ?? ""}`,
-        patch: null,
-      }),
-      apply: (ctx) => recordCompaniesHouse(ctx),
-    }),
   ],
   list: ({ filters, search, sort, limit, offset }) => {
     const clauses = [];
@@ -540,7 +489,6 @@ export const kycTool = defineTool<KycCase>({
     request_info_always_permitted: "Asking for information is always allowed",
     escalate_always_permitted: "Escalating is always allowed",
     linked_refund_hold: "Linked refund hold",
-    companies_house_uk_business: "UK business",
   },
   ruleFields: {
     documents_complete: ["documentsComplete"],
@@ -548,7 +496,6 @@ export const kycTool = defineTool<KycCase>({
     country_permitted: ["country"],
     risk_tier_approval: ["riskScore", "riskTier"],
     pep_approval: ["pep"],
-    companies_house_uk_business: ["country", "segment", "documentType"],
   },
   get: getCase,
   seed: seedKycCases,
@@ -560,9 +507,8 @@ interface Patch {
 }
 
 /**
- * The status write shared by the decision actions. The version predicate is
- * what makes a stale request lose the race rather than overwrite a newer
- * decision.
+ * The only write in the tool. The version predicate is what makes a stale
+ * request lose the race rather than overwrite a newer decision.
  */
 function write(
   { tx, actor, record }: ApplyContext<KycCase, unknown>,
@@ -577,49 +523,6 @@ function write(
       decidedBy: decided ? actor.id : record.decidedBy,
       version: record.version + 1,
     })
-    .where(and(eq(kycCases.id, record.id), eq(kycCases.version, record.version)))
-    .run();
-  const after = getCase(record.id);
-  if (!after) throw new Error(`kyc case ${record.id} vanished mid-apply`);
-  return { recordId: record.id, before: record, after };
-}
-
-/**
- * Replaces the case's company_registry check and the register rows an earlier
- * Companies House check added. Material rows are held by declared_vs_found.
- */
-function recordCompaniesHouse({
-  tx,
-  record,
-  now,
-}: ApplyContext<KycCase, unknown>): ApplyResult<KycCase> {
-  if (!record) throw new Error("kyc actions require a case");
-  const check = lookupCompany(record.documentNumber);
-  tx.delete(kycChecks)
-    .where(and(eq(kycChecks.caseId, record.id), eq(kycChecks.kind, "company_registry")))
-    .run();
-  tx.insert(kycChecks)
-    .values({
-      id: `${record.id}_company_registry`,
-      caseId: record.id,
-      kind: "company_registry",
-      result: check.result,
-      source: check.source,
-      detail: check.detail,
-      checkedAt: now,
-    })
-    .run();
-  const prefix = `${record.id}_companies_house_`;
-  tx.delete(kycDiscrepancies)
-    .where(and(eq(kycDiscrepancies.caseId, record.id), like(kycDiscrepancies.id, `${prefix}%`)))
-    .run();
-  check.differences.forEach((d, i) => {
-    tx.insert(kycDiscrepancies)
-      .values({ id: `${prefix}${i + 1}`, caseId: record.id, ...d, source: check.source })
-      .run();
-  });
-  tx.update(kycCases)
-    .set({ version: record.version + 1 })
     .where(and(eq(kycCases.id, record.id), eq(kycCases.version, record.version)))
     .run();
   const after = getCase(record.id);
