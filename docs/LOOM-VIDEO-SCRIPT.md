@@ -9,7 +9,19 @@ One loop, three times, each on a bigger change. Every part ends on what an opera
 - **"Quoted lines"** are spoken, word for word. **[Bracketed lines]** are on-screen actions, never said.
 - *(Parentheses inside a quote)* are values read off the screen. Where one holds a figure, it's the dry run's (#61, #62, reverted in #63). Say what the screen shows.
 - Record ids like `rfnd_0013` appear only in brackets. Spoken lines use names.
-- About six and a half minutes. Run **Before recording** first.
+- **▶ SLIDE n** means switch to that slide in the deck. **◀ CONSOLE** means switch back to the app. Neither is said.
+- Just over seven minutes. Run **Before recording** first.
+
+## Slides
+
+Four slides in [`DEMO-SLIDES.html`](DEMO-SLIDES.html) (PDF copy: [`DEMO-SLIDES.pdf`](DEMO-SLIDES.pdf)). Open the deck in its own window on slide 1 before you record. → and ← move between slides; F toggles full screen.
+
+| Slide | Show it | Move on |
+|---|---|---|
+| 1 · Power Apps is five products in one | First shot of the recording | After "in code your team owns." Press → to slide 2 |
+| 2 · Your team asks, Devin builds, an engineer approves | Opening | After "an engineer approves it." ◀ CONSOLE, on home |
+| 3 · What it costs | After the deployment drift challenge | After "instead of writing it." Press → to slide 4 |
+| 4 · Build or buy | Straight after slide 3 | Stay on it to the end of the recording |
 
 ## Why this order
 
@@ -28,7 +40,7 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 
 ## 🧭 Power Apps Today (25 seconds)
 
-[Show the five-part slide: the table below.]
+**▶ SLIDE 1 · Power Apps is five products in one.** The recording opens on it.
 
 > "Power Apps is five products: an app builder, Dataverse, connectors, Power Automate, and an admin plane."
 >
@@ -42,17 +54,21 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 | Power Automate | Rules and approvals on one governed write path | Part 1, Rules |
 | Admin plane | Roles, live rule settings, one audit log | Part 1, Rules |
 
+[Press → to slide 2.]
+
 ---
 
 ## 🎯 Opening (20 seconds)
 
-[Viewing as Refunds manager, on the home page.]
+**▶ SLIDE 2 · Your team asks, Devin builds, an engineer approves.** Point along the four boxes.
 
 > "Without a release pipeline, a rule changes one of two ways."
 >
 > "Someone edits a flow in the browser, live in minutes, unreviewed. Or it's a ticket, and weeks."
 >
-> "Here's a third way: your team asks, Devin builds, an engineer approves."
+> "There's another option. Your team asks for a change, Devin builds it, and an engineer approves it."
+
+**◀ CONSOLE.** [Viewing as Refunds manager, on the home page.]
 
 ---
 
@@ -240,29 +256,56 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 
 ---
 
-## 💷 What Ownership Costs (20 seconds)
+## 💷 What It Costs (20 seconds)
 
-[Show the table.]
+**▶ SLIDE 3 · What it costs.** The slide carries the table below.
 
-> "The first two columns are estimates. The last is what you just watched."
+> "There are three ways to run this."
 
-| | Power Apps today | Engineers only | With Devin |
+| | Power Apps today | Your engineers | Your engineers + Devin |
 |---|---|---|---|
-| New rule, reviewed | Minutes if edited live, unreviewed | 1–2 weeks in the queue, then hours of work | Devin's run *(time)*, then review against an eight-line checklist |
-| Stop a misfire | Another live edit | A hotfix | One admin setting |
-| Remove it later | Often nobody does | When the ticket is prioritised | A reviewed removal pull request |
-| Automate a manual step | A premium connector, or nothing | A ticket and a sprint | One reviewed pull request |
-| Next app | Licences, and its own controls | Weeks | A first pull request, then small requests |
+| Adding a rule | About 30 minutes, no one checks it | 1–2 weeks | Same day, checked by an engineer |
+| Turning a rule off | Edit it live | Ship a fix | Flip a switch in settings |
+| Removing a rule | Rarely happens | Waits for a ticket | Devin removes it and an engineer checks |
+| Adding an app | More licences | Weeks of work | One pull request to start, security built in |
 
-> "You still pay engineers. You pay them to review, not to trace."
+> "You still need engineers. They check the work instead of writing it."
+
+[Press → to slide 4.]
 
 ---
 
-## 🔭 Close (15 seconds)
+## ⚖️ Build or Buy (60 seconds)
 
-> "Not here yet: single sign-on, a deployment pipeline, real processor and KYC connections. Those are one-off decisions."
+**▶ SLIDE 4 · Build or buy.** Stay on it to the end.
+
+[Point at **What the demo proves**.]
+
+> "Here's what the demo proves. Rules can be added, turned off and removed, and an engineer checks every change. The same goes for connectors and new apps."
+
+[Point at **What it doesn't prove**.]
+
+> "Here's what it doesn't prove. Login, hosting, backups and support still need to be built."
 >
-> "After Power Apps, your team asks, Devin builds, and an engineer approves."
+> "Business users also can't make changes themselves any more. Every change goes through an engineer."
+
+[Point at **Risks**.]
+
+> "There are three main risks. Power Apps formulas that nobody documented might work differently once they're moved."
+>
+> "Reviews could get rushed as the number of changes goes up."
+>
+> "And engineering and hosting costs could cancel out the licence savings. We don't have real numbers for that yet."
+
+[Point at **Next 90 days**.]
+
+> "So I'd recommend building it yourselves, one app at a time, but only if you can put one engineer in charge of it."
+>
+> "Start with Chargebacks. Run it alongside the Power App, then decide: does it match, how long do reviews take, and what does each change cost?"
+
+[Point at **Where Devin fits**.]
+
+> "If you build, Devin writes the changes and your engineers review them. If you stay on Power Apps, Devin can still build custom connectors and write tests and documentation."
 
 ---
 
@@ -327,7 +370,7 @@ Clicks marked **once** change data. To retake them, `pnpm db:seed`: it restores 
 
 | # | Shot | Viewing as | State it needs |
 |---|---|---|---|
-| 0 | Five-part slide | — | — |
+| 0 | Slide 1, Power Apps is five products in one; then slide 2 for the opening | — | Deck open on slide 1 |
 | 1 | Home; Transaction monitoring Coming soon | Refunds manager | Fresh seed at the tagged demo commit |
 | 2 | Kestrel drawer; `rfnd_0013` send (**once**) | Refunds manager, Refunds agent | Before the Kestrel merge |
 | 3 | Handoff, finished run, approval dialog and its trace | Refunds manager, Engineer | Recorded run |
@@ -336,8 +379,9 @@ Clicks marked **once** change data. To retake them, `pnpm db:seed`: it restores 
 | 6 | Thornbury before, handoff, finished run, setting on, **Approve** | KYC reviewer, Admin, Engineer | Companies House run recorded |
 | 7 | Chargebacks Coming soon, handoff, pull request, flag on, queue, `DSP-20401` **Accept** (**once**) | Admin, Engineer, Refunds agent | Chargebacks run recorded; screenshot the **Pull merged code** toast |
 | 8 | Toast screenshot, then the four-layer table in `docs/POST_MERGE_DEPLOYMENT_DRIFT.md` | — | Screenshot from shot 7 |
-| 9 | Cost table | — | — |
+| 9 | Slide 3, what it costs; then slide 4, build or buy | — | Deck on slide 3 |
 
+- Open `docs/DEMO-SLIDES.html` in a second browser window, the same size as the console, before shot 0.
 - Show every sped-up run with its real "Took …" time.
 - If Devin isn't connected, stop.
 
@@ -345,7 +389,7 @@ Clicks marked **once** change data. To retake them, `pnpm db:seed`: it restores 
 
 ## 📤 After Recording
 
-- **Chapters:** Power Apps today, Opening, The console, Rules, Connectors, Apps, Deployment drift, Cost, Close.
-- **Description:** the one message, the repo, the five pull requests, and each run's time, ACUs and test total.
+- **Chapters:** Power Apps today, Opening, The console, Rules, Connectors, Apps, Deployment drift, Cost, Build or buy.
+- **Description:** the one message, `docs/DEMO-SLIDES.pdf` attached, the repo, the five pull requests, and each run's time, ACUs and test total.
 - **Replays:** copy each run's `apps/console/data/replays/<run_id>.json` to `runs/<run_id>/replay.json` and commit it.
 - **Clean up:** stop running Devin sessions, delete stray `runs/` folders, reset the database. Tag the recorded commit, e.g. `loom-2026-09-28`.
