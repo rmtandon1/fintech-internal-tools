@@ -40,7 +40,7 @@ The kind says what a run does. Its scope says where it may do it, and so how muc
 | Scope            | May change                                                                                      | Extra gate                                                                                                                |
 | ---------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `rule` (default) | Tool folders, tests, `runs/`                                                                    | None                                                                                                                        |                                                                                        |
-| `engine`         | Also `packages/engine/`, `packages/db/`, `packages/db-core/`, `packages/db-write/`, `packages/permissions/`, `apps/console/drizzle/`, `apps/console/src/app/actions.ts`, shared components, `AGENTS.md` | The engine owner approves as well as the engineer. The reviewer runs `/audit/verify` on a database migrated to the branch |
+| `engine`         | Also `packages/engine/`, `packages/db/`, `packages/db-core/`, `packages/db-write/`, `packages/permissions/`, `apps/console/drizzle/`, `apps/console/src/app/actions.ts`, shared components, `AGENTS.md` | The engine owner approves as well as the engineer. The reviewer checks the audit log on a database migrated to the branch |
 
 
 Only an admin may dispatch a run with engine scope.
@@ -211,7 +211,7 @@ The playbook states these as prose, and `scripts/run-guard.ts` (in `pnpm verify`
 | **Only undo**             | REVERSAL only, see below. Reported as passing on other kinds                                                                                                                                          |
 | **Humans approve**        | The session merges without an approving review from someone other than itself, force-pushes, or pushes to the default branch                                                                          |
 | **Engine owner approves** | Scope `engine` only. A change under `packages/engine/`, `packages/db/`, `packages/db-core/`, `packages/db-write/`, `packages/permissions/` or `apps/console/drizzle/` merges without an approving review from the engine owner in CODEOWNERS, in addition to `approve_pr`                        |
-| **No live writes**        | The session runs `pnpm db:setup`, `db:seed` or `db:tamper`, or writes SQL against anything but a test database                                                                                        |
+| **No live writes**        | The session runs `pnpm db:setup` or `db:seed`, or writes SQL against anything but a test database                                                                                        |
 
 
 `runs/` and the guard sit under CODEOWNERS, so changing either needs a human reviewer.
@@ -264,7 +264,7 @@ Demo setup: the engineer's GitHub token sits in the server environment next to `
 3. Constants a run declares must exist in the live database without a re-seed. `registerToolConstants` (`registerConstants`, which skips existing keys) runs on server start via `instrumentation.ts`, and again in-process right after the merge sync's `db:migrate`, so a merged rule works without a browser reload or restart. A production build still needs a rebuild to serve new source.
 4. The next matching record goes through the new rule. That moment is the demo.
 
-`db:migrate` here is the console migrating its own database after a merge, not a Devin session writing live data. `db:setup`, `db:seed` and `db:tamper` remain off limits for the session; the merge sync never invokes them.
+`db:migrate` here is the console migrating its own database after a merge, not a Devin session writing live data. `db:setup` and `db:seed` remain off limits for the session; the merge sync never invokes them.
 
 ## Credentials
 

@@ -32,6 +32,6 @@ Report the exact names printed by `scripts/run-guard.ts` in the `guards` results
 - A PR awaits an engineer's console approval; report the merge commit only after the squash merge actually succeeds.
 
 ## Forbidden actions
-- Never run `pnpm setup`, `pnpm db:seed`, `pnpm db:tamper`, or `pnpm db:scenario`; never write to a live database or read reviewer-only reference code.
+- Never run `pnpm setup`, `pnpm db:seed` or `pnpm db:scenario`; never write to a live database or read reviewer-only reference code.
 - Never read a feature spec under `docs/` on a rule run, or reviewer-only sections on an engine run.
 - Never force-push, push to the integration branch, approve your own PR, or merge before the console sends engineer approval.

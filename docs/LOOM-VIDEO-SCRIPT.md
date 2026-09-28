@@ -213,7 +213,7 @@ Section timings add up to about six and a half minutes. Lines in *🎬 italics* 
 *🎬 Role: Engineer, then show the pull request on GitHub.*
 
 - This run touches the engine. CODEOWNERS names an owner for `packages/engine/`, so GitHub requests the engine owner's review automatically, on top of the engineer's.
-- Before approving, the reviewer tries each of the five paths in the console and runs `/audit/verify`.
+- Before approving, the reviewer tries each of the five paths in the console and reads the audit rows it writes.
 - If review caught a missed path, show where it was caught and the fix Devin made in the same session.
 
 > This is where Devin needs the most review. Here's exactly how much it needed.
@@ -226,11 +226,9 @@ Section timings add up to about six and a half minutes. Lines in *🎬 italics* 
 - KYC **Approve**, a production flag enable and a policy setting edit all ask as well. A rejection still asks only for its reason.
 - The new `/audit` row shows the reason and `RISK-2231`.
 
-*🎬 Role: Admin. Open `/audit/verify`.*
+*🎬 Role: Admin. Open `/audit`.*
 
-> The verify page walks the whole chain from row one, recomputing each row's SHA-256 hash from the one before it. Green, including every row written before this change. The ticket sits inside the hashed content, so nobody can edit it later without breaking the chain on that exact row.
-
-*🎬 Optional ten-second aside: `pnpm db:tamper` edits one row, and `/audit/verify` names the row where the chain breaks. Reset the database afterwards.*
+> The audit log shows the whole run in order: the request, the approval and the merge, each row naming who did what and when.
 
 > One requirement, three apps and the engine, one pull request, one review.
 

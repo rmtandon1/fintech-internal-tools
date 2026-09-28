@@ -75,7 +75,7 @@ Stop tracing rules by hand. Review a small PR against a one-sentence request and
 
 **Example:** the Kestrel hold arrives as one pull request: the rule, its setting, the KYC check, new tests built from the Kestrel amounts, one existing test changed on purpose, and a green `pnpm verify` on top of the 294 tests already there. Review takes ~5 minutes instead of 4–6 hours, and CI's Boundaries check fails any code that writes to the database without going through the engine.
 
-**Example:** a change to the shared engine, such as requiring a reason on every privileged action, also needs the engine owner's approval. Before approving, the reviewer tries each privileged action in the console and runs `/audit/verify`, so a path Devin missed can't reach production.
+**Example:** a change to the shared engine, such as requiring a reason on every privileged action, also needs the engine owner's approval. Before approving, the reviewer tries each privileged action in the console and reads the audit rows it writes, so a path Devin missed can't reach production.
 
 ### For Compliance and QA
 
@@ -83,7 +83,7 @@ Set a control once and see it hold across every app. Every change arrives with i
 
 **Example:** internal audit asks for the ticket behind each refund sent to the processor, and there isn't one. Compliance asks Devin from the audit row that shows the gap. After the merge, a refund can't be sent without a reason and a ticket, and every audit row it authorises, across KYC, refunds and flags, carries both.
 
-**Example:** `/audit/verify` checks the whole chain live: the Kestrel request, the approval, the merge, the switch-off and the removal, with rows from before the change still verifying.
+**Example:** the audit log records the whole run: the Kestrel request, the approval, the merge, the switch-off and the removal, each row naming who did what and when.
 
 ## 3. Scenarios
 

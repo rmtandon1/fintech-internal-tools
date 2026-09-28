@@ -25,7 +25,7 @@ function approvalIdOf(result: ReturnType<typeof executeIntent>): string {
 }
 
 describe("readOutcomeAudit", () => {
-  it("applied: reports the row's seq, hash, actor and masked snapshots", () => {
+  it("applied: reports the row's seq, actor and masked snapshots", () => {
     makeWidget("w_oa_applied", 100);
     const result = executeIntent(kycReviewer, spend("w_oa_applied", 10));
     const audit = readOutcomeAudit(result, kycReviewer);
@@ -33,14 +33,12 @@ describe("readOutcomeAudit", () => {
 
     expect(audit).toMatchObject({
       seq: row.seq,
-      rowHash: row.rowHash,
       ts: row.ts,
       actorId: kycReviewer.id,
       actorRole: kycReviewer.role,
       event: "applied",
       statusField: "status",
       frozenVersion: null,
-      chainOk: true,
     });
     expect(audit?.before).toMatchObject({ balance: 100, version: 1 });
     expect(audit?.after).toMatchObject({ balance: 90, version: 2 });

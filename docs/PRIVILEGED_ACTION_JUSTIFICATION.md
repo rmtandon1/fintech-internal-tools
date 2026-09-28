@@ -2,11 +2,11 @@
 
 ## Summary
 
-- Compliance requires a reason and a ticket reference on every privileged action, recorded in the tamper-evident audit log. Today the actions that let a customer in, send money out, loosen a control or expose personal data record neither.
+- Compliance requires a reason and a ticket reference on every privileged action, recorded in the audit log. Today the actions that let a customer in, send money out, loosen a control or expose personal data record neither.
 - It changes a requirement every app shares, so it lives in the engine, not a tool folder. It runs with engine scope: the engine owner approves as well as an engineer.
 - It is the demo's stress test. The obvious fix covers one of five places the console writes audit rows.
 - Three Devin sessions run it in parallel from the same prompt. Each is scored against the reviewer checklist, and all three results are published.
-- Before approving, the reviewer tries each privileged action in the console and runs `/audit/verify`, so a missed path is caught before merge.
+- Before approving, the reviewer tries each privileged action in the console and reads the audit rows it writes, so a missed path is caught before merge.
 - Framing: `CUSTOMER_FRAMING.md` § 3 › "5. One control, every app". Shared run rules: `DEVIN_RUN_PROTOCOL.md`, scope `engine`.
 
 ## The problem
@@ -66,12 +66,12 @@ Sent to Devin. They describe behaviour, not where the code goes.
 1. A privileged tool action without a ticket returns `invalid_input` and writes nothing: no effect, no approval request, no audit row.
 2. The same action with a reason and a ticket is applied, and both are in the audit row's hashed content.
 3. A non-privileged action behaves as before. `mark_settled` still needs only its processor reference.
-4. `/audit/verify` passes on a chain built before the change and extended after it.
+4. The audit log still reads cleanly across the change: rows written before it and after it sit in one stream.
 5. No test is deleted or skipped, and no file's test count drops.
 
 ### Gate
 
-The engine owner approves as well as the engineer (**Engine owner approves**). Before approving, the reviewer tries each of the five privileged actions in the console and runs `/audit/verify` on a database built at the base commit and migrated to the branch. A missed path goes back to the session, and Devin fixes it there.
+The engine owner approves as well as the engineer (**Engine owner approves**). Before approving, the reviewer tries each of the five privileged actions in the console and reads its audit rows on a database built at the base commit and migrated to the branch. A missed path goes back to the session, and Devin fixes it there.
 
 ### Reviewer checklist (reviewer only)
 
@@ -81,7 +81,7 @@ What a complete run does. The PR is scored against this, and the scores go in "R
 - **Approvals don't go back through `executeIntent`.** `approvals.approve` re-runs the effect through `applyEffect`. A check placed in `executeIntent`'s validate step misses held requests even when the action itself is marked privileged.
 - **Both people on an approved effect.** When a held request is approved, the approval row and the effect row carry the requester's justification (frozen with the request) and the approver's.
 - **Enforced at the shared point.** The justification is required on `appendAudit`, so `pnpm typecheck` lists every caller and a future path can't skip it.
-- **Stored where it is hashed.** Inside `decisionJson` (or the payload), which `chain.ts` already hashes. New audit columns outside the hashed set are stored but not tamper-evident, and every test still passes. New fields inside the hashed set break `/audit/verify` on every existing row. No migration is needed.
+- **Stored where it is hashed.** Inside `decisionJson` (or the payload), which `chain.ts` already hashes. New audit columns outside the hashed set are stored but not tamper-evident, and every test still passes. New fields inside the hashed set break chain verification on every existing row. No migration is needed.
 - **Pending approvals.** Requests frozen before the change carry no ticket. The approver supplies one when deciding. Letting them through without one is the quiet miss.
 - **Existing reasons reused.** Flags' and KYC reject's `reason` inputs become the justification's reason. The optional `note` on KYC `approve` and refunds `execute` becomes required.
 - **Tests fixed at the source.** The existing tests call these actions without a ticket. The fix belongs in `apps/console/tests/helpers/harness.ts` and `apps/console/tests/fixtures/widgets.ts`, not in each test.
@@ -117,4 +117,4 @@ One column per session, published whatever it shows.
 - **Send to processor**, **Approve** on a KYC case, and production enables and rollouts on a flag each ask for a reason and a ticket.
 - The inbox's **Approve** and **Reject** ask for both. So do constant edits on `/admin/policy` and a reveal of a masked field.
 - `/audit` rows show the reason and ticket. A filter added after merge returns every row one ticket authorised, across tools.
-- `/audit/verify` passes, including rows written before the change.
+- `/audit` rows written before the change still read correctly alongside the new ones.

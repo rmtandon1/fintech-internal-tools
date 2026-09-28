@@ -28,8 +28,8 @@ import { toolRegistry } from "@/registry";
  * most of them will be sent to the manager inbox instead, and the summary this
  * script prints will show that shift.
  *
- * Refuses to run under NODE_ENV=production, like db:tamper: this is seed-grade
- * data for a local database only.
+ * Refuses to run under NODE_ENV=production: this is seed-grade data for a
+ * local database only.
  */
 if (process.env.NODE_ENV === "production") {
   console.error("db:scenario is a local demo aid and refuses to run in production");

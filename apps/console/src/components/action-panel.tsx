@@ -150,7 +150,6 @@ function ActionDialog({
   const [stage, setStage] = useState<"form" | "result">(autoSubmit ? "result" : "form");
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [idempotencyKey, setIdempotencyKey] = useState(() => ulid());
-  const [submittedKey, setSubmittedKey] = useState(idempotencyKey);
   const sent = useRef(false);
 
   const { label: buttonLabel, variant, disabled } = buttonFor(preview);
@@ -164,7 +163,6 @@ function ActionDialog({
     const prior = completed[preview.action];
     const key = prior?.payload === payload ? prior.key : idempotencyKey;
     form.set("idempotencyKey", key);
-    setSubmittedKey(key);
     setResult(null);
     setStage("result");
     startTransition(async () => {
@@ -266,7 +264,6 @@ function ActionDialog({
               result={result}
               actionLabel={preview.label}
               recordId={recordId}
-              idempotencyKey={submittedKey}
               statuses={statuses}
               ruleLabels={ruleLabels}
             />

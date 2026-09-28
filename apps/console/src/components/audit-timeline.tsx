@@ -65,7 +65,6 @@ export function AuditTimeline({
                     after={event.afterJson}
                     fields={getTool(event.tool)?.fields ?? []}
                   />
-                  <TechnicalDetails event={event} />
                 </div>
               </details>
             </li>
@@ -118,7 +117,6 @@ export function AuditTimeline({
                     after={event.afterJson}
                     fields={getTool(event.tool)?.fields ?? []}
                   />
-                  <TechnicalDetails event={event} />
                 </div>
               </details>
             </div>
@@ -126,32 +124,6 @@ export function AuditTimeline({
         );
       })}
     </ol>
-  );
-}
-
-/** Entry number and hashes: what proves the log was not edited, for whoever checks it. */
-function TechnicalDetails({ event }: { event: AuditRow }) {
-  return (
-    <details>
-      <summary className="cursor-pointer text-[11px] text-muted-foreground hover:text-foreground">
-        Show attributes
-      </summary>
-      <dl className="mt-1 space-y-0.5 font-mono text-[10px] text-muted-foreground">
-        <Hash label="entry" value={String(event.seq)} />
-        <Hash label="event" value={event.event} />
-        <Hash label="prev" value={event.prevHash} />
-        <Hash label="hash" value={event.rowHash} />
-      </dl>
-    </details>
-  );
-}
-
-function Hash({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex gap-2">
-      <dt className="w-10 shrink-0 text-muted-foreground/70">{label}</dt>
-      <dd className="min-w-0 break-all">{value}</dd>
-    </div>
   );
 }
 

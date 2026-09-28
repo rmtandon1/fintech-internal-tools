@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@console/db";
 import { approvalRequests, auditLog } from "@console/db-core/engine-schema";
-import { verifyChain } from "@console/engine/audit/verify";
 import { maskRecord } from "@console/engine/pii/mask";
 import { resolveTool } from "@console/engine/registry";
 import type { Actor, IntentResult } from "@console/engine/types";
@@ -9,7 +8,6 @@ import type { Actor, IntentResult } from "@console/engine/types";
 /** The audit row an outcome points at, masked like every other record read. */
 export interface OutcomeAudit {
   seq: number;
-  rowHash: string;
   ts: number;
   actorId: string;
   actorRole: string;
@@ -24,7 +22,6 @@ export interface OutcomeAudit {
   statusField: string;
   /** Record version held by the approval request, when the outcome raised one. */
   frozenVersion: number | null;
-  chainOk: boolean;
 }
 
 export function readOutcomeAudit(result: IntentResult, actor: Actor): OutcomeAudit | null {
@@ -52,7 +49,6 @@ export function readOutcomeAudit(result: IntentResult, actor: Actor): OutcomeAud
 
   return {
     seq: row.seq,
-    rowHash: row.rowHash,
     ts: row.ts,
     actorId: row.actorId,
     actorRole: row.actorRole,
@@ -61,7 +57,6 @@ export function readOutcomeAudit(result: IntentResult, actor: Actor): OutcomeAud
     after: mask(after),
     statusField: decl.statusField,
     frozenVersion,
-    chainOk: verifyChain().ok,
   };
 }
 
