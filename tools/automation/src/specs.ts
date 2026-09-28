@@ -111,6 +111,7 @@ export const REFUND_CLUSTERING_HOLD: RunnableSpec = {
       "With `refunds.clustering_window_days` at 0, nothing is held. This is the KILL_SWITCH setting.",
       "Approving a case whose email matches a customer in a held cluster needs a manager, whatever the risk score. The trace names `linked_refund_hold`.",
       "A case whose customer has no held refunds is unchanged. Score 68 still clears.",
+      "The existing KYC and refund tests that count or order the rules are changed on purpose and named in the plan; no test is lost.",
     ],
     undo: [
       "`pnpm verify` is green.",
