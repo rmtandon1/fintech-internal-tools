@@ -461,5 +461,9 @@ export function replayGitHubClient(now: () => number = Date.now): GitHubClient {
     async approvePull() {
       // The approval is recorded by approve_pr; the review endpoint is a no-op.
     },
+    async hasApprovingReview(pr) {
+      const status = runFor(pr)?.status;
+      return status === "approved" || status === "merged";
+    },
   };
 }

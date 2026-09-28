@@ -96,6 +96,8 @@ function fakeGitHub(state: {
   merged?: boolean;
   green?: boolean;
   contextSha?: string | null;
+  approved?: boolean;
+  reviewFails?: boolean;
 }) {
   const calls: string[] = [];
   const client: GitHubClient = {
@@ -118,6 +120,12 @@ function fakeGitHub(state: {
     },
     async approvePull() {
       calls.push("approve");
+      if (state.reviewFails) throw new Error("GitHub API 403 on /pulls/99/reviews: Resource not accessible by personal access token");
+      state.approved = true;
+    },
+    async hasApprovingReview() {
+      calls.push("reviews");
+      return state.approved ?? false;
     },
   };
   return { client, calls };
@@ -552,6 +560,45 @@ describe("approveRun", () => {
     await expect(approveRun(engineer, run, undefined, deps({ devin: reportingPr().client }))).rejects.toThrow(
       /GITHUB_TOKEN/,
     );
+  });
+
+  it("re-posts the review on a retried approval when GitHub refused the first one", async () => {
+    const run = await runningWithPr();
+    const state = { green: true, contextSha: run.contextSha256, reviewFails: true };
+    const github = fakeGitHub(state);
+    const devin = reportingPr();
+    const d = deps({ github: github.client, devin: devin.client });
+
+    const first = await approveRun(engineer, run, undefined, d);
+    expect(first.approve.outcome.status).toBe("applied");
+    expect(first.reviewError).toContain("403");
+    expect(getRun(run.id)?.status).toBe("approved");
+    expect(devin.calls).toEqual(["get"]);
+
+    state.reviewFails = false;
+    const approved = getRun(run.id);
+    if (!approved) throw new Error("no run");
+    const second = await approveRun(engineer, approved, undefined, d);
+    expect(second.approve.replayed).toBe(true);
+    expect(second.reviewError).toBeNull();
+    expect(github.calls.slice(-5)).toEqual(["pull", "checks", "file", "reviews", "approve"]);
+    expect(devin.calls).toEqual(["get", `message:Run ${run.id} is approved. Merge ${PR} now.`]);
+    expect(auditTrailFor("devin_run", run.id).filter((row) => row.action === "approve_pr")).toHaveLength(1);
+  });
+
+  it("a retried approval whose review already exists posts nothing", async () => {
+    const run = await runningWithPr();
+    const github = fakeGitHub({ green: true, contextSha: run.contextSha256 });
+    const d = deps({ github: github.client, devin: reportingPr().client });
+    await approveRun(engineer, run, undefined, d);
+
+    const approved = getRun(run.id);
+    if (!approved) throw new Error("no run");
+    const second = await approveRun(engineer, approved, undefined, d);
+    expect(second.approve.replayed).toBe(true);
+    expect(second.reviewError).toBeNull();
+    expect(github.calls).toContain("reviews");
+    expect(github.calls.filter((c) => c === "approve")).toHaveLength(1);
   });
 });
 
@@ -1001,6 +1048,22 @@ describe("HTTP clients", () => {
     const review = JSON.parse(http.seen.at(-1)?.body ?? "{}");
     expect(review).toMatchObject({ commit_id: HEAD, event: "APPROVE" });
     expect(http.seen.every((s) => s.url.startsWith("https://api.github.com/"))).toBe(true);
+  });
+
+  it("GitHub client reports an approving review only when one exists at the head sha", async () => {
+    let reviews: unknown = [
+      { state: "APPROVED", commit_id: HEAD },
+      { state: "COMMENTED", commit_id: HEAD },
+    ];
+    const http = recorder({
+      "GET https://api.github.com/repos/o/r/pulls/7/reviews": () => reviews,
+    });
+    const client = httpGitHubClient("tok", http.fetchImpl);
+    const ref = parsePullUrl("https://github.com/o/r/pull/7");
+    if (!ref) throw new Error("parse failed");
+    expect(await client.hasApprovingReview(ref, HEAD)).toBe(true);
+    reviews = [];
+    expect(await client.hasApprovingReview(ref, HEAD)).toBe(false);
   });
 
   it("parsePullUrl rejects anything that is not a github.com pull request", () => {

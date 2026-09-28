@@ -34,6 +34,8 @@ export interface GitHubClient {
   /** SHA-256 of a file's contents at `ref`, or null when the path is absent. */
   fileSha256(pr: PullRef, ref: string, path: string): Promise<string | null>;
   approvePull(pr: PullRef, headSha: string, body: string): Promise<void>;
+  /** True when an APPROVED review exists for `headSha` on the PR. */
+  hasApprovingReview(pr: PullRef, headSha: string): Promise<boolean>;
 }
 
 export const GITHUB_API_BASE = "https://api.github.com";
@@ -75,6 +77,8 @@ const CombinedStatus = z.object({
   state: z.string(),
   total_count: z.number().int(),
 });
+
+const Reviews = z.array(z.object({ state: z.string(), commit_id: z.string() }));
 
 const Contents = z.object({
   encoding: z.string(),
@@ -156,6 +160,13 @@ export function httpGitHubClient(token: string, fetchImpl: FetchLike, baseUrl = 
       if (field(json, "state") !== "APPROVED") {
         throw new Error("GitHub did not record an approving review");
       }
+    },
+    async hasApprovingReview(pr, headSha) {
+      const json = await call(`${repoPath(pr)}/pulls/${pr.number}/reviews?per_page=100`, {
+        method: "GET",
+      });
+      const reviews = Reviews.parse(json);
+      return reviews.some((r) => r.state === "APPROVED" && r.commit_id === headSha);
     },
   };
 }

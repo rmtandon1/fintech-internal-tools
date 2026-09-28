@@ -223,6 +223,9 @@ describe("GET /api/devin/<runId>", () => {
         return contextSha;
       },
       async approvePull() {},
+      async hasApprovingReview() {
+        return true;
+      },
     };
     const d = { ...deps(), devin: devin.client, github };
     const out = await dispatchRun(admin, request, d);
