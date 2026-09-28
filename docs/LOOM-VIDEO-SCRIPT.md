@@ -10,6 +10,28 @@
 >
 > "There's another option. Your team asks for a change, Devin builds it, and an engineer approves it."
 
+---
+
+## 🚀 What I Built (20 seconds)
+
+[Stay on slide 1.]
+
+> "I built Solon with Devin AI. It's a full-stack operations console for a regulated fintech, and every change to it is a pull request Devin opens."
+>
+> "The front end is Next.js 15, React 19, Tailwind 4 and shadcn. Behind it sits a governed engine on SQLite, and only the engine writes to the database."
+>
+> "The console drives Devin from the server, through the Devin v3 API and GitHub's REST API."
+
+---
+
+## 🤖 Why Devin (20 seconds)
+
+> "Why Devin? One rule change touches several files at once, and they all have to agree."
+>
+> "Devin coordinates those files, runs the test suite, opens the pull request, and merges it once an engineer approves."
+>
+> "The person asking sends one sentence. The engineer reviews. That's all the human work."
+
 [Press → to slide 2.]
 
 ---
@@ -40,7 +62,7 @@
 
 > "Three live apps on one engine. Devin wrote the code; I wrote the specs and reviewed every pull request."
 >
-> "Only the engine writes to the database. A check in every build fails if anything else tries."
+> "A check in every build fails if anything but the engine writes to the database."
 
 [Click **Transaction monitoring**, under Coming soon. Point at **Included automatically**.]
 
@@ -267,7 +289,7 @@
 
 ## Before Recording
 
-The recording runs just over seven minutes; ▶ SLIDE and ◀ CONSOLE cues mark switches between the deck and the app and are never said.
+The recording runs about eight minutes; ▶ SLIDE and ◀ CONSOLE cues mark switches between the deck and the app and are never said.
 
 **A day ahead, before the runs:**
 
@@ -306,7 +328,7 @@ Clicks marked **once** change data; retake with `pnpm db:seed` (it won't undo `p
 
 | # | Shot | Viewing as | State it needs |
 |---|---|---|---|
-| 0 | Slide 1 for the opening; then slide 2, Power Apps is five products in one | — | Deck open on slide 1 |
+| 0 | Slide 1 for the opening, what I built and why Devin; then slide 2, Power Apps is five products in one | — | Deck open on slide 1 |
 | 1 | Home; Transaction monitoring Coming soon | Refunds manager | Fresh seed at the tagged demo commit |
 | 2 | Kestrel drawer; `rfnd_0013` send (**once**) | Refunds manager, Refunds agent | Before the Kestrel merge |
 | 3 | Handoff, finished run, approval dialog and its trace | Refunds manager, Engineer | Recorded run |
@@ -323,7 +345,7 @@ Show every sped-up run with its real "Took …" time.
 
 ## After Recording
 
-- [ ] Chapters: Opening, Power Apps today, The console, Rules, Connectors, Apps, Deployment drift, Cost, Build or buy
+- [ ] Chapters: Opening, What I built, Why Devin, Power Apps today, The console, Rules, Connectors, Apps, Deployment drift, Cost, Build or buy
 - [ ] Description, with the one message ("your team asks, Devin builds, an engineer approves"), `docs/DEMO-SLIDES.pdf`, the repo link, the five pull requests, and each run's time, ACUs and test total
 - [ ] Copy each `apps/console/data/replays/<run_id>.json` to `runs/<run_id>/replay.json` and commit
 - [ ] Stop running Devin sessions
