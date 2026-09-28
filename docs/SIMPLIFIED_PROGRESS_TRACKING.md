@@ -2,7 +2,7 @@
 
 ## Overview
 
-Each run-checklist line is a direct projection of one field of the Devin session's `structured_output`, taken only after that output has passed `StructuredOutput` validation. No line is inferred from message text, a timer, or the phase alone.
+Each line that `runChecklist` produces is a direct projection of one field of the Devin session's `structured_output`, taken only after that output has passed `StructuredOutput` validation; the checklist the run view mounts today also shows one row per phase (see [Where `runChecklist` stands today](#where-runchecklist-stands-today)).
 
 ## How It Works
 
@@ -169,6 +169,8 @@ This is the change-operation script from `scriptedFrames` in `apps/console/tests
 
 In this script `guards` stays `[]` throughout, so the "Safety checks" line never appears. That is expected: only reported fields render.
 
+The undo script differs from the table: it reports `conflicts` at +40s but sends `[]` at +44s. Its "Resolved a clash" lines therefore appear at +40s and disappear at +44s. That breaks note 5 ("Retain prior artifacts") in the fixture; `runChecklist` only renders the latest snapshot it receives.
+
 ### Example console / poll output
 
 Checklist dump for the +12s and +44s frames, from the same throwaway script (`CHECKLIST_GLYPH[state] [field] label · detail`):
@@ -332,4 +334,4 @@ The mechanism it describes is defined in these files:
 - Progress tracking is a pure, predictable projection. Devin reports one schema-validated `structured_output` object, and the console turns it into checklist lines field by field, with no phrase matching.
 - The schema is handed to the session at creation, enforced with `structured_output_required`, and checked again on every poll. Anything invalid is surfaced as `invalid_output` and ignored for display.
 - No timer, timeout or force-advance exists anywhere in the path. Frames are recorded only when the snapshot changes, and Devin is told to update "never on a timer".
-- Every displayed state is backed by a reported structured field, and every `ChecklistLine` names that field. If Devin has not reported a field, the checklist shows no line for it.
+- Every displayed state is backed by a reported structured field. Every `ChecklistLine` names its field, and `runChecklist` shows no line for a field Devin has not reported. The mounted run-view `Checklist` differs: it always shows the phase rows, with states taken from the reported `phase` and `phase_status`.
