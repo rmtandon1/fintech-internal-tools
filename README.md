@@ -94,7 +94,7 @@ in [Managed entity schema](#managed-entity-schema).
 
 ### System overview
 
-```
+```text
                  Refunds agent · Refunds manager · KYC reviewer · Admin · Engineer
                                             │  "Viewing as" (signed cookie)
                                             ▼
@@ -138,7 +138,7 @@ Three rules hold the layers apart:
 
 Each role works its own queue, and the engine carries work across apps and across people:
 
-```
+```text
  Refunds agent ──sends refund──▶ Refunds ──over the limit──▶ Inbox ──▶ Refunds manager approves
                                    │
                                    │ same customer (email)
@@ -164,38 +164,37 @@ page.
 
 ### The Devin loop, end to end
 
-```mermaid
-flowchart LR
-    A["Request"] --> B["Devin session<br/>+ committed plan"]
-    B --> C["Pull request"]
-    C --> D["Engineer approval"]
-    D --> E["Merge"]
-    E --> F["Console pulls<br/>and syncs"]
+```text
++-----------+     +------------------+     +--------------+     +-------------------+
+|  Request  | --> |  Devin session   | --> | Pull request | --> | Engineer approval |
+| (console) |     | + committed plan |     |   (GitHub)   |     | (not requester)   |
++-----------+     +------------------+     +--------------+     +---------+---------+
+                                                                          |
+                                     +-----------------------+            v
+                                     | Console pulls / syncs | <--  +-----------+
+                                     |  (Pull merged code)   |      |   Merge   |
+                                     +-----------------------+      +-----------+
 ```
 
-| Step | What happens |
-|---|---|
-| **Request** | A refunds manager clicks **Ask Devin for a rule**, then **Send to Devin**. The console server calls `dispatchAutomationRun(intent, evidence)` |
-| **Devin session + committed plan** | The server writes `runs/{id}/context.json` (no personal data), posts it as an attachment and opens a Devin v3 session with the playbook and prompt. Devin commits its plan before editing |
-| **Pull request** | Devin pushes `devin/{id}-{slug}` to GitHub and opens a pull request. CI runs `pnpm verify` |
-| **Engineer approval** | An engineer clicks **Review and approve**, then **Approve as engineer**. The server posts an `APPROVE` review to GitHub and messages Devin to merge |
-| **Merge** | Devin squash-merges. The run view shows **Merged** |
-| **Console pulls and syncs** | The engineer clicks **Pull merged code**. The server runs `git pull --ff-only`, `pnpm install` if packages changed, `pnpm db:migrate`, and loads new settings. The console shows `Local code updated · pulled a1b2c3d → e4f5a6b` |
+Safeguards:
 
-**Safeguards**
-
-- **Run guard.** Dispatch goes through `executeIntent`, which checks the role and allows one run
-  per app. `pnpm verify` in CI includes the run guard (`pnpm check:run`), whose five checks hold
-  the change to its committed plan. Four run in CI; the fifth is the context-hash check below.
-- **Context-hash check.** Before approving, the server reads the pull request's checks and the hash
-  of `context.json` on the branch from GitHub. The approval goes through `executeIntent(approve_pr)`.
-- **Polling loop.** While the run view is open, the browser calls `GET /api/devin/{runId}` every
-  2 s. The server reads `GET sessions/{id}` from Devin, and its `structured_output` (phase, files,
-  checks) moves the checklist from ○ to ● to ✓. After the merge, the same poll reads
-  `GET pulls/{n}` from GitHub to see it merged.
-- **Audit rows.** Each run writes five audit rows, each through `executeIntent`: `dispatch` (with
-  the `devin_runs` row), `record_session`, `record_pr` (the first time `pr_url` appears),
-  `approve_pr` and `record_merge`.
+- **Dispatch rules.** The request runs through `executeIntent(dispatch)`, which checks the role and
+  allows one run in flight per app. The server then writes `runs/{id}/context.json` (no personal
+  data) and opens the Devin session with the playbook and prompt.
+- **Five audit rows.** A run on the normal path writes `dispatch`, `record_session`, `record_pr`
+  (the first time `pr_url` appears), `approve_pr` and `record_merge`, each through `executeIntent`.
+- **2 s polling loop.** While the run view is open, the browser calls `GET /api/devin/{runId}` every
+  2 s; the server reads the Devin session (status and `structured_output`: phase, files, checks)
+  and the run view's checklist moves ○ → ● → ✓.
+- **Run guard checks.** Devin pushes `devin/{id}-{slug}` and opens the PR; CI runs `pnpm verify`,
+  including the run guard (**Stays in plan**, **Plan stays in scope**, **Run dir frozen**,
+  **Shared code reported**).
+- **Context-hash check at approval.** **Approve as engineer** reads the CI checks and the
+  `context.json` hash from GitHub (**Context untouched**) before `approve_pr`, then posts the
+  GitHub review (APPROVE) and messages Devin to merge. Devin squash-merges.
+- **Merge detection and sync.** The next poll sees `GET pulls/{n}` report merged and records
+  `record_merge`. **Pull merged code** runs `git pull --ff-only`, `pnpm install` if packages
+  changed, `pnpm db:migrate` and loads new settings, then shows the pulled commit range.
 
 Deeper diagrams live in [`docs/ARCHITECTURE_DIAGRAM.md`](docs/ARCHITECTURE_DIAGRAM.md), including
 a map from what operators see to the code Devin changes.
@@ -204,7 +203,7 @@ a map from what operators see to the code Devin changes.
 
 ## Project structure
 
-```
+```text
 fintech-internal-tools/
 ├── apps/
 │   └── console/                     # The Next.js app: routes, server actions, registry, migrations, tests
@@ -676,7 +675,7 @@ The post-merge rows came out of one diagnosed problem, post-merge deployment dri
 
 Find the layer first, then the symptom.
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────────┐
 │ 1  BROWSER       Wrong role? Stale tab? Role cookie from before reset? │
 ├──────────────────────────────────────────────────────────────────────┤
