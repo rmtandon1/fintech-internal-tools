@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ContextFile, PlanFile, type ContextFile as Context, type PlanFile as Plan } from "@console/tool-automation/run-files";
-import { globToRegExp, SHARED_PATHS } from "@console/tool-automation/shared-paths";
+import { globToRegExp, touchesSharedPath } from "@console/tool-automation/shared-paths";
 
 /**
  * Guard checks for a Devin run (`docs/DEVIN_RUN_PROTOCOL.md` § Guard checks).
@@ -249,10 +249,9 @@ function runDirFrozen({ git, mergeBase, planCommit, runDir }: RunContext): Check
 }
 
 function sharedCodeReported({ changes }: RunContext): CheckResult {
-  const shared = SHARED_PATHS.map(globToRegExp);
   const hit = changes
     .flatMap((c) => [c.path, ...(c.from ? [c.from] : [])])
-    .filter((p) => shared.some((re) => re.test(p)));
+    .filter(touchesSharedPath);
   return hit.length === 0
     ? { name: "Shared code reported", pass: true, reason: "no shared path touched" }
     : { name: "Shared code reported", pass: true, reason: `touched shared paths: ${list(hit)}` };

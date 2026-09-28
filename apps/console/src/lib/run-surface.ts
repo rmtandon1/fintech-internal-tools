@@ -9,6 +9,7 @@ import {
   type StructuredOutput,
 } from "@console/tool-automation";
 import { currentPrUrl, isSynced, type BridgeDeps } from "@console/tool-automation/bridge";
+import { touchesSharedPath } from "@console/tool-automation/shared-paths";
 
 /**
  * What the run surface may offer this actor for `run`, computed with the
@@ -24,6 +25,11 @@ export interface RunOffers {
   reverse: { offered: boolean; reason?: string };
   /** The merge landed but the local checkout does not have it yet. */
   sync: boolean;
+}
+
+/** The shared paths a session-reported diff touched, for the engine-owner note. */
+export function sharedPathsTouched(output: StructuredOutput | null | undefined): string[] {
+  return (output?.files ?? []).map((f) => f.path).filter(touchesSharedPath);
 }
 
 export async function runOffers(
