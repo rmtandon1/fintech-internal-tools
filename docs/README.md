@@ -26,6 +26,7 @@ scripts are in the root [`README.md`](../README.md).
 
 - [GITHUB_INTEGRATION.md](GITHUB_INTEGRATION.md) — token permissions, API calls, CI jobs, CODEOWNERS, branch protection and the merge sync
 - [DEVIN_RUN_SYNC_FIXES.md](DEVIN_RUN_SYNC_FIXES.md) — six defects between Devin, GitHub and the console, with root causes and fixes
+- [MERGED_BUT_NOT_LIVE.md](MERGED_BUT_NOT_LIVE.md) — troubleshooting: a merge that wasn't live in the console, diagnosed from GitHub down to the checkout and fixed in four layers
 - [AUTO_PR_DETECTION.md](AUTO_PR_DETECTION.md) — how the console detects a run's pull request and merge by polling, and the GitHub rate-limit math
 
 ### Architecture & Design

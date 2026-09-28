@@ -166,6 +166,10 @@ The beat-by-beat script, with what to say, what to click and the order to record
 
 > Today a rule on money changes one of two ways: fast in Power Apps with nobody reviewing it, or reviewed through a ticket that waits two weeks. In this console a rule is code, and Devin changes it. When risk spots a pattern, they ask for the rule in one sentence from the screen that shows it. Devin writes the rule and its tests, runs the full suite, and opens a pull request your engineer reviews in minutes. When the rule misfires, one setting switches it off in seconds, and Devin takes it back out of the code the same day, even after the code has moved on. When analysts are doing a lookup by hand, Devin connects the outside source and the case holds itself. When the next Power App needs to move, Devin makes the first pull request and lists the rest. After Power Apps, your team asks, Devin builds, and an engineer approves, whether it's a rule, a manual step or a whole new app.
 
+### A bug from the build
+
+A pull request merged on GitHub while the console still served the old code. The console runs its own checkout, and a merge moves the remote, not the files, packages or database the console reads. It was traced layer by layer from GitHub down to the checkout, and fixed in four layers: confirm the merge with GitHub, pull only into a clean checkout on the right branch, install when the lockfile moves, then migrate and register new settings and flags without a restart. The Loom tells it in 30 seconds; the write-up is [`docs/MERGED_BUT_NOT_LIVE.md`](docs/MERGED_BUT_NOT_LIVE.md).
+
 ## 5. Capabilities in depth
 
 The same five operations as the README's Usage section, taken one level down: who has the problem, what they do today, and exactly what the automation does, file by file.
