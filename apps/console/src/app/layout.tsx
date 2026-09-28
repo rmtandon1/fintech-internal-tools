@@ -6,16 +6,10 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
 import { AgentWindow } from "@/components/agent-window";
 import { DevinWindowBody } from "@/components/devin-window-body";
-import {
-  CommandPaletteProvider,
-  type PaletteMode,
-} from "@/components/command-palette";
 import { countPendingFor } from "@console/engine/approvals";
-import type { ConsoleStatus } from "@/lib/connection";
 import { automationTool } from "@console/tool-automation";
 import { WorkspaceProvider } from "@/components/workspace";
 import { devinMode } from "@/lib/devin-status";
-import { modesFor } from "@/lib/modes";
 import { BRAND } from "@/lib/brand";
 import { currentTheme } from "@/lib/theme";
 import { chosenRole, currentActor } from "@/lib/session";
@@ -47,22 +41,6 @@ export default async function RootLayout({
   const runs = visible.some((t) => t.name === automationTool.name);
   const pending = countPendingFor(actor);
   const mode = devinMode();
-  // First paint; the header then polls /api/status for Devin's reachability.
-  const status: ConsoleStatus = {
-    devin: { mode, error: null },
-    checkedAt: Date.now(),
-  };
-
-  const modes: PaletteMode[] = modesFor(actor.role).map((mode) => ({
-    id: mode.id,
-    name: mode.name,
-    description: mode.description,
-    icon: mode.icon,
-    actions: mode.actions,
-    roles: mode.roles,
-    live: mode.live,
-    href: mode.href,
-  }));
 
   return (
     <html
@@ -71,32 +49,18 @@ export default async function RootLayout({
       className={`${sans.variable} ${mono.variable}${theme === "dark" ? " dark" : ""}`}
     >
       <body className="h-screen overflow-hidden bg-background font-sans text-foreground antialiased">
-        <CommandPaletteProvider modes={modes}>
-          <div className="flex h-full">
-            <WorkspaceProvider>
-              <AppSidebar actor={actor} roleChosen={role !== null} tools={tools} runs={runs} pendingApprovals={pending} />
-              <div className="flex min-w-0 flex-1 flex-col">
-                <AppHeader
-                  actor={actor}
-                  roleChosen={role !== null}
-                  status={status}
-                  agent={
-                    // Keyed: an element built here and rendered among the header's
-                    // children otherwise trips React's list-key warning in dev.
-                    <AgentWindow
-                      key="devin-window"
-                      mode={mode}
-                      source={mode === "simulation" ? "Not connected" : "Connected"}
-                    >
-                      <DevinWindowBody actor={actor} mode={mode} />
-                    </AgentWindow>
-                  }
-                />
-                <main className="min-h-0 flex-1 overflow-hidden p-4">{children}</main>
-              </div>
-            </WorkspaceProvider>
-          </div>
-        </CommandPaletteProvider>
+        <div className="flex h-full">
+          <WorkspaceProvider>
+            <AppSidebar actor={actor} roleChosen={role !== null} tools={tools} runs={runs} pendingApprovals={pending} />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <AppHeader actor={actor} roleChosen={role !== null} />
+              <main className="min-h-0 flex-1 overflow-hidden p-4">{children}</main>
+            </div>
+            <AgentWindow source={mode === "simulation" ? "Not connected" : "Connected"}>
+              <DevinWindowBody actor={actor} mode={mode} />
+            </AgentWindow>
+          </WorkspaceProvider>
+        </div>
         <Toaster position="bottom-right" />
       </body>
     </html>

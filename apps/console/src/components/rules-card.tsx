@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@console/ui/button";
+import { humanize } from "@console/ui/format";
 import { useWorkspace } from "@/components/workspace";
 import type { HandoffOffer } from "@/lib/handoff";
 
@@ -30,7 +31,7 @@ export function RulesCard({
     <div className="space-y-1 rounded-lg border border-border p-3" data-testid="rules-card">
       {rows.map((row) => (
         <div key={row.spec} className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-xs">{row.spec}</span>
+          <span className="text-xs">{humanize(row.spec.replace(/\.md$/i, ""))}</span>
           <span className="ml-auto flex gap-2">
             {row.actions.map((action) => (
               <span key={action.kind} className="flex flex-col items-end gap-0.5">
