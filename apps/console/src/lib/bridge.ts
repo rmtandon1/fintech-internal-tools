@@ -1,5 +1,5 @@
 import { execFile, execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { z } from "zod";
@@ -77,6 +77,10 @@ export function bridgeDeps(): AppBridgeDeps {
     github: token ? httpGitHubClient(token, fetchImpl, process.env.GITHUB_API_BASE) : null,
     repoRoot,
     git: execFileGitRunner(),
+    install: async (cwd) => {
+      await execFileAsync("pnpm", ["install", "--frozen-lockfile"], { cwd });
+    },
+    installPending: async () => installPending(repoRoot),
     migrate: async (cwd) => {
       await execFileAsync("pnpm", ["db:migrate"], { cwd });
       // Constants the merged run declares must exist without a re-seed;
@@ -108,6 +112,17 @@ export function bridgeDeps(): AppBridgeDeps {
         }
       : undefined,
   };
+}
+
+/**
+ * pnpm copies the lockfile it installed from to `node_modules/.pnpm/lock.yaml`;
+ * a checkout whose `pnpm-lock.yaml` differs from that copy has not been
+ * installed since it last changed.
+ */
+function installPending(repoRoot: string): boolean {
+  const installedLock = join(repoRoot, "node_modules/.pnpm/lock.yaml");
+  if (!existsSync(installedLock)) return true;
+  return readFileSync(join(repoRoot, "pnpm-lock.yaml"), "utf8") !== readFileSync(installedLock, "utf8");
 }
 
 /**

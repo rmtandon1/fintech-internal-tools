@@ -44,6 +44,10 @@ export interface BridgeDeps {
   replaysDir?: string;
   /** Checkout access for the merge sync; absent in tests that do not pull. */
   git?: GitRunner;
+  /** Installs workspace dependencies (`pnpm install --frozen-lockfile`) in the checkout. */
+  install?: (cwd: string) => Promise<void>;
+  /** True when the installed dependencies lag the checkout's lockfile. */
+  installPending?: () => Promise<boolean>;
   /** Runs the console's own migration script on its database. */
   migrate?: (cwd: string) => Promise<void>;
   /** True when drizzle journal entries postdate the last applied migration. */
@@ -499,7 +503,7 @@ export async function observeMerge(actor: Actor, run: DevinRun, deps: BridgeDeps
 }
 
 export type SyncOutcome =
-  | { kind: "synced"; before: string; after: string; migrated: boolean }
+  | { kind: "synced"; before: string; after: string; installed: boolean; migrated: boolean }
   | { kind: "unchanged"; head: string }
   | { kind: "skipped"; reason: string }
   | { kind: "failed"; reason: string };
@@ -508,7 +512,7 @@ export type SyncOutcome =
 export function describeSync(sync: SyncOutcome): string {
   switch (sync.kind) {
     case "synced":
-      return `pulled ${sync.before.slice(0, 7)} → ${sync.after.slice(0, 7)}${sync.migrated ? " · db migrated" : ""}`;
+      return `pulled ${sync.before.slice(0, 7)} → ${sync.after.slice(0, 7)}${sync.installed ? " · dependencies installed" : ""}${sync.migrated ? " · db migrated" : ""}`;
     case "unchanged":
       return `checkout already at ${sync.head.slice(0, 7)}`;
     case "skipped":
@@ -522,8 +526,10 @@ export function describeSync(sync: SyncOutcome): string {
  * Serialised through `syncQueue` so two clicks never run two pulls. Only a
  * `merged` run pulls: the checkout must sit on the sync branch with a clean
  * tree, the pull is `--ff-only`, and the run's merge commit must land on
- * HEAD. Pending drizzle migrations run `pnpm db:migrate` — never
- * `db:setup`/`db:seed`, which re-seed the live database (MERGE_SYNC.md).
+ * HEAD. A pull that changes a `package.json`, `pnpm-lock.yaml` or
+ * `pnpm-workspace.yaml` runs `pnpm install` so newly merged workspace
+ * packages resolve. Pending drizzle migrations then run `pnpm db:migrate` —
+ * never `db:setup`/`db:seed`, which re-seed the live database (MERGE_SYNC.md).
  */
 export function syncMergedRun(run: DevinRun, deps: BridgeDeps): Promise<SyncOutcome> {
   const next = syncQueue.then(() => syncMergedRunInner(run, deps));
@@ -535,6 +541,16 @@ export function syncMergedRun(run: DevinRun, deps: BridgeDeps): Promise<SyncOutc
 }
 
 let syncQueue: Promise<unknown> = Promise.resolve();
+
+/** Files whose change means the installed dependencies may no longer match the checkout. */
+export function isDependencyManifest(path: string): boolean {
+  return (
+    path === "pnpm-lock.yaml" ||
+    path === "pnpm-workspace.yaml" ||
+    path === "package.json" ||
+    path.endsWith("/package.json")
+  );
+}
 
 /** dispatchRun writes `runs/<id>/context.json` locally; the same file lands in the merge. */
 const RUN_CONTEXT = /^runs\/([^/]+)\/context\.json$/;
@@ -571,6 +587,19 @@ async function syncMergedRunInner(run: DevinRun, deps: BridgeDeps): Promise<Sync
     if (!(await git.isAncestor(cwd, run.mergeCommit, "HEAD"))) {
       return { kind: "failed", reason: `${run.mergeCommit.slice(0, 12)} is not on HEAD after the pull` };
     }
+    let installed = false;
+    if (deps.install) {
+      const manifestsChanged =
+        after !== before && (await git.changedPaths(cwd, before, after)).some(isDependencyManifest);
+      if (manifestsChanged || (deps.installPending && (await deps.installPending()))) {
+        try {
+          await deps.install(cwd);
+          installed = true;
+        } catch (error) {
+          return { kind: "failed", reason: `pnpm install failed: ${errorText(error)}` };
+        }
+      }
+    }
     let migrated = false;
     if (deps.migrate && deps.migrationsPending && (await deps.migrationsPending())) {
       try {
@@ -580,8 +609,8 @@ async function syncMergedRunInner(run: DevinRun, deps: BridgeDeps): Promise<Sync
         return { kind: "failed", reason: `db:migrate failed: ${errorText(error)}` };
       }
     }
-    if (after === before && !migrated) return { kind: "unchanged", head: after };
-    return { kind: "synced", before, after, migrated };
+    if (after === before && !installed && !migrated) return { kind: "unchanged", head: after };
+    return { kind: "synced", before, after, installed, migrated };
   } catch (error) {
     return { kind: "failed", reason: errorText(error) };
   }

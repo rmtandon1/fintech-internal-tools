@@ -28,6 +28,7 @@ import {
 import {
   approveRun,
   type BridgeDeps,
+  describeSync,
   dispatchRun,
   isSynced,
   observeMerge,
@@ -785,7 +786,7 @@ describe("syncMergedRun", () => {
       ancestors: [MERGE],
     });
     const sync = await syncMergedRun(run, deps({ git: fake.git, migrationsPending: async () => false }));
-    expect(sync).toEqual({ kind: "synced", before: BEFORE, after: AFTER, migrated: false });
+    expect(sync).toEqual({ kind: "synced", before: BEFORE, after: AFTER, installed: false, migrated: false });
     expect(fake.removed).toEqual([rel]);
   });
 
@@ -828,7 +829,7 @@ describe("syncMergedRun", () => {
         migrationsPending: async () => pending,
       }),
     );
-    expect(sync).toEqual({ kind: "synced", before: BEFORE, after: AFTER, migrated: true });
+    expect(sync).toEqual({ kind: "synced", before: BEFORE, after: AFTER, installed: false, migrated: true });
     expect(migrated).toEqual([repoRoot]);
 
     pending = false;
@@ -840,7 +841,7 @@ describe("syncMergedRun", () => {
         migrationsPending: async () => pending,
       }),
     );
-    expect(again).toEqual({ kind: "synced", before: BEFORE, after: AFTER, migrated: false });
+    expect(again).toEqual({ kind: "synced", before: BEFORE, after: AFTER, installed: false, migrated: false });
     expect(migrated).toEqual([repoRoot]);
   });
 
@@ -868,7 +869,7 @@ describe("syncMergedRun", () => {
         migrationsPending: async () => true,
       }),
     );
-    expect(second).toEqual({ kind: "synced", before: AFTER, after: AFTER, migrated: true });
+    expect(second).toEqual({ kind: "synced", before: AFTER, after: AFTER, installed: false, migrated: true });
     expect(migrated).toEqual([repoRoot]);
   });
 
@@ -877,6 +878,94 @@ describe("syncMergedRun", () => {
     const fake = fakeGit({ before: BEFORE, ancestors: [MERGE] });
     const sync = await syncMergedRun(run, deps({ git: fake.git, migrationsPending: async () => false }));
     expect(sync).toEqual({ kind: "unchanged", head: BEFORE });
+  });
+
+  it("runs pnpm install before db:migrate when the pull changes a dependency manifest", async () => {
+    const run = await merged();
+    const steps: string[] = [];
+    const sync = await syncMergedRun(
+      run,
+      deps({
+        git: fakeGit({
+          before: BEFORE,
+          after: AFTER,
+          ancestors: [MERGE],
+          changed: ["tools/chargebacks/package.json", "tools/chargebacks/src/index.ts"],
+        }).git,
+        install: async (cwd) => void steps.push(`install:${cwd}`),
+        migrate: async (cwd) => void steps.push(`migrate:${cwd}`),
+        migrationsPending: async () => true,
+      }),
+    );
+    expect(sync).toEqual({ kind: "synced", before: BEFORE, after: AFTER, installed: true, migrated: true });
+    expect(steps).toEqual([`install:${repoRoot}`, `migrate:${repoRoot}`]);
+    expect(describeSync(sync)).toContain("dependencies installed");
+  });
+
+  it.each(["pnpm-lock.yaml", "pnpm-workspace.yaml", "package.json", "apps/console/package.json"])(
+    "installs when %s changed",
+    async (path) => {
+      const run = await merged();
+      let installs = 0;
+      const sync = await syncMergedRun(
+        run,
+        deps({
+          git: fakeGit({ before: BEFORE, after: AFTER, ancestors: [MERGE], changed: [path] }).git,
+          install: async () => void (installs += 1),
+          migrationsPending: async () => false,
+        }),
+      );
+      expect(sync.kind === "synced" && sync.installed).toBe(true);
+      expect(installs).toBe(1);
+    },
+  );
+
+  it("does not install when the pull changes no dependency manifest", async () => {
+    const run = await merged();
+    let installs = 0;
+    const sync = await syncMergedRun(
+      run,
+      deps({
+        git: fakeGit({ before: BEFORE, after: AFTER, ancestors: [MERGE], changed: ["tools/refunds/src/index.ts"] }).git,
+        install: async () => void (installs += 1),
+        installPending: async () => false,
+        migrationsPending: async () => false,
+      }),
+    );
+    expect(sync).toEqual({ kind: "synced", before: BEFORE, after: AFTER, installed: false, migrated: false });
+    expect(installs).toBe(0);
+  });
+
+  it("fails without migrating when pnpm install fails, and retries it on the next call", async () => {
+    const run = await merged();
+    const migrated: string[] = [];
+    const first = await syncMergedRun(
+      run,
+      deps({
+        git: fakeGit({ before: BEFORE, after: AFTER, ancestors: [MERGE], changed: ["pnpm-lock.yaml"] }).git,
+        install: async () => {
+          throw new Error("ERR_PNPM_OUTDATED_LOCKFILE");
+        },
+        migrate: async (cwd) => void migrated.push(cwd),
+        migrationsPending: async () => true,
+      }),
+    );
+    expect(first.kind).toBe("failed");
+    if (first.kind === "failed") expect(first.reason).toContain("pnpm install failed");
+    expect(migrated).toEqual([]);
+
+    let installs = 0;
+    const second = await syncMergedRun(
+      run,
+      deps({
+        git: fakeGit({ before: AFTER, ancestors: [MERGE] }).git,
+        install: async () => void (installs += 1),
+        installPending: async () => true,
+        migrationsPending: async () => false,
+      }),
+    );
+    expect(second).toEqual({ kind: "synced", before: AFTER, after: AFTER, installed: true, migrated: false });
+    expect(installs).toBe(1);
   });
 
   it("isSynced stays false while migrations are pending", async () => {

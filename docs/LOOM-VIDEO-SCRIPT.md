@@ -9,7 +9,7 @@ It's one demo: the same loop runs three times, each time on a bigger change. Ask
 | Part | The client is asking | What answers it on screen |
 |---|---|---|
 | Power Apps today | What are we paying Power Apps for, and what would we have to own instead? | Power Apps is five products in one; each part of the demo replaces one of them in owned code |
-| The console | Is the build itself credible? | Three live apps on one engine, 331 tests, and seven controls every new app inherits |
+| The console | Is the build itself credible? | Three live apps on one engine, 320 tests, and seven controls every new app inherits (counts at the tagged demo commit) |
 | 1. Rules: from added to removed | When requirements change, how fast, and who checks it? Can we switch it off, and take it out? | A Kestrel refund settles, then waits for a manager; switched off in seconds; removed from code that has moved on |
 | 2. Connectors: automating manual steps | Is this only rules, or real engineering against outside systems? | A hand-typed Companies House check becomes a lookup, on test data here, that holds approval |
 | 3. Apps: starting the next one | Can this hold twenty tools? What does the next one cost? | Chargebacks lands as a first pull request, switched off until an admin turns it on, with the rest of the move as a list |
@@ -78,7 +78,7 @@ It's one demo: the same loop runs three times, each time on a bigger change. Ask
 
 ## 🧱 The Console Devin Built (30 seconds)
 
-[Stay on home. Point at the three live apps.]
+[Stay on home. Point at the three live apps. These counts, and the seventeen tiles below, hold at the tagged demo commit, before any of today's runs merge.]
 
 > "This is the console. I decided what each piece should do and reviewed every pull request."
 >
@@ -90,7 +90,7 @@ It's one demo: the same loop runs three times, each time on a bigger change. Ask
 >
 > "Validate, idempotency, policy, approval, effect, audit. The change and its audit row save together, or not at all."
 >
-> "331 tests hold it together."
+> "320 tests hold it together."
 
 [Click **Transaction monitoring**, under Coming soon. Point at **Included automatically**.]
 
@@ -202,7 +202,11 @@ One rule, one app: introduce it, switch it off, take it out.
 
 > "This checklist is the spec. It came to me, not to Devin. I check there's a test for each of the eight."
 
-[Click **Approve as engineer**. Let the rows fill in: GitHub review, Devin merging, merged, pulled in, audit row.]
+[Click **Approve as engineer**. Let the rows fill in: Approving review, Devin merging, Merged, Audit row.]
+
+> "Merged isn't the same as on. The console runs this checkout, so I pull the merged code myself."
+
+[Close the dialog. On the run, click **Pull merged code**. Engineers only; the toast reads `pulled … → …`.]
 
 ### After: the same kind of click
 
@@ -288,7 +292,7 @@ One rule, one app: introduce it, switch it off, take it out.
 
 ### After it's gone
 
-[Switch role: Engineer. Approve, and let Devin merge. Then switch to Refunds agent. On `rfnd_0014`, click **Send to processor**.]
+[Switch role: Engineer. Approve, let Devin merge, then click **Pull merged code**. Then switch to Refunds agent. On `rfnd_0014`, click **Send to processor**.]
 
 > "It settles, and the rule is gone from the trace entirely."
 
@@ -356,7 +360,7 @@ Same loop, bigger change: outside data replaces a lookup people do by hand.
 >
 > "It added no new hold. Approval already waits on a material difference, so it reuses that."
 
-[Switch role: Engineer. Approve, and let Devin merge.]
+[Switch role: Engineer. Approve, let Devin merge, then click **Pull merged code**.]
 
 [Switch role: Admin. Open `/admin/policy`. Set `kyc.companies_house_check` from 0 to 1. Save.]
 
@@ -412,7 +416,7 @@ Same loop, biggest change: a new app. Not built to production in a video, but st
 
 > "A new folder, one registry entry, one database migration. Nothing in the engine."
 
-[Switch role: Engineer. Approve, and let Devin merge. Back on home, point at the Chargebacks tile: **Switched off**.]
+[Switch role: Engineer. Approve, let Devin merge, then click **Pull merged code**; it installs the new `@console/tool-chargebacks` package. Back on home, point at the Chargebacks tile: **Switched off**.]
 
 > "It merged switched off. Nobody sees it until an admin turns it on."
 
@@ -495,6 +499,8 @@ The five runs take 30–60 minutes each, so record them before the narration tak
 | Check | Why |
 |---|---|
 | Main checkout on `cognition-dashboard-devin-integration`, then `git pull --ff-only` | Devin's pull requests land on the branch every few minutes; a stale checkout shows old screens |
+| Check out the tagged demo commit on the branch: `git fetch --tags`, then `git checkout -B cognition-dashboard-devin-integration <demo-tag>` if HEAD isn't already at it | The live-app, tile and test counts in the script are read at that commit. Stay on the branch: a detached HEAD makes **Pull merged code** refuse to pull |
+| `pnpm install` | A pull that adds or changes a workspace package, such as `@console/tool-chargebacks`, doesn't resolve until dependencies are installed |
 | `git status` shows nothing unexpected. Delete stray `runs/<id>/` folders from stopped runs | Stray `runs/` folders from `01M3HBQ` and `01M3JBP` sat in the checkout, and the merge sync refuses to pull into a dirty tree |
 | Stop `pnpm dev` before resetting the database | Resetting under a running server leaves it reading the deleted file until restart |
 | `rm -rf apps/console/data && pnpm db:setup`, then `pnpm dev`, within the hour before recording | Seeded dates count from seed time. An older database showed KYC cases overdue and the Kestrel dates drifted |
@@ -502,7 +508,7 @@ The five runs take 30–60 minutes each, so record them before the narration tak
 | Pick a role again in the header after a reset | The reset regenerates the secret that signs the role cookie, so the old role no longer works |
 | `/runs` shows no stale runs | A stopped Kestrel run lingered in `/runs` and the database until the reset |
 | `.env` has `DEVIN_API_KEY` and `GITHUB_TOKEN`, and `/api/devin/status` reports `live` | Without the GitHub token, **Review and approve** and the merge check don't work |
-| `pnpm verify` is green, and the test count matches the script (331) | The count changed four times in two days (294, 305, 288, 331) as pull requests landed |
+| `pnpm verify` is green, and the test count matches the script (320) | The count changed five times in two days (294, 305, 288, 331, 320) as pull requests landed |
 | Browser: a fresh window, 1440×900, zoom 100–110%, notifications off, one theme chosen | Keeps every take the same size and stops pop-ups landing in shot |
 
 ---
@@ -514,13 +520,13 @@ One row per shot, in order. Clicks marked **once** change data. To retake them, 
 | # | Shot | Viewing as | State it needs |
 |---|---|---|---|
 | 0 | Five-part slide for "What Power Apps gives you today" | — | The table from that section, as a slide |
-| 1 | Home: opening and the console | Refunds manager | Fresh seed; three live apps |
+| 1 | Home: opening and the console | Refunds manager | Fresh seed at the tagged demo commit; three live apps, seventeen Coming soon tiles |
 | 2 | Transaction monitoring's Coming soon page | Refunds manager | — |
 | 3 | Refunds queue, monitor, cluster drawer | Refunds manager | Before the Kestrel merge |
 | 4 | `rfnd_0013` **Send to processor** (**once**) | Refunds agent | Before the Kestrel merge |
 | 5 | Handoff panel for the Kestrel rule | Refunds manager | — |
 | 6 | Finished Kestrel run, then the approval dialog | Engineer | Recorded run |
-| 7 | `rfnd_0011` send (**once**); `kyc_0013` **Approve** | Refunds agent, KYC reviewer | Kestrel rule merged and pulled in |
+| 7 | `rfnd_0011` send (**once**); `kyc_0013` **Approve** | Refunds agent, KYC reviewer | Kestrel rule merged, then **Pull merged code** clicked as Engineer |
 | 8 | Inbox with sixty Fernhill refunds | Refunds manager | Courier scenario run |
 | 9 | Switch-off on `/admin/policy`; `rfnd_0012` send (**once**) | Admin, Refunds agent | — |
 | 10 | Undo from `/runs`, finished undo, `rfnd_0014` send (**once**), reason dropdown | Admin, Engineer, Refunds agent | `partial_delivery` merged before the undo |

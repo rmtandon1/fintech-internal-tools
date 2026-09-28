@@ -13,6 +13,8 @@ export function fakeGit(state: {
   after?: string;
   /** Commits `isAncestor` reports as already on HEAD. */
   ancestors?: readonly string[];
+  /** Paths `changedPaths` reports between any two commits. */
+  changed?: readonly string[];
 }) {
   const calls: string[] = [];
   const removed: string[] = [];
@@ -37,6 +39,10 @@ export function fakeGit(state: {
     async isAncestor(_cwd, commit, ref) {
       calls.push(`ancestor:${commit.slice(0, 7)}@${ref}`);
       return (state.ancestors ?? []).includes(commit);
+    },
+    async changedPaths(_cwd, from, to) {
+      calls.push(`diff:${from.slice(0, 7)}..${to.slice(0, 7)}`);
+      return [...(state.changed ?? [])];
     },
     async removePath(_cwd, relPath) {
       calls.push(`remove:${relPath}`);

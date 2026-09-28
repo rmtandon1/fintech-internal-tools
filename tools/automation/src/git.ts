@@ -24,6 +24,8 @@ export interface GitRunner {
   head(cwd: string): Promise<string>;
   pullFfOnly(cwd: string, remote: string, branch: string): Promise<void>;
   isAncestor(cwd: string, commit: string, ref: string): Promise<boolean>;
+  /** Paths that differ between two commits (`git diff --name-only`). */
+  changedPaths(cwd: string, from: string, to: string): Promise<string[]>;
   /** Deletes a working-tree file directly; not a git operation. */
   removePath(cwd: string, relPath: string): Promise<void>;
 }
@@ -65,6 +67,8 @@ export function execFileGitRunner(): GitRunner {
         return false;
       }
     },
+    changedPaths: async (cwd, from, to) =>
+      (await git(cwd, ["diff", "--name-only", from, to])).split("\n").filter((line) => line.length > 0),
     removePath: async (cwd, relPath) => {
       await rm(join(cwd, relPath), { force: true });
     },

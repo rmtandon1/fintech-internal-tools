@@ -21,9 +21,13 @@ function usd(minor: number): string {
   });
 }
 
-/** The window the cluster looks back over, in days; never zero or negative. */
+/**
+ * The window the cluster looks back over, in days. 0 switches clustering off
+ * (the KILL_SWITCH setting); a negative value falls back to the default.
+ */
 export function clusteringWindowDays(): number {
   const days = loadConstants().number(CLUSTERING_WINDOW_DAYS_KEY, DEFAULT_CLUSTERING_WINDOW_DAYS);
+  if (days === 0) return 0;
   return days > 0 ? days : DEFAULT_CLUSTERING_WINDOW_DAYS;
 }
 
@@ -31,14 +35,16 @@ export function clusteringWindowDays(): number {
  * Merchants whose `not_received` refunds inside the window each sit below the
  * manager line but add up to it or more. Every row on its own passes
  * `amount_approval`; only the aggregate shows the pattern. Rejected refunds
- * don't count, matching the hold in `REFUND_CLUSTERING_HOLD.md`.
+ * don't count, matching the hold in `REFUND_CLUSTERING_HOLD.md`. A zero
+ * window means clustering is off: no groups.
  */
 export function notReceivedByMerchant(now = Date.now()): ClusterGroup[] {
+  const windowDays = clusteringWindowDays();
+  if (windowDays === 0) return [];
   const managerUsd = loadConstants().number(
     MANAGER_APPROVAL_USD_KEY,
     DEFAULT_MANAGER_APPROVAL_USD_MINOR,
   );
-  const windowDays = clusteringWindowDays();
   const since = now - windowDays * DAY;
 
   const rows = db
