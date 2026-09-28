@@ -446,7 +446,17 @@ export async function approveRun(
     return { approve, reviewError: null, checks: checks.summary };
   }
   if (approve.replayed && (await deps.github.hasApprovingReview(ref, pull.headSha))) {
-    return { approve, reviewError: null, checks: checks.summary };
+    // The review is already up, but its merge message may never have sent —
+    // the retried approval completes that side effect too.
+    let reviewError: string | null = null;
+    if (deps.devin && run.sessionId) {
+      try {
+        await deps.devin.sendMessage(run.sessionId, `Run ${run.id} is approved. Merge ${prUrl} now.`);
+      } catch (error) {
+        reviewError = errorText(error);
+      }
+    }
+    return { approve, reviewError, checks: checks.summary };
   }
 
   let reviewError: string | null = null;

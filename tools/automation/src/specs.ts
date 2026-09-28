@@ -188,7 +188,7 @@ export const CHARGEBACKS_FROM_POWER_APPS: RunnableSpec = {
   sendSpec: true,
   intents: {
     change:
-      "Start moving the Chargebacks Power App into the console, from the export in fixtures/power-apps/chargebacks. This is the first pull request, not the whole app: the queue with its fields, seeded from disputes.csv; the deadline alert as a count on the queue; and the two riskiest rules, fraud accepts over $500 and fights over $2,500, each needing a refunds manager. Use the refunds roles. In the pull request, list every formula and flow step as done or still to do. Put the app behind the feature flag `app.chargebacks` in Feature flags, off by default and not customer-facing, so an admin turns it on from the console after the merge.",
+      "Start moving the Chargebacks Power App into the console, from the export in fixtures/power-apps/chargebacks. This is the first pull request, not the whole app: the queue with its fields, seeded from disputes.csv; the deadline alert as a count on the queue; and the two riskiest rules, fraud accepts over $500 and fights over $2,500, each needing a refunds manager. Use the refunds roles. In the pull request, list every formula and flow step as done or still to do. Put the app behind the feature flag `app.chargebacks` in Feature flags: set the mode's `flag` and seed the row off and not customer-facing in `tools/flags/src/seed.ts` for fresh databases — the console registers it on start for existing ones — so an admin turns it on after the merge.",
     undo: "Remove the Chargebacks app: its tool, tables, seed and registry lines, and keep every change made since.",
   },
   summaries: {
@@ -211,7 +211,7 @@ export const CHARGEBACKS_FROM_POWER_APPS: RunnableSpec = {
       "Accepting a fraud dispute over $500, and fighting one over $2,500, each need a refunds manager.",
       "The refunds roles work it; nothing new in the role catalog.",
       "New files sit under `tools/chargebacks/`, plus a registry line, a schema re-export, a migration and the lockfile; nothing under `packages/`.",
-      "The app sits behind the `app.chargebacks` feature flag: one seeded row in `tools/flags/src/seed.ts`, off, not customer-facing, and the mode's `flag` set; the tile reads Switched off until an admin turns it on.",
+      "The app sits behind the `app.chargebacks` feature flag: the mode's `flag` is `app.chargebacks`, and the row is seeded off and not customer-facing in `tools/flags/src/seed.ts` for fresh databases — the console registers it on start for existing ones; the tile reads Switched off until an admin turns it on.",
     ],
     undo: [
       "`pnpm verify` is green.",

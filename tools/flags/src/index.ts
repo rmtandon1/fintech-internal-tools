@@ -494,3 +494,39 @@ export function enabledFlagKeys(): Set<string> {
     .all();
   return new Set(rows.map((row) => row.key));
 }
+
+/**
+ * Inserts an off, not customer-facing production flag row for `flag.key` when
+ * none exists: the console calls this on start for every flagged mode whose
+ * tool is registered, so a merged app is switchable on databases seeded
+ * before the flag existed. The seed's `flag_` ids continue for these rows.
+ */
+export function ensureFlagRow(flag: { key: string; name: string }): void {
+  const existing = db
+    .select({ id: featureFlags.id })
+    .from(featureFlags)
+    .where(eq(featureFlags.key, flag.key))
+    .get();
+  if (existing) return;
+  const now = Date.now();
+  db.insert(featureFlags)
+    .values({
+      id: `flag_${flag.key}`,
+      key: flag.key,
+      name: flag.name,
+      description: `Switches the ${flag.name} app on in the console.`,
+      flagType: "release",
+      environment: "production",
+      owner: "platform",
+      enabled: 0,
+      rolloutPercent: 0,
+      customerFacing: 0,
+      status: "off",
+      expiresAt: null,
+      lastChangedBy: null,
+      lastChangedAt: now,
+      lastNote: "Registered on start for a built app.",
+      version: 1,
+    })
+    .run();
+}

@@ -10,6 +10,7 @@ import { execFileGitRunner } from "@console/tool-automation/git";
 import { findPlaybookId } from "@console/tool-automation/playbook-registration";
 import { loadRepoEnv, repoRoot as defaultRepoRoot } from "@/lib/env";
 import { registerToolConstants } from "@/lib/register-tool-constants";
+import { ensureModeFlags } from "@/lib/mode-flags";
 
 /** Server deps plus the directory live polls record replay frames into. */
 export interface AppBridgeDeps extends BridgeDeps {
@@ -81,6 +82,7 @@ export function bridgeDeps(): AppBridgeDeps {
       // Constants the merged run declares must exist without a re-seed;
       // registerConstants skips keys that already exist.
       registerToolConstants();
+      ensureModeFlags();
     },
     migrationsPending: () => migrationsPending(repoRoot),
     repository: githubRepository(repoRoot, process.env.SYNC_REMOTE ?? "origin"),

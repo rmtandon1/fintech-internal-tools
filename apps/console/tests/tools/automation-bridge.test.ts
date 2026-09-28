@@ -68,7 +68,11 @@ beforeAll(() => {
 });
 
 /** A Devin client that records calls and answers from a script. */
-function fakeDevin(script: { create?: () => Promise<{ sessionId: string; url: string }>; snapshot?: SessionSnapshot }) {
+function fakeDevin(script: {
+  create?: () => Promise<{ sessionId: string; url: string }>;
+  snapshot?: SessionSnapshot;
+  messageFails?: boolean;
+}) {
   const calls: string[] = [];
   const created: CreateSessionRequest[] = [];
   const client: DevinClient = {
@@ -84,6 +88,7 @@ function fakeDevin(script: { create?: () => Promise<{ sessionId: string; url: st
     },
     async sendMessage(_id, message) {
       calls.push(`message:${message}`);
+      if (script.messageFails) throw new Error("Devin API 503 on /sessions/abc/messages: unavailable");
     },
     async terminateSession(id) {
       calls.push(`terminate:${id}`);
@@ -599,6 +604,38 @@ describe("approveRun", () => {
     expect(second.reviewError).toBeNull();
     expect(github.calls).toContain("reviews");
     expect(github.calls.filter((c) => c === "approve")).toHaveLength(1);
+  });
+
+  it("sends the merge message on retry when the review posted but the message failed", async () => {
+    const run = await runningWithPr();
+    const github = fakeGitHub({ green: true, contextSha: run.contextSha256 });
+    const script = {
+      snapshot: {
+        status: "working",
+        statusDetail: null,
+        structuredOutput: output({ phase: "pull_request", pr_url: PR }),
+      },
+      messageFails: true,
+    };
+    const devin = fakeDevin(script);
+    const d = deps({ github: github.client, devin: devin.client });
+
+    const first = await approveRun(engineer, run, undefined, d);
+    expect(first.approve.outcome.status).toBe("applied");
+    expect(first.reviewError).toContain("503");
+
+    script.messageFails = false;
+    const approved = getRun(run.id);
+    if (!approved) throw new Error("no run");
+    const second = await approveRun(engineer, approved, undefined, d);
+    expect(second.approve.replayed).toBe(true);
+    expect(second.reviewError).toBeNull();
+    expect(github.calls.filter((c) => c === "approve")).toHaveLength(1);
+    expect(devin.calls).toEqual([
+      "get",
+      `message:Run ${run.id} is approved. Merge ${PR} now.`,
+      `message:Run ${run.id} is approved. Merge ${PR} now.`,
+    ]);
   });
 });
 

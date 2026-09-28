@@ -12,6 +12,7 @@ import { RecordView } from "@/components/record-view";
 import { RunView } from "@/components/run-view";
 import { StatusChip } from "@console/ui/status-chip";
 import { automationTool, getRun } from "@console/tool-automation";
+import { modeFlagOff } from "@/lib/mode-flags";
 import { recordTriggers } from "@/lib/run-triggers";
 import { currentActor } from "@/lib/session";
 import { getTool } from "@/registry";
@@ -26,6 +27,7 @@ export default async function RecordPage({
   const actor = await currentActor();
   if (!decl) notFound();
   if (!decl.visibleTo.includes(actor.role)) redirect("/");
+  if (modeFlagOff(tool)) redirect(`/roadmap/${tool}`);
 
   const record = decl.get(id);
   if (!record) notFound();
