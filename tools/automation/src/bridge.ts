@@ -403,7 +403,9 @@ export interface ApproveOutcome {
  * Records the session's pull request if the run does not name one yet, reads
  * the head's checks and the branch's `context.json` digest from GitHub, hands
  * both to `approve_pr` as server-read inputs, and submits the GitHub review
- * only once that intent has committed.
+ * only once that intent has committed. A replayed approval — the intent
+ * committed but the review never posted — re-posts the review unless GitHub
+ * already shows an APPROVED review at that head sha.
  */
 export async function approveRun(
   actor: Actor,
@@ -440,7 +442,10 @@ export async function approveRun(
     },
     idempotencyKey: key(run.id, `approve_pr:${pull.headSha}`),
   });
-  if (!applied(approve) || approve.replayed) {
+  if (!applied(approve)) {
+    return { approve, reviewError: null, checks: checks.summary };
+  }
+  if (approve.replayed && (await deps.github.hasApprovingReview(ref, pull.headSha))) {
     return { approve, reviewError: null, checks: checks.summary };
   }
 

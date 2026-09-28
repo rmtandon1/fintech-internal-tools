@@ -240,7 +240,7 @@ Humans approve. Devin merges. The control a regulated change process needs is se
 
 1. The PR opens. The run view shows **Review and approve** to anyone with the `engineer` role who didn't request the run.
 2. The engineer opens the approval dialog (`AGENT_TRIGGER_SURFACE.md` § Approval dialog) and approves. The dialog lists the spec's acceptance tests as the reviewer's checklist; the engineer checks the PR's tests against it. `approve_pr` checks the rules above and writes the audit row.
-3. Its effect, after the commit, submits an approving review to GitHub (`POST /repos/{owner}/{repo}/pulls/{n}/reviews`, `event: APPROVE`) as the engineer, and sends the Devin session a message to merge.
+3. Its effect, after the commit, submits an approving review to GitHub (`POST /repos/{owner}/{repo}/pulls/{n}/reviews`, `event: APPROVE`) as the engineer, and sends the Devin session a message to merge. The approval is recorded once per head sha; retrying an approval whose GitHub review failed re-posts the review without a second audit row.
 4. Devin merges and reports `merge_commit` in `structured_output`.
 5. The console writes `record_merge` for the same engineer, with the PR URL and merge commit.
 
