@@ -179,6 +179,18 @@ export function scriptedFrames(
       ...(name === "Test" ? { before: 68, after: i < upto ? 76 : null } : {}),
     }));
 
+  /** An undo resolves one clash during edit; later frames keep reporting it. */
+  const conflicts: StructuredOutput["conflicts"] =
+    operation === "undo"
+      ? [
+          {
+            file: "tools/refunds/src/index.ts",
+            kept: "partial_delivery reason code (PR #7)",
+            removed: "clustering_hold registration",
+          },
+        ]
+      : [];
+
   const base = {
     base_commit: baseCommit,
     context_sha256: contextSha,
@@ -247,16 +259,7 @@ export function scriptedFrames(
         plan_commit: planCommit,
         reuses: operation === "undo" ? [] : REUSES,
         files,
-        conflicts:
-          operation === "undo"
-            ? [
-                {
-                  file: "tools/refunds/src/index.ts",
-                  kept: "partial_delivery reason code (PR #7)",
-                  removed: "clustering_hold registration",
-                },
-              ]
-            : [],
+        conflicts,
         verify_steps: verify(0),
       }),
     ),
@@ -272,6 +275,7 @@ export function scriptedFrames(
           plan_commit: planCommit,
           reuses: operation === "undo" ? [] : REUSES,
           files,
+          conflicts,
           verify_steps: verify(i + 1),
         }),
       ),
@@ -287,16 +291,7 @@ export function scriptedFrames(
         plan_commit: planCommit,
         reuses: operation === "undo" ? [] : REUSES,
         files,
-        conflicts:
-          operation === "undo"
-            ? [
-                {
-                  file: "tools/refunds/src/index.ts",
-                  kept: "partial_delivery reason code (PR #7)",
-                  removed: "clustering_hold registration",
-                },
-              ]
-            : [],
+        conflicts,
         verify_steps: verify(CI_CHECKS.length),
       }),
     ),
@@ -312,6 +307,7 @@ export function scriptedFrames(
         plan_commit: planCommit,
         reuses: operation === "undo" ? [] : REUSES,
         files,
+        conflicts,
         verify_steps: verify(CI_CHECKS.length),
         pr_url: prUrl,
       }),
