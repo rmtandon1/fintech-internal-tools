@@ -1,3 +1,7 @@
+# Customer Framing
+
+Why this console exists, who it serves and what the demo proves, written for stakeholders rather than engineers. The technical documentation lives in [`docs/`](docs/README.md).
+
 ## 1. The problem
 
 **Who changes an internal tool's rules after launch, on what timescale, and with what review?**
@@ -87,54 +91,76 @@ Turn a check your analysts do by hand into one that runs from the case, with its
 
 ## 3. Scenarios
 
-![How work reaches the console](rule-change-workflow.svg)
+![How work reaches the console](docs/rule-change-workflow.svg)
 
-Editable source: [`rule-change-workflow.excalidraw`](rule-change-workflow.excalidraw).
+Editable source: [`docs/rule-change-workflow.excalidraw`](docs/rule-change-workflow.excalidraw).
 
-Three parts of one demo in `LOOM-VIDEO-SCRIPT.md`. The same loop runs each time: the team asks from the screen that shows the need, Devin builds, a different person approves. Each part is a bigger change than the last.
+Three parts of one demo in [`docs/LOOM-VIDEO-SCRIPT.md`](docs/LOOM-VIDEO-SCRIPT.md). The same loop runs each time: the team asks from the screen that shows the need, Devin builds, a different person approves. Each part is a bigger change than the last.
 
 ### 1. A rule, from added to removed
 
-- Turn a pattern operators spot in the queue into a reviewed rule the same day.
-  - Four refunds from one merchant each sit just under the $500 manager line, and total $1,880 together
-  - The refunds manager asks Devin for a hold in one sentence, from the screen that shows the pattern. Devin gets the sentence, the evidence and the files it may touch, and nothing else
-  - Devin writes the rule, a matching KYC check, a switch-off setting and tests, and changes the one existing test that said these refunds pass
-  - An engineer approves the pull request, and the next refund from that merchant waits for a manager
-- Stop it in seconds when it misfires, then remove it from code that has moved on.
-  - A courier outage sends a long-standing merchant's genuine refunds to the manager inbox. The refunds ops lead, support and the merchant's account manager all want it off
-  - The admin sets the rule's window to 0 on the policy page. Refunds flow again, and one audit row records who did it. Setting it back to 14 turns it on again
-  - Risk replaces it with a narrower rule, so the admin asks Devin to undo it. A plain `git revert` conflicts with a later `partial_delivery` change to the same file, so Devin removes the rule, its KYC check and its setting, and keeps the later work
-  - The pull request lists what code can't undo: held refunds for a person to release, and the setting left in the database
-- **Question it answers:** what happens when requirements change, and what if we want it gone?
-- **Traditional:** an analyst joins two apps in Excel, then waits 1–2 weeks for an engineer; the rule then stays in the code behind a switch nobody removes.
+**Scenario.** Four `not_received` refunds from one merchant each sit just under the $500 manager line, and total $1,880 together. Later, a courier outage sends a long-standing merchant's genuine refunds to the manager inbox, and the refunds ops lead, support and the merchant's account manager all want the rule off. Question it answers: what happens when requirements change, and what if we want it gone?
+
+**Traditional cost.** An analyst joins two apps in Excel, then waits 1–2 weeks for an engineer and 4–6 engineer-hours of work. The rule then stays in the code behind a switch nobody removes.
+
+**Automated path.**
+
+- The refunds manager asks Devin for a hold in one sentence, from the screen that shows the pattern. Devin gets the sentence, the evidence and the files it may touch, and nothing else
+- Devin writes the rule, a matching KYC check, a switch-off setting and tests, and changes the one existing test that said these refunds pass
+- An engineer approves the pull request, and the next refund from that merchant waits for a manager
+- When it misfires, the admin sets the rule's window to 0 on the policy page. Refunds flow again, and one audit row records who did it. Setting it back to 14 turns it on again
+- Risk replaces it with a narrower rule, so the admin asks Devin to undo it. A plain `git revert` conflicts with a later `partial_delivery` change to the same file, so Devin removes the rule, its KYC check and its setting, and keeps the later work
+- The pull request lists what code can't undo: held refunds for a person to release, and the setting left in the database
+
+**Business value.** A pattern spotted in the queue becomes a reviewed rule the same day, can be stopped in seconds without an engineer, and leaves no dead code behind when it goes.
 
 ### 2. A manual step removed
 
-- Replace a lookup people do by hand with one that runs from the case.
-  - Analysts check every UK business on Companies House in another tab, and type the result into the case
-  - The request names the outside API and asks Devin to read its documentation on the web. Devin gets the company's public registration, nothing about a person
-  - Devin adds the lookup, records responses for its tests, and reuses the rule that already holds a case with a material difference
-  - Thornbury Couriers, approved before on a check typed at onboarding, now waits for a manager because its accounts are late
-- **Question it answers:** is this only rules, or real engineering against outside systems?
-- **Traditional:** a premium Power Automate connector licensed per user, or a ticket that waits for a sprint.
-- **Brief:** `COMPANIES_HOUSE_CHECK.md`
+**Scenario.** Analysts check every UK business on Companies House in another tab, and type the result into the case. Question it answers: is this only rules, or real engineering against outside systems?
+
+**Traditional cost.** A premium Power Automate connector licensed per user, or a ticket that waits for a sprint.
+
+**Automated path.**
+
+- The request names the outside API and asks Devin to read its documentation on the web. Devin gets the company's public registration, nothing about a person
+- Devin adds the lookup, records responses for its tests, and reuses the rule that already holds a case with a material difference
+- Thornbury Couriers, approved before on a check typed at onboarding, now waits for a manager because its accounts are late
+
+**Business value.** A lookup people repeat on every case runs from the case itself, with its source on screen, and a late or dissolved company can't be approved on a note typed at onboarding.
+
+Brief: [`docs/COMPANIES_HOUSE_CHECK.md`](docs/COMPANIES_HOUSE_CHECK.md)
 
 ### 3. The next app, started
 
-- Start moving a Power App into the console, the way a real migration starts.
-  - Chargebacks runs in a Power App with two Power Automate flows: an hourly deadline email, and a first-to-respond approval for large fights
-  - The admin asks Devin from the Coming soon page, with the app's export attached
-  - Devin's first pull request brings the queue, the 50 disputes, the 48-hour alert as a count and the two riskiest rules, and lists every other formula and flow step as still to do
-  - The tile goes live and inherits roles, approvals and the audit log from the engine
-- **Question it answers:** can this hold twenty tools, and what does the next one cost?
-- **Traditional:** weeks of engineering per app, or keeping the licences.
-- **Brief:** `CHARGEBACKS_FROM_POWER_APPS.md`
+**Scenario.** Chargebacks runs in a Power App with two Power Automate flows: an hourly deadline email, and a first-to-respond approval for large fights. Question it answers: can this hold twenty tools, and what does the next one cost?
+
+**Traditional cost.** Weeks of engineering per app, or keeping the licences.
+
+**Automated path.**
+
+- The admin asks Devin from the Coming soon page, with the app's export attached
+- Devin's first pull request brings the queue, the 50 disputes, the 48-hour alert as a count and the two riskiest rules, and lists every other formula and flow step as still to do
+- The tile goes live and inherits roles, approvals and the audit log from the engine
+
+**Business value.** The move off Power Apps starts with one reviewed pull request, and the rest of the migration arrives as a list of small requests instead of a project plan.
+
+Brief: [`docs/CHARGEBACKS_FROM_POWER_APPS.md`](docs/CHARGEBACKS_FROM_POWER_APPS.md)
+
+### Metrics comparison
+
+| Measure | Power Apps (today) | Owned software, engineers only | Owned software, with Devin |
+|---|---|---|---|
+| Time from request to a live rule | ~30 minutes, unreviewed | 1–2 weeks, then 4–6 engineer-hours | Same day |
+| Review before it touches money | None | 30–60 minutes of engineer review | ~5 minutes against a committed plan, CI fails files outside it |
+| Switching a misfiring rule off | Another unreviewed live edit | A hotfix that needs an engineer | Seconds, on the admin policy page, no engineer |
+| Removing a rule nobody wants | Nobody owns it | When a ticket is prioritised | One reviewed pull request that keeps later work |
+| Cost of the next app | Licences per user | Weeks of engineering | A first pull request, plus a list of the rest |
 
 Every scenario keeps a human gate. In a regulated fintech the gates are the selling point: a rule on money changes as fast as a Power Apps edit and still gets a second reviewer.
 
 ## 4. Demo pitch
 
-The beat-by-beat script, with what to say, what to click and the order to record in, is `LOOM-VIDEO-SCRIPT.md`.
+The beat-by-beat script, with what to say, what to click and the order to record in, is [`docs/LOOM-VIDEO-SCRIPT.md`](docs/LOOM-VIDEO-SCRIPT.md).
 
 ### The pitch in one paragraph
 

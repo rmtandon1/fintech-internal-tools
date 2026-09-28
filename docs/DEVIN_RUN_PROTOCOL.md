@@ -38,7 +38,7 @@ What a change may touch is the spec's `allowedPaths` list — the path globs the
 
 Every rule a run adds reads its thresholds from admin-editable constants, and its spec names one value that makes the rule inert. For the clustering hold, that is a window of 0 days. The admin sets it on `/admin/policy`: immediate, audited, and no flag in the code. It covers the minutes an undo takes to open and be approved, while the rule may be holding genuine refunds. The undo then removes the rule from the code.
 
-Policy rules use constants, and product flags such as `payments.card_network_failover` stay flags, governed by the console. Reasoning: `CHANGE_TYPES.md` › Policy rules and product flags.
+Policy rules use constants, and product flags such as `payments.card_network_failover` stay flags, governed by the console. Reasoning: `DEVIN-NO-DEVIN.md` › Policy rules and product flags.
 
 ## Starting a run is a governed write
 
@@ -251,7 +251,7 @@ Demo setup: the engineer's GitHub token sits in the server environment next to `
 ## After merge
 
 1. The console writes `record_merge` with the merge commit Devin reports. That closes the run in the audit chain.
-2. The local checkout pulls the integration branch (`git pull --ff-only origin cognition-dashboard-devin-integration`) when **Check merge** records the merge, or later through **Pull merged code** or **Reconcile** on `/t/automation` (both `engineer`-only). The pull is refused on another branch or a dirty tree — except an untracked `runs/<id>/context.json` that hashes to the merged run's `contextSha256`, which dispatch itself wrote; that one is deleted and the merge recreates it. When the pull changes a `package.json`, `pnpm-lock.yaml` or `pnpm-workspace.yaml`, `pnpm install --frozen-lockfile` runs first, and retries on the next sync while the installed lockfile lags the checkout's. `pnpm db:migrate` runs whenever drizzle's journal has entries past `__drizzle_migrations`, and retries on the next sync if it fails. See `MERGE_SYNC.md`.
+2. The local checkout pulls the integration branch (`git pull --ff-only origin cognition-dashboard-devin-integration`) when **Check merge** records the merge, or later through **Pull merged code** or **Reconcile** on `/t/automation` (both `engineer`-only). The pull is refused on another branch or a dirty tree — except an untracked `runs/<id>/context.json` that hashes to the merged run's `contextSha256`, which dispatch itself wrote; that one is deleted and the merge recreates it. When the pull changes a `package.json`, `pnpm-lock.yaml` or `pnpm-workspace.yaml`, `pnpm install --frozen-lockfile` runs first, and retries on the next sync while the installed lockfile lags the checkout's. `pnpm db:migrate` runs whenever drizzle's journal has entries past `__drizzle_migrations`, and retries on the next sync if it fails. See `GITHUB_INTEGRATION.md` § Merge sync.
 3. Constants a run declares must exist in the live database without a re-seed. `registerToolConstants` (`registerConstants`, which skips existing keys) runs on server start via `instrumentation.ts`, and again in-process right after the merge sync's `db:migrate`, so a merged rule works without a browser reload or restart. A production build still needs a rebuild to serve new source.
 4. The next matching record goes through the new rule. That moment is the demo.
 

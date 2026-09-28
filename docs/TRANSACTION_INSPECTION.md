@@ -31,7 +31,7 @@ The inspection exists to act on the queue beside it. A drawer keeps the list vis
 
 ### On camera
 
-This is the gap in scenario 1 (`CUSTOMER_FRAMING.md` § 3 › "1. Rules from the queue"), and it replaces the analyst's Excel pivot and one-at-a-time email lookups. The shot that matters is the drawer open over the dimmed queue: four rows, each with a green `amount_approval` trace, and a $1,880 total above them. Each refund is clean. Together they aren't. The viewer should read that from the screen before the presenter says it.
+This is the gap in scenario 1 (`../CUSTOMER_FRAMING.md` § 3 › "1. Rules from the queue"), and it replaces the analyst's Excel pivot and one-at-a-time email lookups. The shot that matters is the drawer open over the dimmed queue: four rows, each with a green `amount_approval` trace, and a $1,880 total above them. Each refund is clean. Together they aren't. The viewer should read that from the screen before the presenter says it.
 
 RBAC: every role can open clusters, because aggregates carry no PII. Row emails and card numbers go through `maskRecord`. **Ask Devin for a rule** renders for `refunds_manager` and `admin`. A `refunds_agent` sees the cluster and a note that a refunds manager can request a rule. KYC roles can't open `/t/refunds` at all (`visibleTo` is `rolesFor("refunds", "agent")`).
 
@@ -68,7 +68,7 @@ export interface ClusterDecl {
 
 ### `tools/refunds/src/clusters.ts` (new)
 
-One read-only function, `notReceivedByMerchant()`. It filters to `reasonCode = 'not_received'`, groups by `merchant`, and keeps groups where every row is below `refunds.manager_approval_usd_minor` and the sum is at or above it. It reads the window from `refunds.clustering_window_days`, and falls back to 14 days when the constant is missing or ≤ 0. The constant at 0 switches the hold off (`REFUND_CLUSTERING_HOLD.md` § KILL_SWITCH); it does not switch the inspection off, so the strip keeps showing the pattern while nothing is held. It reads only, through `@console/db`.
+One read-only function, `notReceivedByMerchant()`. It filters to `reasonCode = 'not_received'`, groups by `merchant`, and keeps groups where every row is below `refunds.manager_approval_usd_minor` and the sum is at or above it. It reads the window from `refunds.clustering_window_days`, and falls back to 14 days when the constant is missing or negative. The constant at 0 switches the hold off (`REFUND_CLUSTERING_HOLD.md` § KILL_SWITCH) and, since #72, the inspection too: the strip shows no groups while the window is 0. It reads only, through `@console/db`.
 
 After the hold merges, the cluster still shows, but each row now carries its held status. The strip is how the operator sees the rule working.
 

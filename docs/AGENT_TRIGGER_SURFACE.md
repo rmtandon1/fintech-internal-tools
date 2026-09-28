@@ -43,7 +43,7 @@ Once the run starts, the same column becomes the run view.
 
 ## On camera
 
-This panel carries three lines of the demo pitch (`CUSTOMER_FRAMING.md` § 4), so it has to make both visible without narration:
+This panel carries three lines of the demo pitch (`../CUSTOMER_FRAMING.md` § 4), so it has to make both visible without narration:
 
 - **"This is everything Devin sees."** The evidence block shows the four Kestrel amounts, the $500 and score-70 lines and base commit `1a67f60`, and no email or card number. If the presenter has to scroll to prove the PII is absent, the panel is too long.
 - **"The commitment comes before the first edit."** When the Plan phase lands, the run view lists the five planned paths, not just a count, so the viewer sees the commitment before the first edit — and the reviewer checks the diff against it.
@@ -158,13 +158,13 @@ Keep it one sentence. Don't grow the field into a specification form. The senten
 - **New rules and rule changes** take free text, because the operator knows the behaviour they want and not how the code does it. For example, on an existing rule: "Also hold refunds when three or more go to the same card within 10 minutes."
 - **Rule removal, undoing a change and switching a rule off** are buttons. The intent is already fully known, and typing "please remove this rule" adds nothing.
 
-**What this claims.** Business users don't reprogram the fintech through natural language. The claim is that when internally owned software needs engineering work, starting that work takes one sentence from the record, and the engineering stays reviewed. Some sentences will ask for more than a rule. "Require a second reviewer for KYC applications above risk score 90" needs a two-approver primitive the engine doesn't have (`packages/engine/src/approvals.ts` takes one approver per request). The plan's allowed paths stop that run at Plan. That's engineering's design work, with Devin as implementer (`CHANGE_TYPES.md`, "Change the engine").
+**What this claims.** Business users don't reprogram the fintech through natural language. The claim is that when internally owned software needs engineering work, starting that work takes one sentence from the record, and the engineering stays reviewed. Some sentences will ask for more than a rule. "Require a second reviewer for KYC applications above risk score 90" needs a two-approver primitive the engine doesn't have (`packages/engine/src/approvals.ts` takes one approver per request). The plan's allowed paths stop that run at Plan. That's engineering's design work, with Devin as implementer (`DEVIN-NO-DEVIN.md`, "Change the engine").
 
 Revisit if operators need to ask for rules with no record to start from, such as "a rule for a market we haven't launched". The answer is still a sentence that produces the same intent, started from `/admin/policy` rather than a cluster.
 
 ## `/runs`
 
-A list of every run: operation, intent, requester, status, PR, and the change it undid, if any. It reads the run table for state, and `runs/<run_id>/` on the default branch for merged history. **Undo this change** lives on merged rule changes. For the `engineer` role, **Reconcile** re-reads every approved run's PR on GitHub, records the ones that landed, then pulls the newest merge into the local checkout (`MERGE_SYNC.md`).
+A list of every run: operation, intent, requester, status, PR, and the change it undid, if any. It reads the run table for state, and `runs/<run_id>/` on the default branch for merged history. **Undo this change** lives on merged rule changes. For the `engineer` role, **Reconcile** re-reads every approved run's PR on GitHub, records the ones that landed, then pulls the newest merge into the local checkout (`GITHUB_INTEGRATION.md` § Merge sync).
 
 ## Changes by file
 

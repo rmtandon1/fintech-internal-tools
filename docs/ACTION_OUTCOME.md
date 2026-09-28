@@ -52,7 +52,7 @@ WAITING FOR MANAGER · rfnd_0013 · requested unchanged
 ✓ Audit        approval_requested                    [open]
 ```
 
-The record didn't change, and the header says so. The policy line names the rule that routed it, with the engine's own reason string. This is the proof shot in `CUSTOMER_FRAMING.md` › Demo pitch › "Approve, then show the proof".
+The record didn't change, and the header says so. The policy line names the rule that routed it, with the engine's own reason string. This is the proof shot in `../CUSTOMER_FRAMING.md` › Demo pitch › "Approve, then show the proof".
 
 ### Action denied
 
