@@ -89,7 +89,7 @@ Four slides in [`DEMO-SLIDES.html`](DEMO-SLIDES.html) (PDF copy: [`DEMO-SLIDES.p
 >
 [Point along the four boxes of the loop.]
 
-> "I'll show you a third way, three times: your team asks, Devin builds, an engineer approves."
+> "There's another option. Your team asks for a change, Devin builds it, and an engineer approves it."
 
 [Point at the three parts under the loop.]
 
