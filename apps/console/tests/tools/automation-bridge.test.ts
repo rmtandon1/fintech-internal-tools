@@ -786,7 +786,7 @@ describe("syncMergedRun", () => {
       ancestors: [MERGE],
     });
     const sync = await syncMergedRun(run, deps({ git: fake.git, migrationsPending: async () => false }));
-    expect(sync).toEqual({ kind: "synced", before: BEFORE, after: AFTER, installed: false, migrated: false });
+    expect(sync).toEqual({ kind: "synced", before: BEFORE, after: AFTER, installed: false, migrated: false, seeded: [] });
     expect(fake.removed).toEqual([rel]);
   });
 
@@ -829,7 +829,7 @@ describe("syncMergedRun", () => {
         migrationsPending: async () => pending,
       }),
     );
-    expect(sync).toEqual({ kind: "synced", before: BEFORE, after: AFTER, installed: false, migrated: true });
+    expect(sync).toEqual({ kind: "synced", before: BEFORE, after: AFTER, installed: false, migrated: true, seeded: [] });
     expect(migrated).toEqual([repoRoot]);
 
     pending = false;
@@ -841,7 +841,7 @@ describe("syncMergedRun", () => {
         migrationsPending: async () => pending,
       }),
     );
-    expect(again).toEqual({ kind: "synced", before: BEFORE, after: AFTER, installed: false, migrated: false });
+    expect(again).toEqual({ kind: "synced", before: BEFORE, after: AFTER, installed: false, migrated: false, seeded: [] });
     expect(migrated).toEqual([repoRoot]);
   });
 
@@ -869,8 +869,74 @@ describe("syncMergedRun", () => {
         migrationsPending: async () => true,
       }),
     );
-    expect(second).toEqual({ kind: "synced", before: AFTER, after: AFTER, installed: false, migrated: true });
+    expect(second).toEqual({ kind: "synced", before: AFTER, after: AFTER, installed: false, migrated: true, seeded: [] });
     expect(migrated).toEqual([repoRoot]);
+  });
+
+  it("seeds newly merged tools after migrating and reports them", async () => {
+    const run = await merged();
+    const order: string[] = [];
+    const seedCwd: string[] = [];
+    const sync = await syncMergedRun(
+      run,
+      deps({
+        git: fakeGit({ before: BEFORE, after: AFTER, ancestors: [MERGE] }).git,
+        migrate: async () => void order.push("migrate"),
+        migrationsPending: async () => true,
+        seedNew: async (cwd) => {
+          order.push("seed");
+          seedCwd.push(cwd);
+          return ["chargebacks"];
+        },
+      }),
+    );
+    expect(sync).toEqual({
+      kind: "synced",
+      before: BEFORE,
+      after: AFTER,
+      installed: false,
+      migrated: true,
+      seeded: ["chargebacks"],
+    });
+    expect(order).toEqual(["migrate", "seed"]);
+    expect(seedCwd).toEqual([repoRoot]);
+    expect(describeSync(sync)).toContain("seeded chargebacks");
+  });
+
+  it("retries a failed seed on the next call even when nothing moved", async () => {
+    const run = await merged();
+    const first = await syncMergedRun(
+      run,
+      deps({
+        git: fakeGit({ before: BEFORE, after: AFTER, ancestors: [MERGE] }).git,
+        migrationsPending: async () => false,
+        seedNew: async () => {
+          throw new Error("no such table");
+        },
+      }),
+    );
+    expect(first.kind).toBe("failed");
+    if (first.kind === "failed") {
+      expect(first.reason).toContain("db:seed:new failed");
+      expect(first.reason).toContain("no such table");
+    }
+
+    const second = await syncMergedRun(
+      run,
+      deps({
+        git: fakeGit({ before: AFTER, ancestors: [MERGE] }).git,
+        migrationsPending: async () => false,
+        seedNew: async () => ["chargebacks"],
+      }),
+    );
+    expect(second).toEqual({
+      kind: "synced",
+      before: AFTER,
+      after: AFTER,
+      installed: false,
+      migrated: false,
+      seeded: ["chargebacks"],
+    });
   });
 
   it("reports unchanged only when neither HEAD nor migrations moved", async () => {
@@ -878,6 +944,12 @@ describe("syncMergedRun", () => {
     const fake = fakeGit({ before: BEFORE, ancestors: [MERGE] });
     const sync = await syncMergedRun(run, deps({ git: fake.git, migrationsPending: async () => false }));
     expect(sync).toEqual({ kind: "unchanged", head: BEFORE });
+
+    const seeded = await syncMergedRun(
+      run,
+      deps({ git: fake.git, migrationsPending: async () => false, seedNew: async () => [] }),
+    );
+    expect(seeded).toEqual({ kind: "unchanged", head: BEFORE });
   });
 
   it("runs pnpm install before db:migrate when the pull changes a dependency manifest", async () => {
@@ -897,7 +969,7 @@ describe("syncMergedRun", () => {
         migrationsPending: async () => true,
       }),
     );
-    expect(sync).toEqual({ kind: "synced", before: BEFORE, after: AFTER, installed: true, migrated: true });
+    expect(sync).toEqual({ kind: "synced", before: BEFORE, after: AFTER, installed: true, migrated: true, seeded: [] });
     expect(steps).toEqual([`install:${repoRoot}`, `migrate:${repoRoot}`]);
     expect(describeSync(sync)).toContain("dependencies installed");
   });
@@ -932,7 +1004,7 @@ describe("syncMergedRun", () => {
         migrationsPending: async () => false,
       }),
     );
-    expect(sync).toEqual({ kind: "synced", before: BEFORE, after: AFTER, installed: false, migrated: false });
+    expect(sync).toEqual({ kind: "synced", before: BEFORE, after: AFTER, installed: false, migrated: false, seeded: [] });
     expect(installs).toBe(0);
   });
 
@@ -964,7 +1036,7 @@ describe("syncMergedRun", () => {
         migrationsPending: async () => false,
       }),
     );
-    expect(second).toEqual({ kind: "synced", before: AFTER, after: AFTER, installed: true, migrated: false });
+    expect(second).toEqual({ kind: "synced", before: AFTER, after: AFTER, installed: true, migrated: false, seeded: [] });
     expect(installs).toBe(1);
   });
 

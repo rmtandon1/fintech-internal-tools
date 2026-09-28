@@ -21,6 +21,7 @@ const execFileAsync = promisify(execFile);
 
 const MigrationJournal = z.object({ entries: z.array(z.object({ when: z.number() })) });
 const LastMigration = z.object({ created_at: z.number() });
+const SeedNewResult = z.object({ seeded: z.array(z.string()) });
 
 const REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 
@@ -87,6 +88,25 @@ export function bridgeDeps(): AppBridgeDeps {
       // registerConstants skips keys that already exist.
       registerToolConstants();
       ensureModeFlags();
+    },
+    seedNew: async (cwd) => {
+      const { stdout } = await execFileAsync("pnpm", ["--silent", "db:seed:new"], {
+        cwd: join(cwd, "apps/console"),
+      });
+      const last = stdout
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .at(-1);
+      let json: unknown;
+      try {
+        json = last === undefined ? undefined : JSON.parse(last);
+      } catch {
+        json = undefined;
+      }
+      const parsed = SeedNewResult.safeParse(json);
+      if (!parsed.success) throw new Error("db:seed:new printed no result");
+      return parsed.data.seeded;
     },
     migrationsPending: () => migrationsPending(repoRoot),
     repository: githubRepository(repoRoot, process.env.SYNC_REMOTE ?? "origin"),
