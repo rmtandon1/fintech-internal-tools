@@ -6,24 +6,9 @@ import { dispatchAutomationRun } from "@/app/automation-actions";
 import { Button } from "@console/ui/button";
 import { Label } from "@console/ui/label";
 import { Textarea } from "@console/ui/textarea";
-import { formatMinorUnits } from "@console/ui/format";
 import { useWorkspace } from "@/components/workspace";
+import { factLabel, factValue } from "@/lib/fact-format";
 import type { HandoffOffer } from "@/lib/handoff";
-
-/** How a fact reads in the evidence list: money as money, the rest as is. */
-function factValue(key: string, value: string | number | boolean | null): string {
-  if (value === null) return "none";
-  if (typeof value === "number" && key.endsWith("Minor")) return formatMinorUnits(value, "USD");
-  return String(value);
-}
-
-/** camelCase fact names as plain words: `registrationNumber` → "registration number". */
-function factLabel(key: string): string {
-  return key
-    .replace(/Minor$/, "")
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .toLowerCase();
-}
 
 /**
  * The handoff: the request, prefilled from the spec and editable, and
@@ -95,7 +80,7 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
                 <span className="ml-2 text-muted-foreground">
                   {Object.entries(row.facts)
                     .filter(([key]) => key !== "path")
-                    .map(([key, value]) => `${factLabel(key)} ${factValue(key, value)}`)
+                    .map(([key, value]) => `${factLabel(key)} ${factValue(offer.spec, key, value)}`)
                     .join(" · ")}
                 </span>
               </li>
