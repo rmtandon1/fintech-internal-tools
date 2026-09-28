@@ -153,7 +153,7 @@ These are the problems a free-form message parser would have had. The implemente
 
 ## Example Flow
 
-This is the change-operation script from `scriptedFrames` in `apps/console/tests/helpers/scripted-clients.ts`, which is also what `replayDevinClient` serves in simulation mode. The last row is `mergedFrame`, which the replay client returns once the run is `approved` or `merged`. The glyph sequences came from calling `runChecklist` on each frame in a throwaway vitest script that was not committed. Base commit `1a67f60`, run id `01RUN`.
+This is the change-operation script from `scriptedFrames` in `apps/console/tests/helpers/scripted-clients.ts`, which `replayDevinClient` plays back as a Devin session in the route tests (`apps/console/tests/api/devin-route.test.ts`). The console itself does not serve it: with no Devin key, `dispatchAutomationRun` refuses to dispatch (`apps/console/src/app/automation-actions.ts:52`). The last row is `mergedFrame`, which the replay client returns once the run is `approved` or `merged`. The glyph sequences came from calling `runChecklist` on each frame in a throwaway vitest script that was not committed. Base commit `1a67f60`, run id `01RUN`.
 
 | Time | Session `status` / `status_detail` | Structured-output change | Rendered sequence (`runChecklist`) |
 | --- | --- | --- | --- |
