@@ -1,16 +1,28 @@
 import Link from "next/link";
 import type { DevinMode } from "@/lib/devin-status";
 import type { Actor } from "@console/engine/types";
-import { automationTool, listRuns, operationLabel } from "@console/tool-automation";
+import { automationTool, listRuns, operationLabel, type DevinRun } from "@console/tool-automation";
 import { formatRelative } from "@console/ui/format";
 import { StatusChip } from "@console/ui/status-chip";
 
 const RECENT = 5;
+const PAGE = 20;
+
+/** The newest `RECENT` runs that are not stopped, paging past stopped rows. */
+function recentActiveRuns(): DevinRun[] {
+  const shown: DevinRun[] = [];
+  for (let offset = 0; shown.length < RECENT; offset += PAGE) {
+    const page = listRuns({ limit: PAGE, offset });
+    shown.push(...page.filter((run) => run.status !== "stopped"));
+    if (page.length < PAGE) break;
+  }
+  return shown.slice(0, RECENT);
+}
 
 /**
- * What the Devin window holds. Live: the newest runs from `devin_runs`, each
- * linking to its run view. Without `DEVIN_API_KEY` it says Devin is not
- * connected, because there is no session to read.
+ * What the Devin window holds. Live: the newest non-stopped runs from
+ * `devin_runs`, each linking to its run view. Without `DEVIN_API_KEY` it says
+ * Devin is not connected, because there is no session to read.
  */
 export function DevinWindowBody({ actor, mode }: { actor: Actor; mode: DevinMode }) {
   if (mode === "simulation") {
@@ -26,7 +38,7 @@ export function DevinWindowBody({ actor, mode }: { actor: Actor; mode: DevinMode
   }
 
   const canSee = automationTool.visibleTo.includes(actor.role);
-  const runs = canSee ? listRuns({ limit: RECENT }) : [];
+  const runs = canSee ? recentActiveRuns() : [];
   return (
     <div className="space-y-4 p-5 text-sm">
       <p className="flex items-center gap-2 text-muted-foreground">
