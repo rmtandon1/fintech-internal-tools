@@ -108,7 +108,7 @@
 
 [Point at the conflict line: kept `partial_delivery`, removed `clustering_hold`. Then the removed tests, named, and the list of sixty held refunds for a person to release.]
 
-> "Devin kept the later work and took the rule out. Its tests are named as removed. Nothing else lost."
+> "Devin kept the later work and took the rule out. Its tests are named as removed. Nothing else touched."
 
 [Switch role: Engineer. Approve, let Devin merge, then click **Pull merged code**.]
 
@@ -170,7 +170,7 @@
 
 [Click **Send to Devin**. Cut to the finished run; read "Took …". Open the pull request description on GitHub.]
 
-> "This took Devin *(time)*. Every formula and flow step is listed, done or still to do."
+> "This took Devin *(time)*. Every formula and flow step in the export is listed, done or still to do."
 
 [Point at the file list: `tools/chargebacks/`, a registry entry, migration `0009`, one flag row, nothing under `packages/`.]
 
@@ -262,28 +262,6 @@
 [Point at **Where Devin fits**.]
 
 > "If you build, Devin writes the changes and your engineers review them. If you stay on Power Apps, Devin can still build custom connectors and write tests and documentation."
-
----
-
-## 🔍 What a Skeptic Will Ask
-
-Each claim on camera, what backs it, and where to show it. If a line has no evidence, it's worded to match.
-
-| Claim | Evidence | Show or check |
-|---|---|---|
-| Only the engine writes to the database | The boundary check in `pnpm verify` | The verify line in each run |
-| The plan comes first, and Devin can't wander | `plan.json` is committed before any code; the run guard fails any file outside it | The pull request's commit list |
-| The requester can't approve | Rule `approver_is_not_requester`; approval also needs `checks_green` and `context_matches_dispatch` | The approval's trace |
-| Devin merges only after approval | Devin is told to merge after approval. Branch protection is off on this repo, so GitHub doesn't enforce it | Say it if asked. On a client repo, turn branch protection on |
-| Devin never sees the spec | Only an instruction in the prompt; the spec is in the repo | Open the Devin session and show it never opened `docs/REFUND_CLUSTERING_HOLD.md` |
-| No customer data goes to Devin | `context.json` holds ids, amounts and company facts only | Open the run's `context.json` |
-| Zero switches the rule off | Checklist line 6 has a test | Switch it off on camera |
-| A plain revert conflicts | `partial_delivery` merged after the rule | Off camera: `git revert --no-commit <merge>` in a scratch worktree conflicts |
-| Nothing else lost on undo | Test total before and after, removed tests named | The undo's verify line |
-| The Companies House check is real | Code and tests are real; no live key, so recorded responses | The "test data" label, on screen |
-| Every new app inherits the controls | Chargebacks touches nothing under `packages/` and still has approvals and audit | Part 3's file list and `DSP-20401` |
-| Nothing dropped from the export | Only as good as the list | The reviewer checks it against the export's seven files |
-| Time and cost | Estimates, except the run times read off screen | Put each run's time and ACUs in the Loom description |
 
 ---
 
