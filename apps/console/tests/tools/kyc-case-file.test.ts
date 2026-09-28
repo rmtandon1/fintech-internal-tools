@@ -194,6 +194,36 @@ describe("kyc case file", () => {
     expect(kycTool.get("kyc_0002")?.materialDifferences).toBe(0);
   });
 
+  it("granting fails with policy_changed when a material difference appears", () => {
+    const requested = act(kycReviewer, "approve", "kyc_0003");
+    if (requested.outcome.status !== "pending_approval") {
+      throw new Error(`expected approval, got ${requested.outcome.status}`);
+    }
+    const before = kycTool.get("kyc_0003");
+    db.insert(kycDiscrepancies)
+      .values({
+        id: "kyc_0003_diff_recheck",
+        caseId: "kyc_0003",
+        topic: "Ownership",
+        declared: "Three owners",
+        found: "A fourth owner on the registry",
+        source: "Companies House",
+        severity: "material",
+      })
+      .run();
+    try {
+      const result = approve(kycManager, requested.outcome.approvalId, "reviewed");
+      expect(result.outcome).toMatchObject({ status: "error", code: "policy_changed" });
+      const after = kycTool.get("kyc_0003");
+      expect(after?.status).toBe("pending_review");
+      expect(after?.version).toBe(before?.version);
+    } finally {
+      db.delete(kycDiscrepancies)
+        .where(eq(kycDiscrepancies.id, "kyc_0003_diff_recheck"))
+        .run();
+    }
+  });
+
   it("approve's rules run in order with the new rules before escalation", () => {
     const result = act(kycReviewer, "approve", "kyc_0004");
     const rules = traceOf(result.outcome).map((o) => o.rule);

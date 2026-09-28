@@ -376,6 +376,7 @@ export type IntentErrorCode =
   | "idempotency_conflict"
   | "in_progress"
   | "version_conflict"
+  | "policy_changed"
   | "self_approval"
   | "approval_not_found"
   | "approval_not_pending"

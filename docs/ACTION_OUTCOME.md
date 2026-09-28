@@ -82,7 +82,7 @@ A client component that renders the panel from the result. No tool-specific bran
 
 ### `apps/console/src/components/action-panel.tsx`
 
-Render `ActionOutcome` for applied, pending, denied and replayed results. Keep the toast for engine errors (`version_conflict`, `invalid_input` and the rest), which have no audit row to show.
+Render `ActionOutcome` for applied, pending, denied and replayed results. Keep the toast for engine errors (`version_conflict`, `policy_changed`, `invalid_input` and the rest), which have no audit row to show.
 
 ## Acceptance
 

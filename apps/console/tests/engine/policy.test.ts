@@ -35,10 +35,12 @@ describe("policy precedence", () => {
     const result = spend(500, "w_deny");
     expect(result.outcome).toMatchObject({ status: "denied" });
     if (result.outcome.status !== "denied") throw new Error("expected denial");
-    expect(result.outcome.trace).toHaveLength(2);
+    expect(result.outcome.trace).toHaveLength(4);
     expect(result.outcome.trace.map((t) => t.type)).toEqual([
       "deny",
       "require_approval",
+      "allow",
+      "allow",
     ]);
   });
 

@@ -42,6 +42,8 @@ export interface Widget extends GovernedRecord {
 
 export const APPROVAL_THRESHOLD_KEY = "widgets.approval_threshold";
 export const SPEND_FEE_KEY = "widgets.spend_fee";
+export const FROZEN_KEY = "widgets.frozen";
+export const SECOND_SIGNOFF_KEY = "widgets.second_signoff";
 
 const sufficientBalance: Rule<Widget, { amount: number }> = ({ record, input }) =>
   record && input.amount > record.balance
@@ -67,6 +69,22 @@ const managerApprovalOverThreshold: Rule<Widget, { amount: number }> = ({
       }
     : { type: "allow", rule: "manager_approval_over_threshold" };
 };
+
+const frozenWidgets: Rule<Widget, { amount: number }> = ({ constants }) =>
+  constants.boolean(FROZEN_KEY, false)
+    ? { type: "deny", rule: "frozen", reason: "Spending is frozen" }
+    : { type: "allow", rule: "frozen" };
+
+const secondSignoff: Rule<Widget, { amount: number }> = ({ constants }) =>
+  constants.boolean(SECOND_SIGNOFF_KEY, false)
+    ? {
+        type: "require_approval",
+        rule: "second_signoff",
+        tier: "manager",
+        allowedRoles: ["kyc_manager"],
+        reason: "Two managers must sign off",
+      }
+    : { type: "allow", rule: "second_signoff" };
 
 export const widgetTool = defineTool<Widget>({
   name: "widgets",
@@ -107,6 +125,20 @@ export const widgetTool = defineTool<Widget>({
       description: "Fee added to every spend when it is decided",
       tool: "widgets",
     },
+    {
+      key: FROZEN_KEY,
+      value: false,
+      type: "boolean",
+      description: "Deny every spend while set",
+      tool: "widgets",
+    },
+    {
+      key: SECOND_SIGNOFF_KEY,
+      value: false,
+      type: "boolean",
+      description: "Held spends need a second manager sign-off",
+      tool: "widgets",
+    },
   ],
   actions: [
     defineAction<Widget, z.ZodObject<{ amount: z.ZodNumber; reason: z.ZodString }>, { amount: number }>({
@@ -115,7 +147,7 @@ export const widgetTool = defineTool<Widget>({
       allowedRoles: rolesFor("kyc", "agent"),
       input: z.object({ amount: z.number().positive(), reason: z.string().min(1) }),
       fromStatus: ["open"],
-      rules: [sufficientBalance, managerApprovalOverThreshold],
+      rules: [sufficientBalance, managerApprovalOverThreshold, frozenWidgets, secondSignoff],
       // Deliberately constant-dependent: proves the approval path replays the
       // decision frozen at request time rather than recomputing it.
       decide: ({ record, input, constants }) => {

@@ -6,6 +6,8 @@ import { roleLabel } from "@console/permissions";
 import { resolveTool } from "./registry";
 import { appendAudit } from "./audit/append";
 import { applyEffect } from "./execute-intent";
+import { loadConstants } from "./policy/constants";
+import { evaluatePolicy } from "./policy/evaluate";
 import type {
   Actor,
   Decision,
@@ -13,6 +15,7 @@ import type {
   IntentResult,
   PolicyTrace,
   Role,
+  RuleOutcome,
 } from "./types";
 
 export interface ApprovalView {
@@ -107,9 +110,10 @@ class EffectFailed extends Error {
 
 /**
  * Executes a frozen request. The payload, the decision, the policy trace and
- * the record version were all captured when the request was raised: nothing
- * is re-decided here except the version check, which fails the approval
- * safely if the record moved in the meantime.
+ * the record version were all captured when the request was raised: the
+ * effect itself is never re-decided, but the version check and a policy
+ * re-evaluation run first and fail the approval safely if the record moved
+ * or the rules now deny or add a hold.
  *
  * The claim, the effect and both audit rows share one transaction, so an
  * approval can never be recorded for an effect that did not land.
@@ -146,6 +150,49 @@ export function approve(actor: Actor, id: string, note?: string): IntentResult {
     );
   }
 
+  // The version check only sees the record row. Evidence that lives outside
+  // it, or a constant tightened since the request was raised, can turn a
+  // frozen decision into one the rules would no longer allow, so policy is
+  // re-evaluated against the fresh record before the effect lands.
+  const requester: Actor = {
+    id: approval.requesterId,
+    name: approval.requesterRole,
+    role: approval.requesterRole,
+  };
+  const fresh = evaluatePolicy(action.rules, {
+    actor: requester,
+    tool: decl.name,
+    action: action.name,
+    record,
+    input: approval.payload,
+    constants: loadConstants(),
+  });
+  if (fresh.effect === "deny") {
+    return failApproval(
+      actor,
+      approval,
+      "policy_changed",
+      `Policy now denies this action: ${fresh.reason ?? "denied by policy"}`,
+    );
+  }
+  if (fresh.effect === "require_approval") {
+    const frozenHolds = new Set(
+      approval.trace.filter((o) => o.type === "require_approval").map((o) => o.rule),
+    );
+    const newHolds = fresh.trace.filter(
+      (o): o is Extract<RuleOutcome, { type: "require_approval" }> =>
+        o.type === "require_approval" && !frozenHolds.has(o.rule),
+    );
+    if (newHolds.length > 0) {
+      return failApproval(
+        actor,
+        approval,
+        "policy_changed",
+        `New hold since the request was raised: ${newHolds.map((o) => o.reason).join("; ")}`,
+      );
+    }
+  }
+
   try {
     return transact((tx) => {
       // Self-approval is also blocked at the database level: the row can only
@@ -171,11 +218,7 @@ export function approve(actor: Actor, id: string, note?: string): IntentResult {
       }
 
       const result = applyEffect(tx, {
-        actor: {
-          id: approval.requesterId,
-          name: approval.requesterRole,
-          role: approval.requesterRole,
-        },
+        actor: requester,
         decl,
         action,
         record,

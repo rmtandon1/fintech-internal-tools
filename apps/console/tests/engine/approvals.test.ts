@@ -1,11 +1,17 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { ulid } from "ulid";
 import { approve, getApproval, listApprovals, reject } from "@console/engine/approvals";
+import { listAuditEvents } from "@console/engine/audit/query";
 import { executeIntent } from "@console/engine/execute-intent";
 import { setConstant } from "@console/engine/policy/set-constant";
 import { DEMO_ACTORS } from "@console/engine/actor";
 import { TOOLS } from "@/registry";
-import { APPROVAL_THRESHOLD_KEY, SPEND_FEE_KEY } from "../fixtures/widgets";
+import {
+  APPROVAL_THRESHOLD_KEY,
+  FROZEN_KEY,
+  SECOND_SIGNOFF_KEY,
+  SPEND_FEE_KEY,
+} from "../fixtures/widgets";
 import {
   admin,
   kycReviewer,
@@ -142,6 +148,40 @@ describe("approvals", () => {
     expect(result.outcome).toMatchObject({ status: "error", code: "version_conflict" });
     expect(getApproval(id)?.status).toBe("failed");
     expect(widgetBalance("w_stale")).toBe(990);
+  });
+
+  it("fails with policy_changed when the rules now deny", () => {
+    makeWidget("w_policy_deny", 1000);
+    const id = requestSpend("w_policy_deny", 500);
+
+    setConstant(admin, FROZEN_KEY, "true");
+    const result = approve(kycManager, id, "too late");
+
+    expect(result.outcome).toMatchObject({ status: "error", code: "policy_changed" });
+    const approval = getApproval(id);
+    expect(approval?.status).toBe("failed");
+    expect(approval?.failureCode).toBe("policy_changed");
+    expect(widgetBalance("w_policy_deny")).toBe(1000);
+    expect(
+      listAuditEvents({ tool: "widgets", event: "approval_failed", recordId: "w_policy_deny" })
+        .total,
+    ).toBe(1);
+    setConstant(admin, FROZEN_KEY, "false");
+  });
+
+  it("fails with policy_changed when a new hold appears", () => {
+    makeWidget("w_policy_hold", 1000);
+    const id = requestSpend("w_policy_hold", 500);
+
+    setConstant(admin, SECOND_SIGNOFF_KEY, "true");
+    const result = approve(kycManager, id, "too late");
+
+    expect(result.outcome).toMatchObject({ status: "error", code: "policy_changed" });
+    if (result.outcome.status !== "error") throw new Error("unreachable");
+    expect(result.outcome.message).toContain("New hold");
+    expect(getApproval(id)?.status).toBe("failed");
+    expect(widgetBalance("w_policy_hold")).toBe(1000);
+    setConstant(admin, SECOND_SIGNOFF_KEY, "false");
   });
 
   it("cannot be decided twice", () => {
