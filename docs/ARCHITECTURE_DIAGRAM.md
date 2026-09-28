@@ -1,6 +1,6 @@
 # Architecture
 
-## How rules, checks and apps are changed and approved
+## How a one-sentence request becomes a reviewed change
 
 ```
 ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
