@@ -139,3 +139,125 @@ The beat-by-beat script, with what to say, what to click and the order to record
 ### The pitch in one paragraph
 
 > Today a rule on money changes one of two ways: fast in Power Apps with nobody reviewing it, or reviewed through a ticket that waits two weeks. In this console a rule is code, and Devin changes it. When risk spots a pattern, they ask for the rule in one sentence from the screen that shows it. Devin writes the rule and its tests, runs the full suite, and opens a pull request your engineer reviews in minutes. When the rule misfires, one setting switches it off in seconds, and Devin takes it back out of the code the same day, even after the code has moved on. When analysts are doing a lookup by hand, Devin connects the outside source and the case holds itself. When the next Power App needs to move, Devin makes the first pull request and lists the rest. After Power Apps, your team asks, Devin builds, and an engineer approves, whether it's a rule, a manual step or a whole new app.
+
+## 5. Capabilities in depth
+
+The same five operations as the README's Usage section, taken one level down: who has the problem, what they do today, and exactly what the automation does, file by file.
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│                               OPERATIONS CONSOLE  (localhost:3001)                       │
+│         Home · Refunds · KYC review · Feature flags · Inbox · Audit · Policy · Runs      │
+└───────────────┬───────────────────────────────┬───────────────────────────────┬──────────┘
+                │                               │                               │
+        ┌───────▼───────┐               ┌───────▼───────┐               ┌───────▼───────┐
+        │     RULES     │               │    CHECKS     │               │     APPS      │
+        └───┬───┬───┬───┘               └───────┬───────┘               └───────┬───────┘
+            │   │   │                           │                               │
+   ┌────────┘   │   └────────┐                  │                               │
+   ▼            ▼            ▼                  ▼                               ▼
+┌────────┐ ┌──────────┐ ┌─────────┐      ┌─────────────┐                ┌──────────────┐
+│  ADD   │ │SWITCH OFF│ │ REMOVE  │      │  AUTOMATE   │                │    START     │
+│ Devin  │ │ setting  │ │ Devin   │      │  Devin      │                │ Devin + flag │
+└───┬────┘ └────┬─────┘ └────┬────┘      └──────┬──────┘                └──────┬───────┘
+    │           │            │                  │                              │
+    ▼           ▼            ▼                  ▼                              ▼
+ tools/      settings     git revert       tools/kyc/                    tools/chargebacks/
+ refunds/    row in       of the merge,    companies-house.ts            registry.ts
+ kyc/        SQLite       later work kept  + recorded responses          migration 0009
+ + tests     (no code)    + tests named    + tests                       flag row + tests
+```
+
+Line counts for the check and the app are the file sizes at merge (#61, #62). Counts for the rule are from its reference run.
+
+### Add a rule
+
+**Scenario.** Risk analysts find merchants splitting "not received" refunds just under the $500 manager line costly, because each one passes on its own.
+
+- **Traditional.** An analyst exports the refunds queue to Excel, pivots it by merchant, looks each customer up in KYC by hand, and files a ticket. It waits 1–2 weeks for a sprint, then 4–6 engineer-hours to trace and test.
+- **Automated.** The refunds manager clicks **Ask Devin for a rule** on the Kestrel Outdoors cluster and sends one sentence. An engineer reviews for ~5 minutes the same day.
+
+What the automation does:
+
+1. `dispatch` checks the role and that no refunds run is in flight; writes the run row and one audit row.
+2. Writes `runs/<run_id>/context.json`: the sentence, four refunds with no personal data, `refunds.manager_approval_usd_minor` = 50000, `kyc.manager_review_score` = 70, base commit, allowed files.
+3. Opens a Devin session with the playbook and the file attached.
+4. Devin runs `pnpm verify` at the base and records per-file test counts.
+5. Commits `plan.json` with five planned files before any edit.
+6. Creates `tools/refunds/src/clustering-hold.ts` (+84): sums a merchant's `not_received` refunds in USD at the booked rate, skips rejected ones, reads a 14-day window where 0 means off.
+7. Adds `clustering_hold` to the refund action in `tools/refunds/src/index.ts`.
+8. Adds `linked_refund_hold` to KYC approval in `tools/kyc/src/index.ts` (+12 −1).
+9. Writes the eight hold tests and changes the one assertion in `refunds-clusters.test.ts` that said all four refunds pass.
+10. Runs Lint, Typecheck, Boundaries, Run guard and Test; opens the PR (5 files, +146 −3).
+
+### Switch a rule off
+
+**Scenario.** Refunds ops find a courier outage sending sixty genuine Fernhill Home refunds to the manager inbox disruptive, and support fields the customers whose money is stuck.
+
+- **Traditional.** A hotfix ticket, or another unreviewed live edit to a flow.
+- **Automated.** An admin sets `refunds.clustering_window_days` to 0 on `/admin/policy`. Seconds, no engineer.
+
+What the automation does:
+
+1. `updateConstant` submits the change through the engine like any other write.
+2. The engine checks the admin role and writes the new value and one audit row with old and new values.
+3. The next refund decision reads 0. `clustering_hold` still runs and answers **allow**.
+4. Setting it back to 14 turns the rule on again. No file changes at any point.
+
+### Remove a rule
+
+**Scenario.** Risk finds the clustering hold too broad and wants a narrower card-based rule instead. The old rule should leave the code, not sit behind a switch.
+
+- **Traditional.** An engineer reverts by hand. A later `partial_delivery` change to the same file makes `git revert` conflict, so the job waits for someone who knows both changes.
+- **Automated.** The admin clicks **Undo this change** on the merged run, then **Ask Devin to undo it**.
+
+What the automation does:
+
+1. `dispatch` with `operation: undo`, naming the run and merge commit it reverses.
+2. `context.json` carries the settings at the original dispatch and now, so Devin can tell which an admin changed.
+3. Devin commits `plan.json` naming the eight tests it will delete.
+4. Runs `git revert -m 1 <merge>` on a fresh branch.
+5. Resolves the conflict in `tools/refunds/src/index.ts`: keeps `partial_delivery`, removes `clustering_hold`.
+6. Deletes `clustering-hold.ts`, removes `linked_refund_hold` from `tools/kyc/src/index.ts`.
+7. Checks every other file is back to its pre-merge content, except later merged work.
+8. Opens the PR with the conflict record and what code can't undo: held refunds and the setting row.
+
+### Automate a check
+
+**Scenario.** KYC analysts find checking every UK business on Companies House by hand slow and error-prone. They open another tab, read the filings and type a note.
+
+- **Traditional.** A premium Power Automate connector licensed per user, or a ticket that waits for a sprint.
+- **Automated.** A KYC manager or admin clicks **Ask Devin to add a check** on Thornbury Couriers (`kyc_0104`).
+
+What the automation does:
+
+1. `context.json` carries the company name, registration number `09318842` and country. Nothing about a person.
+2. Devin reads the Companies House API docs on the web; none are pasted in.
+3. Plans five files and four reused modules, including `declared_vs_found`.
+4. Creates `tools/kyc/src/companies-house.ts` (249 lines): live lookup by Basic auth when `COMPANIES_HOUSE_API_KEY` is set; dissolved, liquidation and overdue accounts become material rows; errors become "couldn't check".
+5. Creates `tools/kyc/src/companies-house-recorded.ts` (75 lines): recorded responses, `09318842` late with its accounts.
+6. Adds a `check_companies_house` action to `tools/kyc/src/index.ts`, through `executeIntent`, UK business cases only.
+7. Documents the key in `.env.example`.
+8. Writes `apps/console/tests/tools/kyc-companies-house.test.ts` (362 lines, 14 behaviours, no live call).
+9. Adds no new rule: the existing `declared_vs_found` holds approval for a KYC manager.
+
+### Start an app
+
+**Scenario.** The disputes team finds Chargebacks in Power Apps costly per user, and its two flows (an hourly deadline email and a first-to-respond approval) invisible to the rest of the console.
+
+- **Traditional.** Weeks of engineering per app, or keeping the licences.
+- **Automated.** An admin clicks **Ask Devin to start this app** on `/roadmap/chargebacks`. The first pull request brings the queue and the two riskiest rules; the rest becomes a list.
+
+What the automation does:
+
+1. `context.json` lists the seven export files in `fixtures/power-apps/chargebacks/`. This spec is sent, so Devin also reads its "sent to Devin" section.
+2. Plans about fifteen files; the engine owner reviews too, because the change adds a table.
+3. Creates `tools/chargebacks/package.json` (20) and `tsconfig.json` (7).
+4. Creates `tools/chargebacks/src/schema.ts` (28): `chargeback_disputes` with the export's columns.
+5. Creates `tools/chargebacks/src/seed.ts` (105): the 50 disputes, dates kept as offsets from the export time.
+6. Creates `tools/chargebacks/src/index.ts` (325): queue, the 48-hour count, fraud accepts over $500 and fights over $2,500 to a refunds manager.
+7. Adds one line to `apps/console/src/registry.ts` and one re-export to `apps/console/src/schema.ts`.
+8. Generates migration `0009` and its journal entry; updates `pnpm-lock.yaml` (+21).
+9. Seeds `app.chargebacks` off in `tools/flags/src/seed.ts` and sets the mode's `flag` in `modes.ts`.
+10. Writes `apps/console/tests/tools/chargebacks.test.ts` (212 lines); nothing under `packages/`.
+11. The PR lists every formula and flow step as done or still to do. After merge, an admin turns on `app.chargebacks`.

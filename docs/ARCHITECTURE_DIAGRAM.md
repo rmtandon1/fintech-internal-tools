@@ -165,6 +165,61 @@ All calls to outside services are made from the server. Keys are read from a `.e
 is never committed and never sent to the browser. Without a Devin key the console runs normally
 and shows Devin as not connected.
 
+## From screen to code
+
+Operators ask in the words on their screen. Devin works out where that lives in the code. Each
+edge says what Devin (or, for settings, the admin) does to get from one side to the other.
+
+```mermaid
+flowchart LR
+    subgraph SCREEN["What the team sees and asks for"]
+        direction TB
+        S1["Kestrel Outdoors cluster<br/>4 refunds, $1,880<br/><i>Ask Devin for a rule</i>"]
+        S2["Refund held for a manager<br/>clustering_hold"]
+        S3["KYC case: approval<br/>needs a KYC manager"]
+        S4["Rule window: 14 days<br/>/admin/policy"]
+        S5["Thornbury Couriers<br/>Company registry: checked by hand<br/><i>Ask Devin to add a check</i>"]
+        S6["Chargebacks tile: Coming soon<br/><i>Ask Devin to start this app</i>"]
+        S7["Feature flag app.chargebacks<br/>Enable / Disable"]
+        S8["Merged run in /runs<br/><i>Undo this change</i>"]
+    end
+
+    subgraph CODE["What changes in the repository"]
+        direction TB
+        C1["tools/refunds/src/clustering-hold.ts"]
+        C2["tools/refunds/src/index.ts<br/>rule list of the execute action"]
+        C3["tools/kyc/src/index.ts<br/>linked_refund_hold"]
+        C4["setting refunds.clustering_window_days<br/>read by the rule, 0 = off"]
+        C5["tools/kyc/src/companies-house.ts<br/>+ recorded responses"]
+        C6["tools/chargebacks/**<br/>registry.ts · migration 0009"]
+        C7["tools/flags/src/seed.ts<br/>modes.ts flag field"]
+        C8["git revert -m 1 of the merge<br/>+ conflict resolution"]
+    end
+
+    S1 -- "creates the rule and its tests" --> C1
+    S2 -- "registers the rule on the refund action" --> C2
+    S3 -- "adds a rule reading held clusters" --> C3
+    S4 -- "makes the rule read it, with 0 as off" --> C4
+    S4 -. "admin edits the value, no Devin" .-> C4
+    S5 -- "reads the API docs, builds the client" --> C5
+    S5 -- "reuses declared_vs_found, no new rule" --> C3
+    S6 -- "migrates the Power Apps export" --> C6
+    S7 -- "seeds the flag off, sets the mode's flag" --> C7
+    S8 -- "removes the rule, keeps later work" --> C8
+    C8 -- "deletes" --> C1
+```
+
+The same map, as a table:
+
+| On screen | In code | Who changes it |
+|---|---|---|
+| A cluster the rules don't catch | A new rule file, one line on the refund action, tests | Devin, engineer approves |
+| A rule's on/off value | A setting row in the database that the rule reads | Admin, in seconds |
+| A check done by hand | A client under `tools/kyc/`, recorded responses, a KYC action | Devin, engineer approves |
+| A Coming soon tile | A new `tools/<app>/` package, one registry line, a migration | Devin, engineer and engine owner approve |
+| An app's on/off switch | A flag row in `tools/flags/src/seed.ts`, toggled in Feature flags | Devin seeds it, a manager toggles it |
+| Undo on a merged run | A revert of that merge, resolved against later work | Devin, engineer approves |
+
 ## Workflows
 
 ### Add a rule
@@ -439,7 +494,8 @@ The audit log records every step in a rule's life.
 
 | Document | Covers |
 |---|---|
-| [`README.md`](../README.md) | Setup, routes, apps and scripts |
+| [`README.md`](../README.md) | Overview, usage, technical details and troubleshooting |
+| [`SETUP.md`](SETUP.md) | Installation and install-time fixes |
 | [`CUSTOMER_FRAMING.md`](CUSTOMER_FRAMING.md) | The problem, stakeholders and scenarios |
 | [`DEVIN_RUN_PROTOCOL.md`](DEVIN_RUN_PROTOCOL.md) | Run types, phases, guard checks and reversal |
 | [`AGENT_TRIGGER_SURFACE.md`](AGENT_TRIGGER_SURFACE.md) | Where requests start, and the run and approval screens |
