@@ -60,7 +60,7 @@ pnpm verify                                # Test Files 39 passed · Tests 325 p
 
 1. `pnpm devin:playbook`, so sessions get the plan-the-affected-tests step.
 2. Run the Devin runs a day ahead, in the order the Loom script sets
-   ([LOOM-VIDEO-SCRIPT.md](LOOM-VIDEO-SCRIPT.md) § Before Recording): Kestrel rule, the
+   ([LOOM-VIDEO-SCRIPT.md](LOOM-VIDEO-SCRIPT.md) § Demo Checklist): Kestrel rule, the
    `partial_delivery` pull request, `pnpm db:scenario courier-outage` and switch-off, the undo,
    then Companies House and Chargebacks.
 3. After each Devin-built merge, switch it on: `app.chargebacks` on `/t/flags`,
