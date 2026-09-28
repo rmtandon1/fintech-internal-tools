@@ -70,7 +70,7 @@ const DispatchInput = z.object({
   runId: z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/, "ULID").optional(),
   spec: z.string().min(1),
   operation: z.enum(OPERATIONS),
-  intent: z.string().min(1).max(500),
+  intent: z.string().min(1).max(1000),
   /** SHA-256 of the canonical `context.json` written for this run. */
   contextSha256: sha256,
   /** Record ids the context's evidence block was built from; ids only. */

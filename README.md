@@ -64,7 +64,9 @@ engine, not by the UI.
 ## Apps
 
 Every mode the console lists, grouped by area. Live apps are backed by a registered
-tool in `apps/console/src/registry.ts`; the rest open a roadmap preview.
+tool in `apps/console/src/registry.ts`; the rest open a roadmap preview. A registered
+app behind an off feature flag reads Switched off: built, and turned on from Feature
+flags rather than by another merge.
 
 | App | What it does | Status |
 | --- | --- | --- |

@@ -100,7 +100,7 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
         <Textarea
           id="handoff-intent"
           rows={6}
-          maxLength={500}
+          maxLength={1000}
           value={intent}
           readOnly={undo}
           onChange={(e) => setIntent(e.target.value)}

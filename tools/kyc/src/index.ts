@@ -67,6 +67,7 @@ export type {
 } from "./case-file";
 
 export const MANAGER_REVIEW_SCORE_KEY = "kyc.manager_review_score";
+export const COMPANIES_HOUSE_CHECK_KEY = "kyc.companies_house_check";
 export const ADMIN_REVIEW_SCORE_KEY = "kyc.admin_review_score";
 export const PROHIBITED_COUNTRIES_KEY = "kyc.prohibited_countries";
 
@@ -387,6 +388,13 @@ export const kycTool = defineTool<KycCase>({
       value: ["IR", "KP", "SY", "CU"],
       type: "string_list",
       description: "Customers from these countries can never be approved. Two-letter country codes.",
+      tool: "kyc",
+    },
+    {
+      key: COMPANIES_HOUSE_CHECK_KEY,
+      value: 0,
+      type: "number",
+      description: "Set to 1 to run the Companies House check on UK business cases. 0 keeps it off.",
       tool: "kyc",
     },
   ],

@@ -4,11 +4,11 @@ import { Button } from "@console/ui/button";
 import { Icon } from "@console/ui/icon";
 import { AskDevin } from "@/components/ask-devin";
 import { Panel } from "@/components/panel";
-import { OPS_MODES } from "@/lib/modes";
+import { modeIsLive, OPS_MODES } from "@/lib/modes";
 import { modeTriggers } from "@/lib/run-triggers";
 import { currentActor } from "@/lib/session";
 import { roleLabel } from "@console/permissions";
-import { getTool } from "@/registry";
+import { enabledFlagKeys } from "@console/tool-flags";
 
 /** What every tool gets from the engine, so a pending mode would too. */
 const INHERITED = [
@@ -32,9 +32,13 @@ export default async function RoadmapPage({
 }) {
   const { mode: id } = await params;
   const mode = OPS_MODES.find((m) => m.id === id);
-  if (!mode || getTool(id)) notFound();
+  const flags = enabledFlagKeys();
+  if (!mode || modeIsLive(mode, flags)) notFound();
+  const switchedOff = mode.flag !== undefined && !flags.has(mode.flag);
+  const actor = await currentActor();
   const columns = mode.columns ?? ["Record", "Customer", "Amount", "Status"];
-  const triggers = modeTriggers(mode.id, await currentActor());
+  const triggers = switchedOff ? [] : modeTriggers(mode.id, actor);
+  const canToggle = actor.role === "admin" || actor.role === "engineer";
 
   return (
     <div className="flex h-full flex-col gap-3 overflow-auto">
@@ -54,7 +58,7 @@ export default async function RoadmapPage({
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-semibold">{mode.name}</h1>
             <span className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-warning">
-              Coming soon
+              {switchedOff ? "Switched off" : "Coming soon"}
             </span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">{mode.description}</p>
@@ -69,7 +73,21 @@ export default async function RoadmapPage({
             ))}
           </div>
         </div>
-        <AskDevin triggers={triggers} />
+        {switchedOff ? (
+          <div className="w-64 shrink-0 rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+            <p>
+              This app is built and switched off. Turn on{" "}
+              <code className="text-foreground">{mode.flag}</code> in Feature flags to open it.
+            </p>
+            {canToggle ? (
+              <Button size="sm" variant="secondary" className="mt-2" asChild>
+                <Link href="/t/flags">Feature flags</Link>
+              </Button>
+            ) : null}
+          </div>
+        ) : (
+          <AskDevin triggers={triggers} />
+        )}
       </section>
 
       <div className="grid min-h-0 gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">

@@ -8,6 +8,8 @@ import { AgentWindow } from "@/components/agent-window";
 import { DevinWindowBody } from "@/components/devin-window-body";
 import { countPendingFor } from "@console/engine/approvals";
 import { automationTool } from "@console/tool-automation";
+import { enabledFlagKeys } from "@console/tool-flags";
+import { OPS_MODES } from "@/lib/modes";
 import { WorkspaceProvider } from "@/components/workspace";
 import { devinMode } from "@/lib/devin-status";
 import { BRAND } from "@/lib/brand";
@@ -35,8 +37,15 @@ export default async function RootLayout({
   const role = await chosenRole();
   const visible = role ? toolsForRole(actor.role) : [];
   // Automation runs are reached through RUNS, not a generic tool list.
+  // A registered tool behind an off feature flag is switched off: keep it out
+  // of the rail; its roadmap page explains where to turn it on.
+  const flags = enabledFlagKeys();
   const tools = visible
     .filter((t) => t.name !== automationTool.name)
+    .filter((t) => {
+      const mode = OPS_MODES.find((m) => m.id === t.name);
+      return !mode?.flag || flags.has(mode.flag);
+    })
     .map((t) => ({ name: t.name, displayName: t.displayName, icon: t.icon }));
   const runs = visible.some((t) => t.name === automationTool.name);
   const pending = countPendingFor(actor);

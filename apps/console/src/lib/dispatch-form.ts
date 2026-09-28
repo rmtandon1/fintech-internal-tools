@@ -4,7 +4,7 @@ import { getSpec, OPERATIONS } from "@console/tool-automation";
 const DispatchForm = z.object({
   spec: z.string().min(1),
   operation: z.enum(OPERATIONS),
-  intent: z.string().min(1).max(500),
+  intent: z.string().min(1).max(1000),
   /** The record the request starts from. Optional on an undo: read from the undone run. */
   evidenceKey: z.string().min(1).optional(),
   evidenceIds: z.array(z.string().min(1)).default([]),

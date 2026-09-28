@@ -123,7 +123,7 @@ describe("GET /api/devin/<runId>", () => {
     const d = deps();
     const out = await dispatchRun(admin, request, d);
     const body = (await handleGet(out.runId, admin, d)).body as RunViewPayload;
-    expect(body.reviewerChecklist).toHaveLength(7);
+    expect(body.reviewerChecklist).toHaveLength(8);
     expect(body.reviewerChecklist[0]).toMatch(/^Only UK business cases are checked/);
   });
 

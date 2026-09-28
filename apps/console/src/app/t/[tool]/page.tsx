@@ -23,7 +23,9 @@ import { buildHandoffOffer, type HandoffOffer } from "@/lib/handoff";
 import { bridgeDeps } from "@/lib/bridge";
 import { devinMode } from "@/lib/devin-status";
 import { getSpec, operationsStartableBy } from "@console/tool-automation";
+import { enabledFlagKeys } from "@console/tool-flags";
 import { currentActor } from "@/lib/session";
+import { OPS_MODES } from "@/lib/modes";
 import { cn } from "@console/ui/utils";
 import { getTool } from "@/registry";
 
@@ -42,6 +44,8 @@ export default async function ToolQueuePage({
   const actor = await currentActor();
   if (!decl) notFound();
   if (!decl.visibleTo.includes(actor.role)) redirect("/");
+  const mode = OPS_MODES.find((m) => m.id === tool);
+  if (mode?.flag && !enabledFlagKeys().has(mode.flag)) redirect(`/roadmap/${tool}`);
 
   const filters: Record<string, string> = {};
   for (const filter of decl.filters) {

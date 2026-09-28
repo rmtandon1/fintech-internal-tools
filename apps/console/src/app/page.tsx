@@ -9,6 +9,7 @@ import { BRAND } from "@/lib/brand";
 import { allModes, MODE_AREAS, type ModeArea, type ModeEntry } from "@/lib/modes";
 import { workSummary } from "@/lib/work";
 import { getTool } from "@/registry";
+import { enabledFlagKeys } from "@console/tool-flags";
 
 /** One accent per area, spelled out so Tailwind keeps every class. */
 const AREA: Record<ModeArea, { icon: string; tile: string; glow: string; hover: string }> = {
@@ -44,7 +45,7 @@ const AREA: Record<ModeArea, { icon: string; tile: string; glow: string; hover: 
  * being built open a preview of what they will look like.
  */
 export default async function HomePage() {
-  const modes = allModes();
+  const modes = allModes(enabledFlagKeys());
   const live = modes.filter((m) => m.live);
   const soon = modes.filter((m) => !m.live);
   const now = Date.now();
@@ -179,7 +180,14 @@ function AreaBoard({ area, modes }: { area: ModeArea; modes: ModeEntry[] }) {
                 className="mt-0.5 size-[18px] shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
               />
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium text-foreground">{mode.name}</span>
+                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  {mode.name}
+                  {mode.switchedOff ? (
+                    <span className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-warning">
+                      Switched off
+                    </span>
+                  ) : null}
+                </span>
                 <span className="block text-[13px] leading-snug text-muted-foreground">
                   {mode.description}
                 </span>

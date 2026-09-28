@@ -21,7 +21,7 @@ A run starts from the screen that shows why it is needed, so the request carries
 | Undo a change | A merged change in `/runs` | **Undo this change** | Admin |
 | Switch a rule off | `/admin/policy`, on the rule's off setting | The existing constant editor | Admin |
 
-Switching a rule off uses the existing constant editor. The rule's spec names which constant, at which value, turns it off.
+Switching a rule off uses the existing constant editor. The rule's spec names which constant, at which value, turns it off. An app is switched the same way, with a feature flag instead of a setting: a built app whose flag is off reads Switched off on the home tile and its roadmap page, and turns on from `/t/flags`.
 
 **Button labels.** Each button starts with "Ask Devin", because the operator sends one sentence and the result comes later, after review.
 

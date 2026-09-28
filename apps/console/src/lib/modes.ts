@@ -22,6 +22,8 @@ export interface OpsMode {
   launchRole?: Role;
   /** Where a live app opens, when that is not its queue at `/t/<id>`. */
   href?: string;
+  /** Feature flag key that switches the app on once its tool is registered; absent means always on. */
+  flag?: string;
 }
 
 /**
@@ -252,54 +254,60 @@ export const OPS_MODES: OpsMode[] = [
   },
 ];
 
-/** Modes backed by a registered tool that this role may see. */
-export function liveModes(actorRole: Role): OpsMode[] {
+/**
+ * A mode is live when its tool is registered and, where it names a feature
+ * flag, that flag is on. A registered tool behind an off flag is built but
+ * switched off, not coming soon.
+ */
+export function modeIsLive(mode: OpsMode, flagsOn: Set<string>): boolean {
+  return getTool(mode.id) !== undefined && (!mode.flag || flagsOn.has(mode.flag));
+}
+
+/** Modes backed by a registered, switched-on tool that this role may see. */
+export function liveModes(actorRole: Role, flagsOn: Set<string>): OpsMode[] {
   return OPS_MODES.filter((mode) => {
     const decl = getTool(mode.id);
-    return decl !== undefined && decl.visibleTo.includes(actorRole);
+    return decl !== undefined && modeIsLive(mode, flagsOn) && decl.visibleTo.includes(actorRole);
   });
 }
 
 export interface ModeEntry extends OpsMode {
   live: boolean;
+  /** The tool is registered but its flag is off: built, not coming soon. */
+  switchedOff: boolean;
   href: string;
+}
+
+/** One mode's entry for the flag set: live, switched-off badge and where it links. */
+export function modeEntry(mode: OpsMode, flagsOn: Set<string>): ModeEntry {
+  const decl = getTool(mode.id);
+  const live = modeIsLive(mode, flagsOn);
+  return {
+    ...mode,
+    name: decl?.displayName ?? mode.name,
+    description: decl?.description ?? mode.description,
+    icon: decl?.icon ?? mode.icon,
+    actions: decl ? decl.actions.map((a) => a.name) : mode.actions,
+    live,
+    switchedOff: decl !== undefined && !live,
+    href: live ? (mode.href ?? `/t/${mode.id}`) : `/roadmap/${mode.id}`,
+  };
 }
 
 /**
  * Every mode this role may open, with the tool's own declaration taking over
  * where one is registered. A registered tool this role cannot see has no page
- * at all; roadmap only exists for unregistered modes, so the entry is omitted.
+ * at all; a switched-off app keeps its roadmap page, so the entry shows it.
  */
-export function modesFor(actorRole: Role): ModeEntry[] {
+export function modesFor(actorRole: Role, flagsOn: Set<string>): ModeEntry[] {
   return OPS_MODES.flatMap((mode) => {
     const decl = getTool(mode.id);
     if (decl !== undefined && !decl.visibleTo.includes(actorRole)) return [];
-    const live = decl !== undefined;
-    return [{
-      ...mode,
-      name: decl?.displayName ?? mode.name,
-      description: decl?.description ?? mode.description,
-      icon: decl?.icon ?? mode.icon,
-      actions: decl ? decl.actions.map((a) => a.name) : mode.actions,
-      live,
-      href: live ? (mode.href ?? `/t/${mode.id}`) : `/roadmap/${mode.id}`,
-    }];
+    return [modeEntry(mode, flagsOn)];
   });
 }
 
 /** Every mode, whatever the current role: the home page lists them all. */
-export function allModes(): ModeEntry[] {
-  return OPS_MODES.map((mode) => {
-    const decl = getTool(mode.id);
-    const live = decl !== undefined;
-    return {
-      ...mode,
-      name: decl?.displayName ?? mode.name,
-      description: decl?.description ?? mode.description,
-      icon: decl?.icon ?? mode.icon,
-      actions: decl ? decl.actions.map((a) => a.name) : mode.actions,
-      live,
-      href: live ? (mode.href ?? `/t/${mode.id}`) : `/roadmap/${mode.id}`,
-    };
-  });
+export function allModes(flagsOn: Set<string>): ModeEntry[] {
+  return OPS_MODES.map((mode) => modeEntry(mode, flagsOn));
 }
