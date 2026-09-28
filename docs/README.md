@@ -36,7 +36,7 @@ scripts are in the root [`README.md`](../README.md).
 - [AGENT_TRIGGER_SURFACE.md](AGENT_TRIGGER_SURFACE.md) — where runs start, the handoff panel, the run view and the approval dialog
 - [CONSOLE_ROLE_VIEWS.md](CONSOLE_ROLE_VIEWS.md) — what each role can see, and the Devin window controls
 - [rule-change-workflow.svg](rule-change-workflow.svg) — "How work reaches the console" (source: [rule-change-workflow.excalidraw](rule-change-workflow.excalidraw))
-- [demo-loop.svg](demo-loop.svg) — the demo's loop, run three times, as shown on slide 2 (source: [demo-loop.excalidraw](demo-loop.excalidraw))
+- [demo-loop.svg](demo-loop.svg) — the demo's loop, run three times, as shown on slide 1 (source: [demo-loop.excalidraw](demo-loop.excalidraw))
 
 ### Dashboard Features
 

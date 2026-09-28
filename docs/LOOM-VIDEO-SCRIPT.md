@@ -1,46 +1,22 @@
 # 5-Minute Loom Video Script: Devin-Driven Ownership of Platform Tools
 
-**The one message.** After Power Apps, your team asks, Devin builds, and an engineer approves, whether it's a rule, a manual step or a whole new app.
+## 🎯 Opening (30 seconds)
 
-One loop, three times, each on a bigger change. Every part ends on what an operator sees change.
+**▶ SLIDE 1 · Your team asks, Devin builds, an engineer approves.** The recording opens on it. Point along the four boxes.
 
-## How to read this script
+> "Without a release pipeline, a rule changes one of two ways."
+>
+> "Someone edits a flow in the browser, live in minutes, unreviewed. Or it's a ticket, and weeks."
+>
+> "There's another option. Your team asks for a change, Devin builds it, and an engineer approves it."
 
-- **"Quoted lines"** are spoken, word for word. **[Bracketed lines]** are on-screen actions, never said.
-- *(Parentheses inside a quote)* are values read off the screen. Where one holds a figure, it's the dry run's (#61, #62, reverted in #63). Say what the screen shows.
-- Record ids like `rfnd_0013` appear only in brackets. Spoken lines use names.
-- **▶ SLIDE n** means switch to that slide in the deck. **◀ CONSOLE** means switch back to the app. Neither is said.
-- Just over seven minutes. Run **Before recording** first.
-
-## Slides
-
-Four slides in [`DEMO-SLIDES.html`](DEMO-SLIDES.html) (PDF copy: [`DEMO-SLIDES.pdf`](DEMO-SLIDES.pdf)). Open the deck in its own window on slide 1 before you record. → and ← move between slides; F toggles full screen.
-
-| Slide | Show it | Move on |
-|---|---|---|
-| 1 · Power Apps is five products in one | First shot of the recording | After "in code your team owns." Press → to slide 2 |
-| 2 · Your team asks, Devin builds, an engineer approves | Opening | After "an engineer approves it." ◀ CONSOLE, on home |
-| 3 · What it costs | After the deployment drift challenge | After "instead of writing it." Press → to slide 4 |
-| 4 · Build or buy | Straight after slide 3 | Stay on it to the end of the recording |
-
-## Why this order
-
-Each part changes more of the system than the one before.
-
-| | 1 · Rules | 2 · Connectors | 3 · Apps |
-|---|---|---|---|
-| Where Devin may work | 3 files, plus tests | The KYC app's folder, `.env.example`, tests | A new app folder, registry, schema, home, migrations, lockfile, flag seed, tests |
-| New moving parts | A 14-day window setting | An outside API, a key on the server, a timeout, "couldn't check" | A new table (migration `0009`), 50 seeded disputes, two limits, a feature flag |
-| Size | One new file, two edited | Dry run: 5 files, +856 −3 | Dry run: 14 files, +2,166 −2 (1,375 of it a generated snapshot) |
-| Ends on | A Kestrel refund goes straight to the processor again after the rule is removed | Thornbury's **Approve** waits for a KYC manager, with the reason | A refunds agent works a live Chargebacks queue |
-
-The undo in Part 1 is the trickiest git work in the video, a conflicting revert. It stays there because it's the same rule's life, on the smallest surface.
+[Press → to slide 2.]
 
 ---
 
 ## 🧭 Power Apps Today (25 seconds)
 
-**▶ SLIDE 1 · Power Apps is five products in one.** The recording opens on it.
+**▶ SLIDE 2 · Power Apps is five products in one.**
 
 > "Power Apps is five products: an app builder, Dataverse, connectors, Power Automate, and an admin plane."
 >
@@ -53,20 +29,6 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 | Connectors (premium ones licensed per user or per app) | Code that calls the service, key kept on the server | Part 2, Connectors |
 | Power Automate | Rules and approvals on one governed write path | Part 1, Rules |
 | Admin plane | Roles, live rule settings, one audit log | Part 1, Rules |
-
-[Press → to slide 2.]
-
----
-
-## 🎯 Opening (20 seconds)
-
-**▶ SLIDE 2 · Your team asks, Devin builds, an engineer approves.** Point along the four boxes.
-
-> "Without a release pipeline, a rule changes one of two ways."
->
-> "Someone edits a flow in the browser, live in minutes, unreviewed. Or it's a ticket, and weeks."
->
-> "There's another option. Your team asks for a change, Devin builds it, and an engineer approves it."
 
 **◀ CONSOLE.** [Viewing as Refunds manager, on the home page.]
 
@@ -89,8 +51,6 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 ---
 
 ## 🧩 Part 1 · Rules: Added, Switched Off, Removed (2 minutes)
-
-**Differentiator:** the whole life of a rule, each step reviewed or reversible, including taking it out of code that has moved on.
 
 ### Before
 
@@ -162,8 +122,6 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 
 ## 🔎 Part 2 · Connectors: Automating a Manual Step (60 seconds)
 
-**Differentiator:** real engineering against an outside system: an API, a secret, and a failure path that holds rather than passes.
-
 ### Before
 
 [Switch role: KYC reviewer. Open `kyc_0104`, Thornbury Couriers Ltd. Point at the company registry check: "Checked by hand: active, directors match". Point at the **Approve** preview: every rule passes.]
@@ -197,8 +155,6 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 ---
 
 ## 📦 Part 3 · Apps: Starting the Next One (70 seconds)
-
-**Differentiator:** a new app from a Power Apps export, as a first pull request plus an honest list of what's left.
 
 ### Before
 
@@ -333,6 +289,8 @@ Each claim on camera, what backs it, and where to show it. If a line has no evid
 
 ## Before Recording
 
+The recording runs just over seven minutes; ▶ SLIDE and ◀ CONSOLE cues mark switches between the deck and the app and are never said.
+
 **A day ahead, before the runs:**
 
 - [ ] `pnpm devin:playbook` if `.devin/run-protocol.playbook.md` changed
@@ -354,8 +312,8 @@ Each claim on camera, what backs it, and where to show it. If a line has no evid
 - [ ] `git fetch --tags`, then `git checkout -B cognition-dashboard-devin-integration <demo-tag>` (stay on the branch; a detached HEAD breaks **Pull merged code**)
 - [ ] `pnpm install`
 - [ ] `git status` clean (delete stray `runs/` folders)
-- [ ] Within the hour: stop `pnpm dev`, `rm -rf apps/console/data && pnpm db:setup`, `pnpm dev`
-- [ ] Pick a role again after the reset
+- [ ] Within the hour: stop `pnpm dev`, `pnpm db:reset`, `pnpm dev` (rebuilds demo data but keeps the recorded runs, their audit rows and replays)
+- [ ] Pick a role again only after `rm -rf apps/console/data` — `pnpm db:reset` keeps the role cookie
 - [ ] `.env` has `DEVIN_API_KEY` and `GITHUB_TOKEN`
 - [ ] `/api/devin/status` reports `live` (if not, stop)
 - [ ] `pnpm verify` green (328 tests)
@@ -370,7 +328,7 @@ Clicks marked **once** change data; retake with `pnpm db:seed` (it won't undo `p
 
 | # | Shot | Viewing as | State it needs |
 |---|---|---|---|
-| 0 | Slide 1, Power Apps is five products in one; then slide 2 for the opening | — | Deck open on slide 1 |
+| 0 | Slide 1 for the opening; then slide 2, Power Apps is five products in one | — | Deck open on slide 1 |
 | 1 | Home; Transaction monitoring Coming soon | Refunds manager | Fresh seed at the tagged demo commit |
 | 2 | Kestrel drawer; `rfnd_0013` send (**once**) | Refunds manager, Refunds agent | Before the Kestrel merge |
 | 3 | Handoff, finished run, approval dialog and its trace | Refunds manager, Engineer | Recorded run |
@@ -387,8 +345,8 @@ Show every sped-up run with its real "Took …" time.
 
 ## After Recording
 
-- [ ] Chapters: Power Apps today, Opening, The console, Rules, Connectors, Apps, Deployment drift, Cost, Build or buy
-- [ ] Description, with the one message, `docs/DEMO-SLIDES.pdf`, the repo link, the five pull requests, and each run's time, ACUs and test total
+- [ ] Chapters: Opening, Power Apps today, The console, Rules, Connectors, Apps, Deployment drift, Cost, Build or buy
+- [ ] Description, with the one message ("your team asks, Devin builds, an engineer approves"), `docs/DEMO-SLIDES.pdf`, the repo link, the five pull requests, and each run's time, ACUs and test total
 - [ ] Copy each `apps/console/data/replays/<run_id>.json` to `runs/<run_id>/replay.json` and commit
 - [ ] Stop running Devin sessions
 - [ ] Delete stray `runs/` folders

@@ -104,12 +104,15 @@ pnpm verify                                          # lint, typecheck, boundari
 
   ```bash
   # stop pnpm dev first
+  pnpm db:reset   # rebuilds demo data, keeping recorded runs and their audit rows
+  # or, to wipe everything including recorded runs:
   rm -rf apps/console/data && pnpm db:setup
   pnpm dev
   ```
 
-- After a reset, pick a role again in **Viewing as**. The reset regenerates the secret that signs the
-  role cookie.
+- After `rm -rf apps/console/data`, pick a role again in **Viewing as** — that regenerates the
+  secret that signs the role cookie. `pnpm db:reset` keeps it. To seed only a tool whose queue is
+  still empty (e.g. one a merge just registered) without touching live data, run `pnpm db:seed:new`.
 
 ### `EADDRINUSE: address already in use :::3001`
 

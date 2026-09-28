@@ -289,68 +289,17 @@ and merged.
 
 ## Interface states
 
-### From request to live rule
+Four screens take a request to a live rule. The flow is the one in [Workflows](#workflows);
+each screen and the action that moves to the next:
 
-Four screens take a request to a live rule. Each arrow shows the action that moves to the next
-screen, and which layers it passes between.
-
-```text
-┌─ Request ──────────────┐                  ┌─ Run progress ─────────┐
-│ "Once a merchant's…"   │  Start run       │ ✓ Plan    ✓ Edit       │
-│ Context · Scope        │ ───────────────▶ │ ● Verify               │
-│        [ Start run ]   │  Console → Devin │ ○ Pull request         │
-└────────────────────────┘                  └────────────┬───────────┘
-                                                         │ Pull request opened
-                                                         │ Devin → GitHub
-                                                         ▼
-┌─ Refund ───────────────┐                  ┌─ Approve pull request ─┐
-│ Pending manager        │  Merged, synced  │ CI checks   4 of 4 ✓   │
-│ approval               │ ◀─────────────── │ Checklist   8 of 8 ✓   │
-│ clustering_hold   hold │  Code → Engine   │         [ Approve ]    │
-└────────────────────────┘                  └────────────────────────┘
-```
-
-### Requesting a change
-
-The request panel shows exactly what Devin receives. Once the run starts, the same panel shows
-its progress.
-
-```text
-┌───────────────────────────────────────┐    ┌───────────────────────────────────────┐
-│ Devin · New rule                      │    │ Devin · New rule · Verifying          │
-├───────────────────────────────────────┤    ├───────────────────────────────────────┤
-│ REQUEST                               │    │ ✓ Intake             base 1a67f60     │
-│ Once a merchant's "not received"      │    │ ✓ Baseline           288 tests        │
-│ refunds add up past the manager       │    │ ✓ Plan committed     5 files          │
-│ limit, send them to a manager.        │ ──▶│ ✓ Edit               +146 −3          │
-│                                       │    │ ● Verify                              │
-│ CONTEXT                               │    │     Lint ✓  Typecheck ✓               │
-│ Kestrel Outdoors · 4 refunds          │    │     Boundaries ✓  Test …              │
-│ Manager limit $500 · no PII           │    │ ○ Pull request                        │
-│                                       │    │                                       │
-│ SCOPE                                 │    │ PLAN                                  │
-│ tools/refunds · tools/kyc · tests     │    │ create  refunds/clustering-hold.ts    │
-│                                       │    │ modify  refunds/index.ts, kyc/index.ts│
-│                        [ Start run ]  │    │                                       │
-└───────────────────────────────────────┘    └───────────────────────────────────────┘
-```
-
-### Approving a change
+| Screen | Shows | Moves on when | Passes between |
+|---|---|---|---|
+| **Request** | Exactly what Devin receives. Request: "Once a merchant's 'not received' refunds add up past the manager limit, send them to a manager." Context: Kestrel Outdoors · 4 refunds · manager limit $500 · no PII. Scope: `tools/refunds` · `tools/kyc` · tests | **Start run** | Console → Devin |
+| **Run progress** | The same panel, now showing progress: ✓ Intake (base `1a67f60`), ✓ Baseline (288 tests), ✓ Plan committed (5 files), ✓ Edit (+146 −3), ● Verify (Lint ✓ Typecheck ✓ Boundaries ✓ Test …), ○ Pull request. Plan: create `refunds/clustering-hold.ts`, modify `refunds/index.ts` and `kyc/index.ts` | Pull request opened | Devin → GitHub |
+| **Approve pull request** | 5 files · +146 −3, CI checks 4 of 4 passed ✓, context unchanged ✓, checklist 8 of 8 ticked ✓. After **Approve**: review posted to GitHub, Devin merged the PR, merged code pulled, audit entry written | Merged, synced | Code → Engine |
+| **Refund** | Pending manager approval, with `clustering_hold` → hold in the policy trace | | |
 
 Only an engineer who did not request the change can approve it.
-
-```text
-┌───────────────────────────────────────┐    ┌───────────────────────────────────────┐
-│ Approve pull request                  │    │ Approve pull request                  │
-├───────────────────────────────────────┤    ├───────────────────────────────────────┤
-│ 5 files · +146 −3                     │    │ ✓  Review posted to GitHub            │
-│ CI checks  4 of 4 passed ✓            │    │ ✓  Devin merged the PR                │
-│ Context    unchanged ✓                │ ──▶│ ✓  Merged code pulled                 │
-│ Checklist  8 of 8 ticked ✓            │    │ ✓  Audit entry written                │
-│                                       │    │                                       │
-│            [ Cancel ]  [ Approve ]    │    │                         [ Close ]     │
-└───────────────────────────────────────┘    └───────────────────────────────────────┘
-```
 
 ### The same action, before and after
 
@@ -424,21 +373,21 @@ No separate backup is needed.
 
 The audit log records every step in a rule's life.
 
-```text
-    EVENT                               BY                AUDIT ENTRY
-    ────────────────────────────────    ────────────────  ──────────────────────
- ●  Rule requested                      Refunds manager   dispatch
- │  Devin session started               Console           record_session
- │  Pull request opened                 Devin             record_pr
- │  Pull request approved               Engineer          approve_pr
- ●  Merged. Rule live                   Devin             record_merge
- │  Refunds held by the rule            Refunds agent     one per refund
- ●  Rule switched off                   Admin             setting changed
- ●  Undo requested                      Admin             dispatch
- │  Pull request opened                 Devin             record_pr
- │  Pull request approved               Engineer          approve_pr
- ●  Merged. Rule removed                Devin             record_merge
-```
+| Event | By | Audit entry |
+|---|---|---|
+| **Rule requested** | Refunds manager | `dispatch` |
+| Devin session started | Console | `record_session` |
+| Pull request opened | Devin | `record_pr` |
+| Pull request approved | Engineer | `approve_pr` |
+| **Merged. Rule live** | Devin | `record_merge` |
+| Refunds held by the rule | Refunds agent | One per refund |
+| **Rule switched off** | Admin | Setting changed |
+| **Undo requested** | Admin | `dispatch` |
+| Pull request opened | Devin | `record_pr` |
+| Pull request approved | Engineer | `approve_pr` |
+| **Merged. Rule removed** | Devin | `record_merge` |
+
+Rows in bold are milestones; the rows between them are the steps that lead to each one.
 
 ## Documentation
 
