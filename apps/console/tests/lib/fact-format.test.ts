@@ -39,10 +39,14 @@ describe("factValue", () => {
     expect(factValue(REFUNDS, "requestedAt", iso)).toBe(formatTimestamp(Date.parse(iso)));
   });
 
-  it("leaves free text and non-codes untouched", () => {
-    expect(factValue(KYC, "result", "clear: match (Companies House)")).toBe(
-      "clear: match (Companies House)",
+  it("humanises only the code that leads a check result", () => {
+    expect(factValue(KYC, "registryCheck", "needs_review: Two owners verified (Companies House)")).toBe(
+      "Needs review: Two owners verified (Companies House)",
     );
+  });
+
+  it("leaves free text and non-codes untouched", () => {
+    expect(factValue(KYC, "note", "Filed late, see: registry")).toBe("Filed late, see: registry");
     expect(factValue(KYC, "country", "GB")).toBe("GB");
     expect(factValue(KYC, "registrationNumber", "09318842")).toBe("09318842");
   });
