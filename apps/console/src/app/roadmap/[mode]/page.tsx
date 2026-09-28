@@ -15,7 +15,7 @@ const INHERITED = [
   { name: "Live settings", detail: "Limits change on the rule settings page, with no release." },
   { name: "No double actions", detail: "Clicking twice, or retrying, never does it twice." },
   { name: "Personal data hidden", detail: "Personal data is masked. Every reveal is logged." },
-  { icon: "Link2", name: "Tamper-proof audit log", detail: "Every action is logged, and any edit to the log is detected." },
+  { name: "Audit log", detail: "Every action records who, what and when." },
 ];
 
 // Fixed widths so the placeholder rows look like data without pretending to be any.

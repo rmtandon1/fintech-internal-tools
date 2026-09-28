@@ -11,7 +11,6 @@ import {
   type PaletteMode,
 } from "@/components/command-palette";
 import { countPendingFor } from "@console/engine/approvals";
-import { verifyChain } from "@console/engine/audit/verify";
 import type { ConsoleStatus } from "@/lib/connection";
 import { automationTool } from "@console/tool-automation";
 import { WorkspaceProvider } from "@/components/workspace";
@@ -47,12 +46,10 @@ export default async function RootLayout({
     .map((t) => ({ name: t.name, displayName: t.displayName, icon: t.icon }));
   const runs = visible.some((t) => t.name === automationTool.name);
   const pending = countPendingFor(actor);
-  const chain = verifyChain();
   const mode = devinMode();
   // First paint; the header then polls /api/status for Devin's reachability.
   const status: ConsoleStatus = {
     devin: { mode, error: null },
-    audit: { ok: chain.ok, length: chain.length },
     checkedAt: Date.now(),
   };
 

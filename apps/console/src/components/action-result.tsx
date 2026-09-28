@@ -36,7 +36,6 @@ export function ActionResult({
   result,
   actionLabel,
   recordId,
-  idempotencyKey,
   statuses,
   ruleLabels,
 }: {
@@ -44,13 +43,11 @@ export function ActionResult({
   result: SubmitResult | null;
   actionLabel: string;
   recordId: string | null;
-  idempotencyKey: string;
   statuses: StatusDecl[];
   ruleLabels?: Record<string, string>;
 }) {
   const steps = result ? stepsFor(result, actionLabel, ruleLabels) : [];
   const [shown, setShown] = useState(0);
-  const [details, setDetails] = useState(false);
 
   useEffect(() => {
     setShown(0);
@@ -101,26 +98,15 @@ export function ActionResult({
       {done && result ? (
         <div className="space-y-3 animate-in fade-in duration-300">
           <Verdict result={result} statuses={statuses} />
-          <div className="flex flex-wrap items-center gap-3 text-sm">
-            {result.audit && recordId ? (
+          {result.audit && recordId ? (
+            <div className="flex flex-wrap items-center gap-3 text-sm">
               <Link
                 href={`/audit?recordId=${encodeURIComponent(recordId)}`}
                 className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
               >
                 View in audit log
               </Link>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => setDetails((open) => !open)}
-              aria-expanded={details}
-              className="ml-auto text-xs text-muted-foreground hover:text-foreground"
-            >
-              {details ? "Hide attributes" : "Show attributes"}
-            </button>
-          </div>
-          {details ? (
-            <TechnicalDetails result={result} idempotencyKey={idempotencyKey} />
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -230,63 +216,6 @@ function Banner({
       <div className="text-base font-semibold">{title}</div>
       {children ? <p className="mt-0.5 text-sm text-foreground/80">{children}</p> : null}
     </div>
-  );
-}
-
-function TechnicalDetails({
-  result,
-  idempotencyKey,
-}: {
-  result: SubmitResult;
-  idempotencyKey: string;
-}) {
-  const { outcome, audit } = result;
-  const trace = outcome.trace ?? [];
-  const versionBefore = audit?.before?.version;
-  const versionAfter = audit?.after?.version;
-  return (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-md border border-border p-3 font-mono text-[11px] text-muted-foreground">
-      {trace.length > 0 ? (
-        <>
-          <dt>rules</dt>
-          <dd className="break-words text-foreground">
-            {trace.map((o) => `${o.rule}=${o.type}`).join(", ")}
-          </dd>
-        </>
-      ) : null}
-      {audit ? (
-        <>
-          <dt>audit</dt>
-          <dd className="text-foreground">
-            #{audit.seq} · {audit.event} · {audit.rowHash.slice(0, 12)}… · chain{" "}
-            {audit.chainOk ? "intact" : "broken"}
-          </dd>
-          <dt>actor</dt>
-          <dd className="text-foreground">
-            {audit.actorId} ({audit.actorRole})
-          </dd>
-        </>
-      ) : null}
-      {typeof versionBefore === "number" || typeof versionAfter === "number" ? (
-        <>
-          <dt>version</dt>
-          <dd className="text-foreground">
-            {typeof versionBefore === "number" ? `v${versionBefore}` : "—"}
-            {typeof versionAfter === "number" && versionAfter !== versionBefore
-              ? ` → v${versionAfter}`
-              : ""}
-          </dd>
-        </>
-      ) : null}
-      {outcome.status === "pending_approval" ? (
-        <>
-          <dt>approval</dt>
-          <dd className="text-foreground">{outcome.approvalId}</dd>
-        </>
-      ) : null}
-      <dt>request key</dt>
-      <dd className="break-all text-foreground">{idempotencyKey}</dd>
-    </dl>
   );
 }
 

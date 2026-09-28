@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { openApp } from "@/app/actions";
 import { listApprovals } from "@console/engine/approvals";
-import { verifyChain } from "@console/engine/audit/verify";
 import { Icon } from "@console/ui/icon";
 import { cn } from "@console/ui/utils";
 import { Wordmark } from "@/components/brand-mark";
@@ -52,7 +51,6 @@ export default async function HomePage() {
   const soon = modes.filter((m) => !m.live);
   const now = Date.now();
 
-  const chain = verifyChain();
   const waiting = listApprovals("pending").length;
   const devin = devinMode();
   const theme = await currentTheme();
@@ -69,17 +67,6 @@ export default async function HomePage() {
           </div>
           <p className="max-w-2xl text-lg leading-relaxed text-muted-foreground">{BRAND.tagline}</p>
           <ul className="flex flex-wrap gap-2">
-            <Status
-              tone={chain.ok ? "good" : "bad"}
-              hint="Every action is written to a log that detects any later edit or deletion. This checks the whole log now."
-              label={
-                !chain.ok
-                  ? "Audit log tampered with"
-                  : chain.length === 0
-                    ? "Audit log ready · no entries yet"
-                    : `Audit log verified · ${chain.length} ${chain.length === 1 ? "entry" : "entries"}`
-              }
-            />
             <Status
               tone={waiting > 0 ? "attention" : "good"}
               hint="Actions across every app that are held for a manager or admin to approve."

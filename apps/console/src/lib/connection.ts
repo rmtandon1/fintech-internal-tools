@@ -3,7 +3,6 @@ import type { DevinMode } from "@/lib/devin-status";
 /** What `GET /api/status` reports: the services the console depends on. */
 export interface ConsoleStatus {
   devin: { mode: DevinMode; error: string | null };
-  audit: { ok: boolean; length: number };
   /** Server time of the check, in ms. */
   checkedAt: number;
 }
@@ -11,7 +10,7 @@ export interface ConsoleStatus {
 export type Signal = "ok" | "degraded" | "down";
 
 export interface ConnectionCheck {
-  key: "console" | "devin" | "audit";
+  key: "console" | "devin";
   label: string;
   signal: Signal;
   detail: string;
@@ -26,7 +25,7 @@ export function connectionChecks(
   status: ConsoleStatus,
   reachable: boolean,
 ): ConnectionCheck[] {
-  const { devin, audit } = status;
+  const { devin } = status;
   return [
     {
       key: "console",
@@ -44,14 +43,6 @@ export function connectionChecks(
           : devin.error
             ? "Can't reach Devin"
             : "Connected",
-    },
-    {
-      key: "audit",
-      label: "Audit log",
-      signal: audit.ok ? "ok" : "down",
-      detail: audit.ok
-        ? `Verified · ${audit.length.toLocaleString("en-US")} ${audit.length === 1 ? "entry" : "entries"}`
-        : "An entry was edited or removed",
     },
   ];
 }
