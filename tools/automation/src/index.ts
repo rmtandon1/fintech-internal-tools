@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, like, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, like, ne, or } from "drizzle-orm";
 import { ulid } from "ulid";
 import { z } from "zod";
 import { db } from "@console/db";
@@ -571,11 +571,20 @@ export function reversingRun(id: string): DevinRun | null {
   );
 }
 
-/** One page of runs, newest request first. */
-export function listRuns({ limit, offset = 0 }: { limit: number; offset?: number }): DevinRun[] {
+/** One page of runs, newest request first, optionally leaving out one status. */
+export function listRuns({
+  limit,
+  offset = 0,
+  excludeStatus,
+}: {
+  limit: number;
+  offset?: number;
+  excludeStatus?: string;
+}): DevinRun[] {
   return db
     .select()
     .from(devinRuns)
+    .where(excludeStatus === undefined ? undefined : ne(devinRuns.status, excludeStatus))
     .orderBy(desc(devinRuns.requestedAt))
     .limit(limit)
     .offset(offset)
