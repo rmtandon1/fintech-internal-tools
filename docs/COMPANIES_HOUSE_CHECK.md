@@ -1,8 +1,5 @@
 # Companies House Check
 
-The reviewer's brief for Part 2 of the demo. Devin never reads this file: it gets the request below and
-the case it starts from, and nothing else (`.devin/run-protocol.playbook.md` § Intake).
-
 ## Summary
 
 - KYC analysts check every UK business customer on Companies House by hand, in another tab.
