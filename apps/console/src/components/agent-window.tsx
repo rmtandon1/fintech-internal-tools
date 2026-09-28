@@ -93,8 +93,8 @@ export function AgentWindow({
               </span>
             </span>
           }
-          headerClassName="border-info/20 bg-info/10"
-          actions={<span className="mr-6 text-[10px] text-muted-foreground">{label}</span>}
+          headerClassName="border-info/20 bg-info/10 pr-12"
+          actions={<span className="text-[10px] text-muted-foreground">{label}</span>}
           className="h-[80vh] rounded-none border-0"
           bodyClassName="flex flex-col"
         >

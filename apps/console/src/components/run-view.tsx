@@ -41,14 +41,19 @@ function CheckRow({
   state,
   label,
   detail,
+  ended = false,
 }: {
   state: "done" | "active" | "waiting";
   label: string;
   detail?: string;
+  /** The run ended without merging: the last active step stops spinning. */
+  ended?: boolean;
 }) {
   return (
     <li className="flex items-center gap-2 py-0.5 text-[11px]" data-state={state}>
-      {state === "active" ? (
+      {state === "active" && ended ? (
+        <span className="w-2.5 shrink-0 text-amber-400">●</span>
+      ) : state === "active" ? (
         <span
           role="status"
           aria-label="In progress"
@@ -148,7 +153,7 @@ function Checklist({ out, run }: { out: StructuredOutput | null; run: RunViewPay
   return (
     <ul className="px-3 py-1">
       {rows.map((row, i) => (
-        <CheckRow key={i} {...row} />
+        <CheckRow key={i} {...row} ended={TERMINAL.has(run.status)} />
       ))}
     </ul>
   );
@@ -359,7 +364,7 @@ export function RunView({
           data-testid="devin-thinking"
         >
           <p className="text-[10px] font-medium uppercase tracking-wider text-info">
-            Devin&apos;s current thinking
+            {TERMINAL.has(run.status) ? "Devin\u2019s last update" : "Devin\u2019s current thinking"}
           </p>
           <p className="mt-0.5 text-sm text-foreground">{thinking}</p>
         </section>

@@ -92,7 +92,7 @@ describe("RunView", () => {
   it("shows Devin's current thinking from the latest frame", () => {
     const html = render(payload());
     expect(html).toContain("data-testid=\"devin-thinking\"");
-    expect(html).toContain("Devin&#x27;s current thinking");
+    expect(html).toContain("Devin’s current thinking");
     expect(html).toContain(editing.at(-1)?.status_detail ?? "missing");
   });
 
@@ -110,5 +110,13 @@ describe("RunView", () => {
     expect(html).toMatch(/data-state="done"><span class="[^"]*text-emerald-400">✓/);
     expect(html).toMatch(/data-state="waiting"><span class="[^"]*">○/);
     expect(html).not.toContain("●");
+  });
+
+  it("stops spinning and shows the last update once the run has ended", () => {
+    const p = payload();
+    const html = render({ ...p, run: { ...p.run, status: "stopped" } });
+    expect(html).toContain("Devin’s last update");
+    expect(html).not.toContain("animate-spin");
+    expect(html).toMatch(/data-state="active"><span class="[^"]*text-amber-400">●/);
   });
 });
