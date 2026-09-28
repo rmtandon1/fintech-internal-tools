@@ -10,6 +10,7 @@ import { execFileGitRunner } from "@console/tool-automation/git";
 import { findPlaybookId } from "@console/tool-automation/playbook-registration";
 import { loadRepoEnv, repoRoot as defaultRepoRoot } from "@/lib/env";
 import { registerToolConstants } from "@/lib/register-tool-constants";
+import { pendingSeedTools } from "@/lib/seed-new-tools";
 import { ensureModeFlags } from "@/lib/mode-flags";
 
 /** Server deps plus the directory live polls record replay frames into. */
@@ -109,6 +110,7 @@ export function bridgeDeps(): AppBridgeDeps {
       return parsed.data.seeded;
     },
     migrationsPending: () => migrationsPending(repoRoot),
+    seedPending: async () => pendingSeedTools().length > 0,
     repository: githubRepository(repoRoot, process.env.SYNC_REMOTE ?? "origin"),
     replaysDir: join(repoRoot, "apps/console/data/replays"),
     syncRemote: process.env.SYNC_REMOTE,

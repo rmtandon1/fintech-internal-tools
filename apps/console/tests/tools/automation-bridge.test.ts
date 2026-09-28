@@ -1052,6 +1052,19 @@ describe("syncMergedRun", () => {
     expect(await isSynced(run, d)).toBe(true);
   });
 
+  it("isSynced stays false while a seed is pending", async () => {
+    const run = await merged();
+    let pending = true;
+    const d = deps({
+      git: fakeGit({ ancestors: [MERGE] }).git,
+      migrationsPending: async () => false,
+      seedPending: async () => pending,
+    });
+    expect(await isSynced(run, d)).toBe(false);
+    pending = false;
+    expect(await isSynced(run, d)).toBe(true);
+  });
+
   it("isSynced stays false while dependencies lag the lockfile", async () => {
     const run = await merged();
     let pending = true;

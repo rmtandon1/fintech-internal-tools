@@ -52,6 +52,8 @@ export interface BridgeDeps {
   migrate?: (cwd: string) => Promise<void>;
   /** Seeds tools whose queue is still empty (`pnpm db:seed:new`); returns their names. */
   seedNew?: (cwd: string) => Promise<string[]>;
+  /** True when a registered tool's seed has yet to fill its empty queue. */
+  seedPending?: () => Promise<boolean>;
   /** True when drizzle journal entries postdate the last applied migration. */
   migrationsPending?: () => Promise<boolean>;
   /** Remote and branch the merge sync pulls; default to `SYNC_REMOTE` / `SYNC_BRANCH`. */
@@ -633,12 +635,13 @@ async function syncMergedRunInner(run: DevinRun, deps: BridgeDeps): Promise<Sync
   }
 }
 
-/** True when the checkout has the run's merge commit, installed dependencies and no pending migrations. */
+/** True when the checkout has the run's merge commit, installed dependencies, and no pending migrations or seeds. */
 export async function isSynced(run: DevinRun, deps: BridgeDeps): Promise<boolean> {
   if (!deps.git || !run.mergeCommit) return false;
   if (!(await deps.git.isAncestor(deps.repoRoot, run.mergeCommit, "HEAD"))) return false;
   if (deps.installPending && (await deps.installPending())) return false;
   if (deps.migrationsPending && (await deps.migrationsPending())) return false;
+  if (deps.seedPending && (await deps.seedPending())) return false;
   return true;
 }
 

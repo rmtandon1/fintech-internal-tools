@@ -6,7 +6,7 @@ import { kycTool } from "@console/tool-kyc";
 import { refundTool } from "@console/tool-refunds";
 import { refunds } from "@console/tool-refunds/schema";
 import { eq } from "drizzle-orm";
-import { seedNewTools } from "@/lib/seed-new-tools";
+import { pendingSeedTools, seedNewTools } from "@/lib/seed-new-tools";
 import { TOOLS } from "@/registry";
 import { setupHarness } from "../helpers/harness";
 
@@ -29,6 +29,17 @@ function fakeTool(rows: { id: string }[]): ToolDeclaration {
     },
   } as ToolDeclaration;
 }
+
+describe("pendingSeedTools", () => {
+  it("names the seedable tools whose queue is empty, until they are seeded", () => {
+    const rows: { id: string }[] = [];
+    const fake = fakeTool(rows);
+    expect(pendingSeedTools([...TOOLS, fake])).toEqual(["automation", "fake"]);
+
+    seedNewTools([...TOOLS, fake]);
+    expect(pendingSeedTools([...TOOLS, fake])).toEqual(["automation"]);
+  });
+});
 
 describe("seedNewTools", () => {
   it("seeds only the tool whose queue is empty, without touching live rows", () => {
