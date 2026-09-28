@@ -29,8 +29,8 @@ and move down.
 ```bash
 node --version                      # v24.x
 pnpm --version                      # CI pins 12.6.0
-git clone https://github.com/rmtandon1/buy-v-build-cog-demo.git
-cd buy-v-build-cog-demo
+git clone https://github.com/rmtandon1/fintech-internal-tools.git
+cd fintech-internal-tools
 pnpm install
 cp .env.example .env                # then set DEVIN_API_KEY and GITHUB_TOKEN
 pnpm db:setup

@@ -201,7 +201,7 @@ a map from what operators see to the code Devin changes.
 ## Project structure
 
 ```
-buy-v-build-cog-demo/
+fintech-internal-tools/
 ├── apps/
 │   └── console/                     # The Next.js app: routes, server actions, registry, migrations, tests
 │       ├── src/
@@ -318,8 +318,8 @@ The console runs without either key. Devin then shows as not connected, and ever
 1. Clone the repository.
 
    ```bash
-   git clone https://github.com/rmtandon1/buy-v-build-cog-demo.git
-   cd buy-v-build-cog-demo
+   git clone https://github.com/rmtandon1/fintech-internal-tools.git
+   cd fintech-internal-tools
    ```
 
 2. Install dependencies.
