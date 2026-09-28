@@ -63,18 +63,6 @@ export const OPS_MODES: OpsMode[] = [
     launchRole: "admin",
   },
   {
-    id: "automation",
-    name: "Rule changes",
-    description: "Rules Devin writes, reviewed by an engineer before they go live.",
-    icon: "Bot",
-    roles: ["refunds_manager", "kyc_manager", "engineer", "admin"],
-    actions: ["dispatch", "approve_pr", "stop"],
-    segment: "platform",
-    area: "Platform",
-    launchRole: "engineer",
-    href: "/runs",
-  },
-  {
     id: "aml_alerts",
     name: "Transaction monitoring",
     description: "Review suspicious-activity alerts and escalate the real ones.",

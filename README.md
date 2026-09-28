@@ -90,7 +90,6 @@ tool in `apps/console/src/registry.ts`; the rest open a roadmap preview.
 | Collections | Set up payment plans for customers who are behind. | Coming soon |
 | **Platform** | | |
 | Feature flags | Switch features on or off, and choose who sees them. | Live |
-| Rule changes | Rules Devin writes, reviewed by an engineer before they go live. | Live |
 | Pricing | Change fees, FX spreads and interest rates. | Coming soon |
 | Model overrides | Approve risk model updates and manual score overrides. | Coming soon |
 
