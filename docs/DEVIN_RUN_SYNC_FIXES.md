@@ -2,7 +2,8 @@
 
 Post-mortem of the defects found while wiring console runs to Devin and GitHub, 25–28 September
 2026. Each one broke the link between what Devin or GitHub had done and what the console
-showed. All are fixed on `cognition-dashboard-devin-integration`.
+showed. All are fixed on `cognition-dashboard-devin-integration`. Post-merge deployment drift, the running console
+lagging the merged branch, is written up separately in [POST_MERGE_DEPLOYMENT_DRIFT.md](POST_MERGE_DEPLOYMENT_DRIFT.md).
 
 ## Issues Identified
 

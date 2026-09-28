@@ -9,7 +9,7 @@ One loop, three times, each on a bigger change. Every part ends on what an opera
 - **"Quoted lines"** are spoken, word for word. **[Bracketed lines]** are on-screen actions, never said.
 - *(Parentheses inside a quote)* are values read off the screen. Where one holds a figure, it's the dry run's (#61, #62, reverted in #63). Say what the screen shows.
 - Record ids like `rfnd_0013` appear only in brackets. Spoken lines use names.
-- About six minutes. Run **Before recording** first.
+- About six and a half minutes. Run **Before recording** first.
 
 ## Why this order
 
@@ -216,6 +216,30 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 
 ---
 
+## 🔧 Challenge: Post-Merge Deployment Drift (30 seconds)
+
+**Differentiator:** a real problem from the build, diagnosed layer by layer and fixed in four.
+
+[Show the screenshot of the Chargebacks **Pull merged code** toast from Part 3: `pulled … → … · dependencies installed · db migrated`.]
+
+> "One challenge from the build: post-merge deployment drift."
+>
+> "GitHub said merged, and the screen didn't change."
+>
+> "I walked it down layer by layer. The merge commit wasn't in the console's checkout."
+>
+> "Pulling wasn't enough either. The new Chargebacks package didn't resolve."
+
+[Cut to the four-layer table in `docs/POST_MERGE_DEPLOYMENT_DRIFT.md`.]
+
+> "So the sync has four layers. It confirms the merge with GitHub, and pulls only into a clean checkout."
+>
+> "It installs packages when the lockfile moves. Then it migrates and registers new settings and flags."
+>
+> "That toast is all four, with no restart and no re-seed."
+
+---
+
 ## 💷 What Ownership Costs (20 seconds)
 
 [Show the table.]
@@ -310,8 +334,9 @@ Clicks marked **once** change data. To retake them, `pnpm db:seed`.
 | 4 | Inbox of sixty; switch-off at `/admin/policy` | Refunds manager, Admin | Courier scenario run |
 | 5 | Undo, finished undo; `rfnd_0014` send (**once**), trace, reason dropdown | Admin, Engineer, Refunds agent | `partial_delivery` merged before the undo |
 | 6 | Thornbury before, handoff, finished run, setting on, **Approve** | KYC reviewer, Admin, Engineer | Companies House run recorded |
-| 7 | Chargebacks Coming soon, handoff, pull request, flag on, queue, `DSP-20401` **Accept** (**once**) | Admin, Engineer, Refunds agent | Chargebacks run recorded |
-| 8 | Cost table | — | — |
+| 7 | Chargebacks Coming soon, handoff, pull request, flag on, queue, `DSP-20401` **Accept** (**once**) | Admin, Engineer, Refunds agent | Chargebacks run recorded; screenshot the **Pull merged code** toast |
+| 8 | Toast screenshot, then the four-layer table in `docs/POST_MERGE_DEPLOYMENT_DRIFT.md` | — | Screenshot from shot 7 |
+| 9 | Cost table | — | — |
 
 - Show every sped-up run with its real "Took …" time.
 - If Devin isn't connected, stop.
@@ -320,7 +345,7 @@ Clicks marked **once** change data. To retake them, `pnpm db:seed`.
 
 ## 📤 After Recording
 
-- **Chapters:** Power Apps today, Opening, The console, Rules, Connectors, Apps, Cost, Close.
+- **Chapters:** Power Apps today, Opening, The console, Rules, Connectors, Apps, Deployment drift, Cost, Close.
 - **Description:** the one message, the repo, the five pull requests, and each run's time, ACUs and test total.
 - **Replays:** copy each run's `apps/console/data/replays/<run_id>.json` to `runs/<run_id>/replay.json` and commit it.
 - **Clean up:** stop running Devin sessions, delete stray `runs/` folders, reset the database. Tag the recorded commit, e.g. `loom-2026-09-28`.
