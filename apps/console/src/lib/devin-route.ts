@@ -9,9 +9,9 @@ import {
   getRun,
   getSpec,
   IN_FLIGHT_STATUSES,
+  type Operation,
+  operationLabel,
   type ReplayFrame,
-  type RunKind,
-  runKindLabel,
   type RunStatus,
 } from "@console/tool-automation";
 import {
@@ -39,10 +39,9 @@ export interface RouteResult {
 function publicRun(run: DevinRun) {
   return {
     id: run.id,
-    kind: run.kind,
+    operation: run.operation,
     spec: run.spec,
     tool: run.tool,
-    scope: run.scope,
     intent: run.intent,
     status: run.status,
     prUrl: run.prUrl,
@@ -65,13 +64,13 @@ export interface RunViewPayload {
   sessionUrl: string | null;
   /** The business sentence for what the run changes once merged. */
   summary: string;
-  /** The spec's once-merged line for this kind, when it names one. */
+  /** The spec's once-merged line for this operation, when it names one. */
   outcome: string | null;
-  /** The operator-facing name of the run's kind. */
-  kindLabel: string;
+  /** The operator-facing name of the run's operation. */
+  operationLabel: string;
   /** The id of the run's latest audit row, or null before the first intent. */
   lastAuditId: string | null;
-  /** The spec's acceptance tests for this kind: the engineer's checklist, never sent to the session. */
+  /** The spec's acceptance tests for this operation: the engineer's checklist, never sent to the session. */
   reviewerChecklist: string[];
   offers: RunOffers;
 }
@@ -133,11 +132,11 @@ export async function handleGet(
       mode === "live" && run.sessionId
         ? `https://app.devin.ai/sessions/${run.sessionId}`
         : null,
-    summary: getSpec(run.spec)?.summaries?.[run.kind as RunKind] ?? run.intent,
-    outcome: getSpec(run.spec)?.outcomes?.[run.kind as RunKind] ?? null,
-    kindLabel: runKindLabel(run.kind),
+    summary: getSpec(run.spec)?.summaries?.[run.operation as Operation] ?? run.intent,
+    outcome: getSpec(run.spec)?.outcomes?.[run.operation as Operation] ?? null,
+    operationLabel: operationLabel(run.operation),
     lastAuditId: listAuditEvents({ recordId: run.id, limit: 1 }).rows[0]?.id ?? null,
-    reviewerChecklist: [...(getSpec(run.spec)?.acceptance?.[run.kind as RunKind] ?? [])],
+    reviewerChecklist: [...(getSpec(run.spec)?.acceptance?.[run.operation as Operation] ?? [])],
     offers: await runOffers(
       run,
       actor,

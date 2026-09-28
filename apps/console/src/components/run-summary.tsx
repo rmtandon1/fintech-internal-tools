@@ -8,7 +8,7 @@ import { StatusChip } from "@console/ui/status-chip";
 /** The fields the summary reads; the route's public run satisfies this. */
 export type RunSummaryRun = Pick<
   DevinRun,
-  "intent" | "kind" | "status" | "reverses" | "requestedBy" | "requestedByRole"
+  "intent" | "operation" | "status" | "reverses" | "requestedBy" | "requestedByRole"
 >;
 
 const ROLE_NAMES: readonly string[] = ROLES;
@@ -35,9 +35,9 @@ export const RUN_STATUS_OPTIONS = [
 
 /**
  * What an operator needs before touching a run: what was asked, by whom,
- * what kind of change it is, where it stands and what merging it does. Under
+ * what operation it is, where it stands and what merging it does. Under
  * that, the full report from the session's last structured output.
- * Presentational only: the spec's once-merged line and the kind's label
+ * Presentational only: the spec's once-merged line and the operation's label
  * arrive as props because resolving them needs the registered spec, a
  * server-side lookup.
  */
@@ -46,7 +46,7 @@ export function RunSummary({
   output,
   phaseLine,
   outcome,
-  kindLabel,
+  operationLabel,
 }: {
   run: RunSummaryRun;
   output: StructuredOutput | null;
@@ -54,14 +54,14 @@ export function RunSummary({
   phaseLine: string | null;
   /** The spec's one-line consequence of merging this run, when it names one. */
   outcome: string | null;
-  /** The operator-facing name of the run's kind. */
-  kindLabel: string;
+  /** The operator-facing name of the run's operation. */
+  operationLabel: string;
 }) {
   return (
     <Panel title="Summary" className="mx-5 mb-5" bodyClassName="space-y-6 p-5 text-sm">
       <div className="space-y-4">
         <div className="rounded-lg border border-border bg-muted/20 px-4 py-3">
-          <div className="text-xs font-medium text-muted-foreground">{kindLabel}</div>
+          <div className="text-xs font-medium text-muted-foreground">{operationLabel}</div>
           <p className="mt-1 text-[15px] leading-relaxed whitespace-pre-wrap break-words">
             {run.intent}
           </p>

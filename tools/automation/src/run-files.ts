@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { PHASES } from "./phases";
-import { RUN_KINDS } from "./specs";
+import { OPERATIONS } from "./specs";
 
 /**
  * The files a run exchanges with the console, as zod schemas. These are the
@@ -44,23 +44,42 @@ export const Reverses = z
   .strict();
 export type Reverses = z.infer<typeof Reverses>;
 
-export const ContextFile = z
+const ContextFileShape = z
   .object({
     run_id: z.string().min(1),
-    kind: z.enum(RUN_KINDS),
+    operation: z.enum(OPERATIONS),
     spec: z.string().min(1),
     intent: z.string().min(1),
     requested_by: z.string().min(1),
     base: z.object({ branch: z.string().min(1), commit: commit }).strict(),
     /** Path globs the plan must stay inside. */
-    scope: z.array(z.string().min(1)),
+    allowed_paths: z.array(z.string().min(1)),
     constants: z.record(z.string(), z.number()),
     evidence: Evidence,
     reverses: Reverses.nullable(),
     audit_head: z.object({ seq: z.number().int(), rowHash: z.string() }).strict(),
   })
   .strict();
-export type ContextFile = z.infer<typeof ContextFile>;
+/**
+ * Context files written before the operation model carry `kind` + `scope`
+ * where the current shape has `operation` + `allowed_paths`. Map them on read;
+ * the bytes — and the dispatch SHA over them — are untouched.
+ */
+export const ContextFile = z.preprocess((value) => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return value;
+  const input = value as Record<string, unknown>;
+  const out = { ...input };
+  if (typeof input.kind === "string" && input.operation === undefined) {
+    out.operation = input.kind === "REVERSAL" ? "undo" : "change";
+    delete out.kind;
+  }
+  if (Array.isArray(input.scope) && input.allowed_paths === undefined) {
+    out.allowed_paths = input.scope;
+    delete out.scope;
+  }
+  return out;
+}, ContextFileShape);
+export type ContextFile = z.infer<typeof ContextFileShape>;
 
 export const PlannedFile = z
   .object({
@@ -79,7 +98,7 @@ export const PlanFile = z
     files: z.array(PlannedFile),
     reuses: z.array(Reuse),
     acceptance: z.array(z.string().min(1)),
-    /** Tests a REMOVAL or REVERSAL may delete; absent or empty for other kinds. */
+    /** Tests the run may delete; the reviewer permits exactly the listed removals. */
     removed_tests: z.array(RemovedTest).optional(),
   })
   .strict();

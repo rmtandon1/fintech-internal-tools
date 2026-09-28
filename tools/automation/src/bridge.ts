@@ -18,7 +18,7 @@ import {
   type ReplayFrame,
   StructuredOutput,
 } from "./run-files";
-import { getSpec, type RunKind, type RunScope } from "./specs";
+import { getSpec, type Operation } from "./specs";
 
 /**
  * The bridge between the governed `automation` actions and the outside world.
@@ -62,8 +62,7 @@ export interface BridgeDeps {
 
 export interface DispatchRequest {
   spec: string;
-  kind: RunKind;
-  scope: RunScope;
+  operation: Operation;
   intent: string;
   evidenceKey: string;
   evidenceIds: readonly string[];
@@ -162,15 +161,14 @@ export async function dispatchRun(
     const target = getRun(req.reverses);
     if (!target?.mergeCommit) throw new Error(`${req.reverses} has no merge commit to reverse`);
     reverses = { runId: target.id, mergeCommit: target.mergeCommit };
-    // A reversal's evidence is the merged run's, never the caller's.
+    // An undo's evidence is the merged run's, never the caller's.
     evidenceKey = contextEvidenceKey(deps.repoRoot, target.id) ?? "";
   }
 
   const built = buildContext({
     runId,
-    kind: req.kind,
+    operation: req.operation,
     spec,
-    scope: req.scope,
     intent: req.intent,
     requestedBy: actor.role,
     evidenceKey,
@@ -190,8 +188,7 @@ export async function dispatchRun(
     input: {
       runId,
       spec: spec.file,
-      kind: req.kind,
-      scope: req.scope,
+      operation: req.operation,
       intent: req.intent,
       contextSha256: built.sha256,
       evidenceIds: [...req.evidenceIds],
@@ -204,7 +201,7 @@ export async function dispatchRun(
     return { runId, dispatch, session: null, sessionUrl: null };
   }
 
-  // Keep a copy outside `runs/` as well, so a REVERSAL can still read the
+  // Keep a copy outside `runs/` as well, so an undo can still read the
   // context after the run dir only exists on the merged branch's checkout.
   const dataDir = join(deps.repoRoot, "apps", "console", "data", "runs", runId);
   mkdirSync(dataDir, { recursive: true });
@@ -217,31 +214,30 @@ export async function dispatchRun(
   } else {
     try {
       // A missing playbook is not fatal: the prompt names the protocol file
-      // too. Only an engine run's prompt names the spec; a rule run gets the
-      // sentence and the attachment, and works the rest out from the code.
+      // too. Only a sendSpec run's prompt names the spec; the others get the
+      // sentence and the attachment, and work the rest out from the code.
       const playbookId =
         deps.playbookId ?? (await deps.resolvePlaybookId?.().catch(() => null)) ?? undefined;
       const created = await deps.devin.createSession({
         prompt: [
           req.intent,
-          req.scope === "engine"
-            ? `Kind: ${req.kind}. Scope: engine. Spec: docs/${spec.file}. Run: ${runId}.`
-            : `Kind: ${req.kind}. Scope: rule. Run: ${runId}.`,
+          `Operation: ${req.operation}. Run: ${runId}.`,
+          ...(spec.sendSpec ? [`Spec: docs/${spec.file}.`] : []),
           ...(deps.repository
             ? [
                 `Repository: https://github.com/${deps.repository}. Branch from ${built.context.base.branch} at ${built.context.base.commit.slice(0, 7)} and open the pull request against ${built.context.base.branch}.`,
               ]
             : []),
           `Work from the attached runs/${runId}/context.json; commit it unchanged on your branch.`,
-          ...(req.scope === "engine"
+          ...(spec.sendSpec
             ? []
             : [
                 "The attachment is the whole brief: work out the behaviour the sentence leaves unsaid from the code and its tests. Do not open the feature specs under docs/.",
               ]),
           "Follow .devin/run-protocol.playbook.md and docs/DEVIN_RUN_PROTOCOL.md.",
         ].join("\n"),
-        title: `${req.kind} ${spec.tool} (${runId})`,
-        tags: [`run:${runId}`, `kind:${req.kind}`],
+        title: `${req.operation} ${spec.tool} (${runId})`,
+        tags: [`run:${runId}`, `operation:${req.operation}`],
         attachment: { name: "context.json", body: built.json },
         structuredOutputSchema: STRUCTURED_OUTPUT_JSON_SCHEMA,
         runId,

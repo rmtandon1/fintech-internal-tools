@@ -3,7 +3,7 @@
 ## Summary
 
 - A Devin run starts from the screen that shows why it is needed: the cluster drawer, a rule's row, or a merged change. The request carries that screen's evidence with it.
-- The handoff panel holds one editable sentence, plus the evidence, scope and mode the system fills in. The requester sees exactly what Devin will see.
+- The handoff panel holds one editable sentence, plus the evidence, allowed paths and mode the system fills in. The requester sees exactly what Devin will see.
 - The run view shows the artifacts an engineer would check: planned files, lines changed, test counts and the four CI checks by name. The finished run is the still the demo pauses on.
 - The approval dialog is where the human gate shows: an engineer who didn't request the run approves, then Devin merges.
 - Run mechanics live in `DEVIN_RUN_PROTOCOL.md`. This file covers the UI around them.
@@ -39,7 +39,7 @@ Once the run starts, the same column becomes the run view.
 **Grouped layout.** The fields sit in four groups: REQUEST (the intent, the one editable field) and three blocks the system fills in: CONTEXT (evidence, constants, base commit, no PII), GUARDRAILS (the allowed files) and EXECUTION (start). It shows without narration that the operator writes one sentence and the system supplies the rest. Two requirements:
 
 1. The group headers don't push the evidence line below the fold (see On camera).
-2. The GUARDRAILS caption reads "The PR's checks: Lint · Typecheck · Boundaries · Test. Approval: an engineer who did not request the run", not "outside this scope". The four CI checks gate the merge; the scope is the outer bound the plan must fall within.
+2. The GUARDRAILS caption reads "The PR's checks: Lint · Typecheck · Boundaries · Test. Approval: an engineer who did not request the run", not "outside the allowed paths". The four CI checks gate the merge; the allowed paths are the outer bound the plan must fall within.
 
 ## On camera
 
@@ -55,7 +55,7 @@ The run view is the demo's evidence that Devin did real engineering work. It sho
 
 ### Operator summary (top)
 
-- The intent sentence, the requester and the kind of change, in human terms: New rule, Rule change, Rule removal or Undo a change.
+- The intent sentence, the requester and the operation, in human terms: Change or Undo a change.
 - Status: running phase, waiting for a reply, PR open, merged, or stopped.
 - What changes once merged, in business terms: "Refunds that take a merchant's not-received total past the manager line go to the manager inbox."
 - **Stop run**, **Open in Devin**, and the **Reply box** while the session is waiting for a reply. The reply goes to the session's messages endpoint and is recorded on the run.
@@ -90,7 +90,7 @@ One timeline, one row per phase, each with a state (waiting, running with spinne
 - **Baseline:** `pnpm verify` green at base, 68 tests.
 - **Plan:** branch `devin/<run_id>-clustering-hold`, plan commit SHA, and the planned paths with `create` or `modify` and a one-line reason each.
 - **Edit:** per file, +/− lines and the symbol touched, e.g. `tools/kyc/src/index.ts · modify · +12 −1 · linked_refund_hold on approve`.
-- **Verify:** `pnpm verify` split into lint, typecheck, boundaries and tests (68 → 76), then each guard check by name with its result: **Stays in plan**, **Plan stays in scope**, **Run dir frozen**, **Engine untouched**. **Context untouched** is checked at approval, not CI, so it shows in the approval dialog (`DEVIN_RUN_PROTOCOL.md` § Guard checks).
+- **Verify:** `pnpm verify` split into lint, typecheck, boundaries and tests (68 → 76), then each guard check by name with its result: **Stays in plan**, **Plan stays in scope**, **Run dir frozen**, **Shared code reported**. **Context untouched** is checked at approval, not CI, so it shows in the approval dialog (`DEVIN_RUN_PROTOCOL.md` § Guard checks).
 - **Pull request:** PR number and title, link to GitHub.
 
 For an undo, two more things show:
@@ -158,19 +158,19 @@ Keep it one sentence. Don't grow the field into a specification form. The senten
 - **New rules and rule changes** take free text, because the operator knows the behaviour they want and not how the code does it. For example, on an existing rule: "Also hold refunds when three or more go to the same card within 10 minutes."
 - **Rule removal, undoing a change and switching a rule off** are buttons. The intent is already fully known, and typing "please remove this rule" adds nothing.
 
-**What this claims.** Business users don't reprogram the fintech through natural language. The claim is that when internally owned software needs engineering work, starting that work takes one sentence from the record, and the engineering stays reviewed. Some sentences will ask for more than a rule. "Require a second reviewer for KYC applications above risk score 90" needs a two-approver primitive the engine doesn't have (`packages/engine/src/approvals.ts` takes one approver per request). **Engine untouched** stops that run at Plan. That's engineering's design work, with Devin as implementer (`CHANGE_TYPES.md`, "Change the engine").
+**What this claims.** Business users don't reprogram the fintech through natural language. The claim is that when internally owned software needs engineering work, starting that work takes one sentence from the record, and the engineering stays reviewed. Some sentences will ask for more than a rule. "Require a second reviewer for KYC applications above risk score 90" needs a two-approver primitive the engine doesn't have (`packages/engine/src/approvals.ts` takes one approver per request). The plan's allowed paths stop that run at Plan. That's engineering's design work, with Devin as implementer (`CHANGE_TYPES.md`, "Change the engine").
 
 Revisit if operators need to ask for rules with no record to start from, such as "a rule for a market we haven't launched". The answer is still a sentence that produces the same intent, started from `/admin/policy` rather than a cluster.
 
 ## `/runs`
 
-A list of every run: kind of change, intent, requester, status, PR, and the change it undid, if any. It reads the run table for state, and `runs/<run_id>/` on the default branch for merged history. **Undo this change** lives on merged rule changes. For the `engineer` role, **Reconcile** re-reads every approved run's PR on GitHub, records the ones that landed, then pulls the newest merge into the local checkout (`MERGE_SYNC.md`).
+A list of every run: operation, intent, requester, status, PR, and the change it undid, if any. It reads the run table for state, and `runs/<run_id>/` on the default branch for merged history. **Undo this change** lives on merged rule changes. For the `engineer` role, **Reconcile** re-reads every approved run's PR on GitHub, records the ones that landed, then pulls the newest merge into the local checkout (`MERGE_SYNC.md`).
 
 ## Changes by file
 
 ### `tools/automation/` (new tool)
 
-- `schema.ts`: the runs table (`id`, kind, spec, intent, context hash, session id, status, PR, merge commit, the run it undoes, requester, timestamps, `version`).
+- `schema.ts`: the runs table (`id`, operation, spec, intent, context hash, session id, status, PR, merge commit, the run it undoes, requester, timestamps, `version`).
 - `index.ts`: actions dispatch, record session, approve PR, record merge and stop, with the rules from `DEVIN_RUN_PROTOCOL.md` § Starting a run is a governed write.
 - Add the `engineer` role to `ROLES` and `ROLE_META` (`packages/permissions/src/roles.ts`, `domain: null`) and `DEMO_ACTORS` (`packages/engine/src/actor.ts`), and to the role switcher. `RoleLevel` has no fit: `canApprove` lets every non-agent level decide ops approvals, so `engineer` needs its own level that `canApprove` and `rolesFor` exclude. The build agent does this, not a Devin run.
 - The `engineer` reviews code and approves PRs, and never decides ops approvals: `canApprove("engineer")` is `false`, `rolesFor` never returns it for any domain or level, and `MANAGER_ROLES` excludes it. It can see the inbox and the audit chain, but no **Approve** or **Reject** on a pending request renders for it.

@@ -16,13 +16,11 @@ import { devinRuns } from "./schema";
 import { seedDevinRuns } from "./seed";
 import {
   getSpec,
-  IMPLEMENTATION_KINDS,
   IN_FLIGHT_STATUSES,
-  RUN_KIND_LABELS,
-  RUN_KINDS,
-  RUN_SCOPES,
+  OPERATION_LABELS,
+  OPERATIONS,
   RUN_STATUSES,
-  type RunKind,
+  type Operation,
   type RunnableSpec,
 } from "./specs";
 
@@ -35,10 +33,9 @@ export * from "./run-files";
 
 export interface DevinRun extends GovernedRecord {
   id: string;
-  kind: string;
+  operation: string;
   spec: string;
   tool: string;
-  scope: string;
   intent: string;
   contextSha256: string;
   sessionId: string | null;
@@ -72,14 +69,13 @@ const DispatchInput = z.object({
   /** Preassigned run id, so `runs/<id>/context.json` can name the run before it exists. */
   runId: z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/, "ULID").optional(),
   spec: z.string().min(1),
-  kind: z.enum(RUN_KINDS),
-  scope: z.enum(RUN_SCOPES),
+  operation: z.enum(OPERATIONS),
   intent: z.string().min(1).max(500),
   /** SHA-256 of the canonical `context.json` written for this run. */
   contextSha256: sha256,
   /** Record ids the context's evidence block was built from; ids only. */
   evidenceIds: z.array(z.string().min(1)),
-  /** For a REVERSAL, the merged IMPLEMENTATION run it undoes. */
+  /** For an undo, the merged change run it undoes. */
   reverses: z.string().min(1).nullable().default(null),
 });
 type DispatchInput = z.infer<typeof DispatchInput>;
@@ -90,66 +86,43 @@ const allow =
   <TInput>(rule: string): RunRule<TInput> =>
   () => ({ type: "allow", rule });
 
-/** The spec must be one the console knows and must offer the requested kind. */
+/** The spec must be one the console knows; every spec offers both operations. */
 const specKnown: RunRule<DispatchInput> = ({ input }) => {
-  const spec = getSpec(input.spec);
-  if (!spec) {
+  if (!getSpec(input.spec)) {
     return { type: "deny", rule: "spec_known", reason: "This spec is not registered as runnable" };
-  }
-  if (!spec.kinds.includes(input.kind)) {
-    return {
-      type: "deny",
-      rule: "spec_known",
-      reason: `This spec does not support a ${RUN_KIND_LABELS[input.kind].toLowerCase()}`,
-    };
   }
   return { type: "allow", rule: "spec_known" };
 };
 
 /**
- * DEVIN_RUN_PROTOCOL.md § Run kinds: the manager of the spec's domain or the
- * admin may ask for an addition or change; only the admin may ask for a
- * removal or reversal, for an engine-scope change, or for a spec with no
- * domain.
+ * DEVIN_RUN_PROTOCOL.md § Operations: the manager of the spec's domain or
+ * the admin may ask for a change; only the admin may ask for an undo, or for
+ * a change on a spec with no domain.
  */
-export function roleMayStart(role: Role, spec: RunnableSpec, kind: RunKind): boolean {
+export function roleMayStart(role: Role, spec: RunnableSpec, operation: Operation): boolean {
   const meta = ROLE_META[role];
   if (meta.level === "admin") return true;
-  const adminOnly =
-    kind === "IMPLEMENTATION/REMOVAL" ||
-    kind === "REVERSAL" ||
-    spec.scope === "engine" ||
-    spec.domain === null;
-  return !adminOnly && meta.level === "manager" && meta.domain === spec.domain;
+  if (operation === "undo") return false;
+  return meta.level === "manager" && spec.domain !== null && meta.domain === spec.domain;
 }
 
-/** The kinds of `spec` that `role` may dispatch, in the spec's own order. */
-export function kindsStartableBy(role: Role, spec: RunnableSpec): RunKind[] {
-  return spec.kinds.filter((kind) => roleMayStart(role, spec, kind));
+/** The operations of `spec` that `role` may dispatch. */
+export function operationsStartableBy(role: Role, spec: RunnableSpec): Operation[] {
+  return OPERATIONS.filter((operation) => roleMayStart(role, spec, operation));
 }
 
-const roleMayStartKind: RunRule<DispatchInput> = ({ actor, input }) => {
+const roleMayStartOperation: RunRule<DispatchInput> = ({ actor, input }) => {
   const spec = getSpec(input.spec);
-  if (!spec) return { type: "allow", rule: "role_may_start_kind" };
+  if (!spec) return { type: "allow", rule: "role_may_start_operation" };
   const meta = ROLE_META[actor.role];
-  return roleMayStart(actor.role, spec, input.kind)
-    ? { type: "allow", rule: "role_may_start_kind" }
+  return roleMayStart(actor.role, spec, input.operation)
+    ? { type: "allow", rule: "role_may_start_operation" }
     : {
         type: "deny",
-        rule: "role_may_start_kind",
-        reason: `${meta.label} may not start a ${RUN_KIND_LABELS[input.kind].toLowerCase()} on ${spec.tool}`,
+        rule: "role_may_start_operation",
+        reason: `${meta.label} may not start a ${OPERATION_LABELS[input.operation].toLowerCase()} on ${spec.tool}`,
       };
 };
-
-/** § Scope: a run that may touch `packages/engine` is the admin's to start. */
-const engineScopeAdminOnly: RunRule<DispatchInput> = ({ actor, input }) =>
-  input.scope === "engine" && ROLE_META[actor.role].level !== "admin"
-    ? {
-        type: "deny",
-        rule: "engine_scope_admin_only",
-        reason: "Only the admin may dispatch a run with engine scope",
-      }
-    : { type: "allow", rule: "engine_scope_admin_only" };
 
 /** One run per tool: two branches against the same rules would race to merge. */
 const noRunInFlightOnTool: RunRule<DispatchInput> = ({ input }) => {
@@ -171,15 +144,15 @@ const noRunInFlightOnTool: RunRule<DispatchInput> = ({ input }) => {
     : { type: "allow", rule: "no_run_in_flight_on_tool" };
 };
 
-/** A reversal undoes exactly one merged implementation, and only once. */
-const reversalNamesMergedImplementation: RunRule<DispatchInput> = ({ input }) => {
-  const rule = "reversal_names_merged_implementation";
-  if (input.kind !== "REVERSAL") return { type: "allow", rule };
+/** An undo undoes exactly one merged change, and only once. */
+const undoNamesMergedChange: RunRule<DispatchInput> = ({ input }) => {
+  const rule = "undo_names_merged_change";
+  if (input.operation !== "undo") return { type: "allow", rule };
   if (!input.reverses) {
     return { type: "deny", rule, reason: "Undoing a change must name the change it undoes" };
   }
   const target = getRun(input.reverses);
-  if (!target || !IMPLEMENTATION_KINDS.includes(target.kind as RunKind)) {
+  if (!target || target.operation !== "change") {
     return { type: "deny", rule, reason: `${input.reverses} is not a change that can be undone` };
   }
   if (target.status !== "merged") {
@@ -198,15 +171,15 @@ const reversalNamesMergedImplementation: RunRule<DispatchInput> = ({ input }) =>
     : { type: "allow", rule };
 };
 
-/** The context an implementation hands Devin must show the pattern it is for. */
-const implementationCarriesEvidence: RunRule<DispatchInput> = ({ input }) =>
-  IMPLEMENTATION_KINDS.includes(input.kind) && input.evidenceIds.length === 0
+/** The context a change hands Devin must show the pattern it is for. */
+const changeCarriesEvidence: RunRule<DispatchInput> = ({ input }) =>
+  input.operation === "change" && input.evidenceIds.length === 0
     ? {
         type: "deny",
-        rule: "implementation_carries_evidence",
-        reason: "A rule change needs at least one evidence row in its context",
+        rule: "change_carries_evidence",
+        reason: "A change needs at least one evidence row in its context",
       }
-    : { type: "allow", rule: "implementation_carries_evidence" };
+    : { type: "allow", rule: "change_carries_evidence" };
 
 const ApproveInput = z.object({
   prUrl: z.string().url(),
@@ -299,7 +272,7 @@ const SORTABLE = {
   requestedAt: devinRuns.requestedAt,
   updatedAt: devinRuns.updatedAt,
   status: devinRuns.status,
-  kind: devinRuns.kind,
+  operation: devinRuns.operation,
   spec: devinRuns.spec,
 } as const;
 
@@ -319,9 +292,8 @@ export const automationTool = defineTool<DevinRun>({
   visibleTo: AUTOMATION_ROLES,
   fields: [
     { name: "spec", label: "Brief", type: "string" },
-    { name: "kind", label: "Type", type: "enum", enumValues: RUN_KINDS, enumLabels: RUN_KIND_LABELS },
+    { name: "operation", label: "Type", type: "enum", enumValues: OPERATIONS, enumLabels: OPERATION_LABELS },
     { name: "tool", label: "Tool", type: "string" },
-    { name: "scope", label: "Allowed to change", type: "enum", enumValues: RUN_SCOPES },
     { name: "intent", label: "Request", type: "text" },
     { name: "contextSha256", label: "Evidence fingerprint", type: "string" },
     { name: "sessionId", label: "Devin session", type: "string" },
@@ -337,7 +309,7 @@ export const automationTool = defineTool<DevinRun>({
   ],
   listColumns: [
     { field: "intent" },
-    { field: "kind", sortable: true },
+    { field: "operation", sortable: true },
     { field: "status", sortable: true },
     { field: "requestedBy" },
     { field: "requestedAt", sortable: true },
@@ -350,15 +322,15 @@ export const automationTool = defineTool<DevinRun>({
       options: RUN_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] })),
     },
     {
-      field: "kind",
+      field: "operation",
       label: "Type",
       type: "enum",
-      options: RUN_KINDS.map((value) => ({ value, label: RUN_KIND_LABELS[value] })),
+      options: OPERATIONS.map((value) => ({ value, label: OPERATION_LABELS[value] })),
     },
   ],
   sections: [
-    { title: "Request", fields: ["intent", "kind", "tool", "reverses"] },
-    { title: "Technical details", fields: ["spec", "scope", "sessionId", "prUrl", "mergeCommit", "contextSha256"] },
+    { title: "Request", fields: ["intent", "operation", "tool", "reverses"] },
+    { title: "Technical details", fields: ["spec", "sessionId", "prUrl", "mergeCommit", "contextSha256"] },
     {
       title: "People",
       fields: ["requestedBy", "requestedByRole", "approvedBy", "lastNote", "requestedAt", "updatedAt"],
@@ -387,14 +359,13 @@ export const automationTool = defineTool<DevinRun>({
       tone: "primary",
       rules: [
         specKnown,
-        roleMayStartKind,
-        engineScopeAdminOnly,
+        roleMayStartOperation,
         noRunInFlightOnTool,
-        reversalNamesMergedImplementation,
-        implementationCarriesEvidence,
+        undoNamesMergedChange,
+        changeCarriesEvidence,
       ],
       decide: ({ input }) => ({
-        summary: `Dispatch ${input.kind} of ${input.spec} (context ${input.contextSha256.slice(0, 12)})`,
+        summary: `Dispatch ${input.operation} of ${input.spec} (context ${input.contextSha256.slice(0, 12)})`,
         patch: input,
         nextStatus: "dispatched",
       }),
@@ -405,10 +376,9 @@ export const automationTool = defineTool<DevinRun>({
         tx.insert(devinRuns)
           .values({
             id,
-            kind: input.kind,
+            operation: input.operation,
             spec: spec.file,
             tool: spec.tool,
-            scope: input.scope,
             intent: input.intent,
             contextSha256: input.contextSha256,
             sessionId: null,
@@ -524,7 +494,7 @@ export const automationTool = defineTool<DevinRun>({
   list: ({ filters, search, sort, limit, offset }) => {
     const clauses = [];
     if (filters.status) clauses.push(eq(devinRuns.status, filters.status));
-    if (filters.kind) clauses.push(eq(devinRuns.kind, filters.kind));
+    if (filters.operation) clauses.push(eq(devinRuns.operation, filters.operation));
     if (search) {
       clauses.push(
         or(

@@ -45,9 +45,8 @@ beforeAll(() => {
 
 const request = {
   spec: COMPANIES_HOUSE_CHECK.file,
-  kind: "IMPLEMENTATION/ADDITION" as const,
-  scope: "rule" as const,
-  intent: COMPANIES_HOUSE_CHECK.intents["IMPLEMENTATION/ADDITION"] ?? "",
+  operation: "change" as const,
+  intent: COMPANIES_HOUSE_CHECK.intents.change,
   evidenceKey: "kyc_0003",
   evidenceIds: CASE,
 };
@@ -102,7 +101,7 @@ describe("GET /api/devin/<runId>", () => {
     expect(earlyBody.mode).toBe("simulation");
     expect(earlyBody.sessionUrl).toBeNull();
     expect(earlyBody.summary).toBe(
-      COMPANIES_HOUSE_CHECK.summaries["IMPLEMENTATION/ADDITION"],
+      COMPANIES_HOUSE_CHECK.summaries.change,
     );
     expect(earlyBody.lastAuditId).toBe(
       listAuditEvents({ recordId: out.runId, limit: 1 }).rows[0]?.id,
@@ -202,7 +201,7 @@ describe("GET /api/devin/<runId>", () => {
       status: "stopped",
       statusDetail: "session finished",
       structuredOutput: scriptedFrames(
-        "IMPLEMENTATION/ADDITION",
+        "change",
         "run",
         "0".repeat(64),
         "0".repeat(40),
@@ -259,7 +258,7 @@ describe("POST /api/devin/<runId>", () => {
   function record(runId: string, phaseStatus: string) {
     const frame = JSON.parse(
       JSON.stringify(
-        scriptedFrames("IMPLEMENTATION/ADDITION", runId, "0".repeat(64), "0".repeat(40))[0],
+        scriptedFrames("change", runId, "0".repeat(64), "0".repeat(40))[0],
       ),
     ) as { structured_output: { phase_status: string } };
     frame.structured_output.phase_status = phaseStatus;

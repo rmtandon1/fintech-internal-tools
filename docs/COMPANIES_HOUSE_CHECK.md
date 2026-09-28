@@ -11,7 +11,7 @@ the case it starts from, and nothing else (`.devin/run-protocol.playbook.md` § 
   a material row to Declared vs found when the company is dissolved, in liquidation or late
   with its accounts.
 - The existing `declared_vs_found` rule then holds approval for a KYC manager. No new rule.
-- Runs in rule scope: `tools/kyc/**`, `.env.example` and tests. Nothing under `packages/`.
+- Allowed paths: `tools/kyc/**`, `.env.example` and tests. Nothing under `packages/`.
 
 ## Today
 

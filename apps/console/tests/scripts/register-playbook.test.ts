@@ -23,7 +23,7 @@ describe("Devin playbook registration", () => {
     expect(requests[1].init?.headers).toMatchObject({ Authorization: "Bearer test-key" });
     const body = JSON.parse(String(requests[1].init?.body));
     expect(body.title).toBe(PLAYBOOK_TITLE);
-    expect(body.body).toContain("## Reversal");
+    expect(body.body).toContain("## Undo");
     expect(body.structured_output_schema.properties).toHaveProperty("phase");
   });
 

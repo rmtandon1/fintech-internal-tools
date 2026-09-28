@@ -18,13 +18,11 @@ import {
   countRuns,
   getRun,
   getSpec,
-  IMPLEMENTATION_KINDS,
   isInFlight,
-  kindsStartableBy,
   listRuns,
+  operationLabel,
+  operationsStartableBy,
   reversingRun,
-  runKindLabel,
-  type RunKind,
 } from "@console/tool-automation";
 import { roleLabel, ROLES, type Role } from "@console/permissions";
 import { type AppBridgeDeps, bridgeDeps } from "@/lib/bridge";
@@ -41,7 +39,7 @@ function requesterLabel(role: string): string {
   return ROLE_NAMES.includes(role) ? roleLabel(role as Role) : role;
 }
 
-/** A REVERSAL handoff for this row, or null when the row can't be reversed. */
+/** An undo handoff for this row, or null when the row can't be undone. */
 function reversalOffer(runId: string, actor: Actor, deps: AppBridgeDeps): HandoffOffer | null {
   const run = getRun(runId);
   const spec = run ? getSpec(run.spec) : undefined;
@@ -49,10 +47,10 @@ function reversalOffer(runId: string, actor: Actor, deps: AppBridgeDeps): Handof
     !run ||
     !spec ||
     run.status !== "merged" ||
-    !IMPLEMENTATION_KINDS.includes(run.kind as RunKind) ||
+    run.operation !== "change" ||
     !run.mergeCommit ||
     reversingRun(run.id) ||
-    !kindsStartableBy(actor.role, spec).includes("REVERSAL")
+    !operationsStartableBy(actor.role, spec).includes("undo")
   ) {
     return null;
   }
@@ -60,7 +58,7 @@ function reversalOffer(runId: string, actor: Actor, deps: AppBridgeDeps): Handof
     const evidence = reversalEvidence(deps.repoRoot, run.id);
     return buildHandoffOffer(
       spec,
-      "REVERSAL",
+      "undo",
       actor,
       {
         ...evidence,
@@ -141,7 +139,7 @@ export default async function RunsPage({
               key={run.id}
               run={{
                 ...run,
-                kindLabel: runKindLabel(run.kind),
+                operationLabel: operationLabel(run.operation),
                 requesterLabel: requesterLabel(run.requestedByRole),
               }}
               statuses={automationTool.statuses}

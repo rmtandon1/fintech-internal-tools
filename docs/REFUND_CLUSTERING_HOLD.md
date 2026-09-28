@@ -6,7 +6,7 @@
 - A refunds manager asks Devin for a rule from the cluster drawer (`TRANSACTION_INSPECTION.md`). Devin writes `clustering_hold` in the refunds tool, a KYC rule that sends those customers' approvals to a manager, a window setting, and eight tests. No flag.
 - An admin can switch the hold off in seconds by setting the window to 0.
 - Devin later removes the hold from the code, keeping a later change to the same file.
-- This spec gives the console the intent sentence and scope, and gives the reviewer the acceptance tests. Devin's session never reads it. Shared run rules: `DEVIN_RUN_PROTOCOL.md`.
+- This spec gives the console the intent sentence and allowed paths, and gives the reviewer the acceptance tests. Devin's session never reads it. Shared run rules: `DEVIN_RUN_PROTOCOL.md`.
 
 ## The problem
 
@@ -14,7 +14,7 @@
 
 Nothing in the console connects those facts, and no rule catches them.
 
-## Add the hold (IMPLEMENTATION/ADDITION)
+## Add the hold (change)
 
 ### Intent
 
@@ -33,7 +33,7 @@ The files the run may plan to touch. Devin's `plan.json` must stay inside this l
 - `tools/kyc/src/index.ts`: a rule on `approve`
 - `apps/console/tests/**`: every run may change tests. Changing an existing one is how a behaviour change is written down, and the reviewer reads it. `refunds-clusters.test.ts` asserts the four Kestrel refunds preview as allowed; this rule changes that on purpose
 
-`packages/engine/` is out of scope. So is anything under `tools/flags/`, because this change does not use a flag.
+`packages/engine/` is out of the allowed paths. So is anything under `tools/flags/`, because this change does not use a flag.
 
 ### Acceptance tests
 
@@ -138,23 +138,23 @@ Before the merge, the same two clicks settle the refund and clear the case. That
 
 A setting change, with no Devin run. An admin sets `refunds.clustering_window_days` to 0 in `/admin/policy`. `setConstant` audits the change, and from the next refund nothing is held. Acceptance test 6 guarantees that 0 means off.
 
-Use it when the hold is catching genuine refunds and a REVERSAL would take too long.
+Use it when the hold is catching genuine refunds and an undo would take too long.
 
-## Remove the hold (REVERSAL)
+## Remove the hold (undo)
 
 ### When
 
-A regional courier failure produces genuine `not_received` refunds at Fernhill Home, a long-standing merchant, and the hold sends about 60 of them to the manager inbox. The admin applies the KILL_SWITCH. Risk judges the rule too blunt and withdraws it while designing a narrower one. The recorded demo needs a Fernhill seed for this step: about 60 `not_received` refunds under $500 each, requested after the IMPLEMENTATION merges.
+A regional courier failure produces genuine `not_received` refunds at Fernhill Home, a long-standing merchant, and the hold sends about 60 of them to the manager inbox. The admin applies the KILL_SWITCH. Risk judges the rule too blunt and withdraws it while designing a narrower one. The recorded demo needs a Fernhill seed for this step: about 60 `not_received` refunds under $500 each, requested after the change merges.
 
-**Scenario data.** `pnpm db:scenario courier-outage` produces it: about 60 Fernhill Home `not_received` refunds between $30 and $450, ids `rfnd_1001`–`rfnd_1060`. The script inserts the rows and then submits each one through `executeIntent` as the refunds agent, so the live `clustering_hold` routes them to the manager inbox and every hold writes its own audit row. It is not a seed: it runs against the live `apps/console/data/console.db` after the IMPLEMENTATION has merged, and it is what fills the inbox the REVERSAL's PR has to list.
+**Scenario data.** `pnpm db:scenario courier-outage` produces it: about 60 Fernhill Home `not_received` refunds between $30 and $450, ids `rfnd_1001`–`rfnd_1060`. The script inserts the rows and then submits each one through `executeIntent` as the refunds agent, so the live `clustering_hold` routes them to the manager inbox and every hold writes its own audit row. It is not a seed: it runs against the live `apps/console/data/console.db` after the change has merged, and it is what fills the inbox the undo's PR has to list.
 
 ### Intent
 
 > Undo the refund hold: remove the refund rule, the linked KYC rule and its time-window setting, and keep every change made since.
 
-### What the reversal has to work through
+### What the undo has to work through
 
-By the time of reversal, the demo's branch should carry at least one later change to the same files. Record that change before recording the reversal, so the reversal has real work to do. That change is an ordinary PR that adds a `partial_delivery` reason code to `refunds/index.ts`. With that in place, a plain `git revert` of the IMPLEMENTATION conflicts: the codebase has moved on since that commit, and undoing it cleanly means knowing which later behaviour must survive. Devin has to read `partial_delivery` in the current file, decide it stays, and remove only the clustering rule around it — semantically undoing the earlier feature rather than mechanically reverting the commit:
+By the time of reversal, the demo's branch should carry at least one later change to the same files. Record that change before recording the undo, so the undo has real work to do. That change is an ordinary PR that adds a `partial_delivery` reason code to `refunds/index.ts`. With that in place, a plain `git revert` of the change conflicts: the codebase has moved on since that commit, and undoing it cleanly means knowing which later behaviour must survive. Devin has to read `partial_delivery` in the current file, decide it stays, and remove only the clustering rule around it — semantically undoing the earlier feature rather than mechanically reverting the commit:
 
 - the revert conflicts in `tools/refunds/src/index.ts`, and Devin has to keep the new reason code while removing the rule
 - the admin has changed the window since merge (to 0, via the KILL_SWITCH), so the PR reports that live row and says it will stay in the database until someone removes it
@@ -164,6 +164,6 @@ By the time of reversal, the demo's branch should carry at least one later chang
 
 - `pnpm verify` is green.
 - The eight hold tests are gone, and the plan names them. No other test is lost.
-- Against the IMPLEMENTATION's base commit, every file it touched is back to its pre-merge content except later merged work, and nothing else changes.
-- After merge, executing the next Kestrel refund settles it, as it did before the IMPLEMENTATION.
+- Against the change's base commit, every file it touched is back to its pre-merge content except later merged work, and nothing else changes.
+- After merge, executing the next Kestrel refund settles it, as it did before the change.
 

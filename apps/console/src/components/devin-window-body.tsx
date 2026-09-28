@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { DevinMode } from "@/lib/devin-status";
 import type { Actor } from "@console/engine/types";
-import { automationTool, listRuns, runKindLabel } from "@console/tool-automation";
+import { automationTool, listRuns, operationLabel } from "@console/tool-automation";
 import { formatRelative } from "@console/ui/format";
 import { StatusChip } from "@console/ui/status-chip";
 
@@ -58,7 +58,7 @@ export function DevinWindowBody({ actor, mode }: { actor: Actor; mode: DevinMode
               <Link href={`/t/automation/${run.id}`} className="min-w-0 flex-1 truncate hover:underline">
                 {run.intent}
               </Link>
-              <span className="text-xs text-muted-foreground">{runKindLabel(run.kind)}</span>
+              <span className="text-xs text-muted-foreground">{operationLabel(run.operation)}</span>
               <span className="text-xs text-muted-foreground">{formatRelative(run.requestedAt)}</span>
             </li>
           ))}

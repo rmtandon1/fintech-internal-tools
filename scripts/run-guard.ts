@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ContextFile, PlanFile, type ContextFile as Context, type PlanFile as Plan } from "@console/tool-automation/run-files";
-import { ENGINE_SCOPE_PATHS } from "@console/tool-automation/specs";
+import { globToRegExp, touchesSharedPath } from "@console/tool-automation/shared-paths";
 
 /**
  * Guard checks for a Devin run (`docs/DEVIN_RUN_PROTOCOL.md` § Guard checks).
@@ -20,7 +20,7 @@ import { ENGINE_SCOPE_PATHS } from "@console/tool-automation/specs";
  *
  *   Stays in plan        every changed path is in `plan.files[]` with the op git observed
  *                        (create/modify/delete; a rename is delete + create) or under `runs/<run_id>/`
- *   Plan stays in scope  every `plan.files[].path` matches a glob in `context.scope`
+ *   Plan stays in scope  every `plan.files[].path` matches a glob in `context.allowed_paths`
  *   Run dir frozen       the plan commit (the first commit on the branch) adds exactly
  *                        `context.json` and `plan.json`, and no later commit touches
  *                        either, even if reverted afterwards. Other files under
@@ -28,15 +28,12 @@ import { ENGINE_SCOPE_PATHS } from "@console/tool-automation/specs";
  *                        Context untouched, comparing `context.json`'s SHA-256 with the
  *                        dispatch audit row, lives in the automation tool's
  *                        `approve_pr` rule: CI cannot read the console's SQLite
- *   Engine untouched     scope `rule` only. Nothing under the engine paths below changes
+ *   Shared code reported always passes; names the shared paths the diff touched, or
+ *                        "none", so the review knows whether the engine owner is in it
  *
  * Humans approve, Engine owner approves and No live writes are enforced by
  * review, CODEOWNERS and the playbook, not by this script; the report ends
  * with a note saying so.
- *
- * Scope is inferred from `context.scope`: the console appends
- * `ENGINE_SCOPE_PATHS` to the globs for an engine-scope run, so a context that
- * carries all of them is engine scope and anything else is rule scope.
  *
  * Usage: tsx scripts/run-guard.ts [--base <ref>] [--markdown] [--list-checks]
  *   --base      ref to diff against (default: RUN_GUARD_BASE, then
@@ -47,26 +44,11 @@ import { ENGINE_SCOPE_PATHS } from "@console/tool-automation/specs";
 
 const INTEGRATION_BRANCH = "cognition-dashboard-devin-integration";
 
-/** Paths a rule-scope run may not touch. */
-const ENGINE_PATHS = [
-  "packages/engine/",
-  "packages/db/",
-  "packages/db-core/",
-  "packages/db-write/",
-  "packages/permissions/",
-  "apps/console/drizzle/",
-  "scripts/check-boundaries.ts",
-  "scripts/run-guard.ts",
-  "AGENTS.md",
-  "package.json",
-  "pnpm-lock.yaml",
-];
-
 export const RUN_GUARD_NAMES = [
   "Stays in plan",
   "Plan stays in scope",
   "Run dir frozen",
-  "Engine untouched",
+  "Shared code reported",
 ] as const;
 
 const DELEGATED_NOTE =
@@ -79,7 +61,7 @@ interface CheckResult {
 }
 
 interface GuardReport {
-  run: { id: string; kind: Context["kind"]; scope: "rule" | "engine"; base: string; planCommit: string } | null;
+  run: { id: string; operation: Context["operation"]; base: string; planCommit: string } | null;
   checks: CheckResult[];
 }
 
@@ -183,17 +165,16 @@ export function runGuard(opts: { cwd: string; base?: string }): GuardReport {
     };
   }
 
-  const scope: "rule" | "engine" = ENGINE_SCOPE_PATHS.every((p) => context.value.scope.includes(p)) ? "engine" : "rule";
-  const ctx: RunContext = { git, mergeBase, planCommit, runDir, context: context.value, plan: plan.value, changes, scope };
+  const ctx: RunContext = { git, mergeBase, planCommit, runDir, context: context.value, plan: plan.value, changes };
 
   const checks: CheckResult[] = [
     staysInPlan(ctx),
     planStaysInScope(ctx),
     runDirFrozen(ctx),
-    engineUntouched(ctx),
+    sharedCodeReported(ctx),
   ];
 
-  return { run: { id: runId, kind: context.value.kind, scope, base: mergeBase, planCommit }, checks };
+  return { run: { id: runId, operation: context.value.operation, base: mergeBase, planCommit }, checks };
 }
 
 interface RunContext {
@@ -204,7 +185,6 @@ interface RunContext {
   context: Context;
   plan: Plan;
   changes: Change[];
-  scope: "rule" | "engine";
 }
 
 /** Each changed path must be planned with the operation git observed; a rename is a delete plus a create. */
@@ -235,11 +215,11 @@ function staysInPlan({ plan, runDir, changes }: RunContext): CheckResult {
 }
 
 function planStaysInScope({ plan, context }: RunContext): CheckResult {
-  const globs = context.scope.map((g) => ({ glob: g, re: globToRegExp(g) }));
+  const globs = context.allowed_paths.map((g) => ({ glob: g, re: globToRegExp(g) }));
   const outside = plan.files.map((f) => f.path).filter((p) => !globs.some((g) => g.re.test(p)));
   return outside.length === 0
-    ? { name: "Plan stays in scope", pass: true, reason: `${plan.files.length} planned path(s) match context.scope` }
-    : { name: "Plan stays in scope", pass: false, reason: `not in context.scope: ${list(outside)}` };
+    ? { name: "Plan stays in scope", pass: true, reason: `${plan.files.length} planned path(s) match context.allowed_paths` }
+    : { name: "Plan stays in scope", pass: false, reason: `not in context.allowed_paths: ${list(outside)}` };
 }
 
 function runDirFrozen({ git, mergeBase, planCommit, runDir }: RunContext): CheckResult {
@@ -268,16 +248,13 @@ function runDirFrozen({ git, mergeBase, planCommit, runDir }: RunContext): Check
   return { name: "Run dir frozen", pass: true, reason: `plan commit ${short} adds only context.json and plan.json; neither changes afterwards` };
 }
 
-function engineUntouched({ scope, changes }: RunContext): CheckResult {
-  if (scope === "engine") {
-    return { name: "Engine untouched", pass: true, reason: "engine scope; the engine owner approves instead" };
-  }
+function sharedCodeReported({ changes }: RunContext): CheckResult {
   const hit = changes
     .flatMap((c) => [c.path, ...(c.from ? [c.from] : [])])
-    .filter((p) => ENGINE_PATHS.some((e) => (e.endsWith("/") ? p.startsWith(e) : p === e)));
+    .filter(touchesSharedPath);
   return hit.length === 0
-    ? { name: "Engine untouched", pass: true, reason: "no engine, db, permissions, migration or governance file changed" }
-    : { name: "Engine untouched", pass: false, reason: `rule scope changed: ${list(hit)}` };
+    ? { name: "Shared code reported", pass: true, reason: "no shared path touched" }
+    : { name: "Shared code reported", pass: true, reason: `touched shared paths: ${list(hit)}` };
 }
 
 /** An explicit ref (`--base` or `RUN_GUARD_BASE`) must resolve; only the implicit chain falls through. */
@@ -318,28 +295,6 @@ function parseJson<T>(schema: { safeParse: (v: unknown) => { success: true; data
   return result.success ? { ok: true, value: result.data } : { ok: false, error: `${label}: ${result.error.message.split("\n")[0]}` };
 }
 
-/** `**` spans directories, `*` and `?` stay within one segment; everything else is literal. */
-function globToRegExp(glob: string): RegExp {
-  let re = "^";
-  for (let i = 0; i < glob.length; i += 1) {
-    const ch = glob[i];
-    if (ch === "*") {
-      if (glob[i + 1] === "*") {
-        const slashAfter = glob[i + 2] === "/";
-        re += slashAfter ? "(?:.*/)?" : ".*";
-        i += slashAfter ? 2 : 1;
-      } else {
-        re += "[^/]*";
-      }
-    } else if (ch === "?") {
-      re += "[^/]";
-    } else {
-      re += ch.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-    }
-  }
-  return new RegExp(re + "$");
-}
-
 function list(items: string[]): string {
   return items.length > 6 ? `${items.slice(0, 6).join(", ")} and ${items.length - 6} more` : items.join(", ");
 }
@@ -348,7 +303,7 @@ function renderText(report: GuardReport): string {
   const lines: string[] = [];
   if (report.run) {
     const r = report.run;
-    lines.push(`Run ${r.id} (${r.kind}, scope ${r.scope}) — base ${r.base.slice(0, 7)}, plan commit ${r.planCommit.slice(0, 7)}`);
+    lines.push(`Run ${r.id} (${r.operation}) — base ${r.base.slice(0, 7)}, plan commit ${r.planCommit.slice(0, 7)}`);
   }
   for (const c of report.checks) {
     lines.push(c.pass ? `${c.name}: PASS — ${c.reason}` : `${c.name}: FAIL (${c.reason})`);
@@ -365,7 +320,7 @@ function renderMarkdown(report: GuardReport): string {
     lines.push(
       `### Run guard: ${failed ? "failed" : "passed"}`,
       "",
-      `Run \`${r.id}\` (${r.kind}, scope \`${r.scope}\`), base \`${r.base.slice(0, 7)}\`, plan commit \`${r.planCommit.slice(0, 7)}\`.`,
+      `Run \`${r.id}\` (${r.operation}), base \`${r.base.slice(0, 7)}\`, plan commit \`${r.planCommit.slice(0, 7)}\`.`,
     );
   } else {
     lines.push(`### Run guard: ${failed ? "failed" : "passed"}`);

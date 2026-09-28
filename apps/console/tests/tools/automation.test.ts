@@ -60,9 +60,8 @@ function act(actor: Actor, action: string, recordId: string | null, input: Recor
 function dispatch(actor: Actor, overrides: Record<string, unknown> = {}) {
   return act(actor, "dispatch", null, {
     spec: COMPANIES_HOUSE_CHECK.file,
-    kind: "IMPLEMENTATION/ADDITION",
-    scope: "rule",
-    intent: COMPANIES_HOUSE_CHECK.intents["IMPLEMENTATION/ADDITION"],
+    operation: "change",
+    intent: COMPANIES_HOUSE_CHECK.intents.change,
     contextSha256: SHA,
     evidenceIds: EVIDENCE,
     ...overrides,
@@ -113,13 +112,12 @@ describe("automation tool", () => {
 });
 
 describe("dispatch rules", () => {
-  it("role_may_start_kind: the KYC manager may start an ADDITION of a KYC spec", () => {
+  it("role_may_start_operation: the KYC manager may start a change on a KYC spec", () => {
     const run = applied(dispatch(kycManager));
     expect(run).toMatchObject({
       status: "dispatched",
-      kind: "IMPLEMENTATION/ADDITION",
+      operation: "change",
       tool: "kyc",
-      scope: "rule",
       contextSha256: SHA,
       requestedBy: kycManager.id,
       reverses: null,
@@ -127,62 +125,64 @@ describe("dispatch rules", () => {
     stop(run);
   });
 
-  it("role_may_start_kind: a manager of another domain is denied", () => {
-    deniedBy(dispatch(refundsManager), "role_may_start_kind");
+  it("role_may_start_operation: a manager of another domain is denied", () => {
+    deniedBy(dispatch(refundsManager), "role_may_start_operation");
   });
 
-  it("role_may_start_kind: the refunds manager may ask for a refunds rule from its cluster", () => {
+  it("role_may_start_operation: the refunds manager may ask for a refunds rule from its cluster", () => {
     const kestrel = {
       spec: REFUND_CLUSTERING_HOLD.file,
-      intent: REFUND_CLUSTERING_HOLD.intents["IMPLEMENTATION/ADDITION"],
+      intent: REFUND_CLUSTERING_HOLD.intents.change,
       evidenceIds: KESTREL,
     };
-    deniedBy(dispatch(kycManager, kestrel), "role_may_start_kind");
+    deniedBy(dispatch(kycManager, kestrel), "role_may_start_operation");
     const run = applied(dispatch(refundsManager, kestrel));
     expect(run.tool).toBe("refunds");
     stop(run);
   });
 
-  it("role_may_start_kind: a new app is the admin's to ask for", () => {
+  it("role_may_start_operation: a new app is the admin's to ask for", () => {
     const chargebacks = {
       spec: CHARGEBACKS_FROM_POWER_APPS.file,
-      scope: "engine",
-      intent: CHARGEBACKS_FROM_POWER_APPS.intents["IMPLEMENTATION/ADDITION"],
+      intent: CHARGEBACKS_FROM_POWER_APPS.intents.change,
       evidenceIds: ["README.md"],
     };
-    deniedBy(dispatch(refundsManager, chargebacks), "role_may_start_kind");
-    deniedBy(dispatch(kycManager, chargebacks), "role_may_start_kind");
+    deniedBy(dispatch(refundsManager, chargebacks), "role_may_start_operation");
+    deniedBy(dispatch(kycManager, chargebacks), "role_may_start_operation");
     stop(applied(dispatch(admin, chargebacks)));
   });
 
-  it("role_may_start_kind: only the admin may start a REVERSAL", () => {
+  it("role_may_start_operation: an undo by a manager is denied, only the admin may start one", () => {
     const merged = merge(applied(dispatch(admin)));
     deniedBy(
-      dispatch(kycManager, { kind: "REVERSAL", reverses: merged.id, evidenceIds: [] }),
-      "role_may_start_kind",
+      dispatch(kycManager, { operation: "undo", reverses: merged.id, evidenceIds: [] }),
+      "role_may_start_operation",
     );
-    const reversal = applied(
+    const undo = applied(
       dispatch(admin, {
-        kind: "REVERSAL",
+        operation: "undo",
         reverses: merged.id,
         evidenceIds: [],
-        intent: COMPANIES_HOUSE_CHECK.intents.REVERSAL,
+        intent: COMPANIES_HOUSE_CHECK.intents.undo,
       }),
     );
-    expect(reversal.reverses).toBe(merged.id);
-    stop(reversal);
+    expect(undo.reverses).toBe(merged.id);
+    stop(undo);
   });
 
-  it("spec_known: a kind the spec does not offer is denied", () => {
-    deniedBy(dispatch(admin, { kind: "IMPLEMENTATION/CHANGE" }), "spec_known");
+  it("spec_known: an unregistered spec is denied", () => {
     deniedBy(dispatch(admin, { spec: "NOPE.md" }), "spec_known");
   });
 
-  it("engine_scope_admin_only: a manager is denied engine scope, the admin is not", () => {
-    deniedBy(dispatch(kycManager, { scope: "engine" }), "engine_scope_admin_only");
-    const run = applied(dispatch(admin, { scope: "engine" }));
-    expect(run.scope).toBe("engine");
-    stop(run);
+  it("role_may_start_operation: a spec with no domain denies a manager's change", () => {
+    const chargebacks = {
+      spec: CHARGEBACKS_FROM_POWER_APPS.file,
+      intent: CHARGEBACKS_FROM_POWER_APPS.intents.change,
+      evidenceIds: ["README.md"],
+    };
+    deniedBy(dispatch(kycManager, chargebacks), "role_may_start_operation");
+    deniedBy(dispatch(refundsManager, chargebacks), "role_may_start_operation");
+    stop(applied(dispatch(admin, chargebacks)));
   });
 
   it("no_run_in_flight_on_tool: a second run against the same tool is denied until the first ends", () => {
@@ -203,38 +203,38 @@ describe("dispatch rules", () => {
     stop(next);
   });
 
-  it("reversal_names_merged_implementation: denies a missing, unmerged, or already reversed target", () => {
+  it("undo_names_merged_change: denies a missing, unmerged, or already undone target", () => {
     deniedBy(
-      dispatch(admin, { kind: "REVERSAL", evidenceIds: [] }),
-      "reversal_names_merged_implementation",
+      dispatch(admin, { operation: "undo", evidenceIds: [] }),
+      "undo_names_merged_change",
     );
     deniedBy(
-      dispatch(admin, { kind: "REVERSAL", reverses: "run_does_not_exist", evidenceIds: [] }),
-      "reversal_names_merged_implementation",
+      dispatch(admin, { operation: "undo", reverses: "run_does_not_exist", evidenceIds: [] }),
+      "undo_names_merged_change",
     );
 
     const stopped = applied(dispatch(admin));
     stop(stopped);
     deniedBy(
-      dispatch(admin, { kind: "REVERSAL", reverses: stopped.id, evidenceIds: [] }),
-      "reversal_names_merged_implementation",
+      dispatch(admin, { operation: "undo", reverses: stopped.id, evidenceIds: [] }),
+      "undo_names_merged_change",
     );
 
     const merged = merge(applied(dispatch(admin)));
-    const reversal = applied(dispatch(admin, { kind: "REVERSAL", reverses: merged.id, evidenceIds: [] }));
-    merge(reversal, "devin-reversal");
+    const undo = applied(dispatch(admin, { operation: "undo", reverses: merged.id, evidenceIds: [] }));
+    merge(undo, "devin-undo");
     deniedBy(
-      dispatch(admin, { kind: "REVERSAL", reverses: merged.id, evidenceIds: [] }),
-      "reversal_names_merged_implementation",
+      dispatch(admin, { operation: "undo", reverses: merged.id, evidenceIds: [] }),
+      "undo_names_merged_change",
     );
     deniedBy(
-      dispatch(admin, { kind: "REVERSAL", reverses: reversal.id, evidenceIds: [] }),
-      "reversal_names_merged_implementation",
+      dispatch(admin, { operation: "undo", reverses: undo.id, evidenceIds: [] }),
+      "undo_names_merged_change",
     );
   });
 
-  it("implementation_carries_evidence: an ADDITION without evidence is denied", () => {
-    deniedBy(dispatch(kycManager, { evidenceIds: [] }), "implementation_carries_evidence");
+  it("change_carries_evidence: a change without evidence is denied", () => {
+    deniedBy(dispatch(kycManager, { evidenceIds: [] }), "change_carries_evidence");
   });
 
   it("actor_owns_run_domain: a manager of another domain cannot record or stop a KYC run", () => {
@@ -304,10 +304,9 @@ describe("context.json", () => {
   function build(runId = "run_ctx") {
     return buildContext({
       runId,
-      kind: "IMPLEMENTATION/ADDITION",
+      operation: "change",
       spec: COMPANIES_HOUSE_CHECK,
-      scope: "rule",
-      intent: COMPANIES_HOUSE_CHECK.intents["IMPLEMENTATION/ADDITION"] ?? "",
+      intent: COMPANIES_HOUSE_CHECK.intents.change,
       requestedBy: "kyc_manager",
       evidenceKey: CASE,
       evidenceIds: EVIDENCE,
@@ -336,9 +335,8 @@ describe("context.json", () => {
     const attempt = (evidenceKey: string, evidenceIds: string[]) => () =>
       buildContext({
         runId: "run_stray",
-        kind: "IMPLEMENTATION/ADDITION",
+        operation: "change",
         spec: COMPANIES_HOUSE_CHECK,
-        scope: "rule",
         intent: "x",
         requestedBy: "admin",
         evidenceKey,
@@ -352,9 +350,8 @@ describe("context.json", () => {
   it("reads a refund cluster by amount, merchant, reason and time, never by customer", () => {
     const { context, json } = buildContext({
       runId: "run_cluster",
-      kind: "IMPLEMENTATION/ADDITION",
+      operation: "change",
       spec: REFUND_CLUSTERING_HOLD,
-      scope: "rule",
       intent: "x",
       requestedBy: "refunds_manager",
       evidenceKey: "Kestrel Outdoors",
@@ -369,9 +366,8 @@ describe("context.json", () => {
     const attempt = (evidenceKey: string, evidenceIds: string[]) => () =>
       buildContext({
         runId: "run_cluster_bad",
-        kind: "IMPLEMENTATION/ADDITION",
+        operation: "change",
         spec: REFUND_CLUSTERING_HOLD,
-        scope: "rule",
         intent: "x",
         requestedBy: "admin",
         evidenceKey,
@@ -388,9 +384,8 @@ describe("context.json", () => {
     );
     const { context } = buildContext({
       runId: "run_export",
-      kind: "IMPLEMENTATION/ADDITION",
+      operation: "change",
       spec: CHARGEBACKS_FROM_POWER_APPS,
-      scope: "engine",
       intent: "x",
       requestedBy: "admin",
       evidenceKey: "chargebacks",
@@ -402,9 +397,8 @@ describe("context.json", () => {
     expect(() =>
       buildContext({
         runId: "run_export_stray",
-        kind: "IMPLEMENTATION/ADDITION",
+        operation: "change",
         spec: CHARGEBACKS_FROM_POWER_APPS,
-        scope: "engine",
         intent: "x",
         requestedBy: "admin",
         evidenceKey: "chargebacks",
@@ -414,16 +408,16 @@ describe("context.json", () => {
     ).toThrow(/not in the chargebacks export/);
   });
 
-  it("snapshots the spec's constants, the scope globs, the base commit and the audit head", () => {
+  it("snapshots the spec's constants, the allowed-path globs, the base commit and the audit head", () => {
     const { context } = build();
     expect(Object.keys(context.constants).sort()).toEqual(
       [...COMPANIES_HOUSE_CHECK.constantKeys].sort(),
     );
     for (const value of Object.values(context.constants)) expect(Number.isFinite(value)).toBe(true);
-    expect(context.scope).toEqual(
+    expect(context.allowed_paths).toEqual(
       expect.arrayContaining([...COMPANIES_HOUSE_CHECK.allowedPaths, "runs/run_ctx/**"]),
     );
-    expect(context.scope).toContain("apps/console/tests/**");
+    expect(context.allowed_paths).toContain("apps/console/tests/**");
     expect(context.base.commit).toMatch(/^[0-9a-f]{40}$/);
     expect(context.audit_head.seq).toBeGreaterThan(0);
     expect(context.reverses).toBeNull();
@@ -438,7 +432,7 @@ describe("context.json", () => {
     expect(build("run_other").sha256).not.toBe(a.sha256);
   });
 
-  it("a REVERSAL copies the target's saved evidence verbatim, even when the record changed since", () => {
+  it("an undo copies the target's saved evidence verbatim, even when the record changed since", () => {
     const root = mkdtempSync(join(tmpdir(), "ctx-reversal-"));
     const git = (...args: string[]) =>
       execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd: root });
@@ -450,9 +444,8 @@ describe("context.json", () => {
     // leaves behind for later reversals.
     const target = buildContext({
       runId: "run_target",
-      kind: "IMPLEMENTATION/ADDITION",
+      operation: "change",
       spec: COMPANIES_HOUSE_CHECK,
-      scope: "rule",
       intent: "check",
       requestedBy: "admin",
       evidenceKey: CASE,
@@ -466,12 +459,11 @@ describe("context.json", () => {
     writeFileSync(join(dir, "context.json"), JSON.stringify(saved));
 
     // kyc_since_closed doesn't exist today, so a live read would throw. The
-    // reversal must carry the original rows instead.
-    const reversal = buildContext({
+    // undo must carry the original rows instead.
+    const undo = buildContext({
       runId: "run_rev",
-      kind: "REVERSAL",
+      operation: "undo",
       spec: COMPANIES_HOUSE_CHECK,
-      scope: "rule",
       intent: "undo the check",
       requestedBy: "admin",
       evidenceKey: CASE,
@@ -479,8 +471,26 @@ describe("context.json", () => {
       reverses: { runId: "run_target", mergeCommit: "f".repeat(40) },
       repoRoot: root,
     });
-    expect(reversal.context.evidence.rows.map((r) => r.id)).toEqual(["kyc_since_closed"]);
-    expect(reversal.context.reverses?.constants_at_dispatch).toEqual(saved.constants);
+    expect(undo.context.evidence.rows.map((r) => r.id)).toEqual(["kyc_since_closed"]);
+    expect(undo.context.reverses?.constants_at_dispatch).toEqual(saved.constants);
+  });
+
+  it("parses a context file written under the kind/scope model", () => {
+    const { json } = build("run_ctx");
+    const legacy = JSON.parse(json) as Record<string, unknown>;
+    delete legacy.operation;
+    legacy.kind = "IMPLEMENTATION/ADDITION";
+    legacy.scope = legacy.allowed_paths;
+    delete legacy.allowed_paths;
+
+    const parsed = ContextFile.parse(legacy);
+    expect(parsed.operation).toBe("change");
+    expect(parsed.allowed_paths).toEqual(legacy.scope);
+    expect(parsed).not.toHaveProperty("kind");
+    expect(parsed).not.toHaveProperty("scope");
+
+    legacy.kind = "REVERSAL";
+    expect(ContextFile.parse(legacy).operation).toBe("undo");
   });
 });
 

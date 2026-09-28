@@ -3,10 +3,8 @@ import { ROLE_META } from "@console/permissions";
 import {
   CHARGEBACKS_FROM_POWER_APPS,
   COMPANIES_HOUSE_CHECK,
-  IMPLEMENTATION_KINDS,
   listRuns,
   roleMayStart,
-  type RunKind,
   type RunnableSpec,
 } from "@console/tool-automation";
 import { listExport } from "@console/tool-automation/context";
@@ -24,17 +22,17 @@ export interface Trigger {
   blocked: string | null;
 }
 
-const ADDITION: RunKind = "IMPLEMENTATION/ADDITION";
+const CHANGE = "change";
 
 /**
  * Whether the spec's change is already in the code: its newest merged run is
- * an addition, not an undo. A built feature doesn't offer itself again.
+ * a change, not an undo. A built feature doesn't offer itself again.
  */
 function isLive(spec: RunnableSpec): boolean {
   const merged = listRuns({ limit: 200 }).find(
     (run) => run.spec === spec.file && run.status === "merged",
   );
-  return merged !== undefined && IMPLEMENTATION_KINDS.includes(merged.kind as RunKind);
+  return merged !== undefined && merged.operation === "change";
 }
 
 function trigger(
@@ -43,7 +41,7 @@ function trigger(
   evidence: { evidenceKey: string; evidenceIds: readonly string[] },
 ): Trigger | null {
   if (isLive(spec)) return null;
-  if (!roleMayStart(actor.role, spec, ADDITION)) {
+  if (!roleMayStart(actor.role, spec, CHANGE)) {
     const meta = ROLE_META[actor.role];
     // Only the people one step away from asking see the button, greyed out.
     const nearly = meta.level === "manager" && (spec.domain === null || meta.domain === spec.domain);
@@ -51,7 +49,7 @@ function trigger(
       ? { label: spec.title, offer: null, blocked: "Only an admin can ask for this" }
       : null;
   }
-  const offer = buildHandoffOffer(spec, ADDITION, actor, evidence, bridgeDeps());
+  const offer = buildHandoffOffer(spec, CHANGE, actor, evidence, bridgeDeps());
   return offer ? { label: spec.title, offer, blocked: null } : null;
 }
 
