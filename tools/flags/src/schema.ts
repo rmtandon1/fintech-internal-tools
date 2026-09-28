@@ -3,12 +3,14 @@ import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 /**
  * Feature flags. The key is immutable once created: it is the identifier the
  * application code reads, so renaming it would silently change behaviour.
+ * The name is what people read; it can change freely.
  */
 export const featureFlags = sqliteTable(
   "feature_flags",
   {
     id: text("id").primaryKey(),
     key: text("key").notNull().unique(),
+    name: text("name").notNull().default(""),
     description: text("description").notNull(),
     flagType: text("flag_type").notNull(),
     environment: text("environment").notNull(),

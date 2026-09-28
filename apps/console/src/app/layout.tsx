@@ -89,7 +89,7 @@ export default async function RootLayout({
                     <AgentWindow
                       key="devin-window"
                       mode={mode}
-                      source={mode === "simulation" ? "Preview" : "Connected"}
+                      source={mode === "simulation" ? "Not connected" : "Connected"}
                     >
                       <DevinWindowBody actor={actor} mode={mode} />
                     </AgentWindow>

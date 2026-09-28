@@ -28,11 +28,14 @@ export function RunRow({
   run,
   statuses,
   reversalOffer,
+  devinConnected,
 }: {
   run: RunRowData;
   statuses: ComponentProps<typeof StatusChip>["statuses"];
   /** Built server-side when this merged IMPLEMENTATION may be reversed. */
   reversalOffer: HandoffOffer | null;
+  /** Whether a handoff can be sent right now (`DEVIN_API_KEY` set). */
+  devinConnected: boolean;
 }) {
   const { setAgentFocus } = useWorkspace();
   const prNumber = run.prUrl?.match(/pull\/(\d+)/)?.[1];
@@ -86,10 +89,13 @@ export function RunRow({
       </TableCell>
       <TableCell>
         {reversalOffer ? (
+          <span onClick={(e) => e.stopPropagation()}>
           <Button
             size="sm"
             variant="secondary"
             className="h-6 text-[11px]"
+            disabled={!devinConnected}
+            title={devinConnected ? undefined : "Set DEVIN_API_KEY to connect Devin"}
             onClick={(e) => {
               e.stopPropagation();
               setAgentFocus({ kind: "handoff", offer: reversalOffer });
@@ -98,6 +104,7 @@ export function RunRow({
           >
             Undo this change
           </Button>
+          </span>
         ) : null}
       </TableCell>
     </TableRow>

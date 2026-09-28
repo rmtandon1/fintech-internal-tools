@@ -29,10 +29,10 @@ title, so `DEVIN_ORG_ID` and `DEVIN_PLAYBOOK_ID` are optional overrides. `GITHUB
 needed only for **Review and approve** and the merge check. `GET /api/devin/status` reports
 the mode, the organisation and whether the key works; it never returns the key.
 
-**Simulation mode.** Without `DEVIN_API_KEY` the console still runs. The Devin window and the
-dispatch dialog show pre-written lines for what a finished run would report, under a
-Simulation banner, and the header's Devin button shows `SIM`. Nothing is dispatched and
-nothing is written to `devin_runs` or the audit chain.
+**Devin not connected.** Without `DEVIN_API_KEY` the console still runs. The Devin window and
+the "Ask Devin for a rule" button say `Devin not connected`, the header's Devin button shows a
+`Not connected` chip, and dispatch is refused — nothing is sent and nothing is written to
+`devin_runs` or the audit chain.
 
 `pnpm dev` fails to render until `pnpm db:setup` has created the database. To start over at
 any point, delete the data folder and re-seed:
@@ -59,7 +59,7 @@ rejected by the engine, not by the UI.
 | `/admin/policy` | runtime policy constants (admin) |
 | `/roadmap/<mode>` | the modes not built yet |
 | `/runs`, `/t/automation/<id>` | Devin runs and each run's view |
-| `/api/devin/status` | Devin mode (`live` or `simulation`), organisation and key check |
+| `/api/devin/status` | Devin mode (`live`, or `simulation` when no key is set and Devin is not connected), organisation and key check |
 
 ## Apps
 

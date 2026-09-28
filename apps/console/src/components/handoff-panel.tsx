@@ -8,37 +8,18 @@ import { Label } from "@console/ui/label";
 import { Textarea } from "@console/ui/textarea";
 import { formatMinorUnits } from "@console/ui/format";
 import { useWorkspace } from "@/components/workspace";
-import { SimulationBanner, SimulatedRunView } from "@/components/simulated-run";
 import type { HandoffOffer } from "@/lib/handoff";
 
 /**
  * The one-sentence handoff: the requester writes the intent and the system
  * supplies the evidence, scope and mode. Rendered in the Devin window from
- * `AgentFocus` ("handoff"). Without `DEVIN_API_KEY` the start button plays a
- * pre-written run locally instead of dispatching anything.
+ * `AgentFocus` ("handoff").
  */
 export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
   const { setAgentFocus } = useWorkspace();
   const [intent, setIntent] = useState(offer.intent);
   const [pending, startTransition] = useTransition();
-  const [simulating, setSimulating] = useState(false);
   const reversal = offer.kind === "REVERSAL";
-  const simulation = offer.simulations?.[offer.kind] ?? null;
-  const live = offer.simulations === null;
-
-  if (simulating && simulation) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col text-sm" data-testid="handoff-panel">
-        <SimulationBanner />
-        <SimulatedRunView run={{ ...simulation, intent }} />
-        <div className="border-t border-border p-4">
-          <Button variant="outline" onClick={() => setSimulating(false)}>
-            Back
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   function start() {
     const form = new FormData();
@@ -75,8 +56,6 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
             : "Describe what the rule should do. Devin writes it, tests it, and sends it to an engineer to review before it goes live."}
         </p>
       </div>
-
-      {!live ? <SimulationBanner /> : null}
 
       <div className="space-y-2 rounded-md border border-border bg-muted/20 p-3">
         <div className="text-xs font-medium text-muted-foreground">What Devin will see</div>
@@ -162,7 +141,7 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
           <dt className="text-muted-foreground">Checks</dt>
           <dd>Lint · Typecheck · Boundaries · Test; approved by an engineer who did not ask for it</dd>
           <dt className="text-muted-foreground">Mode</dt>
-          <dd>{live ? "Live · api.devin.ai" : "Preview · nothing is sent or recorded"}</dd>
+          <dd>Live · api.devin.ai</dd>
         </dl>
       </details>
 
@@ -171,17 +150,11 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
           Cancel
         </Button>
         <Button
-          disabled={pending || intent.trim().length === 0 || (!live && !simulation)}
-          onClick={live ? start : () => setSimulating(true)}
+          disabled={pending || intent.trim().length === 0}
+          onClick={start}
           data-testid="start-run"
         >
-          {!live
-            ? "Preview the result"
-            : pending
-              ? "Sending…"
-              : reversal
-                ? "Ask Devin to undo it"
-                : "Send to Devin"}
+          {pending ? "Sending…" : reversal ? "Ask Devin to undo it" : "Send to Devin"}
         </Button>
       </div>
     </div>

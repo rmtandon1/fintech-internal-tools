@@ -12,6 +12,7 @@ import {
   type RunnableSpec,
 } from "@console/tool-automation";
 import { bridgeDeps } from "@/lib/bridge";
+import { devinMode } from "@/lib/devin-status";
 import { buildHandoffOffer } from "@/lib/handoff";
 import { currentActor } from "@/lib/session";
 
@@ -69,7 +70,7 @@ export default async function PolicyConstantsPage() {
         <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           Rules
         </p>
-        <RulesCard rows={rules} />
+        <RulesCard rows={rules} devinConnected={devinMode() === "live"} />
       </div>
       {constants.length === 0 ? (
         <p className="py-10 text-center text-xs text-muted-foreground">

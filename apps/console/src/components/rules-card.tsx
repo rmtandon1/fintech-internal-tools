@@ -17,7 +17,14 @@ export interface RuleRow {
 }
 
 /** Runnable specs on /admin/policy: what Devin may be asked to do to each rule. */
-export function RulesCard({ rows }: { rows: RuleRow[] }) {
+export function RulesCard({
+  rows,
+  devinConnected,
+}: {
+  rows: RuleRow[];
+  /** Whether a handoff can be sent right now (`DEVIN_API_KEY` set). */
+  devinConnected: boolean;
+}) {
   const { setAgentFocus } = useWorkspace();
   return (
     <div className="space-y-1 rounded-lg border border-border p-3" data-testid="rules-card">
@@ -31,7 +38,10 @@ export function RulesCard({ rows }: { rows: RuleRow[] }) {
                   size="sm"
                   variant="secondary"
                   className="h-7 text-xs"
-                  disabled={!action.enabled}
+                  disabled={!action.enabled || !devinConnected}
+                  title={
+                    action.enabled && !devinConnected ? "Set DEVIN_API_KEY to connect Devin" : undefined
+                  }
                   onClick={() =>
                     action.offer && setAgentFocus({ kind: "handoff", offer: action.offer })
                   }

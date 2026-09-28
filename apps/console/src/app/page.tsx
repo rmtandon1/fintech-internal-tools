@@ -94,9 +94,9 @@ export default async function HomePage() {
               hint={
                 devin === "live"
                   ? "Asking Devin for a rule starts a real Devin session."
-                  : "Devin isn't connected: asking for a rule shows a preview and changes nothing."
+                  : "Devin isn't connected: set DEVIN_API_KEY to ask for rule changes."
               }
-              label={devin === "live" ? "Devin connected" : "Devin in preview"}
+              label={devin === "live" ? "Devin connected" : "Devin not connected"}
             />
           </ul>
         </header>

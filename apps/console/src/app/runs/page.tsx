@@ -28,6 +28,7 @@ import {
 } from "@console/tool-automation";
 import { roleLabel, ROLES, type Role } from "@console/permissions";
 import { type AppBridgeDeps, bridgeDeps } from "@/lib/bridge";
+import { devinMode } from "@/lib/devin-status";
 import { buildHandoffOffer, type HandoffOffer, reversalEvidence } from "@/lib/handoff";
 import { pageNumber } from "@/lib/page-number";
 import { currentActor } from "@/lib/session";
@@ -145,6 +146,7 @@ export default async function RunsPage({
               }}
               statuses={automationTool.statuses}
               reversalOffer={reversalOffer(run.id, actor, deps)}
+              devinConnected={devinMode() === "live"}
             />
           ))}
         </TableBody>
