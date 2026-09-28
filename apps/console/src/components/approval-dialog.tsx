@@ -13,7 +13,7 @@ import {
 import { Label } from "@console/ui/label";
 import { SuggestTextarea } from "@/components/suggest-textarea";
 import type { RunViewPayload } from "@/lib/devin-route";
-import { sharedPathsTouched } from "@/lib/run-surface";
+import { touchesSharedPath } from "@console/tool-automation/shared-paths";
 
 type Stage = "idle" | "approving" | "merging" | "merged" | "failed";
 
@@ -80,7 +80,7 @@ export function ApprovalDialog({
   const [note, setNote] = useState("");
 
   const latest = payload?.latest?.structured_output ?? null;
-  const shared = sharedPathsTouched(latest);
+  const shared = (latest?.files ?? []).map((f) => f.path).filter(touchesSharedPath);
   const checks = latest?.verify_steps ?? [];
   const pr = payload?.run.prUrl ?? latest?.pr_url ?? null;
   const prNumber = pr?.match(/pull\/(\d+)/)?.[1];
