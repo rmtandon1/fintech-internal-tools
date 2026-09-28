@@ -50,6 +50,10 @@ export interface BridgeDeps {
   installPending?: () => Promise<boolean>;
   /** Runs the console's own migration script on its database. */
   migrate?: (cwd: string) => Promise<void>;
+  /** Seeds tools whose queue is still empty (`pnpm db:seed:new`); returns their names. */
+  seedNew?: (cwd: string) => Promise<string[]>;
+  /** True when a registered tool's seed has yet to fill its empty queue. */
+  seedPending?: () => Promise<boolean>;
   /** True when drizzle journal entries postdate the last applied migration. */
   migrationsPending?: () => Promise<boolean>;
   /** Remote and branch the merge sync pulls; default to `SYNC_REMOTE` / `SYNC_BRANCH`. */
@@ -503,7 +507,7 @@ export async function observeMerge(actor: Actor, run: DevinRun, deps: BridgeDeps
 }
 
 export type SyncOutcome =
-  | { kind: "synced"; before: string; after: string; installed: boolean; migrated: boolean }
+  | { kind: "synced"; before: string; after: string; installed: boolean; migrated: boolean; seeded: string[] }
   | { kind: "unchanged"; head: string }
   | { kind: "skipped"; reason: string }
   | { kind: "failed"; reason: string };
@@ -512,7 +516,7 @@ export type SyncOutcome =
 export function describeSync(sync: SyncOutcome): string {
   switch (sync.kind) {
     case "synced":
-      return `pulled ${sync.before.slice(0, 7)} → ${sync.after.slice(0, 7)}${sync.installed ? " · dependencies installed" : ""}${sync.migrated ? " · db migrated" : ""}`;
+      return `pulled ${sync.before.slice(0, 7)} → ${sync.after.slice(0, 7)}${sync.installed ? " · dependencies installed" : ""}${sync.migrated ? " · db migrated" : ""}${sync.seeded.length ? ` · seeded ${sync.seeded.join(", ")}` : ""}`;
     case "unchanged":
       return `checkout already at ${sync.head.slice(0, 7)}`;
     case "skipped":
@@ -528,8 +532,10 @@ export function describeSync(sync: SyncOutcome): string {
  * tree, the pull is `--ff-only`, and the run's merge commit must land on
  * HEAD. A pull that changes a `package.json`, `pnpm-lock.yaml` or
  * `pnpm-workspace.yaml` runs `pnpm install` so newly merged workspace
- * packages resolve. Pending drizzle migrations then run `pnpm db:migrate` —
- * never `db:setup`/`db:seed`, which re-seed the live database (MERGE_SYNC.md).
+ * packages resolve. Pending drizzle migrations then run `pnpm db:migrate`,
+ * then `pnpm db:seed:new`, which seeds only tools whose queue is still
+ * empty — never `db:setup`/`db:seed`, which re-seed the live database
+ * (MERGE_SYNC.md).
  */
 export function syncMergedRun(run: DevinRun, deps: BridgeDeps): Promise<SyncOutcome> {
   const next = syncQueue.then(() => syncMergedRunInner(run, deps));
@@ -609,19 +615,33 @@ async function syncMergedRunInner(run: DevinRun, deps: BridgeDeps): Promise<Sync
         return { kind: "failed", reason: `db:migrate failed: ${errorText(error)}` };
       }
     }
-    if (after === before && !installed && !migrated) return { kind: "unchanged", head: after };
-    return { kind: "synced", before, after, installed, migrated };
+    // The seed runs on every pull that passed the ancestor check — even when
+    // HEAD did not move and nothing migrated — so a failed seed is retried on
+    // the next click instead of leaving a merged tool's queue empty.
+    let seeded: string[] = [];
+    if (deps.seedNew) {
+      try {
+        seeded = await deps.seedNew(cwd);
+      } catch (error) {
+        return { kind: "failed", reason: `db:seed:new failed: ${errorText(error)}` };
+      }
+    }
+    if (after === before && !installed && !migrated && seeded.length === 0) {
+      return { kind: "unchanged", head: after };
+    }
+    return { kind: "synced", before, after, installed, migrated, seeded };
   } catch (error) {
     return { kind: "failed", reason: errorText(error) };
   }
 }
 
-/** True when the checkout has the run's merge commit, installed dependencies and no pending migrations. */
+/** True when the checkout has the run's merge commit, installed dependencies, and no pending migrations or seeds. */
 export async function isSynced(run: DevinRun, deps: BridgeDeps): Promise<boolean> {
   if (!deps.git || !run.mergeCommit) return false;
   if (!(await deps.git.isAncestor(deps.repoRoot, run.mergeCommit, "HEAD"))) return false;
   if (deps.installPending && (await deps.installPending())) return false;
   if (deps.migrationsPending && (await deps.migrationsPending())) return false;
+  if (deps.seedPending && (await deps.seedPending())) return false;
   return true;
 }
 

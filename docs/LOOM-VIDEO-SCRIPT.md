@@ -309,8 +309,8 @@ The recording runs just over seven minutes; ▶ SLIDE and ◀ CONSOLE cues mark 
 - [ ] `git fetch --tags`, then `git checkout -B cognition-dashboard-devin-integration <demo-tag>` (stay on the branch; a detached HEAD breaks **Pull merged code**)
 - [ ] `pnpm install`
 - [ ] `git status` clean (delete stray `runs/` folders)
-- [ ] Within the hour: stop `pnpm dev`, `rm -rf apps/console/data && pnpm db:setup`, `pnpm dev`
-- [ ] Pick a role again after the reset
+- [ ] Within the hour: stop `pnpm dev`, `pnpm db:reset`, `pnpm dev` (rebuilds demo data but keeps the recorded runs, their audit rows and replays)
+- [ ] Pick a role again only after `rm -rf apps/console/data` — `pnpm db:reset` keeps the role cookie
 - [ ] `.env` has `DEVIN_API_KEY` and `GITHUB_TOKEN`
 - [ ] `/api/devin/status` reports `live` (if not, stop)
 - [ ] `pnpm verify` green (328 tests)
