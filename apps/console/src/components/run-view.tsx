@@ -8,7 +8,7 @@ import { Button } from "@console/ui/button";
 import { Icon } from "@console/ui/icon";
 import { StatusChip } from "@console/ui/status-chip";
 import { ApprovalDialog } from "@/components/approval-dialog";
-import { RunSummary, RUN_STATUS_OPTIONS } from "@/components/run-summary";
+import { RunSummary, RUN_STATUS_OPTIONS, requesterLabel } from "@/components/run-summary";
 import { phaseLine } from "@/lib/run-checklist";
 import type { RunViewPayload } from "@/lib/devin-route";
 import type { ReplayFrame, StructuredOutput } from "@console/tool-automation";
@@ -309,7 +309,7 @@ export function RunView({
       ) : null}
       <section className="border-b border-border px-3 py-2">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="font-mono text-[11px]">{run.kind}</span>
+          <span className="text-[11px]">{payload.kindLabel}</span>
           <StatusChip value={run.status} statuses={RUN_STATUSES} />
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
             {mode === "live" ? "Live · session" : "Recorded · replay.json"}
@@ -330,7 +330,7 @@ export function RunView({
         </div>
         <p className="mt-1 text-muted-foreground">{run.intent}</p>
         <p className="mt-0.5 text-[11px] text-muted-foreground">
-          requested by <span className="text-foreground">{run.requestedByRole}</span> ·{" "}
+          requested by <span className="text-foreground">{requesterLabel(run)}</span> ·{" "}
           {payload.summary}
         </p>
         {run.reverses ? (

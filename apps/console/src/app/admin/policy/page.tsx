@@ -15,6 +15,7 @@ import { bridgeDeps } from "@/lib/bridge";
 import { devinMode } from "@/lib/devin-status";
 import { buildHandoffOffer } from "@/lib/handoff";
 import { currentActor } from "@/lib/session";
+import { humanize } from "@console/ui/format";
 
 export default async function PolicyConstantsPage() {
   const actor = await currentActor();
@@ -28,10 +29,9 @@ export default async function PolicyConstantsPage() {
     spec: RunnableSpec,
     kind: RunKind,
     label: string,
-  ): RuleRow["actions"][number] => {
-    if (!spec.kinds.includes(kind)) {
-      return { kind, label, enabled: false, reason: `${spec.file} offers no ${kind} run` };
-    }
+  ): RuleRow["actions"][number] | null => {
+    // A spec that never offers this run kind gets no button at all.
+    if (!spec.kinds.includes(kind)) return null;
     if (!kindsStartableBy(actor.role, spec).includes(kind)) {
       const who = ALL_ROLES.filter((role) => roleMayStart(role, spec, kind)).map(roleLabel);
       return { kind, label, enabled: false, reason: `Only ${who.join(", ")} may start this run` };
@@ -52,9 +52,11 @@ export default async function PolicyConstantsPage() {
       actions: [
         action(spec, "IMPLEMENTATION/CHANGE", "Ask Devin to change this rule"),
         action(spec, "IMPLEMENTATION/REMOVAL", "Ask Devin to remove this rule"),
-      ],
+      ].filter((a): a is RuleRow["actions"][number] => a !== null),
     };
-  });
+  }).filter((row) => row.actions.length > 0);
+
+  const tools = [...new Set(constants.map((c) => c.tool))];
 
   return (
     <Panel
@@ -77,8 +79,17 @@ export default async function PolicyConstantsPage() {
           No settings yet. Each tool adds its own.
         </p>
       ) : (
-        constants.map((constant) => (
-          <ConstantEditor key={constant.key} constant={constant} />
+        tools.map((tool) => (
+          <div key={tool} className="space-y-2">
+            <p className="pt-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              {humanize(tool)}
+            </p>
+            {constants
+              .filter((c) => c.tool === tool)
+              .map((constant) => (
+                <ConstantEditor key={constant.key} constant={constant} />
+              ))}
+          </div>
         ))
       )}
     </Panel>

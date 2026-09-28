@@ -94,13 +94,13 @@ const allow =
 const specKnown: RunRule<DispatchInput> = ({ input }) => {
   const spec = getSpec(input.spec);
   if (!spec) {
-    return { type: "deny", rule: "spec_known", reason: `No runnable spec ${input.spec}` };
+    return { type: "deny", rule: "spec_known", reason: "This spec is not registered as runnable" };
   }
   if (!spec.kinds.includes(input.kind)) {
     return {
       type: "deny",
       rule: "spec_known",
-      reason: `${spec.file} does not support ${input.kind}`,
+      reason: `This spec does not support a ${RUN_KIND_LABELS[input.kind].toLowerCase()}`,
     };
   }
   return { type: "allow", rule: "spec_known" };
@@ -134,7 +134,7 @@ const roleMayStartKind: RunRule<DispatchInput> = ({ actor, input }) => {
     : {
         type: "deny",
         rule: "role_may_start_kind",
-        reason: `${meta.label} may not start ${input.kind} against ${spec.file}`,
+        reason: `${meta.label} may not start a ${RUN_KIND_LABELS[input.kind].toLowerCase()} on ${spec.tool}`,
       };
 };
 
@@ -173,17 +173,17 @@ const reversalNamesMergedImplementation: RunRule<DispatchInput> = ({ input }) =>
   const rule = "reversal_names_merged_implementation";
   if (input.kind !== "REVERSAL") return { type: "allow", rule };
   if (!input.reverses) {
-    return { type: "deny", rule, reason: "A REVERSAL must name the run it reverses" };
+    return { type: "deny", rule, reason: "Undoing a change must name the change it undoes" };
   }
   const target = getRun(input.reverses);
   if (!target || !IMPLEMENTATION_KINDS.includes(target.kind as RunKind)) {
-    return { type: "deny", rule, reason: `${input.reverses} is not an IMPLEMENTATION run` };
+    return { type: "deny", rule, reason: `${input.reverses} is not a change that can be undone` };
   }
   if (target.status !== "merged") {
     return { type: "deny", rule, reason: `${target.id} is ${target.status}, not merged` };
   }
   if (target.spec !== input.spec) {
-    return { type: "deny", rule, reason: `${target.id} ran ${target.spec}, not ${input.spec}` };
+    return { type: "deny", rule, reason: `${target.id} ran a different spec` };
   }
   const prior = db
     .select({ id: devinRuns.id })
@@ -201,7 +201,7 @@ const implementationCarriesEvidence: RunRule<DispatchInput> = ({ input }) =>
     ? {
         type: "deny",
         rule: "implementation_carries_evidence",
-        reason: "An IMPLEMENTATION run needs at least one evidence row in its context",
+        reason: "A rule change needs at least one evidence row in its context",
       }
     : { type: "allow", rule: "implementation_carries_evidence" };
 

@@ -6,7 +6,7 @@ import { dispatchAutomationRun } from "@/app/automation-actions";
 import { Button } from "@console/ui/button";
 import { Label } from "@console/ui/label";
 import { Textarea } from "@console/ui/textarea";
-import { formatMinorUnits } from "@console/ui/format";
+import { formatMinorUnits, humanize } from "@console/ui/format";
 import { useWorkspace } from "@/components/workspace";
 import type { HandoffOffer } from "@/lib/handoff";
 
@@ -113,11 +113,9 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
         </summary>
         <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
           <dt className="text-muted-foreground">Change</dt>
-          <dd>
-            {offer.kindLabel} <span className="font-mono text-muted-foreground">{offer.kind}</span>
-          </dd>
+          <dd>{offer.kindLabel}</dd>
           <dt className="text-muted-foreground">Spec</dt>
-          <dd className="font-mono">{offer.spec}</dd>
+          <dd>{humanize(offer.spec.replace(/\.md$/i, ""))}</dd>
           <dt className="text-muted-foreground">Base</dt>
           <dd className="font-mono">
             {offer.base.branch}@{offer.base.commit.slice(0, 7)}

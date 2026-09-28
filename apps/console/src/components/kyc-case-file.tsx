@@ -42,41 +42,46 @@ export function KycCaseFile({ caseId, hold }: { caseId: string; hold: string[] }
   const { checks, differences } = caseFile(caseId);
   return (
     <div className="space-y-5 px-5 pb-5 pt-4">
-      <Panel title="Checks" className="mx-0 mb-0" bodyClassName="py-0.5">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Check</TableHead>
-              <TableHead>Result</TableHead>
-              <TableHead>Source</TableHead>
-              <TableHead>Ran</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {checks.map((check) => (
-              <TableRow key={check.id}>
-                <TableCell className="font-medium">{CHECK_LABEL[check.kind]}</TableCell>
-                <TableCell>
-                  <StatusChip
-                    value={check.result}
-                    statuses={[
-                      {
-                        value: check.result,
-                        label: check.detail || titleCase(check.result),
-                        tone: RESULT_TONE[check.result],
-                      },
-                    ]}
-                  />
-                </TableCell>
-                <TableCell className="text-muted-foreground">{check.source}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {formatTimestamp(check.checkedAt)}
-                </TableCell>
+      <details className="rounded-xl border border-border bg-card shadow-xs">
+        <summary className="flex min-h-11 cursor-pointer items-center gap-2 border-b border-border px-4 py-2 text-sm font-semibold text-foreground">
+          Checks · <span className="tabular-nums">{checks.length}</span>
+        </summary>
+        <div className="py-0.5">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Check</TableHead>
+                <TableHead>Result</TableHead>
+                <TableHead>Source</TableHead>
+                <TableHead>Ran</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Panel>
+            </TableHeader>
+            <TableBody>
+              {checks.map((check) => (
+                <TableRow key={check.id}>
+                  <TableCell className="font-medium">{CHECK_LABEL[check.kind]}</TableCell>
+                  <TableCell>
+                    <StatusChip
+                      value={check.result}
+                      statuses={[
+                        {
+                          value: check.result,
+                          label: check.detail || titleCase(check.result),
+                          tone: RESULT_TONE[check.result],
+                        },
+                      ]}
+                    />
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{check.source}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatTimestamp(check.checkedAt)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </details>
 
       <Panel title="Declared vs found" className="mx-0 mb-0" bodyClassName="py-0.5">
         {differences.length === 0 ? (

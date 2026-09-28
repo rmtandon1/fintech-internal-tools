@@ -59,11 +59,11 @@ export async function runOffers(
     : run.status !== "merged"
       ? { offered: false, reason: "Only a merged run can be reversed" }
       : !IMPLEMENTATION_KINDS.includes(run.kind as RunKind)
-        ? { offered: false, reason: "Only an IMPLEMENTATION can be reversed" }
+        ? { offered: false, reason: "Only a completed rule change can be undone" }
         : reversingRun(run.id)
           ? { offered: false, reason: "This run is already reversed" }
           : !kindsStartableBy(actor.role, spec).includes("REVERSAL")
-            ? { offered: false, reason: "Only the admin may start a REVERSAL" }
+            ? { offered: false, reason: "Only the admin may undo a change" }
             : { offered: true };
 
   return {

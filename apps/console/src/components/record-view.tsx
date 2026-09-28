@@ -116,6 +116,7 @@ export function RecordView({
         {extra}
       </div>
 
+      {trail.length > 0 ? (
       <details
         open={trail.length <= 3}
         className="shrink-0 border-t border-border"
@@ -127,6 +128,7 @@ export function RecordView({
           <AuditTimeline events={trail} compact />
         </div>
       </details>
+      ) : null}
 
       <div className="mt-auto flex shrink-0 items-center gap-2 border-t border-border px-5 py-4">
         {actions ?? (
