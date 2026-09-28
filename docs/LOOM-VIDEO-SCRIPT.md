@@ -13,7 +13,7 @@ It's one demo: the same loop runs three times, each time on a bigger change. Ask
 | 1. Rules: from added to removed | When requirements change, how fast, and who checks it? Can we switch it off, and take it out? | A Kestrel refund settles, then waits for a manager; switched off in seconds; removed from code that has moved on |
 | 2. Connectors: automating manual steps | Is this only rules, or real engineering against outside systems? | A hand-typed Companies House check becomes a lookup, on test data here, that holds approval |
 | 3. Apps: starting the next one | Can this hold twenty tools? What does the next one cost? | Chargebacks lands as a first pull request, switched off until an admin turns it on, with the rest of the move as a list |
-| A bug we hit | Did anything go wrong, and how deep does the fix go? | A merge that wasn't live, traced from GitHub down to the checkout and fixed in four layers |
+| Post-merge deployment drift | Did anything go wrong, and how deep does the fix go? | The running console lagging the merged branch, traced from GitHub down to the checkout and fixed in four layers |
 
 ## How to read this script
 
@@ -437,17 +437,19 @@ Same loop, biggest change: a new app. Not built to production in a video, but st
 
 ---
 
-## 🔧 A Bug We Hit: Merged, but Not Live (30 seconds)
+## 🔧 Challenge: Post-Merge Deployment Drift (30 seconds)
 
 [Show the screenshot of the Chargebacks **Pull merged code** toast from Part 3: `pulled … → … · dependencies installed · db migrated`.]
 
-> "One bug from the build. GitHub said merged, and the screen didn't change."
+> "One challenge from the build: post-merge deployment drift."
+>
+> "GitHub said merged, and the screen didn't change."
 >
 > "I walked it down layer by layer. The merge commit wasn't in the console's checkout."
 >
 > "Pulling wasn't enough either. The new Chargebacks package didn't resolve."
 
-[Cut to the four-layer table in `docs/MERGED_BUT_NOT_LIVE.md`.]
+[Cut to the four-layer table in `docs/POST_MERGE_DEPLOYMENT_DRIFT.md`.]
 
 > "So the sync has four layers. It confirms the merge with GitHub, and pulls only into a clean checkout."
 >
@@ -553,7 +555,7 @@ One row per shot, in order. Clicks marked **once** change data. To retake them, 
 | 10 | Undo from `/runs`, finished undo, `rfnd_0014` send (**once**), reason dropdown | Admin, Engineer, Refunds agent | `partial_delivery` merged before the undo |
 | 11 | Thornbury Couriers before, handoff, finished run, check switched on at `/admin/policy`, after | KYC reviewer, Admin, Engineer | Companies House run recorded |
 | 12 | Chargebacks Coming soon, handoff, pull request, **Switched off** tile, `app.chargebacks` enabled, live queue, `DSP-20401` **Accept** (**once**) | Admin, Engineer, Refunds agent | Chargebacks run recorded; screenshot the **Pull merged code** toast |
-| 13 | Toast screenshot, then the four-layer table in `docs/MERGED_BUT_NOT_LIVE.md` | — | Screenshot from shot 12 |
+| 13 | Toast screenshot, then the four-layer table in `docs/POST_MERGE_DEPLOYMENT_DRIFT.md` | — | Screenshot from shot 12 |
 | 14 | Cost table, then the closing request typed and not sent | Refunds manager | — |
 
 - Pause for a beat after each click so the cut has room.
@@ -565,7 +567,7 @@ One row per shot, in order. Clicks marked **once** change data. To retake them, 
 ## 📤 After Recording
 
 - **Edit.** Trim the dead air, speed-ramp the run waits, and check each cut shows the real "Took …" time.
-- **Chapters.** Add Loom chapters at the real timestamps: Power Apps today, Opening, The console, Part 1 · Rules, Part 2 · Connectors, Part 3 · Apps, A bug we hit, What ownership costs, Future.
+- **Chapters.** Add Loom chapters at the real timestamps: Power Apps today, Opening, The console, Part 1 · Rules, Part 2 · Connectors, Part 3 · Apps, Post-merge deployment drift, What ownership costs, Future.
 - **Description.** Paste the one message, then link the repository and the five pull requests (Kestrel add, `partial_delivery`, Kestrel undo, Companies House, Chargebacks).
 - **Tags.** In Loom: `devin`, `internal-tools`, `power-apps-migration`. In git: tag the commit you recorded, such as `loom-2026-09-28`.
 - **Numbers.** Record each run's time, ACUs and test total in the Loom description, so the claims can be checked.

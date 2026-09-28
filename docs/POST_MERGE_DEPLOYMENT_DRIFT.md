@@ -1,4 +1,4 @@
-# Merged, but Not Live: the Post-Merge Freshness Bug
+# Post-Merge Deployment Drift
 
 Troubleshooting write-up for the one challenge the Loom script names: a pull request merged on
 GitHub while the console kept serving the code from before the merge. Found and fixed on
@@ -102,7 +102,7 @@ A skipped or failed sync says why: `pull skipped: working tree has uncommitted c
 ### What it deliberately doesn't do
 
 - **Turn the app on.** A new app merges with its flag off; an admin enables it in
-  **Feature flags** (`/t/flags`). Merged isn't on, by design.
+  **Feature flags** (`/t/flags`). Merging and enabling are separate steps, by design.
 - **Restart or rebuild.** `pnpm dev` picks up new files on the next request. Under a production
   build the toast adds `rebuild required`.
 
@@ -147,4 +147,4 @@ on `/runs`, which runs the sync again.
 - [GITHUB_INTEGRATION.md](GITHUB_INTEGRATION.md#merge-sync) — the merge sync step by step
 - [DEVIN_RUN_SYNC_FIXES.md](DEVIN_RUN_SYNC_FIXES.md) — the other defects between Devin, GitHub and the console
 - [INTEGRATION-SETUP.md](INTEGRATION-SETUP.md) — what serves from where, and recovery
-- [LOOM-VIDEO-SCRIPT.md](LOOM-VIDEO-SCRIPT.md#-a-bug-we-hit-merged-but-not-live-30-seconds) — the 30-second telling
+- [LOOM-VIDEO-SCRIPT.md](LOOM-VIDEO-SCRIPT.md#-challenge-post-merge-deployment-drift-30-seconds) — the 30-second telling

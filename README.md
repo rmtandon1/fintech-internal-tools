@@ -667,8 +667,8 @@ state:
 The console doesn't use HTML no-cache meta tags or query-string cache busting: pages are server
 rendered per request and Next fingerprints its own assets, so neither is needed.
 
-The post-merge rows came out of one bug, a merge that wasn't live: see
-[docs/MERGED_BUT_NOT_LIVE.md](docs/MERGED_BUT_NOT_LIVE.md).
+The post-merge rows came out of one diagnosed problem, post-merge deployment drift: see
+[docs/POST_MERGE_DEPLOYMENT_DRIFT.md](docs/POST_MERGE_DEPLOYMENT_DRIFT.md).
 
 ---
 
@@ -744,7 +744,7 @@ Find the layer first, then the symptom.
 - An app behind a flag reads **Switched off**, and its pages send you to the roadmap, until an admin
   enables `app.<name>` in Feature flags.
 - To walk it down layer by layer, from GitHub to the checkout, follow
-  [docs/MERGED_BUT_NOT_LIVE.md](docs/MERGED_BUT_NOT_LIVE.md).
+  [docs/POST_MERGE_DEPLOYMENT_DRIFT.md](docs/POST_MERGE_DEPLOYMENT_DRIFT.md).
 
 ### Merge happened on GitHub but the run still says Approved
 
