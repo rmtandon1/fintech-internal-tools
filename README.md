@@ -396,10 +396,6 @@ Install-time problems, with commands to copy, are in [`docs/SETUP.md`](docs/SETU
 
 ## Usage
 
-Each workflow below uses the seeded data, so the values match what you'll see. Pick the role in
-**Viewing as** at the top of the page before each step. Steps marked *instant* change the screen
-at once; steps marked *async* wait on Devin, GitHub and an engineer.
-
 ### 1. Add a rule
 
 Four `not_received` refunds from Kestrel Outdoors ($465, $460, $475 and $480) each pass the $500
