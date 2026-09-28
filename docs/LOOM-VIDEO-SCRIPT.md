@@ -20,7 +20,7 @@ Each part changes more of the system than the one before.
 | Where Devin may work | 3 files, plus tests | The KYC app's folder, `.env.example`, tests | A new app folder, registry, schema, home, migrations, lockfile, flag seed, tests |
 | New moving parts | A 14-day window setting | An outside API, a key on the server, a timeout, "couldn't check" | A new table (migration `0009`), 50 seeded disputes, two limits, a feature flag |
 | Size | One new file, two edited | Dry run: 5 files, +856 −3 | Dry run: 14 files, +2,166 −2 (1,375 of it a generated snapshot) |
-| Ends on | A Kestrel refund settles again after the rule is removed | Thornbury's **Approve** waits for a KYC manager, with the reason | A refunds agent works a live Chargebacks queue |
+| Ends on | A Kestrel refund goes straight to the processor again after the rule is removed | Thornbury's **Approve** waits for a KYC manager, with the reason | A refunds agent works a live Chargebacks queue |
 
 The undo in Part 1 is the trickiest git work in the video, a conflicting revert. It stays there because it's the same rule's life, on the smallest surface.
 
@@ -82,7 +82,7 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 
 > "Four 'not received' refunds from one merchant, each just under the $500 manager line. Together, $1,880."
 
-[Switch role: Refunds agent. On `rfnd_0013`, click **Send to processor**. It settles.]
+[Switch role: Refunds agent. On `rfnd_0013`, click **Send to processor**. It goes straight to **With processor**, no hold.]
 
 > "That takes Kestrel to $925, and it went straight through."
 
@@ -102,7 +102,7 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 
 > "An existing test said all four Kestrel refunds pass. Devin changed it to three held, in the open."
 >
-> "*(320)* tests before, *(new total)* after."
+> "*(328)* tests before, *(new total)* after."
 
 [Switch role: Engineer. Click **Review and approve**. Point at the eight-line checklist. After approving, point at the rules the approval passed: `approver_is_not_requester`, `checks_green`, `context_matches_dispatch`. Check in rehearsal where they show; if they don't, cut the two lines below.]
 
@@ -138,9 +138,9 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 
 ### Outcome
 
-[Switch role: Refunds agent. On `rfnd_0014`, click **Send to processor**. It settles. Open the trace, then the reason-code dropdown.]
+[Switch role: Refunds agent. On `rfnd_0014`, click **Send to processor**. It goes straight to **With processor**. Open the trace, then the reason-code dropdown.]
 
-> "The agent's click settles again. No trace of the rule, and partial delivery is still in the list."
+> "The agent's click goes straight through again. No trace of the rule, and partial delivery is still in the list."
 
 ---
 
@@ -316,14 +316,14 @@ Five runs at 30–60 minutes each. Order matters:
 | Stop `pnpm dev`, then `rm -rf apps/console/data && pnpm db:setup`, then `pnpm dev`, within the hour | Seeded dates count from seed time |
 | Pick a role again after a reset | The reset regenerates the role cookie's secret |
 | `.env` has `DEVIN_API_KEY` and `GITHUB_TOKEN`; `/api/devin/status` reports `live` | Without the GitHub token, approval and the merge check don't work |
-| `pnpm verify` green; test count matches the script (320) | The count moved five times in two days (294, 305, 288, 331, 320) |
+| `pnpm verify` green; test count matches the script (328) | The count moved five times in two days (294, 305, 288, 331, 320, 328) |
 | Fresh browser window, 1440×900, notifications off | Every take the same size, no pop-ups |
 
 ---
 
 ## 🎥 Shot List
 
-Clicks marked **once** change data. To retake them, `pnpm db:seed`.
+Clicks marked **once** change data. To retake them, `pnpm db:seed`: it restores the demo refunds and cases, but not after `pnpm db:scenario courier-outage`, whose sixty refunds and audit rows it leaves in place.
 
 | # | Shot | Viewing as | State it needs |
 |---|---|---|---|
