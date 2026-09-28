@@ -336,10 +336,16 @@ The console runs without either key. Devin then shows as not connected, and ever
 
    ```bash
    cp .env.example .env
-   # then set:
+   # then set your own keys:
    #   DEVIN_API_KEY=cog_…
    #   GITHUB_TOKEN=ghp_…
    ```
+
+   Bring your own keys; none ship with the repo. With `DEVIN_API_KEY` set, the console runs live:
+   each request starts a session in that key's Devin organisation, and the run page links to it.
+   Left blank, the console runs in simulation mode: everything else works, the Devin window says
+   **Devin not connected**, and no handoff is sent. Without `GITHUB_TOKEN`, **Review and approve**
+   and the merge check don't work.
 
 4. Create and seed the database.
 
