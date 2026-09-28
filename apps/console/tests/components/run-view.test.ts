@@ -107,9 +107,9 @@ describe("RunView", () => {
     const html = render(payload());
     expect(html.match(/data-state="active"/g)).toHaveLength(1);
     expect(html).toMatch(/data-state="active"><span role="status" aria-label="In progress" class="[^"]*animate-spin/);
-    expect(html).toMatch(/data-state="done"><span class="[^"]*text-emerald-400">✓/);
-    expect(html).toMatch(/data-state="waiting"><span class="[^"]*">○/);
-    expect(html).not.toContain("●");
+    expect(html).toMatch(/data-state="done"><span class="[^"]*bg-success[^"]*"><svg[^>]*aria-label="Done"/);
+    expect(html).toMatch(/data-state="waiting"><span class="[^"]*"><span class="[^"]*border-muted-foreground/);
+    expect(html).not.toContain('aria-label="Paused"');
   });
 
   it("does not spin while Devin waits for a reply", () => {
@@ -121,7 +121,7 @@ describe("RunView", () => {
     };
     const html = render(payload({ frames: [...editing.slice(0, -1), waiting], latest: waiting }));
     expect(html).not.toContain("animate-spin");
-    expect(html).toMatch(/data-state="active"><span class="[^"]*text-amber-400">●/);
+    expect(html).toMatch(/data-state="active"><span class="[^"]*"><span class="[^"]*bg-warning" aria-label="Paused"/);
   });
 
   it("stops spinning and shows the last update once the run has ended", () => {
@@ -129,6 +129,6 @@ describe("RunView", () => {
     const html = render({ ...p, run: { ...p.run, status: "stopped" } });
     expect(html).toContain("Devin’s last update");
     expect(html).not.toContain("animate-spin");
-    expect(html).toMatch(/data-state="active"><span class="[^"]*text-amber-400">●/);
+    expect(html).toMatch(/data-state="active"><span class="[^"]*"><span class="[^"]*bg-warning" aria-label="Paused"/);
   });
 });

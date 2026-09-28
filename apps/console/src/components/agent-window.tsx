@@ -65,12 +65,7 @@ export function AgentWindow({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [toggleAgent]);
 
-  const label =
-    agentFocus?.kind === "handoff"
-      ? "Request"
-      : agentFocus?.kind === "run"
-        ? "Live run"
-        : source;
+  const label = agentFocus ? "" : source;
   const title =
     agentFocus?.kind === "handoff"
       ? agentFocus.offer.title
@@ -86,16 +81,16 @@ export function AgentWindow({
         <DialogTitle className="sr-only">Devin</DialogTitle>
         <Panel
           title={
-            <span className="flex min-w-0 items-center gap-2" title={title}>
-              <Icon name="Sparkles" className="size-4 shrink-0 text-info" />
+            <span className="flex min-w-0 items-center gap-2.5 text-base" title={title}>
+              <Icon name="Sparkles" className="size-5 shrink-0 text-info" />
               <span className="min-w-0 truncate" data-testid="agent-window-title">
                 {title}
               </span>
             </span>
           }
-          headerClassName="border-info/20 bg-info/10 pr-12"
-          actions={<span className="text-[10px] text-muted-foreground">{label}</span>}
-          className="h-[80vh] rounded-none border-0"
+          headerClassName="min-h-14 border-info/20 bg-info/10 px-5 pr-12"
+          actions={label ? <span className="text-xs text-muted-foreground">{label}</span> : undefined}
+          className="max-h-[85vh] rounded-none border-0"
           bodyClassName="flex flex-col"
         >
           <AgentWindowContent onRunTitle={onRunTitle}>{children}</AgentWindowContent>

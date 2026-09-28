@@ -46,10 +46,7 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
       className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-5 text-sm"
       data-testid="handoff-panel"
     >
-      <div className="space-y-1">
-        <h3 className="text-base font-semibold">{offer.title}</h3>
-        <p className="text-muted-foreground">{offer.description}</p>
-      </div>
+      <p className="text-muted-foreground">{offer.description}</p>
 
       {!offer.live ? (
         <div
@@ -61,8 +58,8 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
         </div>
       ) : null}
 
-      <div className="space-y-2 rounded-md border border-border bg-muted/20 p-3">
-        <div className="text-xs font-medium text-muted-foreground">What Devin will see</div>
+      <div className="space-y-2 rounded-lg border border-info/30 bg-info/10 px-4 py-3">
+        <div className="text-xs font-semibold text-info">What Devin will see</div>
         {offer.reverses ? (
           <p>
             The change to undo: <span className="font-mono">{offer.reverses.runId}</span>
