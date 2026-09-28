@@ -52,6 +52,7 @@ KYC:
 
 7. Approving a case whose email matches a customer in a held cluster needs a manager, whatever the risk score. The trace names `linked_refund_hold`.
 8. A case whose customer has no held refunds is unchanged. Score 68 still clears.
+9. The existing KYC and refund tests that count or order the rules are changed on purpose and named in the plan; no test is lost.
 
 ### Constraints
 
