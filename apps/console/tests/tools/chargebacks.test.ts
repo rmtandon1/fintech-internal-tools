@@ -99,7 +99,7 @@ describe("chargebacks seed", () => {
 
   it("sorts the queue by soonest deadline", () => {
     const { rows } = chargebackTool.list({ filters: {}, limit: 100, offset: 0 });
-    const due = rows.map((r) => r.dueAt);
+    const due = rows.map((r) => Number(r.dueAt));
     expect(due).toEqual([...due].sort((a, b) => a - b));
   });
 });
