@@ -1,4 +1,4 @@
-# Loom Video Script: After Power Apps, Rules, Connectors and Apps
+# 5-Minute Loom Video Script: Devin-Driven Ownership of Platform Tools
 
 **The one message.** After Power Apps, your team asks, Devin builds, and an engineer approves, whether it's a rule, a manual step or a whole new app.
 
