@@ -2,7 +2,7 @@
 
 Troubleshooting write-up for the one challenge the Loom script names: a pull request merged on
 GitHub while the console kept serving the code from before the merge. Found and fixed on
-28 September 2026, across the Chargebacks merge (#62) and the two fixes it exposed (#70, #72).
+28 September 2026, across the Chargebacks merge (#62) and the fixes it exposed (#70, #72, #73).
 All fixes are on `cognition-dashboard-devin-integration`.
 
 ## Why this was predictable
@@ -64,7 +64,7 @@ install, migrate and register hooks are wired in `apps/console/src/lib/bridge.ts
 - **Sync with GitHub** on `/runs` (`reconcileRuns`) re-reads every approved run's pull request,
   records each merge once, and pulls for the newest.
 - A merged run offers **Pull merged code** to engineers until `isSynced` holds: the merge commit
-  is on `HEAD` and no migration is pending.
+  is on `HEAD`, installed dependencies match the lockfile (#73) and no migration is pending.
 
 ### Layer 2 · Pull only what's safe to pull
 
@@ -114,17 +114,10 @@ A skipped or failed sync says why: `pull skipped: working tree has uncommitted c
 | `pull skipped: checkout is not on cognition-dashboard-devin-integration` | Detached `HEAD`, often after checking out a tag | `git checkout -B cognition-dashboard-devin-integration <tag>` |
 | `pull skipped: working tree has uncommitted changes` | Local edits, or stray `runs/<id>/` folders from stopped runs | Commit or remove them, then click again |
 | `pull failed: … is not on HEAD after the pull` | The remote branch doesn't contain the merge commit | Check `SYNC_REMOTE` and `SYNC_BRANCH`, then `git fetch` |
-| `pull failed: pnpm install failed: …` | Install error, usually network or a lockfile out of date on the branch | Fix the error and click again; the lagging lockfile retriggers the install |
+| `pull failed: pnpm install failed: …` | Install error, usually network or a lockfile out of date on the branch | Fix the error and click again; the button stays offered and the lagging lockfile retriggers the install |
 | `pull failed: db:migrate failed: …` | A migration errored | Fix it and click again; pending migrations keep the button offered |
 | `Module not found: Can't resolve '@console/…'` with no failed toast | The install ran outside the console, or not at all | `pnpm install`, then reload |
 | New app's tile shows **Switched off** | Working as intended | Admin → **Feature flags** → **Enable** |
-
-## Known limitation
-
-`isSynced` checks the merge commit and pending migrations, not the installed lockfile. If an
-install fails on a merge that has no migration, the toast reports the failure but the run stops
-offering **Pull merged code**. Recover with `pnpm install` in the checkout, or **Sync with GitHub**
-on `/runs`, which runs the sync again.
 
 ## Tests
 
@@ -138,6 +131,7 @@ on `/runs`, which runs the sync again.
 - fails without migrating when pnpm install fails, and retries it on the next call
 - runs db:migrate only while migrations are pending
 - isSynced stays false while migrations are pending
+- isSynced stays false while dependencies lag the lockfile
 - records one record_merge per merged run and pulls once
 
 `apps/console/tests/lib/modes.test.ts` covers `ensureModeFlags` idempotency.

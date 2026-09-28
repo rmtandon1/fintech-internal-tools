@@ -43,7 +43,7 @@ export function runChecklist(out: Output | null): ChecklistLine[] {
     });
   }
 
-  const tests = out.verify_steps.find((s) => s.name === "tests");
+  const tests = out.verify_steps.find((s) => s.name === "Test");
   if (tests && tests.before !== undefined) {
     const baselineFailed = tests.pass === false && tests.after === undefined;
     lines.push({
