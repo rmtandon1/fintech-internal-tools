@@ -1,0 +1,63 @@
+{
+  "files": [
+    {
+      "path": "tools/kyc/src/companies-house.ts",
+      "op": "create",
+      "reason": "Companies House company-profile lookup by registration number: live GET /company/{number} with the API key as HTTP Basic username when COMPANIES_HOUSE_API_KEY is set, recorded responses labelled test data otherwise; maps dissolved, liquidation and overdue accounts to material Declared vs found rows and timeout, error or unknown number to couldn't check"
+    },
+    {
+      "path": "tools/kyc/src/companies-house-recorded.ts",
+      "op": "create",
+      "reason": "Recorded Companies House responses used without an API key; 09318842 is late with its accounts"
+    },
+    {
+      "path": "tools/kyc/src/index.ts",
+      "op": "modify",
+      "reason": "Add the check_companies_house KYC action, run through executeIntent, that writes the company_registry check to kyc_checks and findings to kyc_discrepancies; a deny rule keeps it to UK business cases; approval stays held by the existing declared_vs_found rule"
+    },
+    {
+      "path": ".env.example",
+      "op": "modify",
+      "reason": "Document the server-only COMPANIES_HOUSE_API_KEY and what happens without it"
+    },
+    {
+      "path": "apps/console/tests/tools/kyc-companies-house.test.ts",
+      "op": "create",
+      "reason": "Cover UK business only, no write on open, recorded test data, 09318842 overdue, active, dissolved, liquidation, not found, API error, timeout, live key handling without a live call, and no duplicate rule"
+    }
+  ],
+  "reuses": [
+    {
+      "module": "@console/engine/execute-intent",
+      "reason": "The lookup is a KYC action on the single governed write path, so it is validated, audited and idempotent like every other write"
+    },
+    {
+      "module": "tools/kyc/src/case-file.ts",
+      "reason": "CheckResult, KycDiscrepancy and the live materialDifferences count carry the result to the Checks and Declared vs found panels"
+    },
+    {
+      "module": "tools/kyc/src/index.ts#declaredVsFound",
+      "reason": "Material Companies House rows are held for a KYC manager by the existing declared_vs_found rule; no new approval rule"
+    },
+    {
+      "module": "tools/kyc/src/schema.ts",
+      "reason": "Results are stored in the existing kyc_checks and kyc_discrepancies tables; no migration"
+    }
+  ],
+  "acceptance": [
+    "only UK business cases are checked; consumer and non-UK cases are untouched",
+    "opening a case writes nothing; the lookup runs only from the check_companies_house action",
+    "without COMPANIES_HOUSE_API_KEY the recorded response is used and labelled test data",
+    "09318842 is late with its accounts and declared_vs_found holds approval for a manager",
+    "an active company with its accounts up to date clears and approves straight through",
+    "a dissolved company is a material difference",
+    "a company in liquidation is a material difference",
+    "an unknown number shows couldn't check and holds approval",
+    "an API error shows couldn't check and holds approval",
+    "a timeout shows couldn't check and holds approval",
+    "with COMPANIES_HOUSE_API_KEY the lookup sends the key by Basic auth and the result is not test data",
+    "the live transport reports a refused connection as couldn't check",
+    "the API key never reaches the check, the register, the audit trail or the log",
+    "re-running the check replaces its own rows and approve gains no new rule"
+  ]
+}
