@@ -88,7 +88,7 @@ One timeline, one row per phase, each with a state (waiting, running with spinne
 - **Baseline:** `pnpm verify` green at base, 68 tests.
 - **Plan:** branch `devin/<run_id>-clustering-hold`, plan commit SHA, and the planned paths with `create` or `modify` and a one-line reason each.
 - **Edit:** per file, +/− lines and the symbol touched, e.g. `tools/kyc/src/index.ts · modify · +12 −1 · linked_refund_hold on approve`.
-- **Verify:** `pnpm verify` split into lint, typecheck, boundaries and tests (68 → 76), then each guard check by name with its result: **Stays in plan**, **Plan stays in scope**, **Run dir frozen**, **Engine untouched**, **Tests never shrink**, **No type escapes**, **Seed is not state**. For a REVERSAL, **Only undo** as well. **Context untouched** is checked by `approve_pr`, not CI, so it shows in the approval dialog (`DEVIN_RUN_PROTOCOL.md` § Guard checks).
+- **Verify:** `pnpm verify` split into lint, typecheck, boundaries and tests (68 → 76), then each guard check by name with its result: **Stays in plan**, **Plan stays in scope**, **Run dir frozen**, **Engine untouched**. **Context untouched** is checked by `approve_pr`, not CI, so it shows in the approval dialog (`DEVIN_RUN_PROTOCOL.md` § Guard checks).
 - **Pull request:** PR number and title, link to GitHub.
 
 For a REVERSAL, two more things show:

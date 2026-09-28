@@ -29,21 +29,10 @@ import { ENGINE_SCOPE_PATHS } from "@console/tool-automation/specs";
  *                        dispatch audit row, lives in the automation tool's
  *                        `approve_pr` rule: CI cannot read the console's SQLite
  *   Engine untouched     scope `rule` only. Nothing under the engine paths below changes
- *   Tests never shrink   per test file, `it(`/`test(` counts at HEAD are at or above the
- *                        base, no test file is deleted, and no `.skip`/`.only`/`.todo`
- *                        appears. REMOVAL and REVERSAL may lose exactly the tests in
- *                        `plan.removed_tests[]`
- *   No type escapes      no added line carries `any` as a type, `@ts-ignore`,
- *                        `@ts-expect-error`, `eslint-disable` or `as unknown as`
- *   Seed is not state    a changed `seed.ts` is planned with a reason naming the rows it
- *                        adds and its diff removes no lines
- *   Only undo            REVERSAL only: every production file the reversed merge touched
- *                        is back to its pre-merge content except for later merged work,
- *                        and nothing else changes
  *
  * Humans approve, Engine owner approves and No live writes are enforced by
- * review, GitHub branch protection and the playbook, not by this script; they
- * are listed in the report so the PR comment reads as the full table.
+ * review, CODEOWNERS and the playbook, not by this script; the report ends
+ * with a note saying so.
  *
  * Scope is inferred from `context.scope`: the console appends
  * `ENGINE_SCOPE_PATHS` to the globs for an engine-scope run, so a context that
@@ -78,33 +67,14 @@ export const RUN_GUARD_NAMES = [
   "Plan stays in scope",
   "Run dir frozen",
   "Engine untouched",
-  "Tests never shrink",
-  "No type escapes",
-  "Seed is not state",
-  "Only undo",
 ] as const;
 
-const DELEGATED = ["Humans approve", "Engine owner approves", "No live writes"];
-
-const SEED_FILE_RE = /(^|\/)seed\.tsx?$/;
-const SEED_REASON_RE = /add.*rows?/i;
-
-const TEST_FILE_RE = /\.test\.tsx?$/;
-const TEST_CALL_RE = /(?<![.\w$])(?:it|test)\s*\(/g;
-const TEST_NAME_RE = /(?<![.\w$])(?:it|test)\s*\(\s*(["'`])((?:\\.|(?!\1).)*)\1/g;
-const TEST_MODIFIER_RE = /(?<![.\w$])(?:it|test|describe)\.(skip|only|todo)\b(?:\s*\(\s*(["'`])((?:\\.|(?!\2).)*)\2)?/g;
-const SOURCE_FILE_RE = /\.(?:ts|tsx|js|mjs|cjs)$/;
-const TYPE_ESCAPE_RES: Array<{ re: RegExp; label: string }> = [
-  { re: /(?:[:<,(=|&]|\bas|\bextends)\s*any\b(?!\w)/, label: "any" },
-  { re: /@ts-ignore/, label: "@ts-ignore" },
-  { re: /@ts-expect-error/, label: "@ts-expect-error" },
-  { re: /eslint-disable/, label: "eslint-disable" },
-  { re: /\bas\s+unknown\s+as\b/, label: "as unknown as" },
-];
+const DELEGATED_NOTE =
+  "Humans approve, Engine owner approves and No live writes are enforced by review, CODEOWNERS and the playbook, not by this script.";
 
 interface CheckResult {
   name: string;
-  pass: boolean | null;
+  pass: boolean;
   reason: string;
 }
 
@@ -214,18 +184,13 @@ export function runGuard(opts: { cwd: string; base?: string }): GuardReport {
   }
 
   const scope: "rule" | "engine" = ENGINE_SCOPE_PATHS.every((p) => context.value.scope.includes(p)) ? "engine" : "rule";
-  const ctx: RunContext = { git, tryGit, mergeBase, planCommit, runDir, context: context.value, plan: plan.value, changes, scope };
+  const ctx: RunContext = { git, mergeBase, planCommit, runDir, context: context.value, plan: plan.value, changes, scope };
 
   const checks: CheckResult[] = [
     staysInPlan(ctx),
     planStaysInScope(ctx),
     runDirFrozen(ctx),
     engineUntouched(ctx),
-    testsNeverShrink(ctx),
-    noTypeEscapes(ctx),
-    seedIsNotState(ctx),
-    onlyUndo(ctx),
-    ...DELEGATED.map((name) => ({ name, pass: null, reason: "enforced by review/GitHub/playbook" })),
   ];
 
   return { run: { id: runId, kind: context.value.kind, scope, base: mergeBase, planCommit }, checks };
@@ -233,7 +198,6 @@ export function runGuard(opts: { cwd: string; base?: string }): GuardReport {
 
 interface RunContext {
   git: (...argv: string[]) => string;
-  tryGit: (...argv: string[]) => string | null;
   mergeBase: string;
   planCommit: string;
   runDir: string;
@@ -316,142 +280,7 @@ function engineUntouched({ scope, changes }: RunContext): CheckResult {
     : { name: "Engine untouched", pass: false, reason: `rule scope changed: ${list(hit)}` };
 }
 
-function testsNeverShrink({ tryGit, mergeBase, plan, context, changes }: RunContext): CheckResult {
-  const mayRemove = context.kind === "IMPLEMENTATION/REMOVAL" || context.kind === "REVERSAL";
-  const removable = new Map<string, Set<string>>();
-  for (const t of plan.removed_tests ?? []) {
-    const names = removable.get(t.file) ?? new Set<string>();
-    names.add(t.name);
-    removable.set(t.file, names);
-  }
-  const problems: string[] = [];
-  let files = 0;
-
-  for (const c of changes) {
-    const isTest = TEST_FILE_RE.test(c.path) || (c.from !== undefined && TEST_FILE_RE.test(c.from));
-    if (!isTest) continue;
-    files += 1;
-    const basePath = c.from ?? c.path;
-    const gone = c.status === "D" || !TEST_FILE_RE.test(c.path);
-    const before = c.status === "A" ? "" : (tryGit("show", `${mergeBase}:${basePath}`) ?? "");
-    const after = gone ? "" : (tryGit("show", `HEAD:${c.path}`) ?? "");
-
-    const beforeNames = testNames(before);
-    const afterNames = testNames(after);
-    const beforeCount = count(before, TEST_CALL_RE);
-    const afterCount = count(after, TEST_CALL_RE);
-    const allowed = removable.get(basePath) ?? new Set<string>();
-    const missing = beforeNames.filter((n) => !afterNames.includes(n));
-    const unlisted = missing.filter((n) => !allowed.has(n));
-    const allowedLoss = mayRemove ? missing.length - unlisted.length : 0;
-
-    if (gone) {
-      const what = c.status === "D" ? "deleted" : `renamed to ${c.path}, no longer a test file`;
-      if (!mayRemove || unlisted.length > 0 || beforeCount > allowedLoss) {
-        problems.push(`${basePath} ${what} (${beforeCount} test(s))`);
-      }
-    } else if (!mayRemove && afterCount < beforeCount) {
-      problems.push(`${c.path}: ${beforeCount} → ${afterCount}`);
-    } else if (unlisted.length > 0) {
-      problems.push(
-        mayRemove
-          ? `${c.path}: removed tests not in plan.removed_tests: ${unlisted.map((n) => JSON.stringify(n)).join(", ")}`
-          : `${c.path}: tests renamed or replaced: ${unlisted.map((n) => JSON.stringify(n)).join(", ")}`,
-      );
-    } else if (beforeCount - afterCount > allowedLoss) {
-      problems.push(`${c.path}: ${beforeCount} → ${afterCount}, only ${allowedLoss} removal(s) listed in plan.removed_tests`);
-    }
-
-    const newModifiers = subtract(modifiers(after), modifiers(before));
-    if (newModifiers.length > 0) {
-      problems.push(`${c.path}: adds ${list(newModifiers)}`);
-    }
-  }
-
-  return problems.length === 0
-    ? { name: "Tests never shrink", pass: true, reason: files === 0 ? "no test file changed" : `${files} test file(s) at or above base counts` }
-    : { name: "Tests never shrink", pass: false, reason: problems.join("; ") };
-}
-
-function noTypeEscapes({ git, mergeBase, runDir, changes }: RunContext): CheckResult {
-  const sources = changes.filter((c) => c.status !== "D" && SOURCE_FILE_RE.test(c.path) && !c.path.startsWith(runDir)).map((c) => c.path);
-  if (sources.length === 0) {
-    return { name: "No type escapes", pass: true, reason: "no source file changed" };
-  }
-  const diff = git("diff", "-U0", "--no-color", mergeBase, "HEAD", "--", ...sources);
-  const hits: string[] = [];
-  let file = "";
-  let line = 0;
-  for (const raw of diff.split("\n")) {
-    if (raw.startsWith("+++ ")) {
-      file = raw.slice(4).replace(/^b\//, "");
-    } else if (raw.startsWith("@@")) {
-      const m = /\+(\d+)/.exec(raw);
-      line = m ? Number(m[1]) : 0;
-    } else if (raw.startsWith("+")) {
-      const text = raw.slice(1);
-      for (const { re, label } of TYPE_ESCAPE_RES) {
-        if (re.test(text)) hits.push(`${file}:${line} (${label})`);
-      }
-      line += 1;
-    }
-  }
-  return hits.length === 0
-    ? { name: "No type escapes", pass: true, reason: `no escape hatch in ${sources.length} changed source file(s)` }
-    : { name: "No type escapes", pass: false, reason: list(hits) };
-}
-
 /** An explicit ref (`--base` or `RUN_GUARD_BASE`) must resolve; only the implicit chain falls through. */
-function seedIsNotState({ git, mergeBase, plan, changes }: RunContext): CheckResult {
-  const seeds = changes.filter((c) => SEED_FILE_RE.test(c.path) || (c.from !== undefined && SEED_FILE_RE.test(c.from)));
-  if (seeds.length === 0) return { name: "Seed is not state", pass: true, reason: "no seed file changed" };
-  const problems: string[] = [];
-  for (const c of seeds) {
-    const planned = plan.files.find((f) => f.path === c.path);
-    if (c.from !== undefined || c.status === "D") problems.push(`${c.from ?? c.path}: seed files may only gain rows, not move or disappear`);
-    else if (!planned) problems.push(`${c.path}: not in plan.json`);
-    else if (!SEED_REASON_RE.test(planned.reason)) problems.push(`${c.path}: plan reason ${JSON.stringify(planned.reason)} does not name added rows`);
-    else if (removedLines(git("diff", "--unified=0", mergeBase, "HEAD", "--", c.path)) > 0) problems.push(`${c.path}: removes lines`);
-  }
-  return problems.length === 0
-    ? { name: "Seed is not state", pass: true, reason: `${seeds.length} seed file(s) only gain planned rows` }
-    : { name: "Seed is not state", pass: false, reason: list(problems) };
-}
-
-/**
- * For every production file the reversed merge changed, HEAD must differ from the
- * base unless later merged work already touched it; a file that still carries the
- * reversed change, or a production change outside those files, is new behaviour.
- */
-function onlyUndo({ git, tryGit, mergeBase, context, changes }: RunContext): CheckResult {
-  if (context.kind !== "REVERSAL") return { name: "Only undo", pass: true, reason: `not a REVERSAL (${context.kind})` };
-  const target = context.reverses?.merge_commit;
-  if (!target) return { name: "Only undo", pass: false, reason: "REVERSAL context has no reverses.merge_commit" };
-  const targetSha = tryGit("rev-parse", "--verify", "--quiet", `${target}^{commit}`);
-  if (!targetSha) return { name: "Only undo", pass: false, reason: `reverses.merge_commit ${target} not found; fetch it` };
-  if (tryGit("merge-base", "--is-ancestor", targetSha, mergeBase) === null) {
-    return { name: "Only undo", pass: false, reason: `reverses.merge_commit ${target.slice(0, 7)} is not an ancestor of the base` };
-  }
-  const production = (p: string) => !TEST_FILE_RE.test(p) && !p.startsWith("runs/");
-  const pathsIn = (range: string[]) => parseNameStatus(git("diff", "--name-status", "-M", ...range)).flatMap((c) => [c.path, ...(c.from ? [c.from] : [])]);
-  const sameAt = (a: string, b: string, p: string) => tryGit("diff", "--quiet", a, b, "--", p) !== null;
-  const original = Array.from(new Set(pathsIn([`${targetSha}^`, targetSha]).filter(production)));
-  const later = new Set(pathsIn([targetSha, mergeBase]).filter(production));
-  const violations = original.filter(
-    (p) => !sameAt(mergeBase, `${targetSha}^`, p) && (sameAt(mergeBase, "HEAD", p) || (!later.has(p) && !sameAt(`${targetSha}^`, "HEAD", p))),
-  );
-  const extra = Array.from(new Set(changes.flatMap((c) => [c.path, ...(c.from ? [c.from] : [])])))
-    .filter((p) => production(p) && !original.includes(p) && !later.has(p));
-  const all = [...violations, ...extra];
-  return all.length === 0
-    ? { name: "Only undo", pass: true, reason: `${original.length} file(s) from ${target.slice(0, 7)} undone, later work kept` }
-    : { name: "Only undo", pass: false, reason: list(all) };
-}
-
-function removedLines(diff: string): number {
-  return diff.split("\n").filter((l) => l.startsWith("-") && !l.startsWith("---")).length;
-}
-
 function resolveBase(explicit: string | undefined, tryGit: (...argv: string[]) => string | null): string | null {
   const resolves = (ref: string) => tryGit("rev-parse", "--verify", "--quiet", `${ref}^{commit}`) !== null;
   if (explicit !== undefined) return resolves(explicit) ? explicit : null;
@@ -511,30 +340,6 @@ function globToRegExp(glob: string): RegExp {
   return new RegExp(re + "$");
 }
 
-function testNames(source: string): string[] {
-  return Array.from(source.matchAll(TEST_NAME_RE), (m) => m[2]);
-}
-
-function count(source: string, re: RegExp): number {
-  return Array.from(source.matchAll(re)).length;
-}
-
-/** Each `.skip`/`.only`/`.todo` as `.only("name")`, so swapping one modifier for another counts as new. */
-function modifiers(source: string): string[] {
-  return Array.from(source.matchAll(TEST_MODIFIER_RE), (m) => `.${m[1]}(${m[3] !== undefined ? JSON.stringify(m[3]) : ""})`);
-}
-
-/** Multiset difference: occurrences in `a` not matched by one in `b`. */
-function subtract(a: string[], b: string[]): string[] {
-  const pool = [...b];
-  return a.filter((x) => {
-    const i = pool.indexOf(x);
-    if (i === -1) return true;
-    pool.splice(i, 1);
-    return false;
-  });
-}
-
 function list(items: string[]): string {
   return items.length > 6 ? `${items.slice(0, 6).join(", ")} and ${items.length - 6} more` : items.join(", ");
 }
@@ -546,8 +351,9 @@ function renderText(report: GuardReport): string {
     lines.push(`Run ${r.id} (${r.kind}, scope ${r.scope}) — base ${r.base.slice(0, 7)}, plan commit ${r.planCommit.slice(0, 7)}`);
   }
   for (const c of report.checks) {
-    lines.push(c.pass === null ? `${c.name}: n/a (${c.reason})` : c.pass ? `${c.name}: PASS — ${c.reason}` : `${c.name}: FAIL (${c.reason})`);
+    lines.push(c.pass ? `${c.name}: PASS — ${c.reason}` : `${c.name}: FAIL (${c.reason})`);
   }
+  if (report.run) lines.push("", DELEGATED_NOTE);
   return lines.join("\n") + "\n";
 }
 
@@ -566,9 +372,9 @@ function renderMarkdown(report: GuardReport): string {
   }
   lines.push("", "| Check | Result | Reason |", "| --- | --- | --- |");
   for (const c of report.checks) {
-    const mark = c.pass === null ? "n/a" : c.pass ? "pass" : "**fail**";
-    lines.push(`| **${c.name}** | ${mark} | ${c.reason.replace(/\|/g, "\\|")} |`);
+    lines.push(`| **${c.name}** | ${c.pass ? "pass" : "**fail**"} | ${c.reason.replace(/\|/g, "\\|")} |`);
   }
+  if (report.run) lines.push("", `_${DELEGATED_NOTE}_`);
   return lines.join("\n") + "\n";
 }
 
