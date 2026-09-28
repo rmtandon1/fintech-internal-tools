@@ -34,21 +34,33 @@ launch. Devin handles three kinds of work, each started from the screen that sho
 
 ## Features
 
-### Managed apps and records
+### Live Apps (3 total)
 
-| Area | Count | Examples |
-|---|---|---|
-| Live apps | 3 | **KYC review** (104 cases), **Refunds** (14 requests), **Feature flags** (11 flags) |
-| Coming soon apps | 17 | Chargebacks, Transaction monitoring, Sanctions screening, Wire release, Pricing |
-| App areas | 4 | Compliance, Money movement, Customers, Platform |
-| Policy rules | Per app | `amount_approval`, `goodwill_approval`, `declared_vs_found`, `production_enable`, `rollout_increase` |
-| Live settings | Per app | `refunds.manager_approval_usd_minor` ($500), `kyc.manager_review_score` (70), `flags.rollout_step_needs_manager_percent` (25) |
-| Roles | 5 switchable | Refunds agent, Refunds manager, KYC reviewer, Admin, Engineer |
-| Devin briefs | 3 | Refund clustering hold, Companies House check, Chargebacks from Power Apps |
-
-Every app, live or not, gets seven controls from the engine the moment it is registered: role
-access, a policy check on every action, approvals, live settings, protection against double
-submits, masked personal data and one audit log.
+### Managed apps and records  
+  
+The console manages three live apps today, with seventeen more registered and  
+marked coming soon:  
+  
+| App | Area | What it holds |  
+|---|---|---|  
+| **KYC review** | Compliance | 104 onboarding cases awaiting review |  
+| **Refunds** | Money movement | 14 refund requests, several needing manager approval |  
+| **Feature flags** | Platform | 11 flags at different rollout stages |  
+  
+The seventeen coming-soon apps include Chargebacks, Transaction monitoring,  
+Sanctions screening, Wire release and Pricing, spread across four areas:  
+Compliance, Money movement, Customers and Platform.  
+  
+- **Roles:** five switchable — Refunds agent, Refunds manager, KYC reviewer,  
+  Admin, Engineer  
+- **Devin briefs:** three prepared — refund clustering hold, Companies House  
+  check, Chargebacks migration from Power Apps  
+  
+Every app, live or not, gets seven controls from the engine the moment it is  
+registered: role access, a policy check on every action, approvals, live  
+settings, protection against double submits, masked personal data and one  
+audit log. The per-app rules and settings that power those controls are listed  
+in [Managed entity schema](#managed-entity-schema).
 
 ### Console capabilities
 
@@ -82,7 +94,7 @@ submits, masked personal data and one audit log.
 
 ### System overview
 
-```
+```text
                  Refunds agent · Refunds manager · KYC reviewer · Admin · Engineer
                                             │  "Viewing as" (signed cookie)
                                             ▼
@@ -126,7 +138,7 @@ Three rules hold the layers apart:
 
 Each role works its own queue, and the engine carries work across apps and across people:
 
-```
+```text
  Refunds agent ──sends refund──▶ Refunds ──over the limit──▶ Inbox ──▶ Refunds manager approves
                                    │
                                    │ same customer (email)
@@ -152,46 +164,37 @@ page.
 
 ### The Devin loop, end to end
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor M as Refunds manager
-    participant UI as Console (browser)
-    participant S as Console server
-    participant E as Engine + SQLite
-    participant D as Devin v3 API
-    participant G as GitHub
-    actor Eng as Engineer
-
-    M->>UI: Ask Devin for a rule → Send to Devin
-    UI->>S: dispatchAutomationRun(intent, evidence)
-    S->>E: executeIntent(dispatch): role, one run per app
-    E-->>S: devin_runs row + audit row
-    S->>S: write runs/{id}/context.json (no personal data)
-    S->>D: POST attachments, POST sessions (playbook, prompt)
-    S->>E: executeIntent(record_session)
-    loop every 2 s while the run view is open
-        UI->>S: GET /api/devin/{runId}
-        S->>D: GET sessions/{id}
-        D-->>S: status, structured_output (phase, files, checks)
-        S-->>UI: run view: checklist ○ → ● → ✓
-    end
-    D->>G: push devin/{id}-{slug}, open PR, CI runs pnpm verify
-    S->>E: record_pr (first time pr_url appears)
-    Eng->>UI: Review and approve → Approve as engineer
-    S->>G: read checks + context.json hash
-    S->>E: executeIntent(approve_pr)
-    S->>G: POST review (APPROVE)
-    S->>D: message: merge
-    D->>G: squash-merge
-    UI->>S: GET /api/devin/{runId}
-    S->>G: GET pulls/{n} → merged
-    S->>E: record_merge
-    S-->>UI: Merged
-    Eng->>UI: Pull merged code
-    S->>S: git pull --ff-only, pnpm install if packages changed, pnpm db:migrate, load new settings
-    S-->>UI: Local code updated · pulled a1b2c3d → e4f5a6b
+```text
++-----------+     +------------------+     +--------------+     +-------------------+
+|  Request  | --> |  Devin session   | --> | Pull request | --> | Engineer approval |
+| (console) |     | + committed plan |     |   (GitHub)   |     | (not requester)   |
++-----------+     +------------------+     +--------------+     +---------+---------+
+                                                                          |
+                                     +-----------------------+            v
+                                     | Console pulls / syncs | <--  +-----------+
+                                     |  (Pull merged code)   |      |   Merge   |
+                                     +-----------------------+      +-----------+
 ```
+
+Safeguards:
+
+- **Dispatch rules.** The request runs through `executeIntent(dispatch)`, which checks the role and
+  allows one run in flight per app. The server then writes `runs/{id}/context.json` (no personal
+  data) and opens the Devin session with the playbook and prompt.
+- **Five audit rows.** A run on the normal path writes `dispatch`, `record_session`, `record_pr`
+  (the first time `pr_url` appears), `approve_pr` and `record_merge`, each through `executeIntent`.
+- **2 s polling loop.** While the run view is open, the browser calls `GET /api/devin/{runId}` every
+  2 s; the server reads the Devin session (status and `structured_output`: phase, files, checks)
+  and the run view's checklist moves ○ → ● → ✓.
+- **Run guard checks.** Devin pushes `devin/{id}-{slug}` and opens the PR; CI runs `pnpm verify`,
+  including the run guard (**Stays in plan**, **Plan stays in scope**, **Run dir frozen**,
+  **Shared code reported**).
+- **Context-hash check at approval.** **Approve as engineer** reads the CI checks and the
+  `context.json` hash from GitHub (**Context untouched**) before `approve_pr`, then posts the
+  GitHub review (APPROVE) and messages Devin to merge. Devin squash-merges.
+- **Merge detection and sync.** The next poll sees `GET pulls/{n}` report merged and records
+  `record_merge`. **Pull merged code** runs `git pull --ff-only`, `pnpm install` if packages
+  changed, `pnpm db:migrate` and loads new settings, then shows the pulled commit range.
 
 Deeper diagrams live in [`docs/ARCHITECTURE_DIAGRAM.md`](docs/ARCHITECTURE_DIAGRAM.md), including
 a map from what operators see to the code Devin changes.
@@ -200,7 +203,7 @@ a map from what operators see to the code Devin changes.
 
 ## Project structure
 
-```
+```text
 fintech-internal-tools/
 ├── apps/
 │   └── console/                     # The Next.js app: routes, server actions, registry, migrations, tests
@@ -383,10 +386,6 @@ Install-time problems, with commands to copy, are in [`docs/SETUP.md`](docs/SETU
 ---
 
 ## Usage
-
-Each workflow below uses the seeded data, so the values match what you'll see. Pick the role in
-**Viewing as** at the top of the page before each step. Steps marked *instant* change the screen
-at once; steps marked *async* wait on Devin, GitHub and an engineer.
 
 ### 1. Add a rule
 
@@ -676,7 +675,7 @@ The post-merge rows came out of one diagnosed problem, post-merge deployment dri
 
 Find the layer first, then the symptom.
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────────┐
 │ 1  BROWSER       Wrong role? Stale tab? Role cookie from before reset? │
 ├──────────────────────────────────────────────────────────────────────┤

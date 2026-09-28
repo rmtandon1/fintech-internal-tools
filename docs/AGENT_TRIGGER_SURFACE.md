@@ -43,7 +43,7 @@ Once the run starts, the same column becomes the run view.
 
 ## On camera
 
-This panel carries three lines of the demo pitch (`../CUSTOMER_FRAMING.md` § 4), so it has to make both visible without narration:
+This panel carries three lines of the demo pitch (`../CUSTOMER_FRAMING.md` › Demo pitch), so it has to make both visible without narration:
 
 - **"This is everything Devin sees."** The evidence block shows the four Kestrel amounts, the $500 and score-70 lines and base commit `1a67f60`, and no email or card number. If the presenter has to scroll to prove the PII is absent, the panel is too long.
 - **"The commitment comes before the first edit."** When the Plan phase lands, the run view lists the five planned paths, not just a count, so the viewer sees the commitment before the first edit — and the reviewer checks the diff against it.

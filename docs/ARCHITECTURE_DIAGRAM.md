@@ -1,6 +1,6 @@
 # Architecture: From one sentence to reviewed code
 
-```
+```text
 ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
 │ Refunds split   │ │ A rule that     │ │ A rule no       │ │ A check done    │ │ An app still in │
 │ under a limit   │ │ misfires        │ │ longer needed   │ │ by hand         │ │ Power Apps      │
@@ -47,7 +47,7 @@
 
 ## The three-layer system
 
-```
+```text
       Operations staff  ·  Managers  ·  Admins  ·  Engineers
                             │
                             ▼
@@ -96,7 +96,7 @@ Every write, whether a refund, a KYC decision, a flag change or a Devin request,
 six steps. Steps two to six share one database transaction, so an error at any point rolls back
 the whole request.
 
-```
+```text
  Request ──▶ Validate ──▶ Idempotency ──▶ Policy ──▶ Approval ──▶ Effect ──▶ Audit
                  │             │             │           │
                  ▼             ▼             ▼           ▼
@@ -148,7 +148,7 @@ query excludes the requester, so nobody can approve their own request.
 
 ## Integrations
 
-```
+```text
  Browser ──▶ Console server ──┬──▶ Devin API (v3) ....... start, poll, message and stop runs
                               ├──▶ GitHub REST API ...... PR status, checks, approving review
                               └──▶ Git and pnpm ......... pull merged code, migrate the database
@@ -170,44 +170,29 @@ and shows Devin as not connected.
 Operators ask in the words on their screen. Devin works out where that lives in the code. Each
 edge says what Devin (or, for settings, the admin) does to get from one side to the other.
 
-```mermaid
-flowchart LR
-    subgraph SCREEN["What the team sees and asks for"]
-        direction TB
-        S1["Kestrel Outdoors cluster<br/>4 refunds, $1,880<br/><i>Ask Devin for a rule</i>"]
-        S2["Refund held for a manager<br/>clustering_hold"]
-        S3["KYC case: approval<br/>needs a KYC manager"]
-        S4["Rule window: 14 days<br/>/admin/policy"]
-        S5["Thornbury Couriers<br/>Company registry: checked by hand<br/><i>Ask Devin to add a check</i>"]
-        S6["Chargebacks tile: Coming soon<br/><i>Ask Devin to start this app</i>"]
-        S7["Feature flag app.chargebacks<br/>Enable / Disable"]
-        S8["Merged run in /runs<br/><i>Undo this change</i>"]
-    end
-
-    subgraph CODE["What changes in the repository"]
-        direction TB
-        C1["tools/refunds/src/clustering-hold.ts"]
-        C2["tools/refunds/src/index.ts<br/>rule list of the execute action"]
-        C3["tools/kyc/src/index.ts<br/>linked_refund_hold"]
-        C4["setting refunds.clustering_window_days<br/>read by the rule, 0 = off"]
-        C5["tools/kyc/src/companies-house.ts<br/>+ recorded responses"]
-        C6["tools/chargebacks/**<br/>registry.ts · migration 0009"]
-        C7["tools/flags/src/seed.ts<br/>modes.ts flag field"]
-        C8["git revert -m 1 of the merge<br/>+ conflict resolution"]
-    end
-
-    S1 -- "creates the rule and its tests" --> C1
-    S2 -- "registers the rule on the refund action" --> C2
-    S3 -- "adds a rule reading held clusters" --> C3
-    S4 -- "makes the rule read it, with 0 as off" --> C4
-    S4 -. "admin edits the value, no Devin" .-> C4
-    S5 -- "reads the API docs, builds the client" --> C5
-    S5 -- "reuses declared_vs_found, no new rule" --> C3
-    S6 -- "migrates the Power Apps export" --> C6
-    S7 -- "seeds the flag off, sets the mode's flag" --> C7
-    S8 -- "removes the rule, keeps later work" --> C8
-    C8 -- "deletes" --> C1
+```text
+ON SCREEN                         IN CODE
+Kestrel: Ask for a rule        --> tools/refunds/src/clustering-hold.ts + tests
+Refund held: clustering_hold   --> tools/refunds/src/index.ts (execute action rules)
+KYC approval needs KYC manager --> tools/kyc/src/index.ts: linked_refund_hold
+Window 14 days, /admin/policy  --> setting refunds.clustering_window_days (0 = off)
+Thornbury: Add a check         --> tools/kyc/src/companies-house.ts + recorded responses
+Chargebacks: Start this app    --> tools/chargebacks/**, registry.ts, migration 0009
+Flag app.chargebacks on/off    --> tools/flags/src/seed.ts, modes.ts flag field
+/runs: Undo this change        --> git revert -m 1 of the merge + conflict resolution
 ```
+
+What Devin (or the admin) does on each line, top to bottom:
+
+- Creates the rule and its tests, then registers it on the refund action.
+- Adds a KYC rule that reads held clusters.
+- Makes the rule read the window setting, with 0 as off. After that the admin edits the value
+  directly, with no Devin run.
+- Reads the Companies House API docs and builds the client. The check reuses
+  `declared_vs_found` in `tools/kyc/src/index.ts` and adds no new rule.
+- Migrates the Power Apps export into a new app.
+- Seeds the flag off and sets the flag field on the app's mode.
+- Removes the rule and keeps later work. The undo deletes `clustering-hold.ts`.
 
 The same map, as a table:
 
@@ -222,64 +207,38 @@ The same map, as a table:
 
 ## Workflows
 
-### Add a rule
+Adding a rule, automating a check, migrating an app and removing a rule all go through Devin.
+Switching a rule off is a setting change. The operations table at the top of this page lists where
+each one starts and who approves it.
 
-The same flow applies to automating a check and migrating an app.
+```text
+DEVIN CHANGE (add, automate, migrate, remove)
+  Requester --> Console: records request, captures context, opens session
+            --> Devin: reads code, commits plan, writes code and tests, opens PR
+            --> GitHub: runs CI checks --> Console: records the PR
+            --> Engineer: reviews, approves
+            --> Console: checks CI and context, posts the review
+            --> Devin: merges --> Console: records merge, pulls, migrates, loads settings
+            --> Next request follows the new code
 
-```
- REQUESTER        CONSOLE                   DEVIN                 GITHUB            ENGINEER
- ─────────        ───────                   ─────                 ──────            ────────
- Describes the ─▶ Records the request
- rule in one      Captures context
- sentence         Opens a session ────────▶ Reads the code
-                                            Commits a plan
-                                            Writes code and tests
-                                            Opens a PR ─────────▶ Runs CI checks
-                  Records the PR ◀───────── Reports the PR
-                                                                                    Reviews the PR
-                  Checks CI and ◀────────────────────────────────────────────────── Approves
-                  context, then ────────────────────────────────▶ Review posted
-                  asks Devin to merge ────▶ Merges ─────────────▶ Merged
-                  Pulls, migrates and
-                  loads new settings
- Next request  ◀─ New rule applies
- follows the rule
+SWITCH OFF (no Devin)
+  Admin sets the off value --> Console: updates setting, writes audit entry
+                           --> Rule reads its off value and allows. Code unchanged.
 ```
 
 ### Switch a rule off
 
 A rule can read a setting that turns it off. The refund clustering hold does: a window of 0 days
-disables it. Changing that setting takes seconds and needs no engineer.
-
-```
- ADMIN                    CONSOLE                         RESULT
- ─────                    ───────                         ──────
- Sets the rule's ───────▶ Updates the setting ──────────▶ The rule reads its off value
- off value                Writes an audit entry           and allows. Code unchanged.
-```
-
-Restoring the setting turns the rule back on.
+disables it. Changing that setting takes seconds and needs no engineer. Restoring the setting
+turns the rule back on.
 
 ### Remove a rule
 
 Removing a rule is not a plain `git revert`. Other changes may have touched the same files since
-the rule merged. Devin removes the rule and keeps everything merged after it.
-
-```
- ADMIN             CONSOLE                  DEVIN                             ENGINEER
- ─────             ───────                  ─────                             ────────
- Requests an ────▶ Records the request
- undo              Opens a session ───────▶ Reverts the original merge
-                                            Resolves conflicts, keeping
-                                            later changes
-                                            Removes the rule, its setting
-                                            and its tests
-                                            Lists manual follow-ups
-                                            Opens a pull request ───────────▶ Reviews and
-                                                                              approves
-                   Records the merge ◀───── Merges
-                   Rule no longer runs
-```
+the rule merged. An admin requests the undo, and in the Devin session Devin reverts the original
+merge, resolves conflicts keeping later changes, removes the rule, its setting and its tests, and
+lists manual follow-ups. After the engineer approves and Devin merges, the console records the
+merge and the rule no longer runs.
 
 The pull request lists what code cannot undo, such as requests the rule is still holding. A
 person clears these after the merge.
@@ -290,27 +249,18 @@ Each Devin run moves through fixed phases. Every phase must pass for the run to 
 States marked ■ are written to the audit log. States marked ○ are read from Devin as the run
 progresses.
 
-```
- Request
-     │
-     ▼
- Dispatch rules ── fail ──▶ Refused. Nothing is written.
-     │ pass
-     ▼
- ■ Dispatched ──▶ ■ Session started ── no session ──▶ ■ Dispatch failed
-                       │
-   ┌───────────────────┘
-   ▼
- ○ Intake ──▶ ○ Baseline ──▶ ○ Plan ──▶ ○ Edit ──▶ ○ Verify ──▶ ○ Pull request
-   │            │              │          │          │            │
-   └────────────┴───────────┬──┴──────────┴──────────┘            ▼
-                            │ failure or stop                   ■ PR open
-                            ▼                                     │
-                          ■ Stopped                               ▼
-                                                                ■ Approved
-                                                                  │
-                                                                  ▼
-                                                                ■ Merged
+```text
+FROM                    ON                       TO
+Request                 dispatch rules fail  --> Refused. Nothing is written.
+Request                 dispatch rules pass  --> ■ Dispatched
+■ Dispatched                                 --> ■ Session started
+■ Session started       no session           --> ■ Dispatch failed
+■ Session started                            --> ○ Intake
+○ Intake --> ○ Baseline --> ○ Plan --> ○ Edit --> ○ Verify --> ○ Pull request
+○ Intake ... ○ Verify   failure or stop      --> ■ Stopped
+○ Pull request                               --> ■ PR open
+■ PR open                                    --> ■ Approved
+■ Approved                                   --> ■ Merged
 ```
 
 | Phase | Passes when |
@@ -344,7 +294,7 @@ and merged.
 Four screens take a request to a live rule. Each arrow shows the action that moves to the next
 screen, and which layers it passes between.
 
-```
+```text
 ┌─ Request ──────────────┐                  ┌─ Run progress ─────────┐
 │ "Once a merchant's…"   │  Start run       │ ✓ Plan    ✓ Edit       │
 │ Context · Scope        │ ───────────────▶ │ ● Verify               │
@@ -365,7 +315,7 @@ screen, and which layers it passes between.
 The request panel shows exactly what Devin receives. Once the run starts, the same panel shows
 its progress.
 
-```
+```text
 ┌───────────────────────────────────────┐    ┌───────────────────────────────────────┐
 │ Devin · New rule                      │    │ Devin · New rule · Verifying          │
 ├───────────────────────────────────────┤    ├───────────────────────────────────────┤
@@ -389,7 +339,7 @@ its progress.
 
 Only an engineer who did not request the change can approve it.
 
-```
+```text
 ┌───────────────────────────────────────┐    ┌───────────────────────────────────────┐
 │ Approve pull request                  │    │ Approve pull request                  │
 ├───────────────────────────────────────┤    ├───────────────────────────────────────┤
@@ -407,7 +357,7 @@ Only an engineer who did not request the change can approve it.
 A refunds agent sends the same kind of refund to the processor. After the rule merges, the
 policy trace shows the new rule and the refund waits for a manager.
 
-```
+```text
 ┌── Before ─────────────────────────────┐    ┌── After ──────────────────────────────┐
 │ Refund · Send to processor            │    │ Refund · Send to processor            │
 ├───────────────────────────────────────┤    ├───────────────────────────────────────┤
@@ -427,7 +377,7 @@ policy trace shows the new rule and the refund waits for a manager.
 A live rule and a switched-off rule run the same code. Only a removal takes the rule out of the
 code.
 
-```
+```text
  ┌────────┐           ┌───────────┐                  ┌────────┐                  ┌────────┐
  │ Absent │──────────▶│ In review │─────────────────▶│  Live  │─────────────────▶│  Off   │
  │        │  request  │           │  approve, merge  │        │◀─────────────────│        │
@@ -442,7 +392,7 @@ code.
 
 Example: a rule that holds a merchant's refunds once together they pass the $500 manager limit.
 
-```
+```text
  STATE         CODE                          SETTING                  NEXT KESTREL REFUND
  ───────────── ────────────────────────────  ───────────────────────  ───────────────────────
  Before        No clustering rule            No window setting        Settles
@@ -474,7 +424,7 @@ No separate backup is needed.
 
 The audit log records every step in a rule's life.
 
-```
+```text
     EVENT                               BY                AUDIT ENTRY
     ────────────────────────────────    ────────────────  ──────────────────────
  ●  Rule requested                      Refunds manager   dispatch
