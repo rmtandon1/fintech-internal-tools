@@ -89,6 +89,7 @@ export function RunRow({
       </TableCell>
       <TableCell>
         {reversalOffer ? (
+          <span onClick={(e) => e.stopPropagation()}>
           <Button
             size="sm"
             variant="secondary"
@@ -103,6 +104,7 @@ export function RunRow({
           >
             Undo this change
           </Button>
+          </span>
         ) : null}
       </TableCell>
     </TableRow>

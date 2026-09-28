@@ -39,7 +39,9 @@ export function RulesCard({
                   variant="secondary"
                   className="h-7 text-xs"
                   disabled={!action.enabled || !devinConnected}
-                  title={devinConnected ? undefined : "Set DEVIN_API_KEY to connect Devin"}
+                  title={
+                    action.enabled && !devinConnected ? "Set DEVIN_API_KEY to connect Devin" : undefined
+                  }
                   onClick={() =>
                     action.offer && setAgentFocus({ kind: "handoff", offer: action.offer })
                   }

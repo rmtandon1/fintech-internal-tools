@@ -59,7 +59,7 @@ rejected by the engine, not by the UI.
 | `/admin/policy` | runtime policy constants (admin) |
 | `/roadmap/<mode>` | the modes not built yet |
 | `/runs`, `/t/automation/<id>` | Devin runs and each run's view |
-| `/api/devin/status` | Devin mode (`live` or `simulation`), organisation and key check |
+| `/api/devin/status` | Devin mode (`live`, or `simulation` when no key is set and Devin is not connected), organisation and key check |
 
 ## Apps
 
