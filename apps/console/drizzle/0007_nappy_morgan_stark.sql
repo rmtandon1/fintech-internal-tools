@@ -1,0 +1,1 @@
+ALTER TABLE `feature_flags` ADD `name` text DEFAULT '' NOT NULL;

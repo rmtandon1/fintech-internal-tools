@@ -34,7 +34,7 @@ Section timings add up to about six and a half minutes. Lines in *🎬 italics* 
 
 > This is the console. I decided what each piece should do and reviewed every pull request. Devin wrote the code.
 >
-> Three live apps: KYC review with 101 cases, refunds with 14, and 12 feature flags. They share one engine. Every write goes through the same six steps, validate, idempotency, policy, approval, effect, audit, in one database transaction. 294 tests hold it together.
+> Three live apps: KYC review with 101 cases, refunds with 14, and 11 feature flags. They share one engine. Every write goes through the same six steps, validate, idempotency, policy, approval, effect, audit, in one database transaction. 294 tests hold it together.
 >
 > Here's what that buys app number four. *(open Transaction monitoring)* Nobody has written a line of it yet, and it already has seven things: role access, a check on every action, approvals, live settings, no double actions, masked personal data and a tamper-evident audit log. When Devin added the flags app, the commit touched 11 files and added 1,728 lines. None of them were in the engine.
 >
