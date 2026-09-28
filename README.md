@@ -165,45 +165,37 @@ page.
 ### The Devin loop, end to end
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor M as Refunds manager
-    participant UI as Console (browser)
-    participant S as Console server
-    participant E as Engine + SQLite
-    participant D as Devin v3 API
-    participant G as GitHub
-    actor Eng as Engineer
-
-    M->>UI: Ask Devin for a rule → Send to Devin
-    UI->>S: dispatchAutomationRun(intent, evidence)
-    S->>E: executeIntent(dispatch): role, one run per app
-    E-->>S: devin_runs row + audit row
-    S->>S: write runs/{id}/context.json (no personal data)
-    S->>D: POST attachments, POST sessions (playbook, prompt)
-    S->>E: executeIntent(record_session)
-    loop every 2 s while the run view is open
-        UI->>S: GET /api/devin/{runId}
-        S->>D: GET sessions/{id}
-        D-->>S: status, structured_output (phase, files, checks)
-        S-->>UI: run view: checklist ○ → ● → ✓
-    end
-    D->>G: push devin/{id}-{slug}, open PR, CI runs pnpm verify
-    S->>E: record_pr (first time pr_url appears)
-    Eng->>UI: Review and approve → Approve as engineer
-    S->>G: read checks + context.json hash
-    S->>E: executeIntent(approve_pr)
-    S->>G: POST review (APPROVE)
-    S->>D: message: merge
-    D->>G: squash-merge
-    UI->>S: GET /api/devin/{runId}
-    S->>G: GET pulls/{n} → merged
-    S->>E: record_merge
-    S-->>UI: Merged
-    Eng->>UI: Pull merged code
-    S->>S: git pull --ff-only, pnpm install if packages changed, pnpm db:migrate, load new settings
-    S-->>UI: Local code updated · pulled a1b2c3d → e4f5a6b
+flowchart LR
+    A["Request"] --> B["Devin session<br/>+ committed plan"]
+    B --> C["Pull request"]
+    C --> D["Engineer approval"]
+    D --> E["Merge"]
+    E --> F["Console pulls<br/>and syncs"]
 ```
+
+| Step | What happens |
+|---|---|
+| **Request** | A refunds manager clicks **Ask Devin for a rule**, then **Send to Devin**. The console server calls `dispatchAutomationRun(intent, evidence)` |
+| **Devin session + committed plan** | The server writes `runs/{id}/context.json` (no personal data), posts it as an attachment and opens a Devin v3 session with the playbook and prompt. Devin commits its plan before editing |
+| **Pull request** | Devin pushes `devin/{id}-{slug}` to GitHub and opens a pull request. CI runs `pnpm verify` |
+| **Engineer approval** | An engineer clicks **Review and approve**, then **Approve as engineer**. The server posts an `APPROVE` review to GitHub and messages Devin to merge |
+| **Merge** | Devin squash-merges. The run view shows **Merged** |
+| **Console pulls and syncs** | The engineer clicks **Pull merged code**. The server runs `git pull --ff-only`, `pnpm install` if packages changed, `pnpm db:migrate`, and loads new settings. The console shows `Local code updated · pulled a1b2c3d → e4f5a6b` |
+
+**Safeguards**
+
+- **Run guard.** Dispatch goes through `executeIntent`, which checks the role and allows one run
+  per app. `pnpm verify` in CI includes the run guard (`pnpm check:run`), whose five checks hold
+  the change to its committed plan. Four run in CI; the fifth is the context-hash check below.
+- **Context-hash check.** Before approving, the server reads the pull request's checks and the hash
+  of `context.json` on the branch from GitHub. The approval goes through `executeIntent(approve_pr)`.
+- **Polling loop.** While the run view is open, the browser calls `GET /api/devin/{runId}` every
+  2 s. The server reads `GET sessions/{id}` from Devin, and its `structured_output` (phase, files,
+  checks) moves the checklist from ○ to ● to ✓. After the merge, the same poll reads
+  `GET pulls/{n}` from GitHub to see it merged.
+- **Audit rows.** Each run writes five audit rows, each through `executeIntent`: `dispatch` (with
+  the `devin_runs` row), `record_session`, `record_pr` (the first time `pr_url` appears),
+  `approve_pr` and `record_merge`.
 
 Deeper diagrams live in [`docs/ARCHITECTURE_DIAGRAM.md`](docs/ARCHITECTURE_DIAGRAM.md), including
 a map from what operators see to the code Devin changes.
