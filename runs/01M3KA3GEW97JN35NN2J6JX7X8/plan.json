@@ -1,0 +1,36 @@
+{
+  "files": [
+    { "path": "tools/chargebacks/package.json", "op": "create", "reason": "New workspace package @console/tool-chargebacks, laid out like tools/refunds" },
+    { "path": "tools/chargebacks/tsconfig.json", "op": "create", "reason": "Typecheck the new package against tsconfig.base.json" },
+    { "path": "tools/chargebacks/src/schema.ts", "op": "create", "reason": "chargeback_disputes table holding the export's Disputes columns (DisputeId, CardNetwork, ReasonCode, ReasonCategory, Merchant, AmountUSD, OpenedOn, DueDate, Status, EvidenceUploaded, Notes)" },
+    { "path": "tools/chargebacks/src/seed.ts", "op": "create", "reason": "The 50 rows of Data/disputes.csv, with OpenedOn and DueDate kept as offsets from the export time (2026-09-28T09:00Z) and replayed from seed time" },
+    { "path": "tools/chargebacks/src/index.ts", "op": "create", "reason": "Chargebacks tool declaration: queue fields and columns sorted by soonest deadline, network/status filters, the deadline count, accept and fight actions, and the two refunds-manager approval rules with admin-editable limits" },
+    { "path": "apps/console/src/registry.ts", "op": "modify", "reason": "Register the chargebacks tool so the existing roadmap mode goes live" },
+    { "path": "apps/console/src/schema.ts", "op": "modify", "reason": "Re-export the chargeback_disputes table for migrations" },
+    { "path": "apps/console/src/lib/modes.ts", "op": "modify", "reason": "Open Chargebacks from the home page as a refunds agent, like the other live apps" },
+    { "path": "apps/console/package.json", "op": "modify", "reason": "Depend on @console/tool-chargebacks" },
+    { "path": "apps/console/drizzle/0009_chargebacks_disputes.sql", "op": "create", "reason": "Generated migration creating chargeback_disputes" },
+    { "path": "apps/console/drizzle/meta/0009_snapshot.json", "op": "create", "reason": "Generated drizzle snapshot for the migration" },
+    { "path": "apps/console/drizzle/meta/_journal.json", "op": "modify", "reason": "Generated journal entry for the migration" },
+    { "path": "pnpm-lock.yaml", "op": "modify", "reason": "Lockfile entry for the new workspace package" },
+    { "path": "apps/console/tests/tools/chargebacks.test.ts", "op": "create", "reason": "Tests for the seed, the deadline count, both approval rules, notes and roles" }
+  ],
+  "reuses": [
+    { "module": "@console/engine (defineTool, defineAction, executeIntent, approvals, audit)", "reason": "Accept and fight run through the existing governed intent, approval and audit path; nothing in packages/ changes" },
+    { "module": "@console/permissions rolesFor(\"refunds\", ...)", "reason": "Refunds agents work the queue and refunds managers decide approvals; no new roles" },
+    { "module": "Engine runtime constants (ConstantDefinition, rule context constants.number)", "reason": "The $500 fraud-accept and $2,500 fight limits are admin-editable, replacing the app's varFraudAcceptLimit and varFightApprovalLimit" },
+    { "module": "StatDecl records source", "reason": "The deadline alert becomes a count on the queue that opens the same filtered list" },
+    { "module": "tools/refunds layout and seed pattern", "reason": "Package, schema, idempotent upsert seed and declaration follow the refunds tool" },
+    { "module": "apps/console/tests/helpers/stats.ts expectRecordStatsMatchList", "reason": "Proves the deadline count matches the list its link opens" }
+  ],
+  "acceptance": [
+    "seeds the 50 disputes from disputes.csv, field for field",
+    "keeps each date's offset from the export time, so three open disputes over $1,000 are due within 48 hours",
+    "counts open disputes over $1,000 due within 48 hours with the same query its link opens",
+    "sends a fraud accept over $500 to a refunds manager",
+    "sends a fight over $2,500 to a refunds manager and marks it fighting once approved",
+    "applies accepts and fights under the limits straight away",
+    "only lets a refunds manager or admin decide a chargebacks approval",
+    "lets refunds roles work the queue and keeps other roles out"
+  ]
+}
