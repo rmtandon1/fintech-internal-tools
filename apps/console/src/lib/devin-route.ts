@@ -20,6 +20,7 @@ import {
   observeSessionEnd,
   type PollOutcome,
   readReplay,
+  runPrompt,
 } from "@console/tool-automation/bridge";
 import type { AppBridgeDeps } from "@/lib/bridge";
 import { devinMode, type DevinMode } from "@/lib/devin-status";
@@ -68,6 +69,8 @@ export interface RunViewPayload {
   outcome: string | null;
   /** The operator-facing name of the run's operation. */
   operationLabel: string;
+  /** The prompt the run's session was created with, for display; null without its context.json. */
+  prompt: string | null;
   /** The id of the run's latest audit row, or null before the first intent. */
   lastAuditId: string | null;
   /** The spec's acceptance tests for this operation: the engineer's checklist, never sent to the session. */
@@ -135,6 +138,7 @@ export async function handleGet(
     summary: getSpec(run.spec)?.summaries?.[run.operation as Operation] ?? run.intent,
     outcome: getSpec(run.spec)?.outcomes?.[run.operation as Operation] ?? null,
     operationLabel: operationLabel(run.operation),
+    prompt: runPrompt(run, deps),
     lastAuditId: listAuditEvents({ recordId: run.id, limit: 1 }).rows[0]?.id ?? null,
     reviewerChecklist: [...(getSpec(run.spec)?.acceptance?.[run.operation as Operation] ?? [])],
     offers: await runOffers(

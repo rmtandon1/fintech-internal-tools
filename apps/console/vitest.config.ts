@@ -5,6 +5,8 @@ export default defineConfig({
   resolve: {
     alias: { "@": resolve(__dirname, "src") },
   },
+  // Component tests render .tsx through react-dom/server.
+  oxc: { jsx: { runtime: "automatic" } },
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],

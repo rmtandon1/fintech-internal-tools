@@ -114,43 +114,6 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
         </p>
       </div>
 
-      <details className="text-xs">
-        <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-          Technical details
-        </summary>
-        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-          <dt className="text-muted-foreground">Change</dt>
-          <dd>
-            {offer.operationLabel} <span className="font-mono text-muted-foreground">{offer.operation}</span>
-          </dd>
-          <dt className="text-muted-foreground">Starts from</dt>
-          <dd className="font-mono">
-            {offer.base.branch}@{offer.base.commit.slice(0, 7)}
-          </dd>
-          {Object.entries(offer.constants).map(([key, value]) => (
-            <div key={key} className="contents">
-              <dt className="font-mono text-muted-foreground">{key}</dt>
-              <dd className="tabular-nums">{value}</dd>
-            </div>
-          ))}
-          <dt className="text-muted-foreground">Allowed files</dt>
-          <dd>
-            <ul className="space-y-0.5">
-              {offer.allowedPaths.map((path) => (
-                <li key={path} className="font-mono">
-                  {path}
-                </li>
-              ))}
-            </ul>
-          </dd>
-          <dt className="text-muted-foreground">Checks</dt>
-          <dd>
-            Lint · Typecheck · Boundaries · Run guard · Test; approved by an engineer who didn&apos;t
-            ask for it
-          </dd>
-        </dl>
-      </details>
-
       <div className="mt-auto flex justify-end gap-2">
         <Button type="button" variant="ghost" onClick={() => setAgentFocus(null)}>
           Cancel

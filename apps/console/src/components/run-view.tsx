@@ -10,6 +10,7 @@ import { StatusChip } from "@console/ui/status-chip";
 import { ApprovalDialog } from "@/components/approval-dialog";
 import { RunSummary, RUN_STATUS_OPTIONS, requesterLabel } from "@/components/run-summary";
 import { phaseLine } from "@/lib/run-checklist";
+import { runTitle, thinkingLine } from "@/lib/run-heading";
 import type { RunViewPayload } from "@/lib/devin-route";
 import type { ReplayFrame, StructuredOutput } from "@console/tool-automation";
 
@@ -45,20 +46,23 @@ function CheckRow({
   label: string;
   detail?: string;
 }) {
-  const glyph = state === "done" ? "✓" : state === "active" ? "●" : "○";
   return (
-    <li className="flex items-baseline gap-2 py-0.5 text-[11px]">
-      <span
-        className={
-          state === "done"
-            ? "text-emerald-400"
-            : state === "active"
-              ? "text-amber-400"
-              : "text-muted-foreground/60"
-        }
-      >
-        {glyph}
-      </span>
+    <li className="flex items-center gap-2 py-0.5 text-[11px]" data-state={state}>
+      {state === "active" ? (
+        <span
+          role="status"
+          aria-label="In progress"
+          className="inline-block size-2.5 shrink-0 animate-spin rounded-full border-[1.5px] border-amber-400 border-t-transparent"
+        />
+      ) : (
+        <span
+          className={
+            state === "done" ? "w-2.5 shrink-0 text-emerald-400" : "w-2.5 shrink-0 text-muted-foreground/60"
+          }
+        >
+          {state === "done" ? "✓" : "○"}
+        </span>
+      )}
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {detail ? (
         <span className="shrink-0 font-mono text-[10px] text-muted-foreground tabular-nums">
@@ -216,11 +220,14 @@ export function RunView({
   runId,
   initial,
   showSummary = false,
+  onTitle,
 }: {
   runId: string;
   initial?: RunViewPayload | null;
   /** Render the run summary card above the live view (the record page wants it). */
   showSummary?: boolean;
+  /** Receives the run's title once its payload arrives (the Devin window shows it). */
+  onTitle?: (title: string) => void;
 }) {
   const router = useRouter();
   const [payload, setPayload] = useState<RunViewPayload | null>(initial ?? null);
@@ -248,6 +255,11 @@ export function RunView({
       if (timer) clearTimeout(timer);
     };
   }, [runId]);
+
+  const title = payload && payload.run.id === runId ? runTitle(payload) : null;
+  useEffect(() => {
+    if (title) onTitle?.(title);
+  }, [title, onTitle]);
 
   function sendReply() {
     startTransition(async () => {
@@ -295,6 +307,7 @@ export function RunView({
   const { run, latest, frames, offers, sessionUrl, mode } = payload;
   const out = latest?.structured_output ?? null;
   const pr = run.prUrl ?? out?.pr_url ?? null;
+  const thinking = thinkingLine(latest);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col text-xs" data-testid="run-view">
@@ -339,6 +352,18 @@ export function RunView({
           </p>
         ) : null}
       </section>
+
+      {thinking ? (
+        <section
+          className="border-b border-info/20 bg-info/5 px-3 py-2.5"
+          data-testid="devin-thinking"
+        >
+          <p className="text-[10px] font-medium uppercase tracking-wider text-info">
+            Devin&apos;s current thinking
+          </p>
+          <p className="mt-0.5 text-sm text-foreground">{thinking}</p>
+        </section>
+      ) : null}
 
       <Checklist out={out} run={run} />
 
@@ -435,6 +460,16 @@ export function RunView({
       ) : null}
 
       <div className="min-h-0 flex-1 overflow-auto">
+        {payload.prompt ? (
+          <section className="border-t border-border px-3 py-2" data-testid="devin-message">
+            <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              Message sent to Devin
+            </p>
+            <pre className="whitespace-pre-wrap break-words rounded-md border border-border bg-muted/30 p-2 font-mono text-[11px] text-foreground">
+              {payload.prompt}
+            </pre>
+          </section>
+        ) : null}
         <Detail frames={frames} />
       </div>
 
