@@ -1,13 +1,11 @@
 ## 1. The problem
 
-**Once internal tools leave Power Apps, who does the engineering on them, how fast, and with what review?**
-
-Owning the tools means three kinds of work, forever: new checks and rules from the people who use them, changes to how every app works, and moving each remaining Power App across. This document and the Loom take one of each.
+**Who changes an internal tool's rules after launch, on what timescale, and with what review?**
 
 ### What happens today
 
 A new rule either goes live unreviewed or waits weeks for engineering. 
-- The request comes from risk, compliance or operations when the tools don't cover something: "check every UK business on Companies House", "two people must approve large refunds", "move the chargebacks app over"
+- The request comes from risk or operations when a queue shows something the current rules don't cover: "hold a merchant's refunds once together they pass the manager line, and send those customers' KYC approvals to a manager"
 - Each Power App holds only its own data, so building the case for the rule is manual:
 - - An analyst spots an emerging pattern in one app, such as refunds, exports the queue to Excel and uses a Pivot Table to query it
 - - They check the same customers with other systems, such as KYC and payments, one lookup at a time.
@@ -31,9 +29,9 @@ The rule then reaches production one of two ways: a business user edits it direc
 ### Why the existing options fail
 
 - **Business edits skip review.** A flow edited in Power Apps goes live with no diff, no second approver and no test. A rule that decides whether money leaves the company should get a second pair of eyes before it runs. The change history records who saved a flow but not why, so when a rule misbehaves the team rebuilds the story from memory and Slack.
-- **Each app sees only itself.** Checks worth adding often need data the app doesn't hold: a KYC decision that depends on a company's filings at Companies House, or a refund's link to a customer in KYC. Today a person in another browser tab does the join. Doing it in code needs a shared data model, a key kept on a server and a test that covers the outside source, and a Power Apps formula has none of them. KYC decisions rest on the same kind of join: whether what the customer declared matches what other sources show, such as the delivery address on a refund or a directorship on Companies House.
-- **No-code rules miss edge cases that matter.** "Two people approve large refunds" sounds like one setting on an approval step. But the person who asked must not be one of them, nobody may approve twice, requests already waiting keep the rule they were made under, and each approval needs its own audit row. Power Automate's approvals offer "first to respond" or "everyone must approve", and neither is "any two, but not the requester".
-- **Feature flags only cover changes someone predicted.** The usual way to let the business change behaviour without engineers is a flag: wrap the logic in `if (flags.isEnabled("companies_house_check"))` and flip it from a dashboard. That needs the rule written in advance, and a rule that comes out of the queue is one nobody predicted. Every flag is also a branch someone has to delete later, and nobody schedules that.
+- **Each app sees only itself.** Rules worth adding often span apps: the refund hold above reads refunds and KYC. Today a person with a spreadsheet joins the two. A rule that reads both needs a shared data model and a test that covers both, and a Power Apps formula has neither. KYC decisions rest on the same kind of join: whether what the customer declared matches what other sources show, such as the delivery address on a refund or a directorship on Companies House.
+- **No-code rules miss edge cases the code already handles.** "Sum a merchant's refunds" sounds like a one-line flow. But rejected refunds must not count, goodwill refunds already have their own $50 approval line, and the sum must be in USD at the exchange rate fixed when each refund was requested. The console's code handles all three. A flow edited under pressure drops one without anyone noticing.
+- **Feature flags only cover changes someone predicted.** The usual way to let the business change behaviour without engineers is a flag: wrap the logic in `if (flags.isEnabled("refund_clustering_v1"))` and flip it from a dashboard. That needs the rule written in advance, and a rule that comes out of the queue is one nobody predicted. Every flag is also a branch someone has to delete later, and nobody schedules that.
 
 
 
@@ -47,49 +45,45 @@ Moving off Power Apps means owning the software. Each row is a question to put t
 | **Who checks it before it touches money or customers?** | Nobody. No diff, no second approver, no test | An engineer, 30–60 minutes of review | An engineer, ~5 minutes against the plan Devin committed. CI fails any file outside that plan |
 | **It misfires in production. How fast can we stop it, and who has to be there?** | Another live edit, also unreviewed | A hotfix or an urgent ticket, which needs an engineer | An admin switches it off from the policy page in seconds. No engineer |
 | **Six months on, who cleans up rules nobody wants?** | Nobody owns it. Old flows and formulas stay in each app | Engineers, when a ticket is prioritised. Dead rules and flags pile up | Devin removes the rule in a reviewed pull request and keeps the work built since |
-| **What does the next app cost, and what does it get for free?** | Licences per user, and each app sets up its own roles, approvals and audit | Weeks of engineering, reusing the shared engine | Devin rebuilds it from its Power Apps export, and it inherits roles, approvals, maker-checker and audit from the engine |
+| **What does the next app cost, and what does it get for free?** | Licences per user, and each app sets up its own roles, approvals and audit | Weeks of engineering, reusing the shared engine | Devin builds the tool, and it inherits approvals, maker-checker and audit from the engine |
 | **Who changed a rule, and why?** | Each app's own save history: who saved it, not why | Git history for the code, plus a separate log per app | One audit log across every app. Every change carries its request, plan, tests and approval |
 | **What do we still pay for?** | ~$250K a year, rising with every user and app | All of it: build, review, upkeep and on-call | Engineer review of every change, ownership of the shared engine, hosting and on-call, each integration a Power Apps connector used to provide, and Devin usage |
 
 ## 2. Stakeholders
 
-### For Engineering Leadership
 
-Own twenty internal tools without a platform team. Your engineers decide what gets built and review every change; Devin does the tracing, editing and testing.
 
-**Example:** the Chargebacks Power App moves into the console as one pull request. It comes with a table mapping each Power Automate condition to the rule that replaced it, and it flags what has no equivalent. Nothing under the engine changes.
+### For Risk and Operations
 
-### For KYC and Operations
+Turn a pattern you spot in the queue into a live rule the same day. Ask for it in one sentence, from the screen that shows it, and the evidence travels with the request.
 
-Ask for the check you do by hand, from the case that needs it, and have it running the same day.
+**Example:** four `not_received` refunds from Kestrel Outdoors sit just under the $500 manager line, but sum $1,880 together. The refunds manager clicks **Ask Devin for a rule** and in a few hours the next Kestrel refund goes to the manager inbox instead of going through automatically.
 
-**Example:** analysts look up every UK business on Companies House in another tab. The KYC manager clicks **Ask Devin to add a check** on Thornbury Couriers. After review, the check runs from the case, and a company late with its accounts needs a manager to approve.
-
-**Example:** the disputes team's app, with its deadline alerts and approval flow, becomes a console app worked with the same roles as refunds.
+**Example:** the same intervention can reach across apps. Even if the original domain was querying a refund, approving the change leads to the case being referred to a kyc manager.
 
 ### For Console Admins
 
-Change how approvals work across the console, with a design engineering agreed, and see who can do what without reading a policy.
+Stop a rule the moment it misfires, without waiting on engineering. Then have it taken out of the code cleanly the same day.
 
-**Example:** the admin asks for two different approvers on refunds at or above $5,000. A refunds manager sees the same button greyed out: "Only an admin can ask for this".
+**Example:** a courier outage sends a set of genuine refunds to the manager inbox. Every rule Devin adds comes with a setting that switches it off, editable on the admin policy page. The admin turns the rule off there in seconds, with no code change and no engineer, and one audit row records who did it.
 
-**Example:** any change Devin made can be taken back out from `/runs` with **Undo this change**, keeping everything built since.
+**Example:** the admin clicks **Undo this change** on the merged run. The codebase has moved on since the rule was added, so a plain `git revert` breaks: Devin has to understand which later behaviour, a `partial_delivery` change to the same file, must survive while it semantically undoes the earlier feature. The PR lists the 60 held refunds for a person to release.
 
 ### For Core Engineering
 
-Stop tracing by hand. Review a pull request against a request and a plan committed before the first edit, and keep the final say on every merge.
+Stop tracing rules by hand. Review a small PR against a one-sentence request and a plan committed before the first edit all while keeping the final say on every merge.
 
-**Example:** two-person approval is an engine change. Engineering writes the design into the request in two lines: a record per approver, and requests already waiting keep one approval. Devin implements it, and the engine's owner reviews it as well as an engineer.
+**Example:** the Kestrel hold arrives as one pull request: the rule, its setting, the KYC check, new tests built from the Kestrel amounts, one existing test changed on purpose, and a green `pnpm verify` on top of the 288 tests already there. Review takes ~5 minutes instead of 4–6 hours, and CI's Boundaries check fails any code that writes to the database without going through the engine.
 
-**Example:** every run passes `pnpm verify` before it can be approved: lint, typecheck, the boundary check that only the engine writes to the database, the run guard that holds the diff to the plan, and 288 tests.
+**Example:** the first pull request of the Chargebacks move adds a table, so the engine owner reviews it as well as an engineer. Its description lists every Power App formula and flow step as done or still to do, so nothing from the old app is dropped without someone deciding it.
 
 ### For Compliance and QA
 
-Every change arrives with its request, its tests and its approvals, in one audit log that answers who changed what, and why.
+Turn a check your analysts do by hand into one that runs from the case, with its source on screen. Every change arrives with its evidence, its test and its approval, in one audit log that says who changed what, and why.
 
-**Example:** after two-person approval merges, each approver of a large refund writes their own audit row, and the refund's effect is written in the same transaction as the last approval.
+**Example:** analysts look up every UK business on Companies House in another tab and type the result into the case. Devin adds the lookup from the case itself, and a company late with its accounts now needs a manager to approve, with Companies House named as the source.
 
-**Example:** the audit log records every step of a change: who asked, who approved, the merge, and each approval on a large refund, each row naming who did what and when.
+**Example:** the audit log records the whole run: the Kestrel request, the approval, the merge, the switch-off and the removal, each row naming who did what and when.
 
 ## 3. Scenarios
 
@@ -97,47 +91,51 @@ Every change arrives with its request, its tests and its approvals, in one audit
 
 Editable source: [`rule-change-workflow.excalidraw`](rule-change-workflow.excalidraw).
 
-Three scenarios, one per demonstration in `LOOM-VIDEO-SCRIPT.md`, one per kind of work. Each touches more of the system than the last: one app, then the engine every app shares, then a new app.
+Three parts of one demo in `LOOM-VIDEO-SCRIPT.md`. The same loop runs each time: the team asks from the screen that shows the need, Devin builds, a different person approves. Each part is a bigger change than the last.
 
-### 1. A check the analysts do by hand
+### 1. A rule, from added to removed
 
-- Replace a manual lookup with a check that runs from the case.
-  - Analysts check UK businesses on Companies House in another tab and type the result into the case
-  - The KYC manager asks Devin from the case. The request is written in advance, names the outside API and asks Devin to read its docs on the web
-  - Devin adds the lookup, records responses for tests, and feeds the result into Declared vs found, where the existing rule holds approval for a manager
-  - Thornbury Couriers, approved on a hand-typed check before, now waits for a manager because its accounts are overdue
-- **Question it answers:** what happens when requirements change?
-- **Traditional:** a premium connector licensed per user, or a ticket that waits for a sprint.
+- Turn a pattern operators spot in the queue into a reviewed rule the same day.
+  - Four refunds from one merchant each sit just under the $500 manager line, and total $1,880 together
+  - The refunds manager asks Devin for a hold in one sentence, from the screen that shows the pattern. Devin gets the sentence, the evidence and the files it may touch, and nothing else
+  - Devin writes the rule, a matching KYC check, a switch-off setting and tests, and changes the one existing test that said these refunds pass
+  - An engineer approves the pull request, and the next refund from that merchant waits for a manager
+- Stop it in seconds when it misfires, then remove it from code that has moved on.
+  - A courier outage sends a long-standing merchant's genuine refunds to the manager inbox. The refunds ops lead, support and the merchant's account manager all want it off
+  - The admin sets the rule's window to 0 on the policy page. Refunds flow again, and one audit row records who did it. Setting it back to 14 turns it on again
+  - Risk replaces it with a narrower rule, so the admin asks Devin to undo it. A plain `git revert` conflicts with a later `partial_delivery` change to the same file, so Devin removes the rule, its KYC check and its setting, and keeps the later work
+  - The pull request lists what code can't undo: held refunds for a person to release, and the setting left in the database
+- **Question it answers:** what happens when requirements change, and what if we want it gone?
+- **Traditional:** an analyst joins two apps in Excel, then waits 1–2 weeks for an engineer; the rule then stays in the code behind a switch nobody removes.
+
+### 2. A manual step removed
+
+- Replace a lookup people do by hand with one that runs from the case.
+  - Analysts check every UK business on Companies House in another tab, and type the result into the case
+  - The request names the outside API and asks Devin to read its documentation on the web. Devin gets the company's public registration, nothing about a person
+  - Devin adds the lookup, records responses for its tests, and reuses the rule that already holds a case with a material difference
+  - Thornbury Couriers, approved before on a check typed at onboarding, now waits for a manager because its accounts are late
+- **Question it answers:** is this only rules, or real engineering against outside systems?
+- **Traditional:** a premium Power Automate connector licensed per user, or a ticket that waits for a sprint.
 - **Brief:** `COMPANIES_HOUSE_CHECK.md`
 
-### 2. Two people for large refunds
+### 3. The next app, started
 
-- Change how approvals work, for every app, from engineering's design.
-  - One admin can release any refund today, however large
-  - Only an admin can ask for this change; a refunds manager sees the button greyed out
-  - Devin changes the shared approval engine: a record per approver, nobody twice, never the requester, old requests untouched
-  - The engine's owner and an engineer review. After merge, the inbox shows "1 of 2", the same manager can't approve twice, and a KYC manager can't see it
-- **Question it answers:** can Devin change the shared platform, not just one app?
-- **Traditional:** custom approval logic in every flow that needs it, which nobody maintains.
-- **Brief:** `TWO_PERSON_APPROVAL.md`
-
-### 3. Move a Power App across
-
-- Rebuild an app from its Power Apps export.
-  - The Chargebacks tile says "Coming soon"; its Power App and two Power Automate flows run the team today
-  - The admin asks Devin from that page. Devin gets the export: screens, formulas, flows and 50 disputes
-  - Devin writes the tool, turns each flow condition into a rule, and lists each one beside what replaced it
-  - The tile goes live, inheriting roles, approvals, masking and audit from the engine
-- **Question it answers:** can this hold twenty tools, and who builds the next one?
+- Start moving a Power App into the console, the way a real migration starts.
+  - Chargebacks runs in a Power App with two Power Automate flows: an hourly deadline email, and a first-to-respond approval for large fights
+  - The admin asks Devin from the Coming soon page, with the app's export attached
+  - Devin's first pull request brings the queue, the 50 disputes, the 48-hour alert as a count and the two riskiest rules, and lists every other formula and flow step as still to do
+  - The tile goes live and inherits roles, approvals and the audit log from the engine
+- **Question it answers:** can this hold twenty tools, and what does the next one cost?
 - **Traditional:** weeks of engineering per app, or keeping the licences.
 - **Brief:** `CHARGEBACKS_FROM_POWER_APPS.md`
 
-Every scenario keeps a human gate. In a regulated fintech the gates are the selling point: a change reaches production as fast as a Power Apps edit and still gets a second reviewer.
+Every scenario keeps a human gate. In a regulated fintech the gates are the selling point: a rule on money changes as fast as a Power Apps edit and still gets a second reviewer.
 
 ## 4. Demo pitch
 
-The beat-by-beat script, with what to say and what to click, is `LOOM-VIDEO-SCRIPT.md`.
+The beat-by-beat script, with what to say, what to click and the order to record in, is `LOOM-VIDEO-SCRIPT.md`.
 
 ### The pitch in one paragraph
 
-> Leaving Power Apps means owning your internal tools, and owning them means engineering work that never stops: checks the analysts do by hand, changes to how approvals work, and every app still to move across. With Devin, your engineers don't do that work; they review it. A KYC manager asks for a Companies House check from the case that needs it, and it runs the same day. An admin asks for two approvers on large refunds, from a design engineering agreed, and Devin changes the engine every app shares under your engine owner's review. An admin points Devin at a Power App's export, and it comes back as a console app with every flow condition accounted for. Leaving Power Apps doesn't mean hiring a platform team. Devin does the engineering; your engineers review it.
+> Today a rule on money changes one of two ways: fast in Power Apps with nobody reviewing it, or reviewed through a ticket that waits two weeks. In this console a rule is code, and Devin changes it. When risk spots a pattern, they ask for the rule in one sentence from the screen that shows it. Devin writes the rule and its tests, runs the full suite, and opens a pull request your engineer reviews in minutes. When the rule misfires, one setting switches it off in seconds, and Devin takes it back out of the code the same day, even after the code has moved on. When analysts are doing a lookup by hand, Devin connects the outside source and the case holds itself. When the next Power App needs to move, Devin makes the first pull request and lists the rest. After Power Apps, your team asks, Devin builds, and an engineer approves, whether it's a rule, a manual step or a whole new app.

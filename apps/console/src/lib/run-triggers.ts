@@ -1,5 +1,4 @@
 import type { Actor } from "@console/engine/types";
-import { loadConstants } from "@console/engine/policy/constants";
 import { ROLE_META } from "@console/permissions";
 import {
   CHARGEBACKS_FROM_POWER_APPS,
@@ -7,12 +6,10 @@ import {
   IMPLEMENTATION_KINDS,
   listRuns,
   roleMayStart,
-  TWO_PERSON_APPROVAL,
   type RunKind,
   type RunnableSpec,
 } from "@console/tool-automation";
 import { listExport } from "@console/tool-automation/context";
-import { ADMIN_APPROVAL_USD_KEY } from "@console/tool-refunds";
 import { bridgeDeps } from "@/lib/bridge";
 import { buildHandoffOffer, type HandoffOffer } from "@/lib/handoff";
 
@@ -73,12 +70,6 @@ export function recordTriggers(
     record.documentType === "company_registry"
   ) {
     out.push(trigger(COMPANIES_HOUSE_CHECK, actor, { evidenceKey: id, evidenceIds: [id] }));
-  }
-  if (tool === TWO_PERSON_APPROVAL.evidence.tool && record.status === "requested") {
-    const adminLine = loadConstants().number(ADMIN_APPROVAL_USD_KEY, Number.POSITIVE_INFINITY);
-    if (Number(record.usdMinor) >= adminLine) {
-      out.push(trigger(TWO_PERSON_APPROVAL, actor, { evidenceKey: id, evidenceIds: [id] }));
-    }
   }
   return out.filter((t): t is Trigger => t !== null);
 }

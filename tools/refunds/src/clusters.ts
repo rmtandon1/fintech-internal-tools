@@ -31,7 +31,7 @@ export function clusteringWindowDays(): number {
  * Merchants whose `not_received` refunds inside the window each sit below the
  * manager line but add up to it or more. Every row on its own passes
  * `amount_approval`; only the aggregate shows the pattern. Rejected refunds
- * don't count.
+ * don't count, matching the hold in `REFUND_CLUSTERING_HOLD.md`.
  */
 export function notReceivedByMerchant(now = Date.now()): ClusterGroup[] {
   const managerUsd = loadConstants().number(

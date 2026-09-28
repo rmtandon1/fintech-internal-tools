@@ -5,7 +5,7 @@
 - After an operator clicks an action on a record, a panel replaces today's toast. It shows what the engine did: the permission check, the policy rules, who decided and when, and the audit row written.
 - Every line is read from the result and the audit row. A line with no value isn't shown.
 - The panel renders from `IntentOutcome`, so every tool gets it, `flags` included, with no tool code.
-- It is the demo's proof shot: after a change Devin made merges, the panel names the rule that held the same click, in one frame.
+- It is the demo's proof shot: after the clustering hold merges, the panel names the rule that sent `rfnd_0013` to a manager, in one frame.
 - Two pull requests: a small engine change that returns the audit row id, then the component. Normal feature work.
 - The panel shows only what the engine did. Nothing downstream exists yet, so no line claims it.
 
@@ -41,18 +41,18 @@ APPROVED · kyc_0014 · pending_review → approved
 
 ### Action sent for approval
 
-The outcome the demo depends on. After the Companies House check merges (`COMPANIES_HOUSE_CHECK.md`), a KYC reviewer approves `kyc_0104`:
+The outcome the demo depends on. After `REFUND_CLUSTERING_HOLD.md` merges, the refunds agent approves `rfnd_0013`:
 
 ```
-WAITING FOR MANAGER · kyc_0104 · pending_review unchanged
-✓ Permission   kyc_reviewer is allowed to approve in kyc
-→ Policy       declared_vs_found: 1 material difference between what
-               the customer declared and what the checks found   [trace]
+WAITING FOR MANAGER · rfnd_0013 · requested unchanged
+✓ Permission   refunds_agent is allowed to approve in refunds
+→ Policy       clustering_hold: Kestrel Outdoors not-received refunds
+               total 1880.00 USD over 14 days          [trace]
 ✓ Held         request 01K5… keeps the input until a decision
 ✓ Audit        approval_requested                    [open]
 ```
 
-The record didn't change, and the header says so. The policy line names the rule that routed it, with the engine's own reason string. This is Demo 1's after-click in `LOOM-VIDEO-SCRIPT.md`.
+The record didn't change, and the header says so. The policy line names the rule that routed it, with the engine's own reason string. This is the proof shot in `CUSTOMER_FRAMING.md` › Demo pitch › "Approve, then show the proof".
 
 ### Action denied
 

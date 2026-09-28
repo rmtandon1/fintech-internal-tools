@@ -1,6 +1,6 @@
 # Companies House Check
 
-The reviewer's brief for Demo 1. Devin never reads this file: it gets the request below and
+The reviewer's brief for Part 2 of the demo. Devin never reads this file: it gets the request below and
 the case it starts from, and nothing else (`.devin/run-protocol.playbook.md` § Intake).
 
 ## Summary

@@ -11,7 +11,6 @@ import {
   admin,
   kycManager,
   kycReviewer,
-  refundsAgent,
   refundsManager,
   setupHarness,
 } from "../helpers/harness";
@@ -47,12 +46,6 @@ function kyc(id: string) {
   return record;
 }
 
-function refund(id: string) {
-  const record = refundTool.get(id);
-  if (!record) throw new Error(`no ${id}`);
-  return record;
-}
-
 describe("recordTriggers", () => {
   it("offers the Companies House check on a UK business case to the KYC manager", () => {
     const [t] = recordTriggers("kyc", kyc("kyc_0003"), kycManager);
@@ -73,18 +66,10 @@ describe("recordTriggers", () => {
     expect(recordTriggers("kyc", kyc("kyc_0001"), kycManager)).toEqual([]);
   });
 
-  it("offers two-person approval on a refund over the admin line to the admin only", () => {
-    const [forAdmin] = recordTriggers("refunds", refund("rfnd_0015"), admin);
-    expect(forAdmin.offer?.scope).toBe("engine");
-    const [forManager] = recordTriggers("refunds", refund("rfnd_0015"), refundsManager);
-    expect(forManager).toMatchObject({ offer: null, blocked: "Only an admin can ask for this" });
-    expect(recordTriggers("refunds", refund("rfnd_0015"), refundsAgent)).toEqual([]);
-    expect(recordTriggers("refunds", refund("rfnd_0001"), admin)).toEqual([]);
-  });
 });
 
 describe("modeTriggers", () => {
-  it("offers to build Chargebacks from its committed export, for the admin only", () => {
+  it("offers to start Chargebacks from its committed export, for the admin only", () => {
     const [t] = modeTriggers("chargebacks", admin);
     expect(t.offer?.evidence.map((row) => row.id)).toContain("Data/disputes.csv");
     expect(modeTriggers("chargebacks", refundsManager)[0]).toMatchObject({ offer: null });

@@ -1,14 +1,14 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@console/db";
 import { auditHead } from "@console/db-core/engine-schema";
 import { canonicalJson, sha256 } from "@console/engine/audit/canonical";
 import { loadConstants } from "@console/engine/policy/constants";
 import type { Role } from "@console/permissions";
 import { kycCases, kycChecks } from "@console/tool-kyc/schema";
-import { ADMIN_APPROVAL_USD_KEY } from "@console/tool-refunds";
+import { refundTool } from "@console/tool-refunds";
 import { refunds } from "@console/tool-refunds/schema";
 import { ContextFile, type Evidence, type EvidenceRow, type Reverses } from "./run-files";
 import { scopePaths, type RunKind, type RunScope, type RunnableSpec } from "./specs";
@@ -89,7 +89,7 @@ function readEvidence(
     case "kyc":
       return { source, rows: [businessCase(key, ids)] };
     case "refunds":
-      return { source, rows: [largeRefund(key, ids)] };
+      return { source, rows: clusterRows(spec, key, ids) };
     case "roadmap":
       return { source, rows: exportFiles(root, key, ids) };
     default:
@@ -143,32 +143,41 @@ function businessCase(key: string, ids: readonly string[]): EvidenceRow {
   };
 }
 
-/** A refund at or above the admin line: the amount and why, never who it's for. */
-function largeRefund(key: string, ids: readonly string[]): EvidenceRow {
-  onlyKey(key, ids);
-  const row = db
+/**
+ * Refunds from one group of the spec's cluster, computed now by the refunds
+ * tool, so a stale or mixed selection can't carry rows the drawer wouldn't
+ * show. Amount, merchant, reason and timing only: never who they're for.
+ */
+function clusterRows(spec: RunnableSpec, key: string, ids: readonly string[]): EvidenceRow[] {
+  const clusterId = spec.evidence.cluster;
+  const cluster = refundTool.clusters?.find((c) => c.id === clusterId);
+  if (!clusterId || !cluster) throw new Error(`refunds has no cluster ${clusterId ?? "(none)"}`);
+  const group = cluster.groups().find((g) => g.key === key);
+  if (!group) throw new Error(`cluster ${clusterId} has no group ${key}`);
+  const members = new Set(group.recordIds);
+  const strays = ids.filter((id) => !members.has(id));
+  if (strays.length > 0) throw new Error(`evidence rows are not in cluster ${key}: ${strays.join(", ")}`);
+  return db
     .select({
       id: refunds.id,
       merchant: refunds.merchant,
       reasonCode: refunds.reasonCode,
       usdMinor: refunds.usdMinor,
-      status: refunds.status,
+      requestedAt: refunds.requestedAt,
     })
     .from(refunds)
-    .where(eq(refunds.id, key))
-    .get();
-  if (!row) throw new Error(`no refund ${key}`);
-  const adminLine = loadConstants().number(ADMIN_APPROVAL_USD_KEY, Number.POSITIVE_INFINITY);
-  if (row.usdMinor < adminLine) throw new Error(`${key} is under the admin line`);
-  return {
-    id: row.id,
-    facts: {
-      merchant: row.merchant,
-      reasonCode: row.reasonCode,
-      usdMinor: row.usdMinor,
-      status: row.status,
-    },
-  };
+    .where(inArray(refunds.id, [...ids]))
+    .orderBy(refunds.requestedAt)
+    .all()
+    .map((r) => ({
+      id: r.id,
+      facts: {
+        merchant: r.merchant,
+        reasonCode: r.reasonCode,
+        usdMinor: r.usdMinor,
+        requestedAt: new Date(r.requestedAt).toISOString(),
+      },
+    }));
 }
 
 /** The folder a Power Apps export for app `key` is committed in. */

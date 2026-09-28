@@ -14,6 +14,9 @@ import {
 import { Icon } from "@console/ui/icon";
 import { CountUp } from "@console/ui/motion";
 import { StatusChip } from "@console/ui/status-chip";
+import { Button } from "@console/ui/button";
+import { useWorkspace } from "@/components/workspace";
+import type { HandoffOffer } from "@/lib/handoff";
 import { formatMinorUnits, formatRelative } from "@console/ui/format";
 import type { RuleOutcome, StatusDecl } from "@console/engine/types";
 
@@ -124,6 +127,9 @@ export function ClusterDrawer({
   statuses,
   ruleLabels,
   rows,
+  canRequestRule,
+  devinConnected,
+  dispatch,
 }: {
   label: string;
   headline: string;
@@ -133,7 +139,13 @@ export function ClusterDrawer({
   statuses: StatusDecl[];
   ruleLabels?: Record<string, string>;
   rows: ClusterRow[];
+  canRequestRule: boolean;
+  /** Whether a handoff can be sent right now (`DEVIN_API_KEY` set). */
+  devinConnected: boolean;
+  /** Handoffs this actor may ask Devin for from the cluster's spec. */
+  dispatch?: HandoffOffer[] | null;
 }) {
+  const { setAgentFocus } = useWorkspace();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -228,6 +240,24 @@ export function ClusterDrawer({
 
         <SheetFooter className="mt-0 flex-row items-center gap-3 border-t border-border text-xs text-muted-foreground">
           {uncovered ? <p>No rule catches this today.</p> : null}
+          {!canRequestRule ? <p>A refunds manager can ask for one.</p> : null}
+          {dispatch && dispatch.length > 0 ? (
+            <div className="ml-auto">
+              <Button
+                size="sm"
+                className="h-7 text-xs"
+                data-testid="dispatch-run"
+                disabled={!devinConnected}
+                title={devinConnected ? undefined : "Set DEVIN_API_KEY to connect Devin"}
+                onClick={() => {
+                  setAgentFocus({ kind: "handoff", offer: dispatch[0] });
+                  close();
+                }}
+              >
+                {devinConnected ? "Ask Devin for a rule" : "Devin not connected"}
+              </Button>
+            </div>
+          ) : null}
         </SheetFooter>
       </SheetContent>
     </Sheet>

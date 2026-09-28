@@ -16,7 +16,7 @@ A KYC case today is a set of flags: `riskScore`, `sanctionsHit`, `documentsCompl
 - **Declared vs found.** The core KYC question is whether what the customer declared matches what independent sources show. A customer who says "no directorships" and holds three is a bigger concern than a high risk score.
 - **Triggers that ignore the score.** Some findings need a senior decision whatever the score. UK rules require senior management approval to onboard a politically exposed person, and a material misstatement is an integrity question, not a risk-score one.
 
-The demo depends on the KYC app looking like the real job. In Demo 1 the viewer opens `kyc_0104` to see Devin's Companies House check take effect (`COMPANIES_HOUSE_CHECK.md`), and the case file is what makes that page credible.
+The demo depends on the KYC app looking like the real job. In Part 1 of the demo the viewer opens `kyc_0013` to see Devin's `linked_refund_hold` rule take effect, and the case file is what makes that page credible.
 
 ## What the case file shows
 
@@ -79,14 +79,14 @@ The golden tests assert the outcome in the last column. Existing cases keep thei
 | `kyc_0001` Helena Vasquez | Standard individual | Five checks clear, no differences | Applied |
 | `kyc_0003` Northwind Freight Ltd | Small UK company | Company registry: needs review, two of three owners verified | Manager, by risk score (72) |
 | `kyc_0005` Viktor Sandoval | Sanctions | Sanctions: possible match on UK OFSI list. Its note changes from "PEP list" to "sanctions list" | Denied by `no_sanctions_hit` |
-| `kyc_0013` Noor El-Amin | Minor difference | Home in Rotterdam, refund delivered to Utrecht | Applied |
-| `kyc_0104` Thornbury Couriers Ltd | Demo 1 case: low-risk UK business | Company registry checked by hand: clear. Risk score 34 | Applied, until Devin's Companies House check finds its accounts overdue |
+| `kyc_0013` Noor El-Amin | Part 1 case | Minor difference: home in Rotterdam, refund delivered to Utrecht | Applied, until Devin adds `linked_refund_hold` |
 | `kyc_0102` (new) | UK politically exposed person | PEP: match, serving local councillor. Risk score 32 | Manager, by `pep_approval` only |
 | `kyc_0103` (new) | Material misstatement | Directorships and source of funds, both material, as in the table above. Risk score 45 | Manager, by `declared_vs_found` only |
 
 Constraints:
 
-- `kyc_0104` must keep approving straight through for a reviewer. Demo 1's before-click depends on it.
+- `kyc_0013` must keep approving straight through for a reviewer. Part 1's after-click depends on it.
+- `kyc_0104` Thornbury Couriers Ltd, a low-risk UK business (score 34) whose company registry check was typed by hand, must also approve straight through. Part 2's before-click depends on it (`COMPANIES_HOUSE_CHECK.md`).
 - Generated cases get checks that agree with their flags: all clear, plus a possible sanctions match where `sanctionsHit` is set. They get no PEP match and no differences, so the new rules touch only the hand-written cases.
 - Customer names are invented. Sources are real public registers. Nothing in a seed describes a real person.
 
@@ -123,7 +123,7 @@ For KYC, render the case file panels after the customer card, next to where the 
 
 ### `apps/console/tests/tools/kyc-case-file.test.ts` (new)
 
-The golden tests for the example cases and the acceptance list below. Leave `kyc.test.ts` alone.
+The golden tests for the example cases and the acceptance list below. Leave `kyc.test.ts` alone: the Kestrel run adds its cases there.
 
 ## Acceptance
 
@@ -139,10 +139,11 @@ pnpm db:setup && pnpm dev
 - No seeded approved case has a PEP match or a material difference.
 - The register holds no email, full address or document number.
 - `pnpm check:boundaries` passes, and nothing under `packages/engine/` changes.
+- `REFUND_CLUSTERING_HOLD.md` still applies as written: `linked_refund_hold` can be appended to `approve`'s rules, and that spec's KYC acceptance tests 7 and 8 still hold.
 
 ## On camera
 
 The case file isn't a demo beat of its own. It makes an existing one credible:
 
-- **Demo 1, after the merge.** Open `kyc_0104` and run the Companies House check. The registry check reads accounts overdue, the register gains a material row, and **Approve** needs a KYC manager, with `declared_vs_found` in the trace. Devin's check feeds the register this spec built, and the rule already here does the holding.
+- **Part 1, after the merge.** Open `kyc_0013`. The register already showed a minor address difference, and nothing held it. Now **Approve** needs a KYC manager, and the trace names `linked_refund_hold`. The console had the evidence, and Devin's rule connects it to the refunds pattern.
 - **Off camera.** `kyc_0103` answers "what does KYC look like in this console" in one page: three undisclosed directorships, a manager hold, and the reason in plain words.

@@ -42,7 +42,7 @@ Three stats per role per tool. Three is enough to read at a glance; a fourth bec
 | Refunds manager | Awaiting your approval · Requested · Failed | approvals, `status` |
 | Admin | Awaiting your approval · Denied 24h · Policy changes 7d | approvals, `audit_log` |
 
-Held refunds are pending approvals, so the refunds manager's "Awaiting your approval" counts them as soon as a rule holds one.
+Once `REFUND_CLUSTERING_HOLD.md` ships, held refunds are pending approvals, so the refunds manager's "Awaiting your approval" is the number that reads 60 in the courier-outage reversal.
 
 ### Flags
 
@@ -152,8 +152,9 @@ Tests: engine tests for the two approval counters and the audit `since` filter; 
 
 ## On camera
 
-The strip earns its seconds inside existing moments of the demo:
+The strip earns its seconds inside two existing moments of the demo:
 
 - **Role switch.** KYC reviewer to KYC manager on the same KYC queue: the strip changes from "what do I pick up" to "what is breaching". One cut, and the viewer sees that roles are enforced, not decorative.
+- **Courier-outage reversal.** The refunds manager opens refunds and "Awaiting your approval" reads 60 before any row is read. The problem is visible in five seconds, which is the setup for "Reverse this change".
 
 Off camera it strengthens the repo: stats are one more thing a tool declares, and the `flags` receipt ("added no engine code") holds for them too.

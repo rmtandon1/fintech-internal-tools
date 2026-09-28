@@ -16,7 +16,7 @@ import {
   getRun,
   CHARGEBACKS_FROM_POWER_APPS,
   COMPANIES_HOUSE_CHECK,
-  TWO_PERSON_APPROVAL,
+  REFUND_CLUSTERING_HOLD,
   STRUCTURED_OUTPUT_JSON_SCHEMA,
   StructuredOutput,
   type DevinRun,
@@ -34,6 +34,8 @@ const OTHER_SHA = "b".repeat(64);
 const PR = "https://github.com/rmtandon1/buy-v-build-cog-demo/pull/99";
 /** The UK business case the Companies House check starts from. */
 const CASE = "kyc_0003";
+/** The four Kestrel Outdoors not_received refunds the seed ships. */
+const KESTREL = ["rfnd_0011", "rfnd_0012", "rfnd_0013", "rfnd_0014"];
 const EVIDENCE = [CASE];
 /** The repository root, where the Power Apps exports are committed. */
 const ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"]).toString().trim();
@@ -129,16 +131,19 @@ describe("dispatch rules", () => {
     deniedBy(dispatch(refundsManager), "role_may_start_kind");
   });
 
-  it("role_may_start_kind: an engine-scope change and a new app are the admin's to ask for", () => {
-    const twoPerson = {
-      spec: TWO_PERSON_APPROVAL.file,
-      scope: "engine",
-      intent: TWO_PERSON_APPROVAL.intents["IMPLEMENTATION/ADDITION"],
-      evidenceIds: ["rfnd_0015"],
+  it("role_may_start_kind: the refunds manager may ask for a refunds rule from its cluster", () => {
+    const kestrel = {
+      spec: REFUND_CLUSTERING_HOLD.file,
+      intent: REFUND_CLUSTERING_HOLD.intents["IMPLEMENTATION/ADDITION"],
+      evidenceIds: KESTREL,
     };
-    deniedBy(dispatch(refundsManager, twoPerson), "role_may_start_kind");
-    stop(applied(dispatch(admin, twoPerson)));
+    deniedBy(dispatch(kycManager, kestrel), "role_may_start_kind");
+    const run = applied(dispatch(refundsManager, kestrel));
+    expect(run.tool).toBe("refunds");
+    stop(run);
+  });
 
+  it("role_may_start_kind: a new app is the admin's to ask for", () => {
     const chargebacks = {
       spec: CHARGEBACKS_FROM_POWER_APPS.file,
       scope: "engine",
@@ -344,36 +349,36 @@ describe("context.json", () => {
     expect(attempt("kyc_9999", ["kyc_9999"])).toThrow(/no KYC case/);
   });
 
-  it("reads a refund at or above the admin line by amount and reason, never by customer", () => {
+  it("reads a refund cluster by amount, merchant, reason and time, never by customer", () => {
     const { context, json } = buildContext({
-      runId: "run_refund",
+      runId: "run_cluster",
       kind: "IMPLEMENTATION/ADDITION",
-      spec: TWO_PERSON_APPROVAL,
-      scope: "engine",
+      spec: REFUND_CLUSTERING_HOLD,
+      scope: "rule",
       intent: "x",
-      requestedBy: "admin",
-      evidenceKey: "rfnd_0015",
-      evidenceIds: ["rfnd_0015"],
+      requestedBy: "refunds_manager",
+      evidenceKey: "Kestrel Outdoors",
+      evidenceIds: KESTREL,
     });
-    expect(context.evidence.rows[0].facts).toEqual({
-      merchant: "Meridian Air Charters",
-      reasonCode: "cancelled",
-      usdMinor: 840_000,
-      status: "requested",
-    });
+    expect(context.evidence.source).toBe("refunds:Kestrel Outdoors");
+    expect(context.evidence.rows).toHaveLength(KESTREL.length);
+    for (const row of context.evidence.rows) {
+      expect(Object.keys(row.facts).sort()).toEqual(["merchant", "reasonCode", "requestedAt", "usdMinor"]);
+    }
     expect(json).not.toMatch(/email|card|last4|@/i);
-    expect(() =>
+    const attempt = (evidenceKey: string, evidenceIds: string[]) => () =>
       buildContext({
-        runId: "run_small",
+        runId: "run_cluster_bad",
         kind: "IMPLEMENTATION/ADDITION",
-        spec: TWO_PERSON_APPROVAL,
-        scope: "engine",
+        spec: REFUND_CLUSTERING_HOLD,
+        scope: "rule",
         intent: "x",
         requestedBy: "admin",
-        evidenceKey: "rfnd_0001",
-        evidenceIds: ["rfnd_0001"],
-      }),
-    ).toThrow(/under the admin line/);
+        evidenceKey,
+        evidenceIds,
+      });
+    expect(attempt("Kestrel Outdoors", [...KESTREL, "rfnd_0001"])).toThrow(/not in cluster Kestrel Outdoors: rfnd_0001/);
+    expect(attempt("No Such Merchant", KESTREL)).toThrow(/has no group No Such Merchant/);
   });
 
   it("lists an app's committed Power Apps export, and refuses a file that isn't in it", () => {

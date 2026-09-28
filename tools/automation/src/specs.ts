@@ -1,5 +1,6 @@
 import type { RoleDomain } from "@console/permissions";
-import { ADMIN_APPROVAL_USD_KEY, MANAGER_APPROVAL_USD_KEY } from "@console/tool-refunds";
+import { MANAGER_REVIEW_SCORE_KEY } from "@console/tool-kyc";
+import { MANAGER_APPROVAL_USD_KEY } from "@console/tool-refunds";
 
 export const RUN_KINDS = [
   "IMPLEMENTATION/ADDITION",
@@ -62,6 +63,8 @@ const TESTS = "apps/console/tests/**";
 export interface EvidenceSource {
   /** Where the evidence rows are read: a tool's records, or `roadmap` for an app not built yet. */
   tool: string;
+  /** `ClusterDecl.id` when the evidence is a group of that tool's records, not one record. */
+  cluster?: string;
 }
 
 /**
@@ -94,6 +97,60 @@ export interface RunnableSpec {
   /** The reviewer's checklist per kind, copied from the spec's acceptance tests. Shown in the approval dialog; never sent to the session or written to context.json. */
   acceptance: Partial<Record<RunKind, readonly string[]>>;
 }
+
+export const REFUND_CLUSTERING_HOLD: RunnableSpec = {
+  file: "REFUND_CLUSTERING_HOLD.md",
+  tool: "refunds",
+  domain: "refunds",
+  title: "Ask Devin for a rule",
+  description:
+    "Describe what the rule should do. Devin writes it, tests it, and sends it to an engineer to review before it goes live.",
+  kinds: ["IMPLEMENTATION/ADDITION", "REVERSAL"],
+  scope: "rule",
+  allowedPaths: [
+    "tools/refunds/src/clustering-hold.ts",
+    "tools/refunds/src/index.ts",
+    "tools/kyc/src/index.ts",
+    TESTS,
+  ],
+  intents: {
+    "IMPLEMENTATION/ADDITION":
+      "Once a merchant's \"not received\" refunds add up past the manager limit, send them to a manager for approval. Send those customers' KYC approvals to a manager too.",
+    REVERSAL:
+      "Undo the refund hold: remove the refund rule, the linked KYC rule and its time-window setting, and keep every change made since.",
+  },
+  summaries: {
+    "IMPLEMENTATION/ADDITION":
+      "Holding the merchant's not-received refunds once together they pass the manager line, and sending those customers' KYC approvals to a manager.",
+    REVERSAL: "Removing the hold, keeping everything merged since.",
+  },
+  outcomes: {
+    "IMPLEMENTATION/ADDITION":
+      "A merchant's \"not received\" refunds go to a manager once together they pass the manager limit, and those customers' KYC approvals go to a manager too.",
+    REVERSAL:
+      "The refund hold and the linked KYC rule are removed. Refunds and KYC approvals work as they did before.",
+  },
+  constantKeys: [MANAGER_APPROVAL_USD_KEY, MANAGER_REVIEW_SCORE_KEY],
+  evidence: { tool: "refunds", cluster: "merchant_not_received" },
+  acceptance: {
+    "IMPLEMENTATION/ADDITION": [
+      "The first refund in a cluster whose running total is under the manager line is applied.",
+      "The refund that takes the merchant's `not_received` total over the manager line within the window goes to `pending_approval` at the manager tier. The trace names `clustering_hold`, the merchant and the running total.",
+      "Every later refund in the same cluster is also held.",
+      "A `faulty` refund from the same merchant is not affected.",
+      "Rejected refunds don't count toward the total.",
+      "With `refunds.clustering_window_days` at 0, nothing is held. This is the KILL_SWITCH setting.",
+      "Approving a case whose email matches a customer in a held cluster needs a manager, whatever the risk score. The trace names `linked_refund_hold`.",
+      "A case whose customer has no held refunds is unchanged. Score 68 still clears.",
+    ],
+    REVERSAL: [
+      "`pnpm verify` is green.",
+      "The eight hold tests are gone, and the plan names them. No other test is lost.",
+      "Against the IMPLEMENTATION's base commit, every file it touched is back to its pre-merge content except later merged work, and nothing else changes.",
+      "After merge, executing the next Kestrel refund settles it, as it did before the IMPLEMENTATION.",
+    ],
+  },
+};
 
 export const COMPANIES_HOUSE_CHECK: RunnableSpec = {
   file: "COMPANIES_HOUSE_CHECK.md",
@@ -141,59 +198,13 @@ export const COMPANIES_HOUSE_CHECK: RunnableSpec = {
   },
 };
 
-export const TWO_PERSON_APPROVAL: RunnableSpec = {
-  file: "TWO_PERSON_APPROVAL.md",
-  tool: "refunds",
-  domain: "refunds",
-  title: "Ask Devin for a second approver",
-  description:
-    "This changes how every approval works, so only an admin can ask, and the engine's owner reviews it as well as an engineer.",
-  kinds: ["IMPLEMENTATION/ADDITION", "REVERSAL"],
-  scope: "engine",
-  allowedPaths: ["tools/refunds/**", "apps/console/src/app/inbox/**", TESTS],
-  intents: {
-    "IMPLEMENTATION/ADDITION":
-      "Refunds at or above the admin limit need two different approvers, each a refunds manager or an admin, before they reach the processor, and the person who asked can't be one of them. Agreed with engineering: an approval request records each approver and applies once enough have approved; nobody approves the same request twice; requests already waiting still need one. Show 1 of 2 in the inbox.",
-    REVERSAL:
-      "Undo the two-person approval: large refunds go back to one approver, the approval records already written stay, and every change made since is kept.",
-  },
-  summaries: {
-    "IMPLEMENTATION/ADDITION":
-      "Requiring two different approvers, each a refunds manager or an admin and neither the requester, for refunds at or above the admin limit.",
-    REVERSAL: "Going back to one approver for large refunds, keeping everything merged since.",
-  },
-  outcomes: {
-    "IMPLEMENTATION/ADDITION":
-      "Refunds at or above the admin limit wait for two different approvers. The inbox shows how many have approved.",
-    REVERSAL: "Large refunds need one approver again.",
-  },
-  constantKeys: [ADMIN_APPROVAL_USD_KEY, MANAGER_APPROVAL_USD_KEY],
-  evidence: { tool: "refunds" },
-  acceptance: {
-    "IMPLEMENTATION/ADDITION": [
-      "The approval request carries how many approvals it needs (default 1) and a record of each approver; any tool's rule can ask for two.",
-      "Each approval is its own audit row, and the effect applies in the same transaction as the last one.",
-      "Nobody approves the same request twice, and the requester never approves, enforced where approvals are decided.",
-      "A request created before the change still applies on one approval.",
-      "The migration is additive: existing approval rows keep working.",
-      "The inbox shows \"1 of 2\" and who has approved.",
-      "Tests: two different approvers apply it; the same approver twice and the requester are refused; an old request needs one.",
-    ],
-    REVERSAL: [
-      "`pnpm verify` is green.",
-      "Approval records already written stay readable.",
-      "Against the addition's base commit, every file it touched is back to its pre-merge content except later merged work, and nothing else changes.",
-    ],
-  },
-};
-
 export const CHARGEBACKS_FROM_POWER_APPS: RunnableSpec = {
   file: "CHARGEBACKS_FROM_POWER_APPS.md",
   tool: "chargebacks",
   domain: null,
-  title: "Ask Devin to build this app",
+  title: "Ask Devin to start this app",
   description:
-    "Devin rebuilds the app from its Power Apps export. It adds a table, so the engine's owner reviews it as well as an engineer.",
+    "Devin makes the first pull request of the move from the Power Apps export. It adds a table, so the engine's owner reviews it as well as an engineer.",
   kinds: ["IMPLEMENTATION/ADDITION", "REVERSAL"],
   scope: "engine",
   allowedPaths: [
@@ -207,29 +218,29 @@ export const CHARGEBACKS_FROM_POWER_APPS: RunnableSpec = {
   ],
   intents: {
     "IMPLEMENTATION/ADDITION":
-      "Rebuild the Chargebacks Power App as a console app from the export in fixtures/power-apps/chargebacks. Keep its fields and actions, seed it from disputes.csv, and turn every condition in its Power Automate flows into a rule, and its deadline alert into a count on the queue. The refunds team works it, so use the refunds roles. In the pull request, list each flow step next to what replaced it, and flag anything with no equivalent.",
+      "Start moving the Chargebacks Power App into the console, from the export in fixtures/power-apps/chargebacks. This is the first pull request, not the whole app: the queue with its fields, seeded from disputes.csv; the deadline alert as a count on the queue; and the two riskiest rules, fraud accepts over $500 and fights over $2,500, each needing a refunds manager. Use the refunds roles. In the pull request, list every formula and flow step as done or still to do.",
     REVERSAL:
       "Remove the Chargebacks app: its tool, tables, seed and registry lines, and keep every change made since.",
   },
   summaries: {
     "IMPLEMENTATION/ADDITION":
-      "Rebuilding the Chargebacks Power App as a console app, with each flow condition as a rule.",
+      "Starting the Chargebacks move: the queue, its disputes, the deadline count and the two riskiest rules, with the rest listed as still to do.",
     REVERSAL: "Removing the Chargebacks app, keeping everything merged since.",
   },
   outcomes: {
     "IMPLEMENTATION/ADDITION":
-      "Chargebacks is live in the console, with the Power App's fields and actions, and a rule for each condition its flow checked.",
+      "Chargebacks is live in the console with its queue, the 50 disputes, a count of those due within 48 hours, and manager approval for large fraud accepts and fights.",
     REVERSAL: "Chargebacks goes back to Coming soon.",
   },
   constantKeys: [],
   evidence: { tool: "roadmap" },
   acceptance: {
     "IMPLEMENTATION/ADDITION": [
-      "The pull request maps each formula and flow condition to what replaced it, and flags what has no equivalent.",
-      "Accepting a fraud dispute over $500 needs a refunds manager; fighting over $2,500 needs a refunds manager's approval.",
-      "Fighting without evidence is denied, and every decision carries a note.",
-      "Acting on a dispute past its deadline is denied; a count shows open disputes over $1,000 due within 48 hours.",
-      "The seed keeps each date's offset from the export time, so three disputes are due soon on the day of the demo.",
+      "The pull request lists every formula and flow step from the export as done in this pull request or still to do.",
+      "The queue shows the export's fields, seeded from disputes.csv with each date's offset from the export time kept, so three disputes are due soon on the day of the demo.",
+      "A count on the queue shows open disputes over $1,000 due within 48 hours.",
+      "Accepting a fraud dispute over $500, and fighting one over $2,500, each need a refunds manager.",
+      "The refunds roles work it; nothing new in the role catalog.",
       "New files sit under `tools/chargebacks/`, plus a registry line, a schema re-export, a migration and the lockfile; nothing under `packages/`.",
     ],
     REVERSAL: [
@@ -240,8 +251,8 @@ export const CHARGEBACKS_FROM_POWER_APPS: RunnableSpec = {
 };
 
 export const SPECS: readonly RunnableSpec[] = [
+  REFUND_CLUSTERING_HOLD,
   COMPANIES_HOUSE_CHECK,
-  TWO_PERSON_APPROVAL,
   CHARGEBACKS_FROM_POWER_APPS,
 ];
 
