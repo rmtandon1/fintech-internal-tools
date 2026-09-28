@@ -34,7 +34,7 @@ Section timings add up to about six and a half minutes. Lines in *🎬 italics* 
 
 > This is the console. I decided what each piece should do and reviewed every pull request. Devin wrote the code.
 >
-> Three live apps: KYC review with 101 cases, refunds with 14, and 12 feature flags. They share one engine. Every write goes through the same six steps, validate, idempotency, policy, approval, effect, audit, in one database transaction. 294 tests hold it together.
+> Three live apps: KYC review with 101 cases, refunds with 14, and 11 feature flags. They share one engine. Every write goes through the same six steps, validate, idempotency, policy, approval, effect, audit, in one database transaction. 294 tests hold it together.
 >
 > Here's what that buys app number four. *(open Transaction monitoring)* Nobody has written a line of it yet, and it already has seven things: role access, a check on every action, approvals, live settings, no double actions, masked personal data and a tamper-evident audit log. When Devin added the flags app, the commit touched 11 files and added 1,728 lines. None of them were in the engine.
 >
@@ -81,7 +81,9 @@ Section timings add up to about six and a half minutes. Lines in *🎬 italics* 
 
 > This is everything Devin gets. The sentence. The four refunds. The two lines it'll run into, $500 on refunds and a risk score of 70 on KYC. The commit it starts from. And the folders it's allowed to touch. No customer emails, no card numbers, no ticket, no spec.
 >
-> What the sentence leaves out is the interesting part. How far back to look. Whether rejected refunds count. Kestrel also has an £84 goodwill refund and two faulty ones, and those mustn't count. Which approver. Devin works all of that out from the code.
+> What the sentence leaves out is the interesting part. How far back to look. Whether rejected refunds count. Kestrel also has an £84 goodwill refund and two faulty ones, and those mustn't count. Which approver. Nobody tells Devin any of that. There's a spec with those answers in it, and it goes to the reviewer, not to Devin. Devin works all of it out from the code.
+
+*🎬 Optional: open the Devin session in a second tab. The prompt is the sentence, the kind, `Scope: rule` and the run id; the attachment is `context.json`. No spec path anywhere.*
 
 ### What Devin did
 
@@ -108,6 +110,10 @@ Section timings add up to about six and a half minutes. Lines in *🎬 italics* 
 *🎬 Switch role: Engineer. Click **Review and approve**.*
 
 > I'm the engineer now, a different person from the one who asked. Neither Devin nor the refunds manager can merge this.
+
+- The dialog lists the eight acceptance tests from the spec, the checklist Devin never saw. Tick them off against the PR's tests.
+
+> This checklist is the spec. It went to me, not to Devin. Eight behaviours; Devin's tests cover all eight.
 
 - Approve. The dialog fills in row by row: review submitted on GitHub, Devin merging, merged, pulled into the console, audit row written.
 

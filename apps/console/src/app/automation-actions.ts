@@ -47,12 +47,12 @@ export async function dispatchAutomationRun(form: FormData): Promise<BridgeResul
   if (!parsed.ok) {
     return { ok: false, title: "Request not sent", detail: parsed.detail };
   }
-  // Simulation mode shows a pre-written run in the dialog; a run that never
+  // Without Devin connected nothing may be dispatched; a run that never
   // happened must not reach devin_runs or the audit chain.
   if (devinMode() === "simulation") {
     return {
       ok: false,
-      title: "Preview only",
+      title: "Devin not connected",
       detail: "Devin isn't connected, so nothing was sent or recorded",
     };
   }

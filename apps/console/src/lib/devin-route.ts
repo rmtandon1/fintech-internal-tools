@@ -71,6 +71,8 @@ export interface RunViewPayload {
   kindLabel: string;
   /** The id of the run's latest audit row, or null before the first intent. */
   lastAuditId: string | null;
+  /** The spec's acceptance tests for this kind: the engineer's checklist, never sent to the session. */
+  reviewerChecklist: string[];
   offers: RunOffers;
 }
 
@@ -135,6 +137,7 @@ export async function handleGet(
     outcome: getSpec(run.spec)?.outcomes?.[run.kind as RunKind] ?? null,
     kindLabel: runKindLabel(run.kind),
     lastAuditId: listAuditEvents({ recordId: run.id, limit: 1 }).rows[0]?.id ?? null,
+    reviewerChecklist: [...(getSpec(run.spec)?.acceptance?.[run.kind as RunKind] ?? [])],
     offers: await runOffers(
       run,
       actor,

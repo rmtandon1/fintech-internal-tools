@@ -16,6 +16,7 @@ import { seedFeatureFlags } from "./seed";
 export interface FeatureFlag extends GovernedRecord {
   id: string;
   key: string;
+  name: string;
   description: string;
   flagType: string;
   environment: string;
@@ -133,7 +134,7 @@ const allow =
   () => ({ type: "allow", rule });
 
 const SORTABLE = {
-  key: featureFlags.key,
+  name: featureFlags.name,
   environment: featureFlags.environment,
   rolloutPercent: featureFlags.rolloutPercent,
   owner: featureFlags.owner,
@@ -143,7 +144,7 @@ const SORTABLE = {
 
 function order(sort?: SortOption) {
   const column = sort ? SORTABLE[sort.field as keyof typeof SORTABLE] : undefined;
-  if (!column) return asc(featureFlags.key);
+  if (!column) return asc(featureFlags.name);
   return sort?.direction === "desc" ? desc(column) : asc(column);
 }
 
@@ -156,7 +157,13 @@ export const flagTool = defineTool<FeatureFlag>({
   recordType: "feature_flag",
   visibleTo: MANAGER_ROLES,
   fields: [
-    { name: "key", label: "Key", type: "string", help: "Can't be changed once created" },
+    { name: "name", label: "Name", type: "string" },
+    {
+      name: "key",
+      label: "Key",
+      type: "string",
+      help: "What the product code reads. Can't be changed once created",
+    },
     { name: "description", label: "Description", type: "text" },
     {
       name: "flagType",
@@ -180,7 +187,7 @@ export const flagTool = defineTool<FeatureFlag>({
     { name: "lastNote", label: "Last note", type: "text" },
   ],
   listColumns: [
-    { field: "key", sortable: true },
+    { field: "name", sortable: true },
     { field: "flagType" },
     { field: "environment", sortable: true },
     { field: "rolloutPercent", align: "right", sortable: true },
@@ -265,7 +272,7 @@ export const flagTool = defineTool<FeatureFlag>({
   ],
   toggle: { field: "enabled", on: "enable", off: "disable", groupBy: "environment" },
   sections: [
-    { title: "Flag", fields: ["key", "description", "flagType", "environment"] },
+    { title: "Flag", fields: ["name", "key", "description", "flagType", "environment"] },
     { title: "State", fields: ["enabled", "rolloutPercent", "customerFacing"] },
     { title: "Ownership", fields: ["owner", "expiresAt", "lastChangedBy", "lastChangedAt", "lastNote"] },
   ],
@@ -276,7 +283,7 @@ export const flagTool = defineTool<FeatureFlag>({
     { value: "archived", label: "Archived", tone: "neutral" },
   ],
   statusField: "status",
-  titleField: "key",
+  titleField: "name",
   revealRoles: MANAGER_ROLES,
   openStatuses: ["partial"],
   constants: [
@@ -314,7 +321,7 @@ export const flagTool = defineTool<FeatureFlag>({
       rules: [notArchived, notExpired, permissionFlagTier, productionEnable],
       suggest: () => ({ reason: "Ready to turn on." }),
       decide: ({ record, input }) => ({
-        summary: `Enable ${record?.key ?? ""}: ${input.reason}`,
+        summary: `Enable ${record?.name ?? ""}: ${input.reason}`,
         patch: { enabled: 1, rolloutPercent: 100, status: "on", note: input.reason },
       }),
       apply: (ctx, decision) => write(ctx, decision.patch),
@@ -332,7 +339,7 @@ export const flagTool = defineTool<FeatureFlag>({
       rules: [notArchived, allow("kill_switch_is_always_available")],
       suggest: () => ({ reason: "Turning off while we look into an issue." }),
       decide: ({ record, input }) => ({
-        summary: `Disable ${record?.key ?? ""}: ${input.reason}`,
+        summary: `Disable ${record?.name ?? ""}: ${input.reason}`,
         patch: { enabled: 0, rolloutPercent: 0, status: "off", note: input.reason },
       }),
       apply: (ctx, decision) => write(ctx, decision.patch),
@@ -360,7 +367,7 @@ export const flagTool = defineTool<FeatureFlag>({
       ],
       suggest: () => ({ reason: "Widening the rollout in stages." }),
       decide: ({ record, input }) => ({
-        summary: `Set ${record?.key ?? ""} rollout to ${input.percent}%: ${input.reason}`,
+        summary: `Set ${record?.name ?? ""} rollout to ${input.percent}%: ${input.reason}`,
         patch: {
           enabled: input.percent > 0 ? 1 : 0,
           rolloutPercent: input.percent,
@@ -380,7 +387,7 @@ export const flagTool = defineTool<FeatureFlag>({
       rules: [notArchived],
       suggest: () => ({ reason: "Code path removed; retiring the flag." }),
       decide: ({ record, input }) => ({
-        summary: `Archive ${record?.key ?? ""}: ${input.reason}`,
+        summary: `Archive ${record?.name ?? ""}: ${input.reason}`,
         patch: { enabled: 0, rolloutPercent: 0, status: "archived", note: input.reason },
       }),
       apply: (ctx, decision) => write(ctx, decision.patch),
@@ -401,6 +408,7 @@ export const flagTool = defineTool<FeatureFlag>({
     if (search) {
       clauses.push(
         or(
+          like(featureFlags.name, `%${search}%`),
           like(featureFlags.key, `%${search}%`),
           like(featureFlags.description, `%${search}%`),
           eq(featureFlags.id, search),

@@ -1,7 +1,5 @@
 import Link from "next/link";
-import { SimulatedRunView, SimulationBanner } from "@/components/simulated-run";
 import type { DevinMode } from "@/lib/devin-status";
-import { defaultSimulation } from "@/lib/simulation";
 import type { Actor } from "@console/engine/types";
 import { automationTool, listRuns, runKindLabel } from "@console/tool-automation";
 import { formatRelative } from "@console/ui/format";
@@ -11,15 +9,18 @@ const RECENT = 5;
 
 /**
  * What the Devin window holds. Live: the newest runs from `devin_runs`, each
- * linking to its run view. Simulation: the pre-written finished run, labelled
- * as such, because there is no session to read.
+ * linking to its run view. Without `DEVIN_API_KEY` it says Devin is not
+ * connected, because there is no session to read.
  */
 export function DevinWindowBody({ actor, mode }: { actor: Actor; mode: DevinMode }) {
   if (mode === "simulation") {
     return (
-      <div className="space-y-5 p-5">
-        <SimulationBanner />
-        <SimulatedRunView run={defaultSimulation()} autoPlay={false} />
+      <div className="space-y-4 p-5 text-sm">
+        <p className="flex items-center gap-2 text-muted-foreground" data-testid="devin-not-connected">
+          <span className="size-2 rounded-full bg-warning" />
+          Devin not connected. Set <code className="font-mono">DEVIN_API_KEY</code> to send rule
+          changes.
+        </p>
       </div>
     );
   }
