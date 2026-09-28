@@ -2,8 +2,7 @@
 
 This directory contains detailed technical documentation about the implementation, design decisions, and solutions to problems encountered during development.
 
-The stakeholder view (the problem, who it serves, the three demo scenarios and the cost
-comparison) is [`../CUSTOMER_FRAMING.md`](../CUSTOMER_FRAMING.md). Repository setup, routes and
+The stakeholder view is found at [`../CUSTOMER_FRAMING.md`](../CUSTOMER_FRAMING.md). Repository setup, routes and
 scripts are in the root [`README.md`](../README.md).
 
 ## Table of Contents
