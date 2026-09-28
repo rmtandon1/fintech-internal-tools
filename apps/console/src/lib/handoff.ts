@@ -8,7 +8,10 @@ import {
   type RunnableSpec,
 } from "@console/tool-automation";
 import { readContextJson, type BridgeDeps } from "@console/tool-automation/bridge";
+import { kycTool } from "@console/tool-kyc";
+import { refundTool } from "@console/tool-refunds";
 import { devinMode } from "@/lib/devin-status";
+import type { FactLabels } from "@/lib/fact-format";
 
 /**
  * Everything the handoff panel shows and the dispatch needs, built on the
@@ -31,6 +34,8 @@ export interface HandoffOffer {
   constants: Record<string, number>;
   base: { branch: string; commit: string };
   scopePaths: string[];
+  /** Display labels for coded evidence values; not part of the brief. */
+  evidenceLabels: FactLabels;
   /** False without `DEVIN_API_KEY`: the panel shows the brief but can't send it. */
   live: boolean;
   reverses?: { runId: string; mergeCommit: string; prUrl: string | null } | null;
@@ -40,6 +45,19 @@ export type AgentFocus =
   | { kind: "handoff"; offer: HandoffOffer }
   | { kind: "run"; runId: string }
   | null;
+
+/** The labels the evidence tool declares for its coded fields: statuses for the status field, options for enum filters. Display only. */
+export function evidenceLabels(tool: string): FactLabels {
+  const decl = [kycTool, refundTool].find((t) => t.name === tool);
+  if (!decl) return {};
+  const labels: FactLabels = {
+    [decl.statusField]: Object.fromEntries(decl.statuses.map((s) => [s.value, s.label])),
+  };
+  for (const f of decl.filters)
+    if (f.type === "enum" && f.options)
+      labels[f.field] ??= Object.fromEntries(f.options.map((o) => [o.value, o.label]));
+  return labels;
+}
 
 /** Evidence a REVERSAL reuses from the reversed run's context.json. */
 export function reversalEvidence(
@@ -104,6 +122,7 @@ export function buildHandoffOffer(
     constants: built.context.constants,
     base: built.context.base,
     scopePaths: built.context.scope,
+    evidenceLabels: evidenceLabels(spec.evidence.tool),
     live: devinMode() === "live",
     reverses: input.reverses ?? null,
   };

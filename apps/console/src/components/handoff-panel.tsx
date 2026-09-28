@@ -80,7 +80,7 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
                 <span className="ml-2 text-muted-foreground">
                   {Object.entries(row.facts)
                     .filter(([key]) => key !== "path")
-                    .map(([key, value]) => `${factLabel(key)} ${factValue(offer.spec, key, value)}`)
+                    .map(([key, value]) => `${factLabel(key)} ${factValue(offer.evidenceLabels, key, value)}`)
                     .join(" · ")}
                 </span>
               </li>

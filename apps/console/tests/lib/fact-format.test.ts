@@ -1,17 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { formatTimestamp } from "@console/ui/format";
-import { factLabel, factValue } from "@/lib/fact-format";
+import { factLabel, factValue, type FactLabels } from "@/lib/fact-format";
 
-const KYC = "COMPANIES_HOUSE_CHECK.md";
-const REFUNDS = "REFUND_CLUSTERING_HOLD.md";
+const KYC: FactLabels = { status: { pending_review: "Pending review" } };
+const REFUNDS: FactLabels = {
+  status: { executing: "With processor" },
+  reasonCode: { not_received: "Not received" },
+};
 
 describe("factValue", () => {
-  it("uses the tool's declared status label", () => {
+  it("uses the declared status label", () => {
     expect(factValue(KYC, "status", "pending_review")).toBe("Pending review");
     expect(factValue(REFUNDS, "status", "executing")).toBe("With processor");
   });
 
-  it("uses the tool's declared enum filter label", () => {
+  it("uses the declared enum filter label", () => {
     expect(factValue(REFUNDS, "reasonCode", "not_received")).toBe("Not received");
   });
 
