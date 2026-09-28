@@ -36,7 +36,7 @@ Section timings add up to about six and a half minutes. Lines in *🎬 italics* 
 >
 > Three live apps: KYC review with 101 cases, refunds with 14, and 11 feature flags. They share one engine. Every write goes through the same six steps, validate, idempotency, policy, approval, effect, audit, in one database transaction. 294 tests hold it together.
 >
-> Here's what that buys app number four. *(open Transaction monitoring)* Nobody has written a line of it yet, and it already has seven things: role access, a check on every action, approvals, live settings, no double actions, masked personal data and a tamper-evident audit log. When Devin added the flags app, the commit touched 11 files and added 1,728 lines. None of them were in the engine.
+> Here's what that buys app number four. *(open Transaction monitoring)* Nobody has written a line of it yet, and it already has seven things: role access, a check on every action, approvals, live settings, no double actions, masked personal data and an audit log. When Devin added the flags app, the commit touched 11 files and added 1,728 lines. None of them were in the engine.
 >
 > Seventeen more tiles, same job. But the build isn't really the question. The rules inside it are.
 
@@ -81,7 +81,9 @@ Section timings add up to about six and a half minutes. Lines in *🎬 italics* 
 
 > This is everything Devin gets. The sentence. The four refunds. The two lines it'll run into, $500 on refunds and a risk score of 70 on KYC. The commit it starts from. And the folders it's allowed to touch. No customer emails, no card numbers, no ticket, no spec.
 >
-> What the sentence leaves out is the interesting part. How far back to look. Whether rejected refunds count. Kestrel also has an £84 goodwill refund and two faulty ones, and those mustn't count. Which approver. Devin works all of that out from the code.
+> What the sentence leaves out is the interesting part. How far back to look. Whether rejected refunds count. Kestrel also has an £84 goodwill refund and two faulty ones, and those mustn't count. Which approver. Nobody tells Devin any of that. There's a spec with those answers in it, and it goes to the reviewer, not to Devin. Devin works all of it out from the code.
+
+*🎬 Optional: open the Devin session in a second tab. The prompt is the sentence, the kind, `Scope: rule` and the run id; the attachment is `context.json`. No spec path anywhere.*
 
 ### What Devin did
 
@@ -108,6 +110,10 @@ Section timings add up to about six and a half minutes. Lines in *🎬 italics* 
 *🎬 Switch role: Engineer. Click **Review and approve**.*
 
 > I'm the engineer now, a different person from the one who asked. Neither Devin nor the refunds manager can merge this.
+
+- The dialog lists the eight acceptance tests from the spec, the checklist Devin never saw. Tick them off against the PR's tests.
+
+> This checklist is the spec. It went to me, not to Devin. Eight behaviours; Devin's tests cover all eight.
 
 - Approve. The dialog fills in row by row: review submitted on GitHub, Devin merging, merged, pulled into the console, audit row written.
 
@@ -207,7 +213,7 @@ Section timings add up to about six and a half minutes. Lines in *🎬 italics* 
 *🎬 Role: Engineer, then show the pull request on GitHub.*
 
 - This run touches the engine. CODEOWNERS names an owner for `packages/engine/`, so GitHub requests the engine owner's review automatically, on top of the engineer's.
-- Before approving, the reviewer tries each of the five paths in the console and runs `/audit/verify`.
+- Before approving, the reviewer tries each of the five paths in the console and reads the audit rows it writes.
 - If review caught a missed path, show where it was caught and the fix Devin made in the same session.
 
 > This is where Devin needs the most review. Here's exactly how much it needed.
@@ -220,11 +226,9 @@ Section timings add up to about six and a half minutes. Lines in *🎬 italics* 
 - KYC **Approve**, a production flag enable and a policy setting edit all ask as well. A rejection still asks only for its reason.
 - The new `/audit` row shows the reason and `RISK-2231`.
 
-*🎬 Role: Admin. Open `/audit/verify`.*
+*🎬 Role: Admin. Open `/audit`.*
 
-> The verify page walks the whole chain from row one, recomputing each row's SHA-256 hash from the one before it. Green, including every row written before this change. The ticket sits inside the hashed content, so nobody can edit it later without breaking the chain on that exact row.
-
-*🎬 Optional ten-second aside: `pnpm db:tamper` edits one row, and `/audit/verify` names the row where the chain breaks. Reset the database afterwards.*
+> The audit log shows the whole run in order: the request, the approval and the merge, each row naming who did what and when.
 
 > One requirement, three apps and the engine, one pull request, one review.
 

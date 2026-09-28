@@ -97,12 +97,6 @@ export function AppSidebar({
     ...(roleChosen && actor.role === "admin"
       ? [
           {
-            href: "/audit/verify",
-            label: "Verify audit log",
-            icon: "ShieldCheck",
-            active: pathname === "/audit/verify",
-          },
-          {
             href: "/admin/policy",
             label: "Rule settings",
             icon: "SlidersHorizontal",

@@ -28,7 +28,7 @@ The rule then reaches production one of two ways: a business user edits it direc
 
 ### Why the existing options fail
 
-- **Business edits skip review.** A flow edited in Power Apps goes live with no diff, no second approver and no test. The change history records who saved it, but can't prove the history wasn't edited afterwards. A rule that decides whether money leaves the company needs more control than that. UK money-laundering rules (MLR 2017) expect a firm's controls to be written down and approved by senior management, and a flow saved in the browser leaves no record of either.
+- **Business edits skip review.** A flow edited in Power Apps goes live with no diff, no second approver and no test. A rule that decides whether money leaves the company should get a second pair of eyes before it runs. The change history records who saved a flow but not why, so when a rule misbehaves the team rebuilds the story from memory and Slack.
 - **Each app sees only itself.** Rules worth adding often span apps: the refund hold above reads refunds and KYC. Today a person with a spreadsheet joins the two. A rule that reads both needs a shared data model and a test that covers both, and a Power Apps formula has neither. KYC decisions rest on the same kind of join: whether what the customer declared matches what other sources show, such as the delivery address on a refund or a directorship on Companies House.
 - **No-code rules miss edge cases the code already handles.** "Sum a merchant's refunds" sounds like a one-line flow. But rejected refunds must not count, goodwill refunds already have their own $50 approval line, and the sum must be in USD at the exchange rate fixed when each refund was requested. The console's code handles all three. A flow edited under pressure drops one without anyone noticing.
 - **Feature flags only cover changes someone predicted.** The usual way to let the business change behaviour without engineers is a flag: wrap the logic in `if (flags.isEnabled("refund_clustering_v1"))` and flip it from a dashboard. That needs the rule written in advance, and a rule that comes out of the queue is one nobody predicted. Every flag is also a branch someone has to delete later, and nobody schedules that.
@@ -46,7 +46,7 @@ Moving off Power Apps means owning the software. Each row is a question to put t
 | **It misfires in production. How fast can we stop it, and who has to be there?** | Another live edit, also unreviewed | A hotfix or an urgent ticket, which needs an engineer | An admin switches it off from the policy page in seconds. No engineer |
 | **Six months on, who cleans up rules nobody wants?** | Nobody owns it. Old flows and formulas stay in each app | Engineers, when a ticket is prioritised. Dead rules and flags pile up | Devin removes the rule in a reviewed pull request and keeps the work built since |
 | **What does the next app cost, and what does it get for free?** | Licences per user, and each app sets up its own roles, approvals and audit | Weeks of engineering, reusing the shared engine | Devin builds the tool, and it inherits approvals, maker-checker and audit from the engine |
-| **What can we show an auditor?** | Each app's own change history, which can't prove it wasn't edited | Git history, plus a log per app | One tamper-evident audit log. Every change carries its request, plan, tests and approval |
+| **Who changed a rule, and why?** | Each app's own save history: who saved it, not why | Git history for the code, plus a separate log per app | One audit log across every app. Every change carries its request, plan, tests and approval |
 | **What do we still pay for?** | ~$250K a year, rising with every user and app | All of it: build, review, upkeep and on-call | Engineer review of every change, ownership of the shared engine, hosting and on-call, each integration a Power Apps connector used to provide, and Devin usage |
 
 ## 2. Stakeholders
@@ -75,7 +75,7 @@ Stop tracing rules by hand. Review a small PR against a one-sentence request and
 
 **Example:** the Kestrel hold arrives as one pull request: the rule, its setting, the KYC check, new tests built from the Kestrel amounts, one existing test changed on purpose, and a green `pnpm verify` on top of the 294 tests already there. Review takes ~5 minutes instead of 4–6 hours, and CI's Boundaries check fails any code that writes to the database without going through the engine.
 
-**Example:** a change to the shared engine, such as requiring a reason on every privileged action, also needs the engine owner's approval. Before approving, the reviewer tries each privileged action in the console and runs `/audit/verify`, so a path Devin missed can't reach production.
+**Example:** a change to the shared engine, such as requiring a reason on every privileged action, also needs the engine owner's approval. Before approving, the reviewer tries each privileged action in the console and reads the audit rows it writes, so a path Devin missed can't reach production.
 
 ### For Compliance and QA
 
@@ -83,7 +83,7 @@ Set a control once and see it hold across every app. Every change arrives with i
 
 **Example:** internal audit asks for the ticket behind each refund sent to the processor, and there isn't one. Compliance asks Devin from the audit row that shows the gap. After the merge, a refund can't be sent without a reason and a ticket, and every audit row it authorises, across KYC, refunds and flags, carries both.
 
-**Example:** `/audit/verify` checks the whole chain live: the Kestrel request, the approval, the merge, the switch-off and the removal, with rows from before the change still verifying.
+**Example:** the audit log records the whole run: the Kestrel request, the approval, the merge, the switch-off and the removal, each row naming who did what and when.
 
 ## 3. Scenarios
 

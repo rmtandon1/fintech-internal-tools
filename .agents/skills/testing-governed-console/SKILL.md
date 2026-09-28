@@ -16,7 +16,6 @@ description: Browser smoke testing for the Meridian governed-write-path console,
 - `/t/refunds/rfnd_0003` initially requires manager approval under seeded thresholds. Request as Refunds agent, switch to Refunds manager, then use Approvals (`/inbox`) to approve. Pending approval does not itself change the record status.
 - `/t/kyc/kyc_0001` has masked PII. KYC manager/Admin can use the eye button titled Reveal (audited). Verify the revealed value and filter `/audit` by `pii_revealed`.
 - Admin can edit `/admin/policy`. Check save notification and persistence after refresh, and restore the original threshold.
-- Admin's `/audit/verify` recomputes the chain. Check both Status verified and the event count.
 - Audit filter names are `applied`, `approval_requested`, `applied_after_approval`, and `approval_granted`; do not assume intent-prefixed names.
 - Refund toast summaries use currency codes (`129.00 EUR`), whereas detail fields use localized currency formatting (`€129.00`).
 

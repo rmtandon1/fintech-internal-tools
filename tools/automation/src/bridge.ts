@@ -216,22 +216,31 @@ export async function dispatchRun(
     sessionInput = { error: "Devin API is not configured: set DEVIN_API_KEY and DEVIN_ORG_ID on the server" };
   } else {
     try {
-      // A missing playbook is not fatal: the prompt names the protocol file too.
+      // A missing playbook is not fatal: the prompt names the protocol file
+      // too. Only an engine run's prompt names the spec; a rule run gets the
+      // sentence and the attachment, and works the rest out from the code.
       const playbookId =
         deps.playbookId ?? (await deps.resolvePlaybookId?.().catch(() => null)) ?? undefined;
       const created = await deps.devin.createSession({
         prompt: [
           req.intent,
-          `Kind: ${req.kind}. Spec: ${spec.file}. Run: ${runId}.`,
+          req.scope === "engine"
+            ? `Kind: ${req.kind}. Scope: engine. Spec: docs/${spec.file}. Run: ${runId}.`
+            : `Kind: ${req.kind}. Scope: rule. Run: ${runId}.`,
           ...(deps.repository
             ? [
                 `Repository: https://github.com/${deps.repository}. Branch from ${built.context.base.branch} at ${built.context.base.commit.slice(0, 7)} and open the pull request against ${built.context.base.branch}.`,
               ]
             : []),
           `Work from the attached runs/${runId}/context.json; commit it unchanged on your branch.`,
+          ...(req.scope === "engine"
+            ? []
+            : [
+                "The attachment is the whole brief: work out the behaviour the sentence leaves unsaid from the code and its tests. Do not open the feature specs under docs/.",
+              ]),
           "Follow .devin/run-protocol.playbook.md and docs/DEVIN_RUN_PROTOCOL.md.",
         ].join("\n"),
-        title: `${req.kind} ${spec.file} (${runId})`,
+        title: `${req.kind} ${spec.tool} (${runId})`,
         tags: [`run:${runId}`, `kind:${req.kind}`],
         attachment: { name: "context.json", body: built.json },
         structuredOutputSchema: STRUCTURED_OUTPUT_JSON_SCHEMA,

@@ -51,12 +51,11 @@ engine, not by the UI.
 
 | Route | |
 | --- | --- |
-| `/` | console home: queue counts, pending approvals, recent audit, chain status, all modes |
+| `/` | console home: queue counts, pending approvals, recent audit, all modes |
 | `/t/kyc`, `/t/refunds`, `/t/flags` | the three live tools — filter, sort, page, open a record |
 | `/t/<tool>/<id>` | record detail, masked PII, action panel with the live policy outcome |
 | `/inbox` | approval inbox (managers / admin) |
-| `/audit` | audit stream with filters, policy traces, before/after and hashes |
-| `/audit/verify` | walks the hash chain and names the first break |
+| `/audit` | audit stream with filters, policy traces and before/after |
 | `/admin/policy` | runtime policy constants (admin) |
 | `/roadmap/<mode>` | the modes not built yet |
 | `/runs`, `/t/automation/<id>` | Devin runs and each run's view |
@@ -125,25 +124,12 @@ doing so shows the value and writes a `pii_revealed` audit row.
 production flag in `/t/flags` — it applies immediately. Enabling one, or raising its
 customer-facing rollout, needs another manager's approval.
 
-**Tamper-evident audit.** Break the chain from outside the engine, then look at
-`/audit/verify`:
-
-```bash
-pnpm db:tamper                 # rewrites a row's summary  -> row_hash_mismatch
-pnpm db:tamper prev_mismatch   # rewrites a row's prev hash
-pnpm db:tamper seq_gap         # deletes a row mid-chain
-```
-
-The verify page names the break type and the row it starts at. `rm -rf apps/console/data &&
-pnpm db:setup` puts the demo back.
-
 ## Scripts
 
 | Script | |
 | --- | --- |
 | `pnpm db:setup` | `db:migrate` then `db:seed` (not `pnpm setup`, which pnpm reserves for its own shell setup) |
 | `pnpm db:generate` | regenerate migrations from `apps/console/src/schema.ts` |
-| `pnpm db:tamper` | corrupt an audit row for the chain-break demo (local only) |
 | `pnpm db:scenario courier-outage` | insert 60 `not_received` Fernhill Home refunds and submit each through `executeIntent` as the refunds agent; idempotent, local only. Today every refund applies; once the clustering hold merges most go to the manager inbox |
 | `pnpm test` | engine and tool tests |
 | `pnpm check:boundaries` | engine must not name a tool; no relative imports across packages; only the engine may depend on `db-write` |

@@ -191,8 +191,25 @@ describe("dispatchRun", () => {
     expect(req.tags).toContain(`run:${out.runId}`);
     expect(req.structuredOutputSchema).toHaveProperty("properties");
     expect(req.prompt).toContain(request.intent);
+    expect(req.prompt).toContain("Scope: rule.");
+    expect(req.prompt).not.toContain("REFUND_CLUSTERING_HOLD");
+    expect(req.title).not.toContain("REFUND_CLUSTERING_HOLD");
     expect(req.prompt).toContain(".devin/run-protocol.playbook.md");
     expect(req.prompt).not.toContain("Repository:");
+  });
+
+  it("names the spec only for engine scope", async () => {
+    stopAll();
+    const devin = fakeDevin({});
+    const out = await dispatchRun(
+      admin,
+      { ...request, scope: "engine" },
+      deps({ devin: devin.client }),
+    );
+    expect(out.dispatch.outcome.status).toBe("applied");
+    const req = devin.created[0];
+    expect(req.prompt).toContain("Scope: engine. Spec: docs/REFUND_CLUSTERING_HOLD.md");
+    expect(req.prompt).not.toContain("The attachment is the whole brief");
   });
 
   it("names the repository and base branch in the prompt when it is known", async () => {

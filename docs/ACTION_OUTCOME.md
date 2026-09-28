@@ -17,39 +17,39 @@ The click is when the viewer is watching. The panel shows the governance on the 
 
 ## What the panel shows
 
-One panel per outcome, docked at the foot of the record panel where the action bar was. It stays until the next action or navigation. Lines are labelled by what they prove, not by engine stage names, and each carries a value: a role, a rule, a version or a hash.
+One panel per outcome, docked at the foot of the record panel where the action bar was. It stays until the next action or navigation. Lines are labelled by what they prove, not by engine stage names, and each carries a value: a role, a rule or a status.
 
 ### Action applied
 
 A `kyc_reviewer` approves a low-risk case:
 
 ```
-APPROVED · kyc_0014 · pending_review → approved · v1 → v2
+APPROVED · kyc_0014 · pending_review → approved
 ✓ Permission   kyc_reviewer is allowed to approve in kyc
 ✓ Policy       5 rules checked, all passed             [trace]
 ✓ Recorded     by usr_kyc_reviewer at 2026-09-25 14:02:11 UTC
-✓ Audit        #232 · 9f3a…c1 · chain intact           [open]
+✓ Audit        recorded in the audit log                [open]
 ```
 
 | Line | Source |
 |---|---|
-| Header | Audit row `before_json` / `after_json`: status and `version` |
+| Header | Audit row `before_json` / `after_json`: status |
 | Permission | `actor.role` against `action.allowedRoles`. The server checks this in `executeIntent` step 1, so an applied outcome means it passed |
 | Policy | `outcome.trace`: rule count and effects. `[trace]` expands the existing `PolicyTrace` component |
 | Recorded | Audit row `actor_id` and `ts`. They get their own line because an auditor asks for them first. Plain words throughout; the panel doesn't describe the database |
-| Audit | Row fetched by `outcome.auditId`: `seq`, `row_hash`, and `verifyChain` over the head. `[open]` links to `/audit` at that row |
+| Audit | Row fetched by `outcome.auditId`. `[open]` links to `/audit` filtered to the record |
 
 ### Action sent for approval
 
 The outcome the demo depends on. After `REFUND_CLUSTERING_HOLD.md` merges, the refunds agent approves `rfnd_0013`:
 
 ```
-WAITING FOR MANAGER · rfnd_0013 · requested unchanged · v1
+WAITING FOR MANAGER · rfnd_0013 · requested unchanged
 ✓ Permission   refunds_agent is allowed to approve in refunds
 → Policy       clustering_hold: Kestrel Outdoors not-received refunds
                total 1880.00 USD over 14 days          [trace]
-✓ Held         request 01K5… keeps the input and v1 until a decision
-✓ Audit        #233 approval_requested · chain intact  [open]
+✓ Held         request 01K5… keeps the input until a decision
+✓ Audit        approval_requested                    [open]
 ```
 
 The record didn't change, and the header says so. The policy line names the rule that routed it, with the engine's own reason string. This is the proof shot in `CUSTOMER_FRAMING.md` › Demo pitch › "Approve, then show the proof".
@@ -60,7 +60,7 @@ The action bar disables any action the preview already denies, so a denial only 
 
 ### Duplicate submit
 
-A second submit with the same idempotency key returns the stored result. The panel adds one line, `↺ Duplicate · input already received, nothing written again`. The idempotency key appears only here, where it explains what happened.
+A second submit with the same idempotency key returns the stored result. The panel adds one line, `↺ Duplicate · input already received, nothing written again`. The key itself is not shown.
 
 ## Downstream systems
 
@@ -74,7 +74,7 @@ The panel has no downstream line. A line such as "✓ Customer onboarding resume
 
 ### `apps/console/src/app/actions.ts`
 
-After `executeIntent`, if the outcome carries an `auditId`, read that row with the read client and return `{ seq, rowHash, ts, actorId, actorRole, before, after }` next to the result. Pass `before` and `after` through `maskRecord`, like every other record read.
+After `executeIntent`, if the outcome carries an `auditId`, read that row with the read client and return `{ seq, ts, actorId, actorRole, before, after }` next to the result. Pass `before` and `after` through `maskRecord`, like every other record read.
 
 ### `apps/console/src/components/action-outcome.tsx` (new)
 
@@ -91,7 +91,7 @@ pnpm verify
 pnpm db:setup && pnpm dev
 ```
 
-- As `kyc_reviewer`, approve a case under the manager line. The panel shows `v1 → v2`, and its `#seq` and hash match the row at `/audit`.
+- As `kyc_reviewer`, approve a case under the manager line. The panel shows the status change, and `[open]` lands on the row at `/audit`.
 - Approve a case at or above 70. The panel reads "WAITING FOR MANAGER", names `risk_tier_approval`, and the audit line shows `approval_requested`.
 - Run the same approvals in refunds and flags. The panel has the same shape, and no file under `tools/` changed.
 - Submit twice with the same key. The panel shows the replay line and `/audit` gains no row.

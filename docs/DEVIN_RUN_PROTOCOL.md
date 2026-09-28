@@ -3,7 +3,7 @@
 ## Summary
 
 - A business rule in this console is code. Devin adds, changes or removes it in a run, and a person approves every merge.
-- Feature specs (`REFUND_CLUSTERING_HOLD.md`, `PRIVILEGED_ACTION_JUSTIFICATION.md`) supply each run's intent, scope and acceptance tests.
+- Feature specs (`REFUND_CLUSTERING_HOLD.md`, `PRIVILEGED_ACTION_JUSTIFICATION.md`) supply each run's intent sentence, scope and the reviewer's acceptance checklist. A rule run's session never reads the spec; an engine run reads only its sections marked as sent to Devin.
 - Starting a run is a governed write, like any other action. Each run appears in the audit chain five times, when it is requested, picked up, opens its pull request, is approved, and merges.
 - The console hands Devin a context file with the live settings and evidence, without customer data. Devin commits its plan before its first edit, and security checks in CI hold the diff to that plan.
 - An engineer approves, then Devin merges.
@@ -40,7 +40,7 @@ The kind says what a run does. Its scope says where it may do it, and so how muc
 | Scope            | May change                                                                                      | Extra gate                                                                                                                |
 | ---------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `rule` (default) | Tool folders, tests, `runs/`                                                                    | None                                                                                                                        |                                                                                        |
-| `engine`         | Also `packages/engine/`, `packages/db/`, `packages/db-core/`, `packages/db-write/`, `packages/permissions/`, `apps/console/drizzle/`, `apps/console/src/app/actions.ts`, shared components, `AGENTS.md` | The engine owner approves as well as the engineer. The reviewer runs `/audit/verify` on a database migrated to the branch |
+| `engine`         | Also `packages/engine/`, `packages/db/`, `packages/db-core/`, `packages/db-write/`, `packages/permissions/`, `apps/console/drizzle/`, `apps/console/src/app/actions.ts`, shared components, `AGENTS.md` | The engine owner approves as well as the engineer. The reviewer checks the audit log on a database migrated to the branch |
 
 
 Only an admin may dispatch a run with engine scope.
@@ -123,13 +123,13 @@ Devin's VM runs a freshly seeded database. It cannot see `apps/console/data/cons
 The session itself gets:
 
 - `playbook_id`: the Devin playbook holding this protocol.
-- `prompt`: the intent sentence, the kind, and the spec path.
+- `prompt`: the intent sentence, the kind, the scope and the run id. Only an engine run's prompt names its spec path.
 - The attachment above.
 - `structured_output_schema`: see § Progress.
 - `max_acu_limit`: the run's budget.
 - `tags`: `run:<run_id>`, `kind:<kind>`.
 
-It never gets reference code. Specs include a reference implementation for the reviewer, and Devin works out its own.
+It never gets reference code. A rule run never gets the spec at all. The spec's acceptance tests are the engineer's checklist in the approval dialog (`RunnableSpec.acceptance`), so the time window, which refunds count and where the rule sits in the trace are Devin's to work out from the code, and the reviewer checks them afterwards. Specs include a reference implementation for the reviewer, and Devin works out its own.
 
 ## Phases
 
@@ -138,18 +138,18 @@ Each phase passes or stops the run. There is no "continue with warnings".
 
 | Phase        | Passes when                                                                                                                                                  | On failure                                                                                                     |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| Intake       | The spec exists. The context file parses. Its base commit is the branch head, or the run rebases cleanly                                                     | Stop. No branch is created                                                                                     |
+| Intake       | The spec is registered in `specs.ts`. The context file parses. Its base commit is the branch head, or the run rebases cleanly                                                     | Stop. No branch is created                                                                                     |
 | Baseline     | `pnpm verify` is green at the base commit. Per-file test counts are recorded                                                                                 | Stop. No branch is created                                                                                     |
 | Plan         | `runs/<run_id>/context.json` (verbatim) and `runs/<run_id>/plan.json` (the files Devin will touch, and why) are committed alone as the branch's first commit | Stop. Delete the branch                                                                                        |
 | Edit         | Only files in the plan change                                                                                                                                | Reset to the plan commit and stop                                                                              |
-| Verify       | `pnpm verify` is green. The spec's acceptance tests pass. Test counts per file are at or above baseline                                                      | Two fix attempts inside the plan, then reset and stop                                                          |
+| Verify       | `pnpm verify` is green. The tests named in `plan.json` pass. Test counts per file are at or above baseline                                                      | Two fix attempts inside the plan, then reset and stop                                                          |
 | Pull request | A PR is opened against `cognition-dashboard-devin-integration`                                                                                                    | Leave the branch pushed and report                                                                             |
 | Merge        | After an engineer's `approve_pr`, Devin merges (squash) and reports `merge_commit`                                                                           | Report why (checks re-running, conflict with a newer merge) and wait. Rebase inside the plan if the base moved |
 
 
 The plan is Devin's own, committed before any edit. The spec gives a scope the plan must stay inside. Committing first is what makes scope checkable: the reviewing engineer compares the diff with a list Devin wrote before it knew what the diff would be.
 
-`plan.json` holds `files[]` (path, `create | modify | delete`, one-line reason), `reuses[]` (existing modules the change builds on, each with a one-line reason), `acceptance[]` (the spec's acceptance test names it will make pass) and, for `IMPLEMENTATION/REMOVAL` and `REVERSAL`, `removed_tests[]` of `{ file, name }`: each test the run will delete because it asserts the rule being taken out. The reviewer permits exactly those removals and no others; for other kinds the array is absent or empty. `reuses[]` is informational and not a scope boundary.
+`plan.json` holds `files[]` (path, `create | modify | delete`, one-line reason), `reuses[]` (existing modules the change builds on, each with a one-line reason), `acceptance[]` (the tests it will write, one per behaviour; an engine run names the spec's acceptance tests) and, for `IMPLEMENTATION/REMOVAL` and `REVERSAL`, `removed_tests[]` of `{ file, name }`: each test the run will delete because it asserts the rule being taken out. The reviewer permits exactly those removals and no others; for other kinds the array is absent or empty. `reuses[]` is informational and not a scope boundary.
 
 ## Progress
 
@@ -211,7 +211,7 @@ The playbook states these as prose, and `scripts/run-guard.ts` (in `pnpm verify`
 | **Only undo**             | REVERSAL only, see below. Reported as passing on other kinds                                                                                                                                          |
 | **Humans approve**        | The session merges without an approving review from someone other than itself, force-pushes, or pushes to the default branch                                                                          |
 | **Engine owner approves** | Scope `engine` only. A change under `packages/engine/`, `packages/db/`, `packages/db-core/`, `packages/db-write/`, `packages/permissions/` or `apps/console/drizzle/` merges without an approving review from the engine owner in CODEOWNERS, in addition to `approve_pr`                        |
-| **No live writes**        | The session runs `pnpm db:setup`, `db:seed` or `db:tamper`, or writes SQL against anything but a test database                                                                                        |
+| **No live writes**        | The session runs `pnpm db:setup` or `db:seed`, or writes SQL against anything but a test database                                                                                        |
 
 
 `runs/` and the guard sit under CODEOWNERS, so changing either needs a human reviewer.
@@ -235,7 +235,7 @@ Devin's job on a REVERSAL:
 
 The sections Summary, Updates since last revision, Local testing results, and Review and Testing Checklist, plus:
 
-- **Run:** run id, kind, spec, base commit, plan commit, session link.
+- **Run:** run id, kind, scope, base commit, plan commit, session link.
 - **Intent:** the sentence as the requester wrote it.
 - **Tests:** per-file counts before and after. Every new or rewritten test is named, with its reason.
 - **Live state:** constants from `context.json` next to any declared default the PR changes.
@@ -248,7 +248,7 @@ The sections Summary, Updates since last revision, Local testing results, and Re
 Humans approve. Devin merges. The control a regulated change process needs is separation of duties: whoever wrote a change doesn't approve it. The approval is the control, not the merge click, so Devin can do the click.
 
 1. The PR opens. The run view shows **Review and approve** to anyone with the `engineer` role who didn't request the run.
-2. The engineer opens the approval dialog (`AGENT_TRIGGER_SURFACE.md` § Approval dialog) and approves. `approve_pr` checks the rules above and writes the audit row.
+2. The engineer opens the approval dialog (`AGENT_TRIGGER_SURFACE.md` § Approval dialog) and approves. The dialog lists the spec's acceptance tests as the reviewer's checklist; the engineer checks the PR's tests against it. `approve_pr` checks the rules above and writes the audit row.
 3. Its effect, after the commit, submits an approving review to GitHub (`POST /repos/{owner}/{repo}/pulls/{n}/reviews`, `event: APPROVE`) as the engineer, and sends the Devin session a message to merge.
 4. Devin merges and reports `merge_commit` in `structured_output`.
 5. The console writes `record_merge` for the same engineer, with the PR URL and merge commit.
@@ -264,7 +264,7 @@ Demo setup: the engineer's GitHub token sits in the server environment next to `
 3. Constants a run declares must exist in the live database without a re-seed. `registerToolConstants` (`registerConstants`, which skips existing keys) runs on server start via `instrumentation.ts`, and again in-process right after the merge sync's `db:migrate`, so a merged rule works without a browser reload or restart. A production build still needs a rebuild to serve new source.
 4. The next matching record goes through the new rule. That moment is the demo.
 
-`db:migrate` here is the console migrating its own database after a merge, not a Devin session writing live data. `db:setup`, `db:seed` and `db:tamper` remain off limits for the session; the merge sync never invokes them.
+`db:migrate` here is the console migrating its own database after a merge, not a Devin session writing live data. `db:setup` and `db:seed` remain off limits for the session; the merge sync never invokes them.
 
 ## Credentials
 

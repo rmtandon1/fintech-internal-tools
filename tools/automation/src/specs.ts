@@ -65,9 +65,10 @@ export interface EvidenceSource {
 
 /**
  * A spec Devin can run. Everything here is copied from the spec file so the
- * console never parses prose: the kinds it supports, the paths its Scope
- * section allows, the intent sentence for each kind, and the constants the
- * rule reads, which `context.json` snapshots at dispatch.
+ * console never parses prose and a rule run never reads the spec: the kinds
+ * it supports, the paths its Scope section allows, the intent sentence for
+ * each kind, and the constants the rule reads, which `context.json`
+ * snapshots at dispatch.
  */
 export interface RunnableSpec {
   file: string;
@@ -84,6 +85,8 @@ export interface RunnableSpec {
   outcomes: Partial<Record<RunKind, string>>;
   constantKeys: readonly string[];
   evidence: EvidenceSource;
+  /** The reviewer's checklist per kind, copied from the spec's acceptance tests. Shown in the approval dialog; never sent to the session or written to context.json. */
+  acceptance: Partial<Record<RunKind, readonly string[]>>;
 }
 
 export const REFUND_CLUSTERING_HOLD: RunnableSpec = {
@@ -118,6 +121,24 @@ export const REFUND_CLUSTERING_HOLD: RunnableSpec = {
   },
   constantKeys: [MANAGER_APPROVAL_USD_KEY, MANAGER_REVIEW_SCORE_KEY],
   evidence: { cluster: "merchant_not_received", tool: "refunds" },
+  acceptance: {
+    "IMPLEMENTATION/ADDITION": [
+      "The first refund in a cluster whose running total is under the manager line is applied.",
+      "The refund that takes the merchant's `not_received` total over the manager line within the window goes to `pending_approval` at the manager tier. The trace names `clustering_hold`, the merchant and the running total.",
+      "Every later refund in the same cluster is also held.",
+      "A `faulty` refund from the same merchant is not affected.",
+      "Rejected refunds don't count toward the total.",
+      "With `refunds.clustering_window_days` at 0, nothing is held. This is the KILL_SWITCH setting.",
+      "Approving a case whose email matches a customer in a held cluster needs a manager, whatever the risk score. The trace names `linked_refund_hold`.",
+      "A case whose customer has no held refunds is unchanged. Score 68 still clears.",
+    ],
+    REVERSAL: [
+      "`pnpm verify` is green.",
+      "The eight hold tests are gone, and the plan names them. No other test is lost.",
+      "The **Only undo** guard check passes against the IMPLEMENTATION's base commit.",
+      "After merge, executing the next Kestrel refund settles it, as it did before the IMPLEMENTATION.",
+    ],
+  },
 };
 
 export const SPECS: readonly RunnableSpec[] = [REFUND_CLUSTERING_HOLD];
