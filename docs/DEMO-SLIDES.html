@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>After Power Apps: build vs buy</title>
+<style>
+  :root {
+    --ink: #0f172a; --body: #334155; --muted: #64748b; --line: #e2e8f0; --soft: #f8fafc;
+    --accent: #1d4ed8; --accent-soft: #eff6ff; --green: #15803d; --green-soft: #f0fdf4;
+    --amber: #b45309; --amber-soft: #fffbeb; --red: #b91c1c; --red-soft: #fef2f2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #0b1220; }
+  body { font-family: "Inter", "Segoe UI", -apple-system, Helvetica, Arial, sans-serif; color: var(--body); overflow: hidden; }
+  .deck { position: absolute; left: 50%; top: 50%; width: 1600px; height: 900px; transform-origin: center; }
+  .slide { position: absolute; inset: 0; background: #fff; padding: 64px 80px 56px; display: none; flex-direction: column; }
+  .slide.active { display: flex; }
+  .eyebrow { font-size: 17px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+  h1 { font-size: 46px; line-height: 1.12; color: var(--ink); font-weight: 750; letter-spacing: -.015em; }
+  .lede { font-size: 23px; line-height: 1.45; margin-top: 16px; max-width: 1300px; }
+  .footer { margin-top: auto; display: flex; justify-content: space-between; font-size: 15px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 40px; font-size: 24px; line-height: 1.35; }
+  th { text-align: left; font-size: 15px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; padding: 0 18px 12px; border-bottom: 2px solid var(--ink); }
+  td { padding: 20px 18px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td:first-child { font-weight: 700; color: var(--ink); }
+  td.devin { background: var(--accent-soft); color: var(--ink); }
+  th.devin { color: var(--accent); }
+  .note { font-size: 17px; color: var(--muted); margin-top: 18px; }
+  .diagram { margin-top: 30px; flex: 1; display: flex; align-items: center; justify-content: center; }
+  .diagram img { width: 100%; max-height: 560px; object-fit: contain; }
+  /* Slide 4 */
+  .cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 40px; }
+  .col { border-radius: 12px; padding: 22px 26px; border-top: 5px solid; }
+  .col h2, .rec h3 { font-size: 15px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 10px; }
+  .col ul, .fit ul { list-style: none; }
+  .col li, .rec li { font-size: 20px; line-height: 1.4; padding: 6px 0; color: var(--ink); }
+  .yes { background: var(--green-soft); border-color: var(--green); } .yes h2 { color: var(--green); }
+  .no { background: var(--soft); border-color: var(--muted); } .no h2 { color: var(--muted); }
+  .risk { background: var(--amber-soft); border-color: var(--amber); } .risk h2 { color: var(--amber); }
+  .rec { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px; }
+  .next, .fit { border-radius: 12px; padding: 22px 28px; }
+  .next { background: var(--ink); } .next h3 { color: #93c5fd; } .next li { color: #fff; }
+  .next ol { margin-left: 24px; }
+  .fit { background: var(--accent-soft); border: 1px solid #bfdbfe; } .fit h3 { color: var(--accent); }
+  .hint { position: fixed; right: 18px; bottom: 12px; font: 13px/1 Helvetica, Arial, sans-serif; color: #64748b; }
+  @media print {
+    @page { size: 1600px 900px; margin: 0; }
+    html, body { background: #fff; overflow: visible; height: auto; }
+    .deck { position: static; transform: none !important; width: auto; height: auto; }
+    .slide { position: relative; display: flex !important; width: 1600px; height: 900px; page-break-after: always; break-after: page; }
+    .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <!-- Slide 1 -->
+  <section class="slide" data-title="What Power Apps gives you today">
+    <div class="eyebrow">Where we start</div>
+    <h1>Power Apps is five products in one</h1>
+    <p class="lede">It costs about $250K a year. If you leave, you have to replace all five.</p>
+    <table>
+      <thead><tr><th style="width:24%">Power Apps</th><th class="devin" style="width:56%">What replaces it</th><th style="width:20%">Shown in</th></tr></thead>
+      <tbody>
+        <tr><td>App builder</td><td class="devin">Each app is a page in the console</td><td>Part 3</td></tr>
+        <tr><td>Dataverse</td><td class="devin">Each app's data, with access set by role</td><td>Throughout</td></tr>
+        <tr><td>Connectors</td><td class="devin">Code that talks to outside systems directly</td><td>Part 2</td></tr>
+        <tr><td>Power Automate</td><td class="devin">Rules and approvals, all in one place</td><td>Part 1</td></tr>
+        <tr><td>Admin plane</td><td class="devin">Roles, settings you can change live, and a full audit log</td><td>Part 1</td></tr>
+      </tbody>
+    </table>
+    <div class="footer"><span>After Power Apps · build vs buy</span><span>1 / 4</span></div>
+  </section>
+
+  <!-- Slide 2 -->
+  <section class="slide" data-title="How a change gets made">
+    <div class="eyebrow">The demo</div>
+    <h1>Your team asks, Devin builds, an engineer approves</h1>
+    <p class="lede">Changes go live the same day, and an engineer still checks every one.</p>
+    <div class="diagram"><img src="demo-loop.svg" alt="The loop: your team asks, Devin builds, an engineer approves, an admin turns it on. The demo covers a rule, a connector and an app."></div>
+    <div class="footer"><span>After Power Apps · build vs buy</span><span>2 / 4</span></div>
+  </section>
+
+  <!-- Slide 3 -->
+  <section class="slide" data-title="What it costs">
+    <div class="eyebrow">What it costs</div>
+    <h1>Engineers still check every change. They just don't write it.</h1>
+    <table>
+      <thead><tr><th style="width:22%"></th><th style="width:24%">Power Apps today</th><th style="width:24%">Your engineers</th><th class="devin" style="width:30%">Your engineers + Devin</th></tr></thead>
+      <tbody>
+        <tr><td>Adding a rule</td><td>About 30 minutes, no one checks it</td><td>1–2 weeks</td><td class="devin">Same day, checked by an engineer</td></tr>
+        <tr><td>Turning a rule off</td><td>Edit it live</td><td>Ship a fix</td><td class="devin">Flip a switch in settings</td></tr>
+        <tr><td>Removing a rule</td><td>Rarely happens</td><td>Waits for a ticket</td><td class="devin">Devin removes it and an engineer checks</td></tr>
+        <tr><td>Adding an app</td><td>More licences</td><td>Weeks of work</td><td class="devin">One pull request to start, security built in</td></tr>
+      </tbody>
+    </table>
+    <div class="footer"><span>After Power Apps · build vs buy</span><span>3 / 4</span></div>
+  </section>
+
+  <!-- Slide 4 -->
+  <section class="slide" data-title="Build or buy">
+    <div class="eyebrow">Build or buy</div>
+    <h1>Build it yourselves, one app at a time, with one engineer in charge</h1>
+    <div class="cols">
+      <div class="col yes">
+        <h2>What the demo proves</h2>
+        <ul>
+          <li>Rules can be added, turned off and removed, and an engineer checks each change</li>
+          <li>A manual check can be replaced with an automatic one</li>
+          <li>New apps get the same security from day one</li>
+        </ul>
+      </div>
+      <div class="col no">
+        <h2>What it doesn't prove</h2>
+        <ul>
+          <li>Login, hosting, backups and support aren't built yet</li>
+          <li>Business users can't make changes themselves any more</li>
+          <li>It hasn't run on real data or at real volume</li>
+        </ul>
+      </div>
+      <div class="col risk">
+        <h2>Risks</h2>
+        <ul>
+          <li>Undocumented Power Apps formulas may work differently once moved</li>
+          <li>Reviews can get rushed as the number of changes grows</li>
+          <li>Engineering and hosting costs could cancel out the licence savings</li>
+        </ul>
+      </div>
+    </div>
+    <div class="rec">
+      <div class="next">
+        <h3>Next 90 days</h3>
+        <ol>
+          <li>Pick one engineer to own the system, and a second to review</li>
+          <li>Move Chargebacks and run it alongside the Power App</li>
+          <li>Decide: does it match, how long do reviews take, what does each change cost?</li>
+        </ol>
+      </div>
+      <div class="fit">
+        <h3>Where Devin fits</h3>
+        <ul>
+          <li><b>If you build:</b> Devin writes the changes. Your engineers review and approve them.</li>
+          <li><b>If you stay on Power Apps:</b> Devin can still build custom connectors and write tests and documentation.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer"><span>After Power Apps · build vs buy</span><span>4 / 4</span></div>
+  </section>
+
+</div>
+<div class="hint">← → to move · F for full screen</div>
+<script>
+  const slides = [...document.querySelectorAll(".slide")];
+  const deck = document.getElementById("deck");
+  let i = 0;
+  function fit() {
+    const s = Math.min(innerWidth / 1600, innerHeight / 900);
+    deck.style.transform = `translate(-50%, -50%) scale(${s})`;
+  }
+  function show(n) {
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((el, k) => el.classList.toggle("active", k === i));
+    history.replaceState(null, "", `#${i + 1}`);
+    document.title = `${i + 1}/${slides.length} · ${slides[i].dataset.title}`;
+  }
+  addEventListener("keydown", (e) => {
+    if (["ArrowRight", "PageDown", " ", "Enter"].includes(e.key)) show(i + 1);
+    else if (["ArrowLeft", "PageUp", "Backspace"].includes(e.key)) show(i - 1);
+    else if (e.key === "Home") show(0);
+    else if (e.key === "End") show(slides.length - 1);
+    else if (e.key.toLowerCase() === "f") document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+  });
+  addEventListener("click", (e) => show(i + (e.clientX > innerWidth / 3 ? 1 : -1)));
+  addEventListener("resize", fit);
+  fit();
+  show((parseInt(location.hash.slice(1), 10) || 1) - 1);
+</script>
+</body>
+</html>

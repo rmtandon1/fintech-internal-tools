@@ -1,11 +1,6 @@
 # Integration Setup: Operational Runbook
 
-**Last Updated:** 2026-09-28
-**Current Branch:** `cognition-dashboard-devin-integration` (default branch; PR base for every Devin run)
-**Repository:** [`rmtandon1/fintech-internal-tools`](https://github.com/rmtandon1/fintech-internal-tools) (local folder and package name: `buy-v-build-cog-demo`)
-
-For a five-minute start, use [SETUP.md](SETUP.md). This runbook is for a developer or agent
-resuming work who must prove the whole stack is wired correctly.
+Verification runbook for developers and agents resuming work on this repo. For a quick start, see [SETUP.md](SETUP.md).
 
 ---
 
@@ -15,22 +10,30 @@ Browser → Console (Next.js, `:3001`) → Engine (SQLite) · Console server →
 GitHub pull request → CI (`verify`, `guards`) → engineer approval in the console → Devin merge →
 merge sync (`git pull --ff-only` + `pnpm db:migrate` + setting registration) → Console.
 
-> **Critical Understanding**
->
-> 1. **The checkout that runs `pnpm dev` is the console's deployment.** It must sit on
->    `cognition-dashboard-devin-integration` with a clean working tree, or the merge sync skips
->    and merged runs never reach the screen. **NEVER edit files in the serving checkout.** Do
->    feature and docs work in a `git worktree`.
-> 2. **GitHub is the source of truth for code.** The console never pushes. Devin opens pull
->    requests; Devin merges after the console's approval; the console only pulls.
-> 3. **The live database is the source of truth for settings.** `runtime_constants` in
->    `apps/console/data/console.db` holds what every decision reads. The `value:` in a tool's
->    code is a default that `registerConstants` writes only when the key is missing.
-> 4. **Devin never touches the live database.** It works from `runs/<run_id>/context.json`, a
->    snapshot without customer data. `pnpm db:setup`, `db:seed` and `db:scenario` are for people,
->    never for a Devin session.
-> 5. **Credentials stay on the server.** `.env` at the repo root is read by the Next server
->    only; the browser only ever calls `/api/devin/*` and server actions.
+## Rules that will bite you
+
+1. **The checkout that runs `pnpm dev` is the console's deployment.** It must sit on
+   `cognition-dashboard-devin-integration` with a clean working tree, or the merge sync skips
+   and merged runs never reach the screen. Don't edit files in the serving checkout; do feature
+   and docs work in a `git worktree`.
+2. **GitHub is the source of truth for code.** The console never pushes. Devin opens pull
+   requests; Devin merges after the console's approval; the console only pulls.
+3. **The live database is the source of truth for settings.** `runtime_constants` in
+   `apps/console/data/console.db` holds what every decision reads. The `value:` in a tool's
+   code is a default that `registerConstants` writes only when the key is missing.
+4. **Devin never touches the live database.** It works from `runs/<run_id>/context.json`, a
+   snapshot without customer data. `pnpm db:setup`, `db:seed` and `db:scenario` are for people,
+   not Devin sessions. Don't run `pnpm db:setup` on a database with runs you care about: it
+   re-seeds.
+5. **Credentials and local state stay out of git.** `.env` at the repo root is read by the Next
+   server only; the browser only ever calls `/api/devin/*` and server actions. Don't commit
+   `.env`, `apps/console/data/` or anything under `apps/console/data/replays/`.
+6. **Committed run files are frozen.** Hand-editing `runs/<run_id>/context.json` or `plan.json`
+   once committed fails the guard with **Run dir frozen**, and approval with **Context untouched**.
+7. **Spec filenames are load-bearing.** `tools/automation/src/specs.ts` and the Devin prompt refer
+   to `REFUND_CLUSTERING_HOLD.md`, `COMPANIES_HOUSE_CHECK.md` and `CHARGEBACKS_FROM_POWER_APPS.md`
+   by name under `docs/`; don't rename them.
+8. **`packages/engine` never names a tool.** No `kyc`, `refunds` or `flags`, even in a comment.
 
 ---
 
@@ -66,17 +69,6 @@ merge sync (`git pull --ff-only` + `pnpm db:migrate` + setting registration) →
     ├── kyc/ refunds/ flags/              ← the three live apps
 ```
 
-⚠️ **CRITICAL RULES**
-
-- ⚠️ Never commit `.env`, `apps/console/data/` or anything under `apps/console/data/replays/`.
-- ⚠️ Never hand-edit `runs/<run_id>/context.json` or `plan.json` once committed: the guard
-  fails **Run dir frozen**, and approval fails **Context untouched**.
-- ⚠️ Never run `pnpm db:setup` on a database with runs you care about: it re-seeds.
-- ⚠️ Never rename the spec files `REFUND_CLUSTERING_HOLD.md`, `COMPANIES_HOUSE_CHECK.md` or
-  `CHARGEBACKS_FROM_POWER_APPS.md`: `tools/automation/src/specs.ts` and the Devin prompt refer to
-  them by name under `docs/`.
-- ⚠️ Never put a tool name (`kyc`, `refunds`, `flags`) in `packages/engine`, even in a comment.
-
 ---
 
 ## Complete Setup Verification Checklist
@@ -89,7 +81,7 @@ Run each step from the repo root.
 node -v && pnpm -v
 ```
 
-**Expected Output:**
+Expected:
 
 ```
 v24.21.0
@@ -104,7 +96,7 @@ v24.21.0
 git rev-parse --abbrev-ref HEAD && git status --porcelain | wc -l
 ```
 
-**Expected Output:**
+Expected:
 
 ```
 cognition-dashboard-devin-integration
@@ -122,7 +114,7 @@ deletes it. Delete `runs/<id>/` folders left by stopped runs, or the sync refuse
 git remote get-url origin && git fetch -q && git rev-list --count HEAD..origin/cognition-dashboard-devin-integration
 ```
 
-**Expected Output:**
+Expected:
 
 ```
 https://github.com/rmtandon1/fintech-internal-tools.git
@@ -137,11 +129,7 @@ https://github.com/rmtandon1/fintech-internal-tools.git
 pnpm install --frozen-lockfile
 ```
 
-**Expected Output** (last line):
-
-```
-Done in 3.1s using pnpm v10.34.5
-```
+Expected last line: `Done in 3.1s using pnpm v10.34.5`
 
 **If the lockfile is out of date:** someone changed a `package.json` without the lockfile.
 Pull again; don't run a plain `pnpm install` on the serving checkout.
@@ -152,7 +140,7 @@ Pull again; don't run a plain `pnpm install` on the serving checkout.
 test -f .env && sed 's/=.*/=<set>/' .env | grep -v '^#' | grep .
 ```
 
-**Expected Output:**
+Expected:
 
 ```
 DEVIN_API_KEY=<set>
@@ -169,7 +157,7 @@ sqlite3 apps/console/data/console.db "select count(*) from __drizzle_migrations;
   && node -e 'console.log(require("./apps/console/drizzle/meta/_journal.json").entries.length)'
 ```
 
-**Expected Output:** two equal numbers, for example:
+Expected: two equal numbers, for example:
 
 ```
 9
@@ -185,7 +173,7 @@ sqlite3 apps/console/data/console.db "select count(*) from __drizzle_migrations;
 sqlite3 apps/console/data/console.db "select key, value_json from runtime_constants order by key;"
 ```
 
-**Expected Output** (fresh seed):
+Expected (fresh seed):
 
 ```
 flags.permission_flag_needs_admin|true
@@ -210,7 +198,7 @@ it; start `pnpm dev`.
 lsof -nP -iTCP:3001 -sTCP:LISTEN | tail -n +2 | awk '{print $1, $2}'; curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3001/
 ```
 
-**Expected Output:**
+Expected:
 
 ```
 node 12345
@@ -225,7 +213,7 @@ node 12345
 curl -s http://localhost:3001/api/devin/status
 ```
 
-**Expected Output:**
+Expected:
 
 ```json
 {"github":true,"configured":true,"mode":"live","orgId":"org-…","orgSource":"DEVIN_ORG_ID","principal":"service_user · …","error":null}
@@ -241,7 +229,7 @@ Restart `pnpm dev`.
 pnpm devin:playbook
 ```
 
-**Expected Output:** a playbook id on the last line, for example `playbook-…`. Re-running updates
+Expected: a playbook id on the last line, for example `playbook-…`. Re-running updates
 the same playbook.
 
 **If it prints `Set DEVIN_API_KEY in .env before registering the playbook`:** fix step 5.
@@ -255,11 +243,7 @@ curl -s -H "Authorization: Bearer $GITHUB_TOKEN" https://api.github.com/repos/rm
   | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);console.log(j.full_name, j.permissions && j.permissions.push)})'
 ```
 
-**Expected Output:**
-
-```
-rmtandon1/fintech-internal-tools true
-```
+Expected: `rmtandon1/fintech-internal-tools true`
 
 **If `undefined`:** the token can't see the repository. **If `false`:** it can read but can't
 review; **Review and approve** will fail at the GitHub step. See
@@ -272,7 +256,7 @@ gh run list --branch cognition-dashboard-devin-integration --limit 1
 gh api repos/rmtandon1/fintech-internal-tools/branches/cognition-dashboard-devin-integration/protection --jq '.required_status_checks.contexts' 2>&1 | head -1
 ```
 
-**Expected Output:**
+Expected:
 
 ```
 completed	success	…	verify	cognition-dashboard-devin-integration	push	…
@@ -289,7 +273,7 @@ gates Devin's merge, but GitHub doesn't. Turning protection on is in
 pnpm verify
 ```
 
-**Expected Output** (last lines):
+Expected (last lines):
 
 ```
 Boundary check passed.

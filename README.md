@@ -34,21 +34,33 @@ launch. Devin handles three kinds of work, each started from the screen that sho
 
 ## Features
 
-### Managed apps and records
+### Live Apps (3 total)
 
-| Area | Count | Examples |
-|---|---|---|
-| Live apps | 3 | **KYC review** (104 cases), **Refunds** (14 requests), **Feature flags** (11 flags) |
-| Coming soon apps | 17 | Chargebacks, Transaction monitoring, Sanctions screening, Wire release, Pricing |
-| App areas | 4 | Compliance, Money movement, Customers, Platform |
-| Policy rules | Per app | `amount_approval`, `goodwill_approval`, `declared_vs_found`, `production_enable`, `rollout_increase` |
-| Live settings | Per app | `refunds.manager_approval_usd_minor` ($500), `kyc.manager_review_score` (70), `flags.rollout_step_needs_manager_percent` (25) |
-| Roles | 5 switchable | Refunds agent, Refunds manager, KYC reviewer, Admin, Engineer |
-| Devin briefs | 3 | Refund clustering hold, Companies House check, Chargebacks from Power Apps |
-
-Every app, live or not, gets seven controls from the engine the moment it is registered: role
-access, a policy check on every action, approvals, live settings, protection against double
-submits, masked personal data and one audit log.
+### Managed apps and records  
+  
+The console manages three live apps today, with seventeen more registered and  
+marked coming soon:  
+  
+| App | Area | What it holds |  
+|---|---|---|  
+| **KYC review** | Compliance | 104 onboarding cases awaiting review |  
+| **Refunds** | Money movement | 14 refund requests, several needing manager approval |  
+| **Feature flags** | Platform | 11 flags at different rollout stages |  
+  
+The seventeen coming-soon apps include Chargebacks, Transaction monitoring,  
+Sanctions screening, Wire release and Pricing, spread across four areas:  
+Compliance, Money movement, Customers and Platform.  
+  
+- **Roles:** five switchable — Refunds agent, Refunds manager, KYC reviewer,  
+  Admin, Engineer  
+- **Devin briefs:** three prepared — refund clustering hold, Companies House  
+  check, Chargebacks migration from Power Apps  
+  
+Every app, live or not, gets seven controls from the engine the moment it is  
+registered: role access, a policy check on every action, approvals, live  
+settings, protection against double submits, masked personal data and one  
+audit log. The per-app rules and settings that power those controls are listed  
+in [Managed entity schema](#managed-entity-schema).
 
 ### Console capabilities
 
@@ -383,10 +395,6 @@ Install-time problems, with commands to copy, are in [`docs/SETUP.md`](docs/SETU
 ---
 
 ## Usage
-
-Each workflow below uses the seeded data, so the values match what you'll see. Pick the role in
-**Viewing as** at the top of the page before each step. Steps marked *instant* change the screen
-at once; steps marked *async* wait on Devin, GitHub and an engineer.
 
 ### 1. Add a rule
 

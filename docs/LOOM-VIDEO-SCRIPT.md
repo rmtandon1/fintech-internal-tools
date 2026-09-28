@@ -9,7 +9,19 @@ One loop, three times, each on a bigger change. Every part ends on what an opera
 - **"Quoted lines"** are spoken, word for word. **[Bracketed lines]** are on-screen actions, never said.
 - *(Parentheses inside a quote)* are values read off the screen. Where one holds a figure, it's the dry run's (#61, #62, reverted in #63). Say what the screen shows.
 - Record ids like `rfnd_0013` appear only in brackets. Spoken lines use names.
-- About six and a half minutes. Run **Before recording** first.
+- **▶ SLIDE n** means switch to that slide in the deck. **◀ CONSOLE** means switch back to the app. Neither is said.
+- Just over seven minutes. Run **Before recording** first.
+
+## Slides
+
+Four slides in [`DEMO-SLIDES.html`](DEMO-SLIDES.html) (PDF copy: [`DEMO-SLIDES.pdf`](DEMO-SLIDES.pdf)). Open the deck in its own window on slide 1 before you record. → and ← move between slides; F toggles full screen.
+
+| Slide | Show it | Move on |
+|---|---|---|
+| 1 · Power Apps is five products in one | First shot of the recording | After "in code your team owns." Press → to slide 2 |
+| 2 · Your team asks, Devin builds, an engineer approves | Opening | After "an engineer approves it." ◀ CONSOLE, on home |
+| 3 · What it costs | After the deployment drift challenge | After "instead of writing it." Press → to slide 4 |
+| 4 · Build or buy | Straight after slide 3 | Stay on it to the end of the recording |
 
 ## Why this order
 
@@ -28,7 +40,7 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 
 ## 🧭 Power Apps Today (25 seconds)
 
-[Show the five-part slide: the table below.]
+**▶ SLIDE 1 · Power Apps is five products in one.** The recording opens on it.
 
 > "Power Apps is five products: an app builder, Dataverse, connectors, Power Automate, and an admin plane."
 >
@@ -42,17 +54,21 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 | Power Automate | Rules and approvals on one governed write path | Part 1, Rules |
 | Admin plane | Roles, live rule settings, one audit log | Part 1, Rules |
 
+[Press → to slide 2.]
+
 ---
 
 ## 🎯 Opening (20 seconds)
 
-[Viewing as Refunds manager, on the home page.]
+**▶ SLIDE 2 · Your team asks, Devin builds, an engineer approves.** Point along the four boxes.
 
 > "Without a release pipeline, a rule changes one of two ways."
 >
 > "Someone edits a flow in the browser, live in minutes, unreviewed. Or it's a ticket, and weeks."
 >
-> "Here's a third way: your team asks, Devin builds, an engineer approves."
+> "There's another option. Your team asks for a change, Devin builds it, and an engineer approves it."
+
+**◀ CONSOLE.** [Viewing as Refunds manager, on the home page.]
 
 ---
 
@@ -78,7 +94,7 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 
 ### Before
 
-[Open `/t/refunds`, then the Kestrel cluster drawer.]
+[Open the **Refunds** tile on Home, then the Kestrel cluster drawer.]
 
 > "Four 'not received' refunds from one merchant, each just under the $500 manager line. Together, $1,880."
 
@@ -116,17 +132,17 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 
 ### Switch it off
 
-[Off camera: merge the `partial_delivery` pull request, then `pnpm db:scenario courier-outage`. Switch role: Refunds manager. Open `/inbox`: 60 Fernhill refunds held.]
+[Off camera: merge the `partial_delivery` pull request, then `pnpm db:scenario courier-outage`. Switch role: Refunds manager. Open **Approvals** in the sidebar: 60 Fernhill refunds held.]
 
 > "A courier outage. Sixty genuine refunds from a trusted merchant, all held."
 
-[Switch role: Admin. `/admin/policy`: `refunds.clustering_window_days` from 14 to 0. Save. Point at the audit row.]
+[Switch role: Admin. Open **Rule settings** in the sidebar: `refunds.clustering_window_days` from 14 to 0. Save. Point at the audit row.]
 
 > "Zero means off, and a test proves it. One setting, one audit row, no deploy."
 
 ### Remove it
 
-[On `/runs`, the merged Kestrel run: **Undo this change**, **Ask Devin to undo it**. Cut to the finished undo.]
+[Open **Rule changes** in the sidebar, the merged Kestrel run: **Undo this change**, **Ask Devin to undo it**. Cut to the finished undo.]
 
 > "A plain git revert conflicts: a partial-delivery reason code landed in the same file since."
 
@@ -168,7 +184,7 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 >
 > "There's no live key in this demo. Tests replay recorded responses, and the screen says 'test data'."
 
-[Switch role: Engineer. Approve, let Devin merge, then click **Pull merged code**. Switch role: Admin. `/admin/policy`: `kyc.companies_house_check` from 0 to 1.]
+[Switch role: Engineer. Approve, let Devin merge, then click **Pull merged code**. Switch role: Admin. Open **Rule settings** in the sidebar: `kyc.companies_house_check` from 0 to 1.]
 
 > "It merged switched off. An admin turns it on."
 
@@ -186,7 +202,7 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 
 ### Before
 
-[Switch role: Admin. Open `/roadmap/chargebacks`: Coming soon, sample rows.]
+[Switch role: Admin. On Home, open **Chargebacks** under Coming soon: sample rows.]
 
 > "Chargebacks still runs in a Power App, with two Power Automate flows."
 
@@ -208,7 +224,7 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 
 ### Outcome
 
-[Switch role: Refunds agent. Open `/t/chargebacks`. Point at "Over $1,000, due within 48 hours": 3. On `DSP-20401`, the $2,480 fraud dispute, click **Accept**. It waits for a manager.]
+[Switch role: Refunds agent. Open the **Chargebacks** tile on Home. Point at "Over $1,000, due within 48 hours": 3. On `DSP-20401`, the $2,480 fraud dispute, click **Accept**. It waits for a manager.]
 
 > "The refunds team has a live queue. The hourly email is now a count: three due in 48 hours."
 >
@@ -240,29 +256,56 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 
 ---
 
-## 💷 What Ownership Costs (20 seconds)
+## 💷 What It Costs (20 seconds)
 
-[Show the table.]
+**▶ SLIDE 3 · What it costs.** The slide carries the table below.
 
-> "The first two columns are estimates. The last is what you just watched."
+> "There are three ways to run this."
 
-| | Power Apps today | Engineers only | With Devin |
+| | Power Apps today | Your engineers | Your engineers + Devin |
 |---|---|---|---|
-| New rule, reviewed | Minutes if edited live, unreviewed | 1–2 weeks in the queue, then hours of work | Devin's run *(time)*, then review against an eight-line checklist |
-| Stop a misfire | Another live edit | A hotfix | One admin setting |
-| Remove it later | Often nobody does | When the ticket is prioritised | A reviewed removal pull request |
-| Automate a manual step | A premium connector, or nothing | A ticket and a sprint | One reviewed pull request |
-| Next app | Licences, and its own controls | Weeks | A first pull request, then small requests |
+| Adding a rule | About 30 minutes, no one checks it | 1–2 weeks | Same day, checked by an engineer |
+| Turning a rule off | Edit it live | Ship a fix | Flip a switch in settings |
+| Removing a rule | Rarely happens | Waits for a ticket | Devin removes it and an engineer checks |
+| Adding an app | More licences | Weeks of work | One pull request to start, security built in |
 
-> "You still pay engineers. You pay them to review, not to trace."
+> "You still need engineers. They check the work instead of writing it."
+
+[Press → to slide 4.]
 
 ---
 
-## 🔭 Close (15 seconds)
+## ⚖️ Build or Buy (60 seconds)
 
-> "Not here yet: single sign-on, a deployment pipeline, real processor and KYC connections. Those are one-off decisions."
+**▶ SLIDE 4 · Build or buy.** Stay on it to the end.
+
+[Point at **What the demo proves**.]
+
+> "Here's what the demo proves. Rules can be added, turned off and removed, and an engineer checks every change. The same goes for connectors and new apps."
+
+[Point at **What it doesn't prove**.]
+
+> "Here's what it doesn't prove. Login, hosting, backups and support still need to be built."
 >
-> "After Power Apps, your team asks, Devin builds, and an engineer approves."
+> "Business users also can't make changes themselves any more. Every change goes through an engineer."
+
+[Point at **Risks**.]
+
+> "There are three main risks. Power Apps formulas that nobody documented might work differently once they're moved."
+>
+> "Reviews could get rushed as the number of changes goes up."
+>
+> "And engineering and hosting costs could cancel out the licence savings. We don't have real numbers for that yet."
+
+[Point at **Next 90 days**.]
+
+> "So I'd recommend building it yourselves, one app at a time, but only if you can put one engineer in charge of it."
+>
+> "Start with Chargebacks. Run it alongside the Power App, then decide: does it match, how long do reviews take, and what does each change cost?"
+
+[Point at **Where Devin fits**.]
+
+> "If you build, Devin writes the changes and your engineers review them. If you stay on Power Apps, Devin can still build custom connectors and write tests and documentation."
 
 ---
 
@@ -288,64 +331,63 @@ Each claim on camera, what backs it, and where to show it. If a line has no evid
 
 ---
 
-## 🧰 Before Recording
+## Before Recording
 
-### The Devin runs, a day ahead
+**A day ahead, in this order:**
 
-Five runs at 30–60 minutes each. Order matters:
+- [ ] Kestrel rule: add it, approve, merge
+- [ ] Merge the `partial_delivery` reason code in `tools/refunds/src/index.ts` (must land after the rule, or the undo won't conflict)
+- [ ] Confirm the conflict with `git revert --no-commit` in a scratch worktree
+- [ ] `pnpm db:scenario courier-outage`, then switch the rule off
+- [ ] Undo the Kestrel rule, approve, merge
+- [ ] Companies House check, then the Chargebacks first pull request
+- [ ] Watch each run until it opens its pull request; answer at once if it asks
+- [ ] `pnpm devin:playbook` after any change to `.devin/run-protocol.playbook.md`
+- [ ] Note each run's time, files, lines, test total and ACUs
+- [ ] Check the Kestrel session never opened the spec
 
-1. Kestrel rule: add it, approve, merge.
-2. Merge an ordinary pull request that adds a `partial_delivery` reason code to `tools/refunds/src/index.ts`. The undo only conflicts if this lands after the rule. Confirm with `git revert --no-commit` in a scratch worktree.
-3. `pnpm db:scenario courier-outage`, then switch the rule off.
-4. Undo the Kestrel rule, approve, merge.
-5. Companies House check, then the Chargebacks first pull request.
+**On the day:**
 
-| Check | Why |
-|---|---|
-| Watch each run until it opens its pull request; answer at once if it asks | Run `01M3HBQ` stopped to ask, then suspended with nobody answering |
-| `pnpm devin:playbook` after any change to `.devin/run-protocol.playbook.md` | Devin keeps its old copy until re-registered |
-| Note each run's time, files, lines, test total and ACUs | The script reads these off screen; dry-run figures (#61: 5 files, +856; #62: 14 files, +2,166) will differ |
-| Check the Kestrel session never opened the spec | The script says the prompt tells it not to; the session log is the proof if asked |
-
-### The machine, on the day
-
-| Check | Why |
-|---|---|
-| Main checkout on `cognition-dashboard-devin-integration` at the tagged demo commit: `git fetch --tags`, then `git checkout -B cognition-dashboard-devin-integration <demo-tag>` | The script's app, tile and test counts are read there. Stay on the branch: a detached HEAD makes **Pull merged code** refuse |
-| `pnpm install`, and `git status` clean | A new workspace package won't resolve without it; the merge sync refuses a dirty tree, stray `runs/` folders included |
-| Stop `pnpm dev`, then `pnpm db:reset`, then `pnpm dev`, within the hour | Seeded dates count from seed time. It rebuilds the demo data but keeps the recorded runs, their audit rows and replays; `rm -rf apps/console/data` would delete them |
-| Pick a role again only after `rm -rf apps/console/data` | That regenerates the role cookie's secret; `pnpm db:reset` keeps it |
-| `.env` has `DEVIN_API_KEY` and `GITHUB_TOKEN`; `/api/devin/status` reports `live` | Without the GitHub token, approval and the merge check don't work |
-| `pnpm verify` green; test count matches the script (328) | The count moved five times in two days (294, 305, 288, 331, 320, 328) |
-| Fresh browser window, 1440×900, notifications off | Every take the same size, no pop-ups |
+- [ ] `git fetch --tags`, then `git checkout -B cognition-dashboard-devin-integration <demo-tag>` (stay on the branch; a detached HEAD breaks **Pull merged code**)
+- [ ] `pnpm install`
+- [ ] `git status` clean (delete stray `runs/` folders)
+- [ ] Within the hour: stop `pnpm dev`, `pnpm db:reset`, `pnpm dev` (rebuilds demo data but keeps the recorded runs, their audit rows and replays)
+- [ ] Pick a role again only after `rm -rf apps/console/data` — `pnpm db:reset` keeps the role cookie
+- [ ] `.env` has `DEVIN_API_KEY` and `GITHUB_TOKEN`
+- [ ] `/api/devin/status` reports `live` (if not, stop)
+- [ ] `pnpm verify` green (328 tests)
+- [ ] Fresh browser window, 1440×900, notifications off
+- [ ] `docs/DEMO-SLIDES.html` open in a second window, same size, on slide 1
 
 ---
 
-## 🎥 Shot List
+## Shot List
 
-Clicks marked **once** change data. To retake them, `pnpm db:seed`: it restores the demo refunds and cases, but not after `pnpm db:scenario courier-outage`, whose sixty refunds and audit rows it leaves in place.
+Clicks marked **once** change data; retake with `pnpm db:seed` (it won't undo `pnpm db:scenario courier-outage`).
 
 | # | Shot | Viewing as | State it needs |
 |---|---|---|---|
-| 0 | Five-part slide | — | — |
+| 0 | Slide 1, Power Apps is five products in one; then slide 2 for the opening | — | Deck open on slide 1 |
 | 1 | Home; Transaction monitoring Coming soon | Refunds manager | Fresh seed at the tagged demo commit |
 | 2 | Kestrel drawer; `rfnd_0013` send (**once**) | Refunds manager, Refunds agent | Before the Kestrel merge |
 | 3 | Handoff, finished run, approval dialog and its trace | Refunds manager, Engineer | Recorded run |
-| 4 | Inbox of sixty; switch-off at `/admin/policy` | Refunds manager, Admin | Courier scenario run |
+| 4 | Approvals list of sixty; switch-off in Rule settings | Refunds manager, Admin | Courier scenario run |
 | 5 | Undo, finished undo; `rfnd_0014` send (**once**), trace, reason dropdown | Admin, Engineer, Refunds agent | `partial_delivery` merged before the undo |
 | 6 | Thornbury before, handoff, finished run, setting on, **Approve** | KYC reviewer, Admin, Engineer | Companies House run recorded |
 | 7 | Chargebacks Coming soon, handoff, pull request, flag on, queue, `DSP-20401` **Accept** (**once**) | Admin, Engineer, Refunds agent | Chargebacks run recorded; screenshot the **Pull merged code** toast |
 | 8 | Toast screenshot, then the four-layer table in `docs/POST_MERGE_DEPLOYMENT_DRIFT.md` | — | Screenshot from shot 7 |
-| 9 | Cost table | — | — |
+| 9 | Slide 3, what it costs; then slide 4, build or buy | — | Deck on slide 3 |
 
-- Show every sped-up run with its real "Took …" time.
-- If Devin isn't connected, stop.
+Show every sped-up run with its real "Took …" time.
 
 ---
 
-## 📤 After Recording
+## After Recording
 
-- **Chapters:** Power Apps today, Opening, The console, Rules, Connectors, Apps, Deployment drift, Cost, Close.
-- **Description:** the one message, the repo, the five pull requests, and each run's time, ACUs and test total.
-- **Replays:** copy each run's `apps/console/data/replays/<run_id>.json` to `runs/<run_id>/replay.json` and commit it.
-- **Clean up:** stop running Devin sessions, delete stray `runs/` folders, reset the database. Tag the recorded commit, e.g. `loom-2026-09-28`.
+- [ ] Chapters: Power Apps today, Opening, The console, Rules, Connectors, Apps, Deployment drift, Cost, Build or buy
+- [ ] Description, with `docs/DEMO-SLIDES.pdf`, the five pull requests, and each run's time, ACUs and test total
+- [ ] Copy each `apps/console/data/replays/<run_id>.json` to `runs/<run_id>/replay.json` and commit
+- [ ] Stop running Devin sessions
+- [ ] Delete stray `runs/` folders
+- [ ] Reset the database
+- [ ] Tag the recorded commit (e.g. `loom-2026-09-28`)
