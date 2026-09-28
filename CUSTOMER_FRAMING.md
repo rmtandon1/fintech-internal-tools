@@ -2,42 +2,69 @@
 
 Why this console exists, who it serves and what the demo proves, written for stakeholders rather than engineers. The technical documentation lives in [`docs/`](docs/README.md).
 
-## 1. The problem
+## The Problem
 
-**Who changes an internal tool's rules after launch, on what timescale, and with what review?**
+**Fintech teams face a critical challenge: risk and operations need to change the rules that move money quickly and with review, and today they can't have both.** Every change is a false choice. A business user edits Power Apps and the rule runs in 30 minutes with nobody checking it, or an engineer changes the code by hand and the rule waits weeks for a sprint.
 
 ### What happens today
 
-A new rule either goes live unreviewed or waits weeks for engineering. 
-- The request comes from risk or operations when a queue shows something the current rules don't cover: "hold a merchant's refunds once together they pass the manager line, and send those customers' KYC approvals to a manager"
-- Each Power App holds only its own data, so building the case for the rule is manual:
-- - An analyst spots an emerging pattern in one app, such as refunds, exports the queue to Excel and uses a Pivot Table to query it
-- - They check the same customers with other systems, such as KYC and payments, one lookup at a time.
-- - This is documentation with a request for a rule implementation
+A request starts when risk or operations see something in a queue that the current rules don't cover, for example: "hold a merchant's refunds once together they pass the manager line, and send those customers' KYC approvals to a manager". Each Power App holds only its own data, so the case for the rule is built by hand. The reviewed path through engineering then runs in eight steps:
 
-The rule then reaches production one of two ways: a business user edits it directly, or engineering builds it.
+1. **Spot.** An analyst notices an emerging pattern in one app's queue, such as refunds.
+2. **Export and join.** They export the queue to Excel, build a Pivot Table, and look up the same customers in other apps, such as KYC and payments, one at a time.
+3. **Ticket.** They write up the evidence and file a ticket asking for the rule.
+4. **Triage.** A developer triages the ticket and it waits 1–2 weeks for a sprint.
+5. **Change.** The developer traces the rule through the code and edits code and config across every dependent file.
+6. **Test.** They run the tests locally.
+7. **Review.** They open a pull request and wait for another engineer to review it.
+8. **Ship.** The pull request merges and deploys.
+
+The fast path skips steps 3–8: a business user edits the Power Automate flow in the browser and it is live in ~30 minutes, with no diff, no second approver and no test.
 
 ```
- One app ──▶ Excel pivot ──▶ lookups in other apps
-      └─── analyst joins the data by hand ─────┘
-                          │
-                request for a new rule
-          │                               │
-   BizOps edit a Power          Jira ticket sent to 
-   Automate flow in             the dev team; sprint
-   the browser and              planning, local tests
-   deploy in 30 minutes         review, then deploy  
+            Analyst spots a pattern in one app's queue
+                               │
+                               ▼
+        Export to Excel ─▶ pivot ─▶ look up other apps by hand
+                               │
+                     request for a new rule
+               ┌───────────────┴───────────────┐
+               ▼                               ▼
+     FAST PATH: Power Apps           REVIEWED PATH: engineering
+     BizOps edit the flow            File a ticket
+     in the browser                       │
+               │                     Triage, wait for a sprint ····· 1–2 weeks
+               │                          │
+               │                     Edit code and config ──┐
+               │                     across dependent files │
+               │                          │                 ├─ 4–6 engineer-hours
+               │                     Run tests locally ─────┘
+               │                          │
+               │                     Open PR, wait for review ······ 30–60 min
+               │                          │
+               │                     Merge and deploy
+               ▼                          ▼
+     Live in ~30 min, unreviewed     Live in weeks, reviewed
 ```
-
 
 ### Why the existing options fail
 
-- **Business edits skip review.** A flow edited in Power Apps goes live with no diff, no second approver and no test. A rule that decides whether money leaves the company should get a second pair of eyes before it runs. The change history records who saved a flow but not why, so when a rule misbehaves the team rebuilds the story from memory and Slack.
-- **Each app sees only itself.** Rules worth adding often span apps: the refund hold above reads refunds and KYC. Today a person with a spreadsheet joins the two. A rule that reads both needs a shared data model and a test that covers both, and a Power Apps formula has neither. KYC decisions rest on the same kind of join: whether what the customer declared matches what other sources show, such as the delivery address on a refund or a directorship on Companies House.
-- **No-code rules miss edge cases the code already handles.** "Sum a merchant's refunds" sounds like a one-line flow. But rejected refunds must not count, goodwill refunds already have their own $50 approval line, and the sum must be in USD at the exchange rate fixed when each refund was requested. The console's code handles all three. A flow edited under pressure drops one without anyone noticing.
-- **Feature flags only cover changes someone predicted.** The usual way to let the business change behaviour without engineers is a flag: wrap the logic in `if (flags.isEnabled("refund_clustering_v1"))` and flip it from a dashboard. That needs the rule written in advance, and a rule that comes out of the queue is one nobody predicted. Every flag is also a branch someone has to delete later, and nobody schedules that.
+- **Business edits skip review.** A Power Apps edit goes live with no diff, no second approver, no test and no recorded reason. The save history says who changed a flow, not why, so when a rule that releases money misbehaves the team rebuilds the story from memory and Slack.
+- **Each app sees only itself.** Rules worth adding span apps: the refund hold above reads refunds and KYC, and KYC decisions rest on the same kind of join, such as the delivery address on a refund or a directorship on Companies House. A rule that reads both needs a shared data model and a test that covers both. A Power Apps formula has neither, so today the join is a person with a spreadsheet.
+- **No-code rules miss edge cases the code already handles.** "Sum a merchant's refunds" sounds like a one-line flow, but rejected refunds must be excluded, goodwill refunds already have their own $50 approval line, and the sum must be in USD at the exchange rate booked when each refund was requested. The console's code handles all three. A flow edited under pressure drops one without anyone noticing.
+- **Feature flags only cover changes someone predicted.** A flag such as `if (flags.isEnabled("refund_clustering_v1"))` lets the business flip behaviour from a dashboard, but only if an engineer wrote the rule in advance. A rule that comes out of the queue is one nobody predicted, and every flag leaves a permanent branch that nobody schedules to delete.
 
+### The tax
 
+What each rule change costs today, using the same figures as the tables below:
+
+| | Cost |
+|---|---|
+| **Time** | 1–2 weeks in the queue, then 4–6 engineer-hours per reviewed change. The ~30-minute alternative is unreviewed, which is worse |
+| **Review** | 30–60 engineer-minutes per change |
+| **Risk** | Every change either consumes core engineering capacity or ships unreviewed, risking regressions and config drift on rules that move money |
+| **Accumulation** | Dead rules and flags pile up with no owner |
+| **Licensing** | ~$250K a year for Power Apps, rising with every user and app |
 
 ### How the operating model changes
 
@@ -53,9 +80,7 @@ Moving off Power Apps means owning the software. Each row is a question to put t
 | **Who changed a rule, and why?** | Each app's own save history: who saved it, not why | Git history for the code, plus a separate log per app | One audit log across every app. Every change carries its request, plan, tests and approval |
 | **What do we still pay for?** | ~$250K a year, rising with every user and app | All of it: build, review, upkeep and on-call | Engineer review of every change, ownership of the shared engine, hosting and on-call, each integration a Power Apps connector used to provide, and Devin usage |
 
-## 2. Stakeholders
-
-
+## Stakeholders
 
 ### For Risk and Operations
 
@@ -89,7 +114,7 @@ Turn a check your analysts do by hand into one that runs from the case, with its
 
 **Example:** the audit log records the whole run: the Kestrel request, the approval, the merge, the switch-off and the removal, each row naming who did what and when.
 
-## 3. Scenarios
+## Scenarios
 
 ![How work reaches the console](docs/rule-change-workflow.svg)
 
@@ -158,7 +183,7 @@ Brief: [`docs/CHARGEBACKS_FROM_POWER_APPS.md`](docs/CHARGEBACKS_FROM_POWER_APPS.
 
 Every scenario keeps a human gate. In a regulated fintech the gates are the selling point: a rule on money changes as fast as a Power Apps edit and still gets a second reviewer.
 
-## 4. Demo pitch
+## Demo pitch
 
 The beat-by-beat script, with what to say, what to click and the order to record in, is [`docs/LOOM-VIDEO-SCRIPT.md`](docs/LOOM-VIDEO-SCRIPT.md).
 
@@ -170,7 +195,7 @@ The beat-by-beat script, with what to say, what to click and the order to record
 
 A pull request merged on GitHub while the running console still served the code from before it. The console runs its own checkout, and a merge moves the remote, not the files, packages or database the console reads. It was traced layer by layer from GitHub down to the checkout, and fixed in four layers: confirm the merge with GitHub, pull only into a clean checkout on the right branch, install when the lockfile moves, then migrate and register new settings and flags without a restart. The Loom tells it in 30 seconds; the write-up is [`docs/POST_MERGE_DEPLOYMENT_DRIFT.md`](docs/POST_MERGE_DEPLOYMENT_DRIFT.md).
 
-## 5. Capabilities in depth
+## Capabilities in depth
 
 The same five operations as the README's Usage section, taken one level down: who has the problem, what they do today, and exactly what the automation does, file by file.
 
