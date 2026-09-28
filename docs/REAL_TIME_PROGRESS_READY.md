@@ -28,7 +28,7 @@ The run view polls the run's Devin session every 2 seconds and renders a live ch
    ●  Editing tools/kyc/src/index.ts                               +96 −1
    ```
 
-4. **Verify line** — one mark per `verify_steps` entry: `✓` for `pass: true`, `✗` for `pass: false`, `…` for `pass: null`; the `Test` step's `before → after` counts go in the detail column (`run-view.tsx:117-129`):
+4. **Verify line** — one mark per `verify_steps` entry: `✓` for `pass: true`, `✗` for `pass: false`, `…` for `pass: null`; the `Test` step's `before → after` counts go in the detail column once `after` is non-zero (`run-view.tsx:117-129`; `after: 0` is falsy at line 126, so no detail is shown):
 
    ```
    ●  Verified: Lint ✓ Typecheck ✓ Boundaries … Test …
@@ -233,4 +233,4 @@ The session reports `structured_output` late. Until the first valid snapshot lan
 
 ## Summary
 
-With `DEVIN_API_KEY` set and `pnpm dev` running, every in-flight run live-updates. Open `/runs` or `/t/automation/<id>` and watch.
+With `DEVIN_API_KEY` set and `pnpm dev` running, every in-flight run live-updates. Open `/t/automation/<id>`, or open `/runs` and click a run to show its run view in the agent column (`run-row.tsx:45`), and watch. The `/runs` list itself refreshes its rows every 5 seconds through `RefreshInFlight` (`refresh-in-flight.tsx:11-21`), not the 2-second checklist and timeline.
