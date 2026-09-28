@@ -1,8 +1,8 @@
 # 5-Minute Loom Video Script: Devin-Driven Ownership of Platform Tools
 
-## 🎯 Opening (20 seconds)
+## 🎯 Opening (30 seconds)
 
-**▶ SLIDE 2 · Your team asks, Devin builds, an engineer approves.** The recording opens on it. Point along the four boxes.
+**▶ SLIDE 1 · Your team asks, Devin builds, an engineer approves.** The recording opens on it. Point along the four boxes.
 
 > "Without a release pipeline, a rule changes one of two ways."
 >
@@ -10,13 +10,13 @@
 >
 > "There's another option. Your team asks for a change, Devin builds it, and an engineer approves it."
 
-[Press ← to slide 1.]
+[Press → to slide 2.]
 
 ---
 
 ## 🧭 Power Apps Today (25 seconds)
 
-**▶ SLIDE 1 · Power Apps is five products in one.**
+**▶ SLIDE 2 · Power Apps is five products in one.**
 
 > "Power Apps is five products: an app builder, Dataverse, connectors, Power Automate, and an admin plane."
 >
@@ -328,7 +328,7 @@ Clicks marked **once** change data. To retake them, `pnpm db:seed`: it restores 
 
 | # | Shot | Viewing as | State it needs |
 |---|---|---|---|
-| 0 | Slide 2 for the opening; then slide 1, Power Apps is five products in one | — | Deck open on slide 2 |
+| 0 | Slide 1 for the opening; then slide 2, Power Apps is five products in one | — | Deck open on slide 1 |
 | 1 | Home; Transaction monitoring Coming soon | Refunds manager | Fresh seed at the tagged demo commit |
 | 2 | Kestrel drawer; `rfnd_0013` send (**once**) | Refunds manager, Refunds agent | Before the Kestrel merge |
 | 3 | Handoff, finished run, approval dialog and its trace | Refunds manager, Engineer | Recorded run |
