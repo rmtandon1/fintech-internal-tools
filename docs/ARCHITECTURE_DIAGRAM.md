@@ -1,6 +1,6 @@
 # Architecture
 
-## How a change reaches production
+## How rules, checks and apps are changed and approved
 
 ```
 ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
