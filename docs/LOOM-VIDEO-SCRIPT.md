@@ -1,4 +1,4 @@
-# Loom Video Script: After Power Apps, Rules, Connectors and Apps
+# 5-Minute Loom Video Script: Devin-Driven Ownership of Platform Tools
 
 **The one message.** After Power Apps, your team asks, Devin builds, and an engineer approves, whether it's a rule, a manual step or a whole new app.
 
@@ -10,7 +10,7 @@ One loop, three times, each on a bigger change. Every part ends on what an opera
 - *(Parentheses inside a quote)* are values read off the screen. Where one holds a figure, it's the dry run's (#61, #62, reverted in #63). Say what the screen shows.
 - Record ids like `rfnd_0013` appear only in brackets. Spoken lines use names.
 - **▶ SLIDE n** means switch to that slide in the deck. **◀ CONSOLE** means switch back to the app. Neither is said.
-- About seven minutes. Run **Before recording** first.
+- Just over seven minutes. Run **Before recording** first.
 
 ## Slides
 
@@ -20,7 +20,7 @@ Four slides in [`DEMO-SLIDES.html`](DEMO-SLIDES.html) (PDF copy: [`DEMO-SLIDES.p
 |---|---|---|
 | 1 · Power Apps is five products in one | First shot of the recording | After "in code your team owns." Press → to slide 2 |
 | 2 · Your team asks, Devin builds, an engineer approves | Opening | After "an engineer approves it." ◀ CONSOLE, on home |
-| 3 · What it costs | After Part 3's last line | After "instead of writing it." Press → to slide 4 |
+| 3 · What it costs | After the deployment drift challenge | After "instead of writing it." Press → to slide 4 |
 | 4 · Build or buy | Straight after slide 3 | Stay on it to the end of the recording |
 
 ## Why this order
@@ -32,7 +32,7 @@ Each part changes more of the system than the one before.
 | Where Devin may work | 3 files, plus tests | The KYC app's folder, `.env.example`, tests | A new app folder, registry, schema, home, migrations, lockfile, flag seed, tests |
 | New moving parts | A 14-day window setting | An outside API, a key on the server, a timeout, "couldn't check" | A new table (migration `0009`), 50 seeded disputes, two limits, a feature flag |
 | Size | One new file, two edited | Dry run: 5 files, +856 −3 | Dry run: 14 files, +2,166 −2 (1,375 of it a generated snapshot) |
-| Ends on | A Kestrel refund settles again after the rule is removed | Thornbury's **Approve** waits for a KYC manager, with the reason | A refunds agent works a live Chargebacks queue |
+| Ends on | A Kestrel refund goes straight to the processor again after the rule is removed | Thornbury's **Approve** waits for a KYC manager, with the reason | A refunds agent works a live Chargebacks queue |
 
 The undo in Part 1 is the trickiest git work in the video, a conflicting revert. It stays there because it's the same rule's life, on the smallest surface.
 
@@ -98,7 +98,7 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 
 > "Four 'not received' refunds from one merchant, each just under the $500 manager line. Together, $1,880."
 
-[Switch role: Refunds agent. On `rfnd_0013`, click **Send to processor**. It settles.]
+[Switch role: Refunds agent. On `rfnd_0013`, click **Send to processor**. It goes straight to **With processor**, no hold.]
 
 > "That takes Kestrel to $925, and it went straight through."
 
@@ -118,7 +118,7 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 
 > "An existing test said all four Kestrel refunds pass. Devin changed it to three held, in the open."
 >
-> "*(320)* tests before, *(new total)* after."
+> "*(328)* tests before, *(new total)* after."
 
 [Switch role: Engineer. Click **Review and approve**. Point at the eight-line checklist. After approving, point at the rules the approval passed: `approver_is_not_requester`, `checks_green`, `context_matches_dispatch`. Check in rehearsal where they show; if they don't, cut the two lines below.]
 
@@ -154,9 +154,9 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 
 ### Outcome
 
-[Switch role: Refunds agent. On `rfnd_0014`, click **Send to processor**. It settles. Open the trace, then the reason-code dropdown.]
+[Switch role: Refunds agent. On `rfnd_0014`, click **Send to processor**. It goes straight to **With processor**. Open the trace, then the reason-code dropdown.]
 
-> "The agent's click settles again. No trace of the rule, and partial delivery is still in the list."
+> "The agent's click goes straight through again. No trace of the rule, and partial delivery is still in the list."
 
 ---
 
@@ -229,6 +229,30 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 > "The refunds team has a live queue. The hourly email is now a count: three due in 48 hours."
 >
 > "A $2,480 fraud accept waits for a manager, as it did in Power Apps. The rest of the move is that list."
+
+---
+
+## 🔧 Challenge: Post-Merge Deployment Drift (30 seconds)
+
+**Differentiator:** a real problem from the build, diagnosed layer by layer and fixed in four.
+
+[Show the screenshot of the Chargebacks **Pull merged code** toast from Part 3: `pulled … → … · dependencies installed · db migrated`.]
+
+> "One challenge from the build: post-merge deployment drift."
+>
+> "GitHub said merged, and the screen didn't change."
+>
+> "I walked it down layer by layer. The merge commit wasn't in the console's checkout."
+>
+> "Pulling wasn't enough either. The new Chargebacks package didn't resolve."
+
+[Cut to the four-layer table in `docs/POST_MERGE_DEPLOYMENT_DRIFT.md`.]
+
+> "So the sync has four layers. It confirms the merge with GitHub, and pulls only into a clean checkout."
+>
+> "It installs packages when the lockfile moves. Then it migrates and registers new settings and flags."
+>
+> "That toast is all four, with no restart and no re-seed."
 
 ---
 
@@ -335,14 +359,14 @@ Five runs at 30–60 minutes each. Order matters:
 | Stop `pnpm dev`, then `rm -rf apps/console/data && pnpm db:setup`, then `pnpm dev`, within the hour | Seeded dates count from seed time |
 | Pick a role again after a reset | The reset regenerates the role cookie's secret |
 | `.env` has `DEVIN_API_KEY` and `GITHUB_TOKEN`; `/api/devin/status` reports `live` | Without the GitHub token, approval and the merge check don't work |
-| `pnpm verify` green; test count matches the script (320) | The count moved five times in two days (294, 305, 288, 331, 320) |
+| `pnpm verify` green; test count matches the script (328) | The count moved five times in two days (294, 305, 288, 331, 320, 328) |
 | Fresh browser window, 1440×900, notifications off | Every take the same size, no pop-ups |
 
 ---
 
 ## 🎥 Shot List
 
-Clicks marked **once** change data. To retake them, `pnpm db:seed`.
+Clicks marked **once** change data. To retake them, `pnpm db:seed`: it restores the demo refunds and cases, but not after `pnpm db:scenario courier-outage`, whose sixty refunds and audit rows it leaves in place.
 
 | # | Shot | Viewing as | State it needs |
 |---|---|---|---|
@@ -353,8 +377,9 @@ Clicks marked **once** change data. To retake them, `pnpm db:seed`.
 | 4 | Inbox of sixty; switch-off at `/admin/policy` | Refunds manager, Admin | Courier scenario run |
 | 5 | Undo, finished undo; `rfnd_0014` send (**once**), trace, reason dropdown | Admin, Engineer, Refunds agent | `partial_delivery` merged before the undo |
 | 6 | Thornbury before, handoff, finished run, setting on, **Approve** | KYC reviewer, Admin, Engineer | Companies House run recorded |
-| 7 | Chargebacks Coming soon, handoff, pull request, flag on, queue, `DSP-20401` **Accept** (**once**) | Admin, Engineer, Refunds agent | Chargebacks run recorded |
-| 8 | Slide 3, what it costs; then slide 4, build or buy | — | Deck on slide 3 |
+| 7 | Chargebacks Coming soon, handoff, pull request, flag on, queue, `DSP-20401` **Accept** (**once**) | Admin, Engineer, Refunds agent | Chargebacks run recorded; screenshot the **Pull merged code** toast |
+| 8 | Toast screenshot, then the four-layer table in `docs/POST_MERGE_DEPLOYMENT_DRIFT.md` | — | Screenshot from shot 7 |
+| 9 | Slide 3, what it costs; then slide 4, build or buy | — | Deck on slide 3 |
 
 - Open `docs/DEMO-SLIDES.html` in a second browser window, the same size as the console, before shot 0.
 - Show every sped-up run with its real "Took …" time.
@@ -364,7 +389,7 @@ Clicks marked **once** change data. To retake them, `pnpm db:seed`.
 
 ## 📤 After Recording
 
-- **Chapters:** Power Apps today, Opening, The console, Rules, Connectors, Apps, Cost, Build or buy.
+- **Chapters:** Power Apps today, Opening, The console, Rules, Connectors, Apps, Deployment drift, Cost, Build or buy.
 - **Description:** the one message, `docs/DEMO-SLIDES.pdf` attached, the repo, the five pull requests, and each run's time, ACUs and test total.
 - **Replays:** copy each run's `apps/console/data/replays/<run_id>.json` to `runs/<run_id>/replay.json` and commit it.
 - **Clean up:** stop running Devin sessions, delete stray `runs/` folders, reset the database. Tag the recorded commit, e.g. `loom-2026-09-28`.

@@ -201,7 +201,7 @@ a map from what operators see to the code Devin changes.
 ## Project structure
 
 ```
-buy-v-build-cog-demo/
+fintech-internal-tools/
 ├── apps/
 │   └── console/                     # The Next.js app: routes, server actions, registry, migrations, tests
 │       ├── src/
@@ -318,8 +318,8 @@ The console runs without either key. Devin then shows as not connected, and ever
 1. Clone the repository.
 
    ```bash
-   git clone https://github.com/rmtandon1/buy-v-build-cog-demo.git
-   cd buy-v-build-cog-demo
+   git clone https://github.com/rmtandon1/fintech-internal-tools.git
+   cd fintech-internal-tools
    ```
 
 2. Install dependencies.
@@ -667,6 +667,9 @@ state:
 The console doesn't use HTML no-cache meta tags or query-string cache busting: pages are server
 rendered per request and Next fingerprints its own assets, so neither is needed.
 
+The post-merge rows came out of one diagnosed problem, post-merge deployment drift: see
+[docs/POST_MERGE_DEPLOYMENT_DRIFT.md](docs/POST_MERGE_DEPLOYMENT_DRIFT.md).
+
 ---
 
 ## Troubleshooting
@@ -740,6 +743,8 @@ Find the layer first, then the symptom.
   then restart `pnpm dev`.
 - An app behind a flag reads **Switched off**, and its pages send you to the roadmap, until an admin
   enables `app.<name>` in Feature flags.
+- To walk it down layer by layer, from GitHub to the checkout, follow
+  [docs/POST_MERGE_DEPLOYMENT_DRIFT.md](docs/POST_MERGE_DEPLOYMENT_DRIFT.md).
 
 ### Merge happened on GitHub but the run still says Approved
 
