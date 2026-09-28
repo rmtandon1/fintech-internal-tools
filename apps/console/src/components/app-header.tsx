@@ -27,6 +27,9 @@ export function AppHeader({
 }) {
   const [pending, startTransition] = useTransition();
   const pathname = usePathname();
+  // A session already signed in as a non-demo role still sees its own label.
+  const roles =
+    roleChosen && !DEMO_ROLES.includes(actor.role) ? [...DEMO_ROLES, actor.role] : DEMO_ROLES;
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-4">
@@ -47,7 +50,7 @@ export function AppHeader({
             <SelectValue placeholder="Choose a role" />
           </SelectTrigger>
           <SelectContent>
-            {DEMO_ROLES.map((role) => (
+            {roles.map((role) => (
               <SelectItem key={role} value={role} className="text-sm">
                 {roleLabel(role)}
               </SelectItem>

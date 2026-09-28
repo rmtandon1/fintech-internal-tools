@@ -107,7 +107,13 @@ export default async function ToolQueuePage({
 
   // Switch tools (flags) get just the search box; tables keep the filters.
   const filterRow = decl.toggle ? (
-    <form key={search ?? ""} className="flex flex-wrap items-center gap-2 font-normal">
+    <form
+      key={new URLSearchParams({ ...filters, q: search ?? "" }).toString()}
+      className="flex flex-wrap items-center gap-2 font-normal"
+    >
+      {Object.entries(filters).map(([key, value]) => (
+        <input key={key} type="hidden" name={key} value={value} />
+      ))}
       <input
         name="q"
         defaultValue={search ?? ""}
