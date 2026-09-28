@@ -68,12 +68,14 @@ export default async function PolicyConstantsPage() {
       }
       bodyClassName="space-y-2 p-3"
     >
-      <div className="space-y-1">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-          Rules
-        </p>
-        <RulesCard rows={rules} devinConnected={devinMode() === "live"} />
-      </div>
+      {rules.length > 0 ? (
+        <div className="space-y-1">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Rules
+          </p>
+          <RulesCard rows={rules} devinConnected={devinMode() === "live"} />
+        </div>
+      ) : null}
       {constants.length === 0 ? (
         <p className="py-10 text-center text-xs text-muted-foreground">
           No settings yet. Each tool adds its own.
