@@ -31,7 +31,6 @@ const GIT_ENV = {
 const TOOL_FILE = "tools/refunds/src/index.ts";
 const TEST_FILE = "apps/console/tests/tools/refunds.test.ts";
 const ENGINE_FILE = "packages/engine/src/policy.ts";
-const SEED_FILE = "tools/refunds/src/seed.ts";
 
 const BASE_TEST = [
   'import { describe, expect, it } from "vitest";',
@@ -47,19 +46,16 @@ const BASE_FILES: Record<string, string> = {
   [TOOL_FILE]: 'export const refundTool = { id: "refunds" };\n',
   [TEST_FILE]: BASE_TEST,
   [ENGINE_FILE]: "export const policy = 1;\n",
-  [SEED_FILE]: 'export const seed = [\n  { id: "r1" },\n];\n',
   "package.json": '{ "name": "fixture" }\n',
 };
 
 interface ContextOverrides {
   kind?: string;
   scope?: string[];
-  reverses?: { run_id: string; merge_commit: string; constants_at_dispatch: null };
 }
 
 interface PlanOverrides {
   files?: Array<{ path: string; op: "create" | "modify" | "delete"; reason: string }>;
-  removed_tests?: Array<{ file: string; name: string }>;
 }
 
 const DEFAULT_SCOPE = ["tools/refunds/**", "apps/console/tests/**", `${RUN_DIR}/**`];
@@ -76,7 +72,7 @@ function contextJson(o: ContextOverrides = {}): string {
       scope: o.scope ?? DEFAULT_SCOPE,
       constants: { "refunds.manager_approval_usd_minor": 50000 },
       evidence: { cluster: "merchant_not_received:Kestrel Outdoors", rows: [] },
-      reverses: o.reverses ?? null,
+      reverses: null,
       audit_head: { seq: 1, rowHash: "abc" },
     },
     null,
@@ -93,7 +89,6 @@ function planJson(o: PlanOverrides = {}): string {
       ],
       reuses: [],
       acceptance: ["holds clustered refunds"],
-      ...(o.removed_tests ? { removed_tests: o.removed_tests } : {}),
     },
     null,
     2,
@@ -176,12 +171,12 @@ afterAll(() => {
   for (const f of fixtures) rmSync(f.dir, { recursive: true, force: true });
 });
 
-/** `Name: PASS — reason` / `Name: FAIL (reason)` / `Name: n/a (reason)`, returned as `STATUS  reason`. */
+/** `Name: PASS — reason` / `Name: FAIL (reason)`, returned as `STATUS  reason`. */
 function line(out: string, check: string): string {
   const found = out.split("\n").find((l) => l.startsWith(`${check}: `));
   if (!found) throw new Error(`no line for "${check}" in:\n${out}`);
   const rest = found.slice(check.length + 2);
-  const m = /^(PASS|FAIL|n\/a)\s*(?:—\s*|\()?(.*?)\)?$/.exec(rest);
+  const m = /^(PASS|FAIL)\s*(?:—\s*|\()?(.*?)\)?$/.exec(rest);
   return m ? `${m[1]}  ${m[2]}` : rest;
 }
 
@@ -222,10 +217,6 @@ describe("run-guard", () => {
       "Plan stays in scope",
       "Run dir frozen",
       "Engine untouched",
-      "Tests never shrink",
-      "No type escapes",
-      "Seed is not state",
-      "Only undo",
     ]);
   });
 
@@ -254,87 +245,13 @@ describe("run-guard", () => {
     const f = fixture().startRun().editInPlan();
     const { status, out } = f.guard();
     expect(status).toBe(0);
-    for (const name of [
-      "Stays in plan",
-      "Plan stays in scope",
-      "Run dir frozen",
-      "Engine untouched",
-      "Tests never shrink",
-      "No type escapes",
-      "Seed is not state",
-      "Only undo",
-    ]) {
+    for (const name of ["Stays in plan", "Plan stays in scope", "Run dir frozen", "Engine untouched"]) {
       expect(line(out, name)).toMatch(/^PASS/);
     }
     for (const name of ["Humans approve", "Engine owner approves", "No live writes"]) {
-      expect(line(out, name)).toContain("enforced by review/GitHub/playbook");
+      expect(out).not.toContain(`${name}:`);
     }
-  });
-
-  describe("Seed is not state", () => {
-    const planWithSeed = (reason: string) => ({
-      files: [
-        { path: TOOL_FILE, op: "modify" as const, reason: "register the rule" },
-        { path: TEST_FILE, op: "modify" as const, reason: "assert the rule" },
-        { path: SEED_FILE, op: "modify" as const, reason },
-      ],
-    });
-
-    it("passes when a planned seed only gains rows", () => {
-      const f = fixture().startRun({}, planWithSeed("add two clustered refund rows the spec asks for")).editInPlan();
-      f.write({ [SEED_FILE]: 'export const seed = [\n  { id: "r1" },\n  { id: "r2" },\n];\n' });
-      f.commit("seed rows");
-      const { status, out } = f.guard();
-      expect(status).toBe(0);
-      expect(line(out, "Seed is not state")).toMatch(/^PASS/);
-    });
-
-    it("fails when a seed edit removes lines or its reason does not name rows", () => {
-      const f = fixture().startRun({}, planWithSeed("add two clustered refund rows")).editInPlan();
-      f.write({ [SEED_FILE]: 'export const seed = [\n  { id: "r2" },\n];\n' });
-      f.commit("rewrite seed");
-      expect(line(f.guard().out, "Seed is not state")).toMatch(/^FAIL.*removes lines/);
-
-      const g = fixture().startRun({}, planWithSeed("fake the demo outcome")).editInPlan();
-      g.write({ [SEED_FILE]: 'export const seed = [\n  { id: "r1" },\n  { id: "r2" },\n];\n' });
-      g.commit("seed rows");
-      expect(line(g.guard().out, "Seed is not state")).toMatch(/^FAIL.*does not name added rows/);
-    });
-  });
-
-  describe("Only undo", () => {
-    function reversal(): { f: Fixture; target: string } {
-      const f = fixture();
-      f.write({ [TOOL_FILE]: 'export const refundTool = { id: "refunds", rules: ["clustering_hold"] };\n' });
-      f.commit("implementation");
-      const target = f.git("rev-parse", "HEAD");
-      f.write({ [TOOL_FILE]: 'export const refundTool = { id: "refunds", rules: ["clustering_hold", "partial_delivery"] };\n' });
-      f.commit("later work");
-      f.startRun(
-        { kind: "REVERSAL", reverses: { run_id: "01K5Z3Q8M4V7N2X9C6B1D0F3GG", merge_commit: target, constants_at_dispatch: null } },
-        { files: [{ path: TOOL_FILE, op: "modify", reason: "undo the hold" }, { path: "tools/refunds/src/extra.ts", op: "create", reason: "extra" }] },
-      );
-      return { f, target };
-    }
-
-    it("passes when the target's effect is gone and later work stays", () => {
-      const { f } = reversal();
-      f.write({ [TOOL_FILE]: 'export const refundTool = { id: "refunds", rules: ["partial_delivery"] };\n' });
-      f.commit("undo hold");
-      const { status, out } = f.guard();
-      expect(status).toBe(0);
-      expect(line(out, "Only undo")).toMatch(/^PASS/);
-    });
-
-    it("fails when the target's file is untouched or a new production file appears", () => {
-      const { f } = reversal();
-      expect(line(f.guard().out, "Only undo")).toMatch(/^FAIL.*tools\/refunds\/src\/index\.ts/);
-      f.write({ [TOOL_FILE]: 'export const refundTool = { id: "refunds", rules: ["partial_delivery"] };\n', "tools/refunds/src/extra.ts": "export const extra = 1;\n" });
-      f.commit("undo plus extra");
-      const { status, out } = f.guard();
-      expect(status).toBe(1);
-      expect(line(out, "Only undo")).toMatch(/^FAIL.*tools\/refunds\/src\/extra\.ts/);
-    });
+    expect(out).toContain("Humans approve, Engine owner approves and No live writes are enforced by review, CODEOWNERS and the playbook");
   });
 
   describe("Stays in plan", () => {
@@ -480,132 +397,6 @@ describe("run-guard", () => {
     });
   });
 
-  describe("Tests never shrink", () => {
-    it("fails when a test file loses an it()", () => {
-      const f = fixture().startRun();
-      f.write({ [TEST_FILE]: BASE_TEST.replace('  it("holds large refunds", () => { expect(2).toBe(2); });\n', "") });
-      f.commit("drop test");
-      const { status, out } = f.guard();
-      expect(status).toBe(1);
-      expect(line(out, "Tests never shrink")).toMatch(/^FAIL.*refunds\.test\.ts: 2 → 1/);
-    });
-
-    it("fails when a test file is deleted", () => {
-      const f = fixture().startRun({}, { files: [{ path: TEST_FILE, op: "delete", reason: "x" }] });
-      f.remove(TEST_FILE);
-      f.commit("delete tests");
-      const { status, out } = f.guard();
-      expect(status).toBe(1);
-      expect(line(out, "Tests never shrink")).toMatch(/^FAIL.*refunds\.test\.ts deleted/);
-    });
-
-    it("fails when .skip, .only or .todo is added", () => {
-      const f = fixture().startRun();
-      f.write({ [TEST_FILE]: BASE_TEST.replace('it("holds large refunds"', 'it.skip("holds large refunds"') });
-      f.commit("skip");
-      const { status, out } = f.guard();
-      expect(status).toBe(1);
-      expect(line(out, "Tests never shrink")).toMatch(/^FAIL.*adds \.skip\("holds large refunds"\)/);
-    });
-
-    it("fails when an existing .skip turns into .only", () => {
-      const f = fixture();
-      f.write({ [TEST_FILE]: BASE_TEST.replace('it("holds large refunds"', 'it.skip("holds large refunds"') });
-      f.commit("skip on base");
-      f.startRun();
-      f.write({ [TEST_FILE]: BASE_TEST.replace('it("holds large refunds"', 'it.only("holds large refunds"') });
-      f.commit("focus");
-      const { status, out } = f.guard();
-      expect(status).toBe(1);
-      expect(line(out, "Tests never shrink")).toMatch(/^FAIL.*adds \.only\("holds large refunds"\)/);
-    });
-
-    it("lets a REMOVAL delete exactly the tests listed in plan.removed_tests", () => {
-      const f = fixture().startRun(
-        { kind: "IMPLEMENTATION/REMOVAL" },
-        { files: [{ path: TOOL_FILE, op: "modify", reason: "x" }, { path: TEST_FILE, op: "modify", reason: "x" }], removed_tests: [{ file: TEST_FILE, name: "holds large refunds" }] },
-      );
-      f.write({ [TEST_FILE]: BASE_TEST.replace('  it("holds large refunds", () => { expect(2).toBe(2); });\n', "") });
-      f.commit("remove rule test");
-      const { status, out } = f.guard();
-      expect(status).toBe(0);
-      expect(line(out, "Tests never shrink")).toMatch(/^PASS/);
-    });
-
-    it("fails a REMOVAL that deletes a test not listed in plan.removed_tests", () => {
-      const f = fixture().startRun(
-        { kind: "IMPLEMENTATION/REMOVAL" },
-        { files: [{ path: TOOL_FILE, op: "modify", reason: "x" }, { path: TEST_FILE, op: "modify", reason: "x" }], removed_tests: [{ file: TEST_FILE, name: "holds large refunds" }] },
-      );
-      f.write({ [TEST_FILE]: BASE_TEST.replace('  it("applies small refunds", () => { expect(1).toBe(1); });\n', "") });
-      f.commit("remove wrong test");
-      const { status, out } = f.guard();
-      expect(status).toBe(1);
-      expect(line(out, "Tests never shrink")).toMatch(/^FAIL.*not in plan\.removed_tests.*applies small refunds/);
-    });
-  });
-
-  describe("Tests never shrink (renames and replacements)", () => {
-    it("fails when a test file is renamed so vitest no longer picks it up", () => {
-      const f = fixture().startRun({}, { files: [{ path: TEST_FILE, op: "delete", reason: "x" }, { path: "apps/console/tests/tools/refunds.ts", op: "create", reason: "x" }] });
-      f.git("mv", TEST_FILE, "apps/console/tests/tools/refunds.ts");
-      f.commit("rename away");
-      const { status, out } = f.guard();
-      expect(status).toBe(1);
-      expect(line(out, "Tests never shrink")).toMatch(/^FAIL.*renamed to apps\/console\/tests\/tools\/refunds\.ts, no longer a test file/);
-    });
-
-    it("fails a REMOVAL that replaces an unlisted test with a new one of the same count", () => {
-      const f = fixture().startRun(
-        { kind: "IMPLEMENTATION/REMOVAL" },
-        { removed_tests: [{ file: TEST_FILE, name: "holds large refunds" }] },
-      );
-      f.write({ [TEST_FILE]: BASE_TEST.replace('it("applies small refunds"', 'it("does something else"') });
-      f.commit("swap test");
-      const { status, out } = f.guard();
-      expect(status).toBe(1);
-      expect(line(out, "Tests never shrink")).toMatch(/^FAIL.*not in plan\.removed_tests.*"applies small refunds"/);
-    });
-  });
-
-  describe("No type escapes", () => {
-    it("fails on added any, @ts-ignore, @ts-expect-error, eslint-disable and as unknown as", () => {
-      const f = fixture().startRun();
-      f.write({
-        [TOOL_FILE]: [
-          "export const a: any = 1;",
-          "type RefundInput = any;",
-          "// @ts-ignore",
-          "// @ts-expect-error",
-          "/* eslint-disable */",
-          'export const b = "x" as unknown as number;',
-          'export const refundTool = { id: "refunds" };',
-          "",
-        ].join("\n"),
-      });
-      f.commit("escapes");
-      const { status, out } = f.guard();
-      expect(status).toBe(1);
-      const l = line(out, "No type escapes");
-      expect(l).toMatch(/^FAIL/);
-      for (const label of ["(any)", "(@ts-ignore)", "(@ts-expect-error)", "(eslint-disable)", "(as unknown as)"]) {
-        expect(l).toContain(label);
-      }
-      expect(l).toContain(`${TOOL_FILE}:2 (any)`);
-    });
-
-    it("ignores 'any' in identifiers and strings", () => {
-      const f = fixture().startRun();
-      f.write({
-        [TOOL_FILE]: 'export const refundTool = { id: "refunds", anyway: "for any merchant", company: 1 };\n',
-      });
-      f.commit("prose");
-      const { status, out } = f.guard();
-      expect(status).toBe(0);
-      expect(line(out, "No type escapes")).toMatch(/^PASS/);
-    });
-  });
-
   it("renders the report as a Markdown table with --markdown", () => {
     const f = fixture().startRun().editInPlan();
     f.write({ "tools/kyc/src/index.ts": "export const kycTool = 1;\n" });
@@ -615,6 +406,7 @@ describe("run-guard", () => {
     expect(out).toContain("<!-- run-guard -->");
     expect(out).toContain("### Run guard: failed");
     expect(out).toMatch(/\| \*\*Stays in plan\*\* \| \*\*fail\*\* \|/);
-    expect(out).toMatch(/\| \*\*Humans approve\*\* \| n\/a \| enforced by review\/GitHub\/playbook \|/);
+    expect(out).not.toMatch(/\| \*\*Humans approve\*\*/);
+    expect(out).toContain("_Humans approve, Engine owner approves and No live writes are enforced by review, CODEOWNERS and the playbook, not by this script._");
   });
 });

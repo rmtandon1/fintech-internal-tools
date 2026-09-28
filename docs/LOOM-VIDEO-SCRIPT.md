@@ -103,7 +103,7 @@ Section timings add up to about six and a half minutes. Lines in *🎬 italics* 
 
 - **Checks.** Point at `pnpm verify`, step by step.
 
-> Five steps. Lint. Typecheck. Boundaries, which fails if a tool name shows up in the engine or anything but the engine gets the database write handle. The run guard: every changed file was in the plan, nothing in the engine moved, and no test file lost a single test. Then the suite: 294 tests before, *(new total)* after.
+> Five steps. Lint. Typecheck. Boundaries, which fails if a tool name shows up in the engine or anything but the engine gets the database write handle. The run guard: every changed file was in the plan, the plan stayed in scope and never moved, and nothing in the engine moved. Then the suite: 294 tests before, *(new total)* after.
 
 ### Review and merge
 
@@ -167,7 +167,7 @@ Section timings add up to about six and a half minutes. Lines in *🎬 italics* 
 *🎬 Cut to the finished reversal. Read the wall time off the header.*
 
 - **The conflict.** `git revert` → conflict in `tools/refunds/src/index.ts` → kept `partial_delivery`, removed `clustering_hold`.
-- **The tests.** The rule's tests are removed and named in the plan. No other test is lost. **Only undo** is green: every file the original merge touched is back to its pre-merge content, except the later `partial_delivery` work.
+- **The tests.** The rule's tests are removed and named in the PR. No other test is lost. Every file the original merge touched is back to its pre-merge content, except the later `partial_delivery` work, and the guard confirms nothing outside the plan changed.
 - **What code can't undo.** The pull request lists the 60 held Fernhill refunds for a person to release, and the window setting still sitting in the database.
 
 ### After

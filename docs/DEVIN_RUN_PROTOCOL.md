@@ -195,7 +195,7 @@ Phase names, spinners and timings shown in the UI are copy. They exist to make a
 
 ## Guard checks
 
-The playbook states these as prose, and `scripts/run-guard.ts` (in `pnpm verify`, plus a GitHub Action on every PR) enforces them against `git diff <base>...HEAD`. They have names, not numbers, so a PR comment reads as a sentence.
+The playbook states these as prose, and `scripts/run-guard.ts` (in `pnpm verify`, plus a GitHub Action on every PR) enforces the four that carry the core claim against `git diff <base>...HEAD`: the diff is the plan, the plan is in scope, the plan never moved, and the engine never moved. They have names, not numbers, so a PR comment reads as a sentence.
 
 
 | Check                     | Fails when                                                                                                                                                                                            |
@@ -205,14 +205,16 @@ The playbook states these as prose, and `scripts/run-guard.ts` (in `pnpm verify`
 | **Run dir frozen**        | The plan commit (first on the branch) adds anything but `runs/<run_id>/context.json` and `plan.json`, or either file changes in a later commit, even if reverted afterwards (other files there, such as `replay.json`, may change)                |
 | **Context untouched**     | `approve_pr` only: the branch's `context.json` doesn't hash (SHA-256) to `contextSha256` in the dispatch audit row. CI can't read the console's SQLite, so the console's own rule does this half           |
 | **Engine untouched**      | Scope `rule` only. Anything under `packages/engine/`, `packages/db/`, `packages/db-core/`, `packages/db-write/`, `packages/permissions/`, `apps/console/drizzle/`, `scripts/check-boundaries.ts`, the guard itself, `AGENTS.md`, `package.json` or `pnpm-lock.yaml` changes                      |
-| **Tests never shrink**    | A test file is deleted, a file's `it(` count drops, or `.skip`, `.only` or `.todo` appears. A REMOVAL or REVERSAL may delete tests that assert the rule it takes out, but only those listed in `plan.json`'s `removed_tests[]` by file and name |
-| **No type escapes**       | New `any`, `@ts-ignore`, `@ts-expect-error`, `eslint-disable` or `as unknown as`                                                                                                                      |
-| **Seed is not state**     | A seed file changes to fake a demo outcome. Seeds may gain rows the spec asks for: the file is in `plan.json` with a reason naming the added rows and the diff removes no lines                          |
-| **Only undo**             | REVERSAL only, see below. Reported as passing on other kinds                                                                                                                                          |
+
+Three more rules are enforced by review, CODEOWNERS and the playbook rather than the script; the guard's report ends with a note saying so:
+
+| Rule                      | Fails when                                                                                                                                                                                            |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Humans approve**        | The session merges without an approving review from someone other than itself, force-pushes, or pushes to the default branch                                                                          |
 | **Engine owner approves** | Scope `engine` only. A change under `packages/engine/`, `packages/db/`, `packages/db-core/`, `packages/db-write/`, `packages/permissions/` or `apps/console/drizzle/` merges without an approving review from the engine owner in CODEOWNERS, in addition to `approve_pr`                        |
 | **No live writes**        | The session runs `pnpm db:setup` or `db:seed`, or writes SQL against anything but a test database                                                                                        |
 
+Test counts, type escapes, seed edits and the shape of a REVERSAL are for the engineer's review; the PR lists per-file test counts and every rewritten test by name (see § Pull request contents).
 
 `runs/` and the guard sit under CODEOWNERS, so changing either needs a human reviewer.
 ## Reversal
