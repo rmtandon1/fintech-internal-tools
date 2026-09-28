@@ -112,6 +112,18 @@ describe("RunView", () => {
     expect(html).not.toContain("●");
   });
 
+  it("does not spin while Devin waits for a reply", () => {
+    const last = editing.at(-1);
+    if (!last) throw new Error("no frame");
+    const waiting = {
+      ...last,
+      structured_output: { ...last.structured_output, phase_status: "waiting_for_user" as const },
+    };
+    const html = render(payload({ frames: [...editing.slice(0, -1), waiting], latest: waiting }));
+    expect(html).not.toContain("animate-spin");
+    expect(html).toMatch(/data-state="active"><span class="[^"]*text-amber-400">●/);
+  });
+
   it("stops spinning and shows the last update once the run has ended", () => {
     const p = payload();
     const html = render({ ...p, run: { ...p.run, status: "stopped" } });

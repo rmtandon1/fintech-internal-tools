@@ -83,7 +83,7 @@ export interface DispatchOutcome {
   /** The `record_session` result; null when `dispatch` itself did not apply. */
   session: IntentResult | null;
   sessionUrl: string | null;
-  /** The prompt the session was created with; null when `dispatch` itself did not apply. */
+  /** The prompt composed for the session; null when `dispatch` itself did not apply. */
   prompt: string | null;
 }
 
@@ -186,27 +186,17 @@ export function sessionPrompt(input: SessionPromptInput): string {
   ].join("\n");
 }
 
+function promptPath(repoRoot: string, runId: string): string {
+  return join(repoRoot, "apps", "console", "data", "runs", runId, "prompt.txt");
+}
+
 /**
- * The prompt a run's session was created with, recomposed from the run and
- * its `context.json` for display. Null when the context or spec is missing.
+ * The prompt a run's session was created with, as recorded at dispatch. Null
+ * when no session was created for the run.
  */
-export function runPrompt(
-  run: DevinRun,
-  deps: Pick<BridgeDeps, "repoRoot" | "repository">,
-): string | null {
-  const spec = getSpec(run.spec);
-  const raw = readContextJson(deps.repoRoot, run.id);
-  if (!spec || !raw) return null;
-  const parsed = ContextFile.safeParse(JSON.parse(raw));
-  if (!parsed.success) return null;
-  return sessionPrompt({
-    runId: run.id,
-    operation: run.operation as Operation,
-    intent: run.intent,
-    spec,
-    repository: deps.repository,
-    base: parsed.data.base,
-  });
+export function runPrompt(run: Pick<DevinRun, "id">, deps: Pick<BridgeDeps, "repoRoot">): string | null {
+  const path = promptPath(deps.repoRoot, run.id);
+  return existsSync(path) ? readFileSync(path, "utf8") : null;
 }
 
 /**
@@ -305,6 +295,7 @@ export async function dispatchRun(
       });
       sessionInput = { sessionId: created.sessionId };
       sessionUrl = created.url;
+      writeFileSync(promptPath(deps.repoRoot, runId), prompt);
     } catch (error) {
       sessionInput = { error: errorText(error) };
     }

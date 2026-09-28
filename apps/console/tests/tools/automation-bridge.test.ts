@@ -251,7 +251,7 @@ describe("dispatchRun", () => {
     );
   });
 
-  it("returns the prompt it sent, and recomposes the same prompt from the run for display", async () => {
+  it("returns the prompt it sent, and records it for the run view", async () => {
     stopAll();
     const devin = fakeDevin({});
     const d = deps({ devin: devin.client, repository: "acme/ops-console" });
@@ -260,6 +260,13 @@ describe("dispatchRun", () => {
     const run = getRun(out.runId);
     if (!run) throw new Error("no run");
     expect(runPrompt(run, d)).toBe(out.prompt);
+  });
+
+  it("records no prompt for a run whose session was never created", async () => {
+    stopAll();
+    const out = await dispatchRun(admin, request, deps({}));
+    expect(out.prompt).not.toBeNull();
+    expect(runPrompt({ id: out.runId }, { repoRoot })).toBeNull();
   });
 
   it("looks the playbook up when none is configured, and prefers a configured one", async () => {

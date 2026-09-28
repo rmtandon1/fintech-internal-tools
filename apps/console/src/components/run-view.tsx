@@ -41,17 +41,17 @@ function CheckRow({
   state,
   label,
   detail,
-  ended = false,
+  still = false,
 }: {
   state: "done" | "active" | "waiting";
   label: string;
   detail?: string;
-  /** The run ended without merging: the last active step stops spinning. */
-  ended?: boolean;
+  /** Devin isn't working on the active step (the run ended, or it waits for a reply): no spinner. */
+  still?: boolean;
 }) {
   return (
     <li className="flex items-center gap-2 py-0.5 text-[11px]" data-state={state}>
-      {state === "active" && ended ? (
+      {state === "active" && still ? (
         <span className="w-2.5 shrink-0 text-amber-400">●</span>
       ) : state === "active" ? (
         <span
@@ -150,10 +150,14 @@ function Checklist({ out, run }: { out: StructuredOutput | null; run: RunViewPay
     label: "Merged",
     detail: run.mergeCommit?.slice(0, 7),
   });
+  const still =
+    TERMINAL.has(run.status) ||
+    out?.phase_status === "waiting_for_user" ||
+    out?.phase_status === "stopped";
   return (
     <ul className="px-3 py-1">
       {rows.map((row, i) => (
-        <CheckRow key={i} {...row} ended={TERMINAL.has(run.status)} />
+        <CheckRow key={i} {...row} still={still} />
       ))}
     </ul>
   );

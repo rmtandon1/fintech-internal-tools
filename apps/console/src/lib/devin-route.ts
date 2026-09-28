@@ -69,7 +69,7 @@ export interface RunViewPayload {
   outcome: string | null;
   /** The operator-facing name of the run's operation. */
   operationLabel: string;
-  /** The prompt the run's session was created with, for display; null without its context.json. */
+  /** The prompt the run's session was created with, for display; null when no session was created. */
   prompt: string | null;
   /** The id of the run's latest audit row, or null before the first intent. */
   lastAuditId: string | null;
