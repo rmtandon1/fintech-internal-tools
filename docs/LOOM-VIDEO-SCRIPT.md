@@ -94,7 +94,7 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 
 ### Before
 
-[Open `/t/refunds`, then the Kestrel cluster drawer.]
+[Open the **Refunds** tile on Home, then the Kestrel cluster drawer.]
 
 > "Four 'not received' refunds from one merchant, each just under the $500 manager line. Together, $1,880."
 
@@ -132,17 +132,17 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 
 ### Switch it off
 
-[Off camera: merge the `partial_delivery` pull request, then `pnpm db:scenario courier-outage`. Switch role: Refunds manager. Open `/inbox`: 60 Fernhill refunds held.]
+[Off camera: merge the `partial_delivery` pull request, then `pnpm db:scenario courier-outage`. Switch role: Refunds manager. Open **Approvals** in the sidebar: 60 Fernhill refunds held.]
 
 > "A courier outage. Sixty genuine refunds from a trusted merchant, all held."
 
-[Switch role: Admin. `/admin/policy`: `refunds.clustering_window_days` from 14 to 0. Save. Point at the audit row.]
+[Switch role: Admin. Open **Rule settings** in the sidebar: `refunds.clustering_window_days` from 14 to 0. Save. Point at the audit row.]
 
 > "Zero means off, and a test proves it. One setting, one audit row, no deploy."
 
 ### Remove it
 
-[On `/runs`, the merged Kestrel run: **Undo this change**, **Ask Devin to undo it**. Cut to the finished undo.]
+[Open **Rule changes** in the sidebar, the merged Kestrel run: **Undo this change**, **Ask Devin to undo it**. Cut to the finished undo.]
 
 > "A plain git revert conflicts: a partial-delivery reason code landed in the same file since."
 
@@ -184,7 +184,7 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 >
 > "There's no live key in this demo. Tests replay recorded responses, and the screen says 'test data'."
 
-[Switch role: Engineer. Approve, let Devin merge, then click **Pull merged code**. Switch role: Admin. `/admin/policy`: `kyc.companies_house_check` from 0 to 1.]
+[Switch role: Engineer. Approve, let Devin merge, then click **Pull merged code**. Switch role: Admin. Open **Rule settings** in the sidebar: `kyc.companies_house_check` from 0 to 1.]
 
 > "It merged switched off. An admin turns it on."
 
@@ -202,7 +202,7 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 
 ### Before
 
-[Switch role: Admin. Open `/roadmap/chargebacks`: Coming soon, sample rows.]
+[Switch role: Admin. On Home, open **Chargebacks** under Coming soon: sample rows.]
 
 > "Chargebacks still runs in a Power App, with two Power Automate flows."
 
@@ -224,7 +224,7 @@ The undo in Part 1 is the trickiest git work in the video, a conflicting revert.
 
 ### Outcome
 
-[Switch role: Refunds agent. Open `/t/chargebacks`. Point at "Over $1,000, due within 48 hours": 3. On `DSP-20401`, the $2,480 fraud dispute, click **Accept**. It waits for a manager.]
+[Switch role: Refunds agent. Open the **Chargebacks** tile on Home. Point at "Over $1,000, due within 48 hours": 3. On `DSP-20401`, the $2,480 fraud dispute, click **Accept**. It waits for a manager.]
 
 > "The refunds team has a live queue. The hourly email is now a count: three due in 48 hours."
 >
@@ -374,7 +374,7 @@ Clicks marked **once** change data. To retake them, `pnpm db:seed`: it restores 
 | 1 | Home; Transaction monitoring Coming soon | Refunds manager | Fresh seed at the tagged demo commit |
 | 2 | Kestrel drawer; `rfnd_0013` send (**once**) | Refunds manager, Refunds agent | Before the Kestrel merge |
 | 3 | Handoff, finished run, approval dialog and its trace | Refunds manager, Engineer | Recorded run |
-| 4 | Inbox of sixty; switch-off at `/admin/policy` | Refunds manager, Admin | Courier scenario run |
+| 4 | Approvals list of sixty; switch-off in Rule settings | Refunds manager, Admin | Courier scenario run |
 | 5 | Undo, finished undo; `rfnd_0014` send (**once**), trace, reason dropdown | Admin, Engineer, Refunds agent | `partial_delivery` merged before the undo |
 | 6 | Thornbury before, handoff, finished run, setting on, **Approve** | KYC reviewer, Admin, Engineer | Companies House run recorded |
 | 7 | Chargebacks Coming soon, handoff, pull request, flag on, queue, `DSP-20401` **Accept** (**once**) | Admin, Engineer, Refunds agent | Chargebacks run recorded; screenshot the **Pull merged code** toast |
