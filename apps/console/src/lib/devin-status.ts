@@ -3,8 +3,8 @@ import { loadRepoEnv } from "@/lib/env";
 
 /**
  * `live` when `DEVIN_API_KEY` is set: dispatch opens real sessions. Otherwise
- * `simulation`: the console shows what a run would report, labelled as
- * simulated, and dispatch writes nothing.
+ * `simulation`: Devin is not connected, the console says so, and dispatch
+ * writes nothing.
  */
 export type DevinMode = "live" | "simulation";
 
