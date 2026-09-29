@@ -20,6 +20,8 @@ const RUN_ID = "01KRUNVIEWTEST000000000000";
 const PROMPT = `${REFUND_CLUSTERING_HOLD.intents.change}\nOperation: change. Run: ${RUN_ID}.`;
 const frames = scriptedFrames("change", RUN_ID, "a".repeat(64), "b".repeat(40));
 const editing = frames.slice(0, 4);
+const phaseLines = (html: string) =>
+  [...html.matchAll(/<ul[^>]*data-testid="phase-lines"[^>]*>(.*?)<\/ul>/g)].map((match) => match[1] ?? "");
 
 function payload(overrides: Partial<RunViewPayload> = {}): RunViewPayload {
   return {
@@ -119,9 +121,7 @@ describe("RunView", () => {
   });
 
   it("leaves reported files waiting until the edit phase finishes", () => {
-    const fileLines = (html: string) => [...html.matchAll(/<ul class="ml-2 mt-1 w-full border-l border-border\/60 pl-3">(.*?)<\/ul>/g)]
-      .map((match) => match[1])
-      .find((list) => list?.includes("Adding "));
+    const fileLines = (html: string) => phaseLines(html).find((list) => list.includes("Adding "));
     const editingFiles = fileLines(render(payload()));
     expect(editingFiles).toBeDefined();
     expect(editingFiles?.match(/data-state="waiting"/g)).toHaveLength(editing[3]?.structured_output.files.length);
@@ -137,9 +137,7 @@ describe("RunView", () => {
     const verifying = frames.find((frame) => frame.structured_output.phase === "verify");
     if (!verifying) throw new Error("no verification frame");
     const html = render(payload({ frames: [verifying], latest: verifying }));
-    const verifyLines = [...html.matchAll(/<ul class="ml-2 mt-1 w-full border-l border-border\/60 pl-3">(.*?)<\/ul>/g)]
-      .map((match) => match[1])
-      .find((list) => list?.includes("Lint"));
+    const verifyLines = phaseLines(html).find((list) => list.includes("Lint"));
     expect(verifyLines?.match(/data-state="active"/g)).toHaveLength(1);
     expect(verifyLines?.match(/data-state="waiting"/g)).toHaveLength(3);
 
@@ -152,8 +150,63 @@ describe("RunView", () => {
       },
     };
     const failedHtml = render(payload({ frames: [failed], latest: failed }));
-    expect(failedHtml).toMatch(/data-state="failed"><span[^>]*><svg[^>]*aria-label="Failed"/);
-    expect(failedHtml).toContain("Lint ✗");
+    const failedVerifyLines = phaseLines(failedHtml).find((list) => list.includes("Lint"));
+    expect(failedVerifyLines).toMatch(/<li class="[^"]*text-destructive[^"]*" data-state="failed"[^>]*>.*?Lint.*?failed.*?<\/li>/);
+    expect(failedVerifyLines).not.toContain('aria-label="Failed"');
+  });
+
+  it("renders nested lines without status glyphs while preserving top-level phase ticks", () => {
+    const verifying = frames.find((frame) => frame.structured_output.phase === "verify");
+    if (!verifying) throw new Error("no verification frame");
+    const html = render(payload({ frames: [verifying], latest: verifying }));
+    const nested = phaseLines(html).join("");
+
+    expect(nested).not.toMatch(/aria-label="Done"|aria-label="Failed"|animate-spin|bg-success/);
+    expect(html).toMatch(/<li class="[^"]*" data-state="done"><span class="[^"]*bg-success[^"]*"><svg[^>]*aria-label="Done"/);
+  });
+
+  it("uses tree connectors with exactly one last-line connector per nested list", () => {
+    const verifying = frames.find((frame) => frame.structured_output.phase === "verify");
+    if (!verifying) throw new Error("no verification frame");
+    const verifyLines = phaseLines(render(payload({ frames: [verifying], latest: verifying })))
+      .find((list) => list.includes("Lint"));
+    if (!verifyLines) throw new Error("no verify phase lines");
+    const lines = [...verifyLines.matchAll(/<li\b[^>]*>.*?<\/li>/g)].map((match) => match[0]);
+
+    expect(verifyLines.match(/├─/g)).toHaveLength(lines.length - 1);
+    expect(verifyLines.match(/└─/g)).toHaveLength(1);
+    expect(lines.at(-1)).toContain("└─");
+  });
+
+  it("renders notes under their phase before artifacts and tolerates output without notes", () => {
+    const baseline = frames.find((frame) => frame.structured_output.phase === "baseline");
+    const pullRequest = frames.find((frame) => frame.structured_output.phase === "pull_request");
+    if (!baseline || !pullRequest) throw new Error("missing scripted note frames");
+    const baselineNote = "Ran pnpm verify at the base: all 68 tests pass";
+    const verifyNote = "Opened localhost:3001/t/refunds and saw the held refunds with a Held chip";
+    const baselineHtml = render(payload({ frames: [baseline], latest: baseline }));
+    const baselineLines = phaseLines(baselineHtml).find((list) => list.includes(baselineNote));
+    expect(baselineLines).toContain(baselineNote);
+    const baselineListStart = baselineHtml.indexOf('data-testid="phase-lines"');
+    const baselinePhaseStart = baselineHtml.lastIndexOf("<li ", baselineListStart);
+    expect(baselineHtml.slice(baselinePhaseStart, baselineListStart)).toContain("Confirmed the base");
+
+    const verifyHtml = render(payload({ frames: [pullRequest], latest: pullRequest }));
+    const verifyLines = phaseLines(verifyHtml).find((list) => list.includes(verifyNote));
+    expect(verifyLines).toContain(verifyNote);
+    expect(verifyLines?.indexOf(verifyNote)).toBeLessThan(verifyLines?.indexOf("Lint") ?? -1);
+    const verifyNoteIndex = verifyHtml.indexOf(verifyNote);
+    const verifyListStart = verifyHtml.lastIndexOf("<ul ", verifyNoteIndex);
+    const verifyPhaseStart = verifyHtml.lastIndexOf("<li ", verifyListStart);
+    expect(verifyHtml.slice(verifyPhaseStart, verifyListStart)).toContain("Verified");
+
+    const withoutNotes = {
+      ...frames[0]!,
+      structured_output: { ...frames[0]!.structured_output, notes: undefined },
+    };
+    const noNotesHtml = render(payload({ frames: [withoutNotes], latest: withoutNotes }));
+    expect(phaseLines(noNotesHtml).join("")).not.toContain(baselineNote);
+    expect(phaseLines(noNotesHtml).join("")).not.toContain(verifyNote);
   });
 
   it("spins on the first step while a running session has reported no phase", () => {
