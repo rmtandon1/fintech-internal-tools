@@ -77,12 +77,27 @@ function CheckRow({
       data-state={state}
     >
       {nested ? (
-        <span aria-hidden="true" className="font-mono text-muted-foreground/50">
-          {last ? "└─" : "├─"}
-        </span>
+        <>
+          <span aria-hidden="true" className="font-mono text-muted-foreground/50">
+            {last ? "└─" : "├─"}
+          </span>
+          {kind !== "note" ? (
+            <span className="sr-only">
+              {state === "done"
+                ? "Done"
+                : state === "failed"
+                  ? "Failed"
+                  : state === "active"
+                    ? still
+                      ? "Paused"
+                      : "In progress"
+                    : "Waiting"}
+            </span>
+          ) : null}
+        </>
       ) : state === "done" ? (
-        <span className={cn("flex size-5 shrink-0 items-center justify-center rounded-full bg-success text-white", nested && "size-3.5")}>
-          <Icon name="Check" className={nested ? "size-2.5" : "size-3"} strokeWidth={3} aria-label="Done" />
+        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-success text-white">
+          <Icon name="Check" className="size-3" strokeWidth={3} aria-label="Done" />
         </span>
       ) : state === "failed" ? (
         <span className="flex size-5 shrink-0 items-center justify-center">
@@ -163,6 +178,10 @@ function Checklist({
   const testStep = out?.verify_steps.find((s) => s.name === "Test");
   const pr = run.prUrl ?? out?.pr_url ?? null;
   const prNumber = pr?.match(/pull\/(\d+)/)?.[1];
+  const still =
+    TERMINAL.has(run.status) ||
+    out?.phase_status === "waiting_for_user" ||
+    out?.phase_status === "stopped";
   const rows: CheckPhase[] = PHASE_ORDER.map((phase) => {
     const row: CheckPhase = { state: stateOf(phase), label: PHASE_LABELS[phase] };
     const notes = (out?.notes ?? [])
@@ -215,7 +234,7 @@ function Checklist({
               : stateOf("verify") === "active" && i === activeStep ? "active" as const : "waiting" as const,
             label: step.name,
             detail: step.pass === true ? "passed" : step.pass === false ? "failed"
-              : stateOf("verify") === "active" && i === activeStep ? "running" : undefined,
+              : stateOf("verify") === "active" && i === activeStep ? still ? "paused" : "running" : undefined,
             kind: "artifact" as const,
           })) ?? []),
         ];
@@ -232,10 +251,6 @@ function Checklist({
     }
     return row;
   });
-  const still =
-    TERMINAL.has(run.status) ||
-    out?.phase_status === "waiting_for_user" ||
-    out?.phase_status === "stopped";
   return (
     <ul className="px-5 py-3">
       {rows.map((row, i) => (
