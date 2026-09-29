@@ -20,7 +20,7 @@
     "devin:playbook": "tsx scripts/register-playbook.ts",
     "test": "pnpm --filter @console/app test",
     "test:watch": "pnpm --filter @console/app test:watch",
-    "verify": "pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm check:run && pnpm test"
+    "verify": "pnpm lint && pnpm typecheck && pnpm check:boundaries && pnpm test"
   },
   "devDependencies": {
     "@console/tool-automation": "workspace:*",

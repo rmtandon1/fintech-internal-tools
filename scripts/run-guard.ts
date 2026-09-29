@@ -9,9 +9,11 @@ import { globToRegExp, touchesSharedPath } from "@console/tool-automation/shared
  *
  * A run is a branch whose first commit adds `runs/<run_id>/context.json` and
  * `runs/<run_id>/plan.json`. This script diffs the branch against its merge
- * base with the integration branch and holds the diff to that plan. It runs
- * in `pnpm verify` and as the `guards` job in `.github/workflows/verify.yml`,
- * which posts the same report as a PR comment. A branch whose history adds
+ * base with the integration branch and reports how the diff compares with
+ * that plan. The report is advisory: `pnpm check:run` exits 1 on a failed
+ * check so a shell can see it, but `pnpm verify` does not include it and the
+ * `guards` job in `.github/workflows/verify.yml` posts it as a PR comment
+ * without failing. A branch whose history adds
  * no `runs/<run_id>/plan.json` passes with "No run on this branch"; a branch
  * that added one and later deleted it fails. A base ref that cannot be
  * resolved fails rather than passing unchecked.

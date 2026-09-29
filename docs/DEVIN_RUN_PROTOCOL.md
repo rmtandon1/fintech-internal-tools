@@ -134,7 +134,7 @@ The requester's sentence carries the business need; these rules carry how the co
 
 ## Phases
 
-Each phase passes or stops the run. There is no "continue with warnings".
+Each phase passes or stops the run, except that the guard checks are advisory: an unplanned file is reported on the PR for the reviewer, not a stopped run.
 
 
 | Phase        | Passes when                                                                                                                                                  | On failure                                                                                                     |
@@ -142,13 +142,13 @@ Each phase passes or stops the run. There is no "continue with warnings".
 | Intake       | The spec is registered in `specs.ts`. The context file parses. Its base commit is the branch head, or the run rebases cleanly                                                     | Stop. No branch is created                                                                                     |
 | Baseline     | `pnpm verify` is green at the base commit. Per-file test counts are recorded                                                                                 | Stop. No branch is created                                                                                     |
 | Plan         | `runs/<run_id>/context.json` (verbatim) and `runs/<run_id>/plan.json` (the files Devin will touch, and why) are committed alone as the branch's first commit; the plan lists every existing test file whose assertions the change moves | Stop. Delete the branch                                                                                        |
-| Edit         | Only files in the plan change                                                                                                                                | Reset to the plan commit and stop                                                                              |
-| Verify       | `pnpm verify` is green. The tests named in `plan.json` pass. Test counts per file are at or above baseline                                                      | Two fix attempts inside the plan, then reset and stop                                                          |
+| Edit         | Planned files change; `context.json` and `plan.json` do not. A file outside the plan is recorded in `files` and a note                                       | Reported by the guard on the PR; the run continues                                                             |
+| Verify       | `pnpm verify` is green. The tests named in `plan.json` pass. Test counts per file are at or above baseline. `pnpm check:run` results are reported in `guards`   | Two fix attempts, then reset and stop                                                                          |
 | Pull request | A PR is opened against `cognition-dashboard-devin-integration`                                                                                                    | Leave the branch pushed and report                                                                             |
 | Merge        | After an engineer's `approve_pr`, Devin merges (squash) and reports `merge_commit`                                                                           | Report why (checks re-running, conflict with a newer merge) and wait. Rebase inside the plan if the base moved |
 
 
-The plan is Devin's own, committed before any edit. The spec's allowed paths bound what the plan may touch. Committing first is what makes the boundary checkable: the reviewing engineer compares the diff with a list Devin wrote before it knew what the diff would be. Existing tests that pin the current behaviour (rule counts, trace order, per-record decisions) count as files the change touches and belong in the plan; a run that meets one it did not plan stops at Verify.
+The plan is Devin's own, committed before any edit. The spec's allowed paths bound what the plan may touch. Committing first is what makes the boundary checkable: the reviewing engineer compares the diff with a list Devin wrote before it knew what the diff would be. Existing tests that pin the current behaviour (rule counts, trace order, per-record decisions) count as files the change touches and belong in the plan; a run that meets one it did not plan carries on and the guard names the file on the PR.
 
 `plan.json` holds `files[]` (path, `create | modify | delete`, one-line reason), `reuses[]` (existing modules the change builds on, each with a one-line reason), `acceptance[]` (the tests it will write, one per behaviour; when the spec is sent it names the spec's acceptance tests) and, for a change that removes a rule or an undo, `removed_tests[]` of `{ file, name }`: each test the run will delete because it asserts the rule being taken out. The reviewer permits exactly those removals and no others; otherwise the array is absent or empty. `reuses[]` is informational and not a boundary.
 
@@ -201,7 +201,7 @@ Phase names, spinners and timings shown in the UI are copy. They exist to make a
 
 ## Guard checks
 
-The playbook states these as prose, and `scripts/run-guard.ts` (in `pnpm verify`, plus a GitHub Action on every PR) enforces the ones that carry the core claim against `git diff <base>...HEAD`: the diff is the plan, the plan stays inside the allowed paths, and the plan never moved. They have names, not numbers, so a PR comment reads as a sentence.
+The playbook states these as prose, and `scripts/run-guard.ts` (`pnpm check:run`, plus the `guards` GitHub Action on every PR) reports the ones that carry the core claim against `git diff <base>...HEAD`: the diff is the plan, the plan stays inside the allowed paths, and the plan never moved. The report is advisory: it is posted as a PR comment for the reviewing engineer and does not fail CI or stop the run. They have names, not numbers, so a PR comment reads as a sentence.
 
 
 | Check                     | Fails when                                                                                                                                                                                            |

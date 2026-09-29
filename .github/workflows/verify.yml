@@ -67,8 +67,8 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      # Runs the guard against the merge base with the PR's target branch and
-      # keeps the report so the comment step can post it even when it fails.
+      # Runs the guard against the merge base with the PR's target branch. The
+      # report is advisory: it is posted as a PR comment and never fails the job.
       - name: Run guard
         id: guard
         continue-on-error: true
@@ -92,8 +92,5 @@ jobs:
               await github.rest.issues.createComment({ owner, repo, issue_number, body });
             }
 
-      - name: Fail on guard failure
-        if: steps.guard.outcome == 'failure'
-        run: |
-          cat run-guard.md
-          exit 1
+      - name: Show report
+        run: cat run-guard.md

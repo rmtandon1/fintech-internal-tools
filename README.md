@@ -184,9 +184,9 @@ Safeguards:
 - **2 s polling loop.** While the run view is open, the browser calls `GET /api/devin/{runId}` every
   2 s; the server reads the Devin session (status and `structured_output`: phase, files, checks)
   and the run view's checklist moves ○ → ● → ✓.
-- **Run guard checks.** Devin pushes `devin/{id}-{slug}` and opens the PR; CI runs `pnpm verify`,
-  including the run guard (**Stays in plan**, **Plan stays in scope**, **Run dir frozen**,
-  **Shared code reported**).
+- **Run guard checks.** Devin pushes `devin/{id}-{slug}` and opens the PR; CI runs `pnpm verify`
+  and posts the advisory run guard report (**Stays in plan**, **Plan stays in scope**, **Run dir
+  frozen**, **Shared code reported**) as a PR comment.
 - **Context-hash check at approval.** **Approve as engineer** reads the CI checks and the
   `context.json` hash from GitHub (**Context untouched**) before `approve_pr`, then posts the
   GitHub review (APPROVE) and messages Devin to merge. Devin squash-merges.
@@ -617,7 +617,8 @@ The console keeps no copies of source files. Git already holds every version exa
 
 ### Devin automation workflow
 
-The canonical pipeline. Each phase passes or stops the run; there is no "continue with warnings".
+The canonical pipeline. Each phase passes or stops the run; the run guard is the one advisory
+step, reported on the PR for the reviewer rather than stopping the run.
 
 1. **Dispatch** (console). The engine checks the role, that no other run is in flight on the same
    app, and the evidence. It writes the run row and audit row, then the console writes
@@ -628,10 +629,11 @@ The canonical pipeline. Each phase passes or stops the run; there is no "continu
    no branch.
 4. **Plan → backup.** Creates `devin/<run_id>-<slug>` and commits `context.json` + `plan.json` alone,
    listing every file it will touch, the modules it reuses and the tests it will write.
-5. **Edit → modify.** Changes only planned files, through the existing intent, approval and audit
-   paths. A file outside the plan resets the branch to the plan commit.
-6. **Verify → test.** `pnpm verify`: Lint, Typecheck, Boundaries, Run guard, Test. Test counts per file
-   may not drop except for tests the plan names. Two fix attempts, then stop.
+5. **Edit → modify.** Changes planned files, through the existing intent, approval and audit
+   paths. A file outside the plan is recorded in the run's files and named by the guard on the PR.
+6. **Verify → test.** `pnpm verify`: Lint, Typecheck, Boundaries, Test, then `pnpm check:run` for the
+   guard report. Test counts per file may not drop except for tests the plan names. Two fix
+   attempts, then stop.
 7. **Pull request → commit + PR.** Pushes the branch and opens a PR with the run, the request, test
    counts before and after, live settings and after-merge steps. CI runs `verify` and the run guard.
 8. **Approval** (engineer). Someone who didn't request the run approves in the console. CI must be

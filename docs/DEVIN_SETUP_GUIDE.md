@@ -129,4 +129,4 @@ organisation's own limits.
 | Session works in the wrong repository, or can't push | Repository not connected, or the remote isn't on github.com | Connect it in Devin; set `GITHUB_REPOSITORY=rmtandon1/fintech-internal-tools` |
 | `Multiple org playbooks named Governed console run` | Duplicate playbooks | Delete all but one in Devin, then `pnpm devin:playbook` |
 | Session ignores the plan-first rule | Org playbook is stale | `pnpm devin:playbook` |
-| Session stops at Verify naming an unplanned test | Playbook predates #65, or the plan missed a test | Re-register the playbook and dispatch again |
+| Session stops at Verify naming an unplanned test | Org playbook is stale: the guard is advisory and no longer stops a run | `pnpm devin:playbook`, then dispatch again |
