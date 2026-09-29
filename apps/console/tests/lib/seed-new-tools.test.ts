@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { db } from "@console/db";
 import type { ToolDeclaration } from "@console/engine/types";
+import { chargebackTool } from "@console/tool-chargebacks";
 import { flagTool } from "@console/tool-flags";
 import { kycTool } from "@console/tool-kyc";
 import { refundTool } from "@console/tool-refunds";
@@ -12,7 +13,7 @@ import { setupHarness } from "../helpers/harness";
 
 beforeAll(() => {
   setupHarness();
-  for (const tool of [refundTool, kycTool, flagTool]) {
+  for (const tool of [refundTool, kycTool, flagTool, chargebackTool]) {
     tool.seed?.();
   }
 });

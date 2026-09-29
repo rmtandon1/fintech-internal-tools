@@ -5,6 +5,7 @@ import { enabledFlagKeys, flagTool } from "@console/tool-flags";
 import { featureFlags } from "@console/tool-flags/schema";
 import { allModes, modeEntry, modeIsLive, modesFor, OPS_MODES, type OpsMode } from "@/lib/modes";
 import { ensureModeFlags, modeFlagOff } from "@/lib/mode-flags";
+import { getTool } from "@/registry";
 import { admin, setupHarness } from "../helpers/harness";
 
 beforeAll(() => {
@@ -48,12 +49,35 @@ describe("ModeEntry.switchedOff", () => {
   });
 
   it("modesFor and allModes take the enabled keys", () => {
+    const flagged = OPS_MODES.flatMap((m) => (m.flag && getTool(m.id) ? [m.flag] : []));
     for (const entry of modesFor(admin.role, new Set())) {
-      expect(entry.switchedOff).toBe(false);
+      expect(entry.switchedOff, entry.id).toBe(
+        entry.flag !== undefined && getTool(entry.id) !== undefined,
+      );
     }
     for (const entry of allModes(new Set())) {
-      expect(entry.switchedOff).toBe(false);
+      expect(entry.switchedOff, entry.id).toBe(
+        entry.flag !== undefined && getTool(entry.id) !== undefined,
+      );
     }
+    for (const entry of allModes(new Set(flagged))) {
+      expect(entry.switchedOff, entry.id).toBe(false);
+    }
+  });
+
+  it("puts Chargebacks behind app.chargebacks, switched off until the flag is on", () => {
+    const chargebacks = OPS_MODES.find((m) => m.id === "chargebacks");
+    if (!chargebacks) throw new Error("no chargebacks mode");
+    expect(chargebacks.flag).toBe("app.chargebacks");
+    expect(getTool("chargebacks")).toBeDefined();
+
+    const off = modeEntry(chargebacks, new Set());
+    expect(off).toMatchObject({ live: false, switchedOff: true, href: "/roadmap/chargebacks" });
+    expect(modeIsLive(chargebacks, new Set())).toBe(false);
+
+    const on = modeEntry(chargebacks, new Set(["app.chargebacks"]));
+    expect(on).toMatchObject({ live: true, switchedOff: false, href: "/t/chargebacks" });
+    expect(on.actions).toEqual(["accept", "fight"]);
   });
 });
 
@@ -78,6 +102,33 @@ describe("ensureModeFlags", () => {
     ensureModeFlags([{ ...unbuilt, flag: "app.aml_test" }]);
     const { total } = flagTool.list({ filters: {}, search: "app.aml_test", limit: 10, offset: 0 });
     expect(total).toBe(0);
+  });
+});
+
+describe("app.chargebacks on start", () => {
+  it("registers app.chargebacks on start, off and not customer-facing", () => {
+    db.delete(featureFlags).where(eq(featureFlags.key, "app.chargebacks")).run();
+    ensureModeFlags();
+    const row = flagTool.get("flag_app.chargebacks");
+    expect(row).toMatchObject({
+      key: "app.chargebacks",
+      enabled: 0,
+      status: "off",
+      rolloutPercent: 0,
+      environment: "production",
+      customerFacing: 0,
+    });
+    expect(enabledFlagKeys().has("app.chargebacks")).toBe(false);
+    expect(modeFlagOff("chargebacks")).toBe(true);
+
+    ensureModeFlags();
+    const { total } = flagTool.list({
+      filters: {},
+      search: "app.chargebacks",
+      limit: 10,
+      offset: 0,
+    });
+    expect(total).toBe(1);
   });
 });
 

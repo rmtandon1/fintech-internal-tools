@@ -118,6 +118,7 @@ export const OPS_MODES: OpsMode[] = [
     segment: "both",
     area: "Money movement",
     columns: ["Dispute", "Merchant", "Reason", "Amount", "Deadline"],
+    flag: "app.chargebacks",
   },
   {
     id: "remittances",
