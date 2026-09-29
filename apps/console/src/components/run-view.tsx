@@ -6,10 +6,12 @@ import { toast } from "sonner";
 import { stopAutomationRun, syncAutomationRun } from "@/app/automation-actions";
 import { Button } from "@console/ui/button";
 import { Icon } from "@console/ui/icon";
+import { cn } from "@console/ui/utils";
 import { StatusChip } from "@console/ui/status-chip";
 import { ApprovalDialog } from "@/components/approval-dialog";
 import { RunSummary, RUN_STATUS_OPTIONS, requesterLabel } from "@/components/run-summary";
 import { phaseLine } from "@/lib/run-checklist";
+import { runTitle, thinkingLine } from "@/lib/run-heading";
 import type { RunViewPayload } from "@/lib/devin-route";
 import type { ReplayFrame, StructuredOutput } from "@console/tool-automation";
 
@@ -40,30 +42,45 @@ function CheckRow({
   state,
   label,
   detail,
+  still = false,
 }: {
   state: "done" | "active" | "waiting";
   label: string;
   detail?: string;
+  /** Devin isn't working on the active step (the run ended, or it waits for a reply): no spinner. */
+  still?: boolean;
 }) {
-  const glyph = state === "done" ? "✓" : state === "active" ? "●" : "○";
   return (
-    <li className="flex items-baseline gap-2 py-0.5 text-[11px]">
-      <span
-        className={
-          state === "done"
-            ? "text-emerald-400"
-            : state === "active"
-              ? "text-amber-400"
-              : "text-muted-foreground/60"
-        }
-      >
-        {glyph}
-      </span>
+    <li
+      className={cn(
+        "flex items-center gap-3 py-1.5 text-sm",
+        state === "active" && "font-medium text-info",
+        state === "waiting" && "text-muted-foreground",
+      )}
+      data-state={state}
+    >
+      {state === "done" ? (
+        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-success text-white">
+          <Icon name="Check" className="size-3" strokeWidth={3} aria-label="Done" />
+        </span>
+      ) : state === "active" && still ? (
+        <span className="flex size-5 shrink-0 items-center justify-center">
+          <span className="size-2.5 rounded-full bg-warning" aria-label="Paused" />
+        </span>
+      ) : state === "active" ? (
+        <span
+          role="status"
+          aria-label="In progress"
+          className="inline-block size-5 shrink-0 animate-spin rounded-full border-2 border-info border-t-transparent"
+        />
+      ) : (
+        <span className="flex size-5 shrink-0 items-center justify-center">
+          <span className="size-2.5 rounded-full border border-muted-foreground/40" />
+        </span>
+      )}
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {detail ? (
-        <span className="shrink-0 font-mono text-[10px] text-muted-foreground tabular-nums">
-          {detail}
-        </span>
+        <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">{detail}</span>
       ) : null}
     </li>
   );
@@ -141,10 +158,14 @@ function Checklist({ out, run }: { out: StructuredOutput | null; run: RunViewPay
     label: "Merged",
     detail: run.mergeCommit?.slice(0, 7),
   });
+  const still =
+    TERMINAL.has(run.status) ||
+    out?.phase_status === "waiting_for_user" ||
+    out?.phase_status === "stopped";
   return (
-    <ul className="px-3 py-1">
+    <ul className="px-5 py-3">
       {rows.map((row, i) => (
-        <CheckRow key={i} {...row} />
+        <CheckRow key={i} {...row} still={still} />
       ))}
     </ul>
   );
@@ -164,12 +185,12 @@ function Detail({ frames }: { frames: ReplayFrame[] }) {
   const latest = frames.at(-1)?.structured_output ?? null;
   if (!latest) return null;
   return (
-    <section className="border-t border-border px-3 py-2 text-[11px]">
-      <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+    <details className="px-5 py-3 text-xs">
+      <summary className="cursor-pointer select-none text-muted-foreground hover:text-foreground">
         Engineering detail
-      </p>
+      </summary>
       {latest.files.length > 0 ? (
-        <ul className="space-y-0.5">
+        <ul className="mt-2 space-y-0.5">
           {latest.files.map((f) => (
             <li key={f.path} className="flex items-baseline gap-2">
               <span className="min-w-0 flex-1 truncate font-mono">{f.path}</span>
@@ -203,7 +224,7 @@ function Detail({ frames }: { frames: ReplayFrame[] }) {
             </li>
           ))}
       </ol>
-    </section>
+    </details>
   );
 }
 
@@ -216,11 +237,14 @@ export function RunView({
   runId,
   initial,
   showSummary = false,
+  onTitle,
 }: {
   runId: string;
   initial?: RunViewPayload | null;
   /** Render the run summary card above the live view (the record page wants it). */
   showSummary?: boolean;
+  /** Receives the run's title once its payload arrives (the Devin window shows it). */
+  onTitle?: (title: string) => void;
 }) {
   const router = useRouter();
   const [payload, setPayload] = useState<RunViewPayload | null>(initial ?? null);
@@ -248,6 +272,11 @@ export function RunView({
       if (timer) clearTimeout(timer);
     };
   }, [runId]);
+
+  const title = payload && payload.run.id === runId ? runTitle(payload) : null;
+  useEffect(() => {
+    if (title) onTitle?.(title);
+  }, [title, onTitle]);
 
   function sendReply() {
     startTransition(async () => {
@@ -295,9 +324,14 @@ export function RunView({
   const { run, latest, frames, offers, sessionUrl, mode } = payload;
   const out = latest?.structured_output ?? null;
   const pr = run.prUrl ?? out?.pr_url ?? null;
+  const thinking = thinkingLine(latest);
+
+  const ended = TERMINAL.has(run.status);
+  const linkButton =
+    "flex h-10 flex-1 items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col text-xs" data-testid="run-view">
+    <div className="flex min-h-0 flex-1 flex-col text-sm" data-testid="run-view">
       {showSummary ? (
         <RunSummary
           run={run}
@@ -307,116 +341,47 @@ export function RunView({
           operationLabel={payload.operationLabel}
         />
       ) : null}
-      <section className="border-b border-border px-3 py-2">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="text-[11px]">{payload.operationLabel}</span>
+      <div className="min-h-0 flex-1 overflow-auto">
+        <section className="flex flex-wrap items-center gap-x-2 gap-y-1 px-5 pt-4 text-xs text-muted-foreground">
+          <span>{payload.operationLabel}</span>
           <StatusChip value={run.status} statuses={RUN_STATUSES} />
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            {mode === "live" ? "Live · session" : "Recorded · replay.json"}
-          </span>
-          <span className="ml-auto flex items-center gap-1">
-            {sessionUrl ? (
-              <a
-                href={sessionUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="flex h-6 items-center gap-1 rounded-md border border-input px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
-              >
-                <Icon name="ExternalLink" className="size-3" />
-                Open in Devin
-              </a>
-            ) : null}
-          </span>
-        </div>
-        <p className="mt-1 text-muted-foreground">{run.intent}</p>
-        <p className="mt-0.5 text-[11px] text-muted-foreground">
-          requested by <span className="text-foreground">{requesterLabel(run)}</span> ·{" "}
-          {payload.summary}
-        </p>
-        {run.reverses ? (
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            reverses <span className="font-mono text-foreground">{run.reverses}</span>
-          </p>
-        ) : null}
-      </section>
+          <span>{mode === "live" ? "Live session" : "Recorded replay"}</span>
+          <span>· requested by {requesterLabel(run)}</span>
+          {run.reverses ? (
+            <span>
+              · reverses <span className="font-mono text-foreground">{run.reverses}</span>
+            </span>
+          ) : null}
+        </section>
 
-      <Checklist out={out} run={run} />
+        {thinking ? (
+          <section
+            className="mx-5 mt-3 rounded-lg border border-info/30 bg-info/10 px-4 py-3"
+            data-testid="devin-thinking"
+          >
+            <p className="text-xs font-semibold text-info">
+              {ended ? "Devin\u2019s last update:" : "Devin\u2019s current thinking:"}
+            </p>
+            <p className="mt-1 text-sm leading-snug text-foreground">{thinking}</p>
+          </section>
+        ) : null}
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-border px-3 py-2">
-        {pr ? (
-          <a
-            href={pr}
-            target="_blank"
-            rel="noreferrer"
-            className="flex h-6 items-center gap-1 rounded-md border border-input px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
-          >
-            <Icon name="GitPullRequest" className="size-3" />
-            PR #{pr.match(/pull\/(\d+)/)?.[1] ?? ""}
-          </a>
+        <Checklist out={out} run={run} />
+
+        {payload.prompt ? (
+          <section className="px-5 pb-3" data-testid="devin-message">
+            <p className="mb-1.5 text-xs font-semibold text-muted-foreground">Message sent to Devin</p>
+            <pre className="whitespace-pre-wrap break-words rounded-lg border border-border bg-muted/40 px-4 py-3 font-sans text-xs leading-relaxed text-foreground">
+              {payload.prompt}
+            </pre>
+          </section>
         ) : null}
-        {offers.sync ? (
-          <Button
-            size="sm"
-            className="h-7 text-xs"
-            disabled={pending}
-            onClick={pullMerged}
-          >
-            Pull merged code
-          </Button>
-        ) : null}
-        {offers.approve.offered ? (
-          <Button
-            size="sm"
-            className="h-7 text-xs"
-            onClick={() => setApproveOpen(true)}
-            data-testid="approve-run"
-          >
-            Review and approve
-          </Button>
-        ) : null}
-        {offers.stop.offered ? (
-          stopOpen ? (
-            <form
-              className="flex items-center gap-1"
-              onSubmit={(e) => {
-                e.preventDefault();
-                stop(new FormData(e.currentTarget).get("reason")?.toString() || "stopped by operator");
-              }}
-            >
-              <input
-                name="reason"
-                required
-                placeholder={STOP_SUGGESTION}
-                title="Tab fills in the suggested reason"
-                onKeyDown={(e) => {
-                  const box = e.currentTarget;
-                  if (e.key === "Tab" && !e.shiftKey && STOP_SUGGESTION.toLowerCase().startsWith(box.value.toLowerCase()) && box.value !== STOP_SUGGESTION) {
-                    e.preventDefault();
-                    box.value = STOP_SUGGESTION;
-                  }
-                }}
-                className="h-6 w-40 rounded-md border border-input bg-transparent px-1.5 text-[11px]"
-              />
-              <Button size="sm" variant="destructive" className="h-6 text-[11px]" disabled={pending}>
-                Stop
-              </Button>
-            </form>
-          ) : (
-            <Button
-              size="sm"
-              variant="destructive"
-              className="h-7 text-xs"
-              onClick={() => setStopOpen(true)}
-            >
-              Stop run
-            </Button>
-          )
-        ) : null}
+        <Detail frames={frames} />
       </div>
 
       {offers.reply ? (
         <form
-          className="flex items-center gap-2 border-t border-border px-3 py-2"
+          className="flex items-center gap-2 border-t border-border px-5 py-3"
           onSubmit={(e) => {
             e.preventDefault();
             if (reply.trim()) sendReply();
@@ -426,16 +391,86 @@ export function RunView({
             value={reply}
             onChange={(e) => setReply(e.target.value)}
             placeholder="Reply to Devin…"
-            className="h-7 min-w-0 flex-1 rounded-md border border-input bg-transparent px-2 text-xs"
+            className="h-9 min-w-0 flex-1 rounded-lg border border-input bg-transparent px-3 text-sm"
           />
-          <Button size="sm" className="h-7 text-xs" disabled={pending || !reply.trim()}>
+          <Button size="sm" className="h-9" disabled={pending || !reply.trim()}>
             Send
           </Button>
         </form>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-auto">
-        <Detail frames={frames} />
+      <div className="flex flex-wrap items-center gap-2 border-t border-border px-5 py-3">
+        {sessionUrl ? (
+          <a
+            href={sessionUrl}
+            target="_blank"
+            rel="noreferrer"
+            className={cn(linkButton, "bg-info/10 text-info hover:bg-info/20")}
+          >
+            <Icon name="ExternalLink" className="size-4" />
+            View in Devin session
+          </a>
+        ) : null}
+        {pr ? (
+          <a
+            href={pr}
+            target="_blank"
+            rel="noreferrer"
+            className={cn(linkButton, "border border-border text-foreground hover:bg-muted")}
+          >
+            <Icon name="GitPullRequest" className="size-4" />
+            PR #{pr.match(/pull\/(\d+)/)?.[1] ?? ""}
+          </a>
+        ) : null}
+        {offers.sync ? (
+          <Button className="h-10 flex-1" disabled={pending} onClick={pullMerged}>
+            Pull merged code
+          </Button>
+        ) : null}
+        {offers.approve.offered ? (
+          <Button className="h-10 flex-1" onClick={() => setApproveOpen(true)} data-testid="approve-run">
+            Review and approve
+          </Button>
+        ) : null}
+        {offers.stop.offered ? (
+          stopOpen ? (
+            <form
+              className="flex flex-1 items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                stop(new FormData(e.currentTarget).get("reason")?.toString() || "stopped by operator");
+              }}
+            >
+              <input
+                name="reason"
+                required
+                autoFocus
+                placeholder={STOP_SUGGESTION}
+                title="Tab fills in the suggested reason"
+                onKeyDown={(e) => {
+                  const box = e.currentTarget;
+                  if (e.key === "Tab" && !e.shiftKey && STOP_SUGGESTION.toLowerCase().startsWith(box.value.toLowerCase()) && box.value !== STOP_SUGGESTION) {
+                    e.preventDefault();
+                    box.value = STOP_SUGGESTION;
+                  }
+                }}
+                className="h-10 min-w-0 flex-1 rounded-lg border border-input bg-transparent px-3 text-sm"
+              />
+              <Button variant="destructive" className="h-10" disabled={pending}>
+                Stop
+              </Button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              className={cn(linkButton, "bg-destructive/10 text-destructive hover:bg-destructive/20")}
+              onClick={() => setStopOpen(true)}
+            >
+              <Icon name="CircleStop" className="size-4" />
+              Stop run
+            </button>
+          )
+        ) : null}
       </div>
 
       <ApprovalDialog runId={runId} payload={payload} open={approveOpen} onOpenChange={setApproveOpen} />

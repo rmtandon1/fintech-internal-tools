@@ -36,6 +36,7 @@ import {
   pollRun,
   readReplay,
   reconcileRuns,
+  runPrompt,
   stopRun,
   syncMergedRun,
 } from "@console/tool-automation/bridge";
@@ -248,6 +249,24 @@ describe("dispatchRun", () => {
     expect(devin.created[0].prompt).toMatch(
       /Repository: https:\/\/github\.com\/acme\/ops-console\. Branch from devin\/test at [0-9a-f]{7} and open the pull request against devin\/test\./,
     );
+  });
+
+  it("returns the prompt it sent, and records it for the run view", async () => {
+    stopAll();
+    const devin = fakeDevin({});
+    const d = deps({ devin: devin.client, repository: "acme/ops-console" });
+    const out = await dispatchRun(kycManager, request, d);
+    expect(out.prompt).toBe(devin.created[0].prompt);
+    const run = getRun(out.runId);
+    if (!run) throw new Error("no run");
+    expect(runPrompt(run, d)).toBe(out.prompt);
+  });
+
+  it("records no prompt for a run whose session was never created", async () => {
+    stopAll();
+    const out = await dispatchRun(admin, request, deps({}));
+    expect(out.prompt).not.toBeNull();
+    expect(runPrompt({ id: out.runId }, { repoRoot })).toBeNull();
   });
 
   it("looks the playbook up when none is configured, and prefers a configured one", async () => {

@@ -127,6 +127,15 @@ describe("GET /api/devin/<runId>", () => {
     expect(body.reviewerChecklist[0]).toMatch(/^Only UK business cases are checked/);
   });
 
+  it("shows the run view the prompt the session was sent", async () => {
+    stopAll();
+    const d = deps();
+    const out = await dispatchRun(admin, request, d);
+    const body = (await handleGet(out.runId, admin, d)).body as RunViewPayload;
+    expect(body.prompt).toBe(out.prompt);
+    expect(body.prompt).toContain(request.intent);
+  });
+
   it("observes the merge once the approved run is four seconds old", async () => {
     stopAll();
     const d = deps();
