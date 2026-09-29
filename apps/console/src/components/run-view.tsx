@@ -90,7 +90,7 @@ function CheckRow({
           <span className={cn("size-2.5 rounded-full border border-muted-foreground/40", nested && "size-2")} />
         </span>
       )}
-      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="min-w-0 flex-1 truncate" title={nested ? label : undefined}>{label}</span>
       {detail ? (
         <span className={cn("shrink-0 font-mono text-xs text-muted-foreground tabular-nums", nested && "max-w-[50%] truncate text-[10px]")} title={nested ? detail : undefined}>{detail}</span>
       ) : null}
