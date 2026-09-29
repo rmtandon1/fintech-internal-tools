@@ -58,8 +58,15 @@ describe("refunds clusters", () => {
       const preview = previewActions(refundTool, record, analyst).find(
         (p) => p.action === "execute",
       );
-      expect(preview?.decision?.effect).toBe("allow");
       expect(preview?.decision?.trace).toContainEqual({ type: "allow", rule: "amount_approval" });
+      const hold = preview?.decision?.trace.find((o) => o.rule === "clustering_hold");
+      if (id === "rfnd_0014") {
+        expect(preview?.decision?.effect).toBe("allow");
+        expect(hold?.type).toBe("allow");
+      } else {
+        expect(preview?.decision?.effect).toBe("require_approval");
+        expect(hold?.type).toBe("require_approval");
+      }
     }
   });
 
