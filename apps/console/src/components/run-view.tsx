@@ -13,6 +13,7 @@ import { ApprovalDialog } from "@/components/approval-dialog";
 import { RunSummary, RUN_STATUS_OPTIONS, requesterLabel } from "@/components/run-summary";
 import { phaseLine } from "@/lib/run-checklist";
 import { runTitle, thinkingLine } from "@/lib/run-heading";
+import { latestVerifySteps } from "@/lib/run-phases";
 import type { RunViewPayload } from "@/lib/devin-route";
 import type { ReplayFrame, StructuredOutput } from "@console/tool-automation";
 
@@ -178,7 +179,8 @@ function Checklist({
     return "waiting";
   };
 
-  const testStep = out?.verify_steps.find((s) => s.name === "Test");
+  const verifySteps = latestVerifySteps(out?.verify_steps ?? []);
+  const testStep = verifySteps.find((s) => s.name === "Test");
   const pr = run.prUrl ?? out?.pr_url ?? null;
   const prNumber = pr?.match(/pull\/(\d+)/)?.[1];
   const still =
@@ -228,18 +230,18 @@ function Checklist({
         break;
       }
       case "verify": {
-        const activeStep = out?.verify_steps.findIndex((step) => step.pass === null);
+        const activeStep = verifySteps.findIndex((step) => step.pass === null);
         row.detail = testStep?.after != null ? `${testStep.before ?? "?"} → ${testStep.after}` : undefined;
         row.children = [
           ...notes,
-          ...(out?.verify_steps.map((step, i) => ({
+          ...verifySteps.map((step, i) => ({
             state: step.pass === false ? "failed" as const : step.pass === true ? "done" as const
               : stateOf("verify") === "active" && i === activeStep ? "active" as const : "waiting" as const,
             label: step.name,
             detail: step.pass === true ? "passed" : step.pass === false ? "failed"
               : stateOf("verify") === "active" && i === activeStep ? still ? "paused" : "running" : undefined,
             kind: "artifact" as const,
-          })) ?? []),
+          })),
         ];
         break;
       }
