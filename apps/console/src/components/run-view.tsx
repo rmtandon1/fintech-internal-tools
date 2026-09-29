@@ -103,7 +103,8 @@ function CheckRow({
 function Checklist({ out, run }: { out: StructuredOutput | null; run: RunViewPayload["run"] }) {
   const durations = out?.phase_durations_s ?? {};
   const current = out?.phase ?? null;
-  const reached = current ? PHASE_ORDER.indexOf(current === "merge" ? "merged" : current) : -1;
+  // A running session that has not reported a phase yet is reading the evidence.
+  const reached = current ? PHASE_ORDER.indexOf(current === "merge" ? "merged" : current) : run.status === "running" ? 0 : -1;
   const stateOf = (phase: (typeof PHASE_ORDER)[number]): CheckLine["state"] => {
     if (phase === "approved") return run.approvedBy ? "done" : run.status === "approved" ? "active" : "waiting";
     if (phase === "merged") return run.status === "merged" ? "done" : "waiting";
@@ -327,7 +328,7 @@ export function RunView({
   const { run, latest, frames, offers, sessionUrl, mode } = payload;
   const out = latest?.structured_output ?? null;
   const pr = run.prUrl ?? out?.pr_url ?? null;
-  const thinking = thinkingLine(latest);
+  const thinking = thinkingLine(latest, payload.devinMessage);
 
   const ended = TERMINAL.has(run.status);
   const linkButton =
@@ -365,7 +366,9 @@ export function RunView({
             <p className="text-xs font-semibold text-info">
               {ended ? "Devin\u2019s last update:" : "Devin\u2019s current thinking:"}
             </p>
-            <p className="mt-1 text-sm leading-snug text-foreground">{thinking}</p>
+            <p className="mt-1 line-clamp-4 whitespace-pre-line text-sm leading-snug text-foreground">
+              {thinking}
+            </p>
           </section>
         ) : null}
 

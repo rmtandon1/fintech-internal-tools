@@ -64,6 +64,8 @@ export interface RunViewPayload {
   frames: ReplayFrame[];
   latest: ReplayFrame | null;
   sessionUrl: string | null;
+  /** Devin's latest message in the live session; null in simulation or before it has said anything. */
+  devinMessage: string | null;
   /** The business sentence for what the run changes once merged. */
   summary: string;
   /** The spec's once-merged line for this operation, when it names one. */
@@ -143,6 +145,10 @@ export async function handleGet(
     frames,
     latest,
     sessionUrl: mode === "live" ? sessionPage(run) : null,
+    devinMessage:
+      mode === "live" && run.sessionId && deps.devin?.latestMessage
+        ? await deps.devin.latestMessage(run.sessionId).catch(() => null)
+        : null,
     summary: getSpec(run.spec)?.summaries?.[run.operation as Operation] ?? run.intent,
     outcome: getSpec(run.spec)?.outcomes?.[run.operation as Operation] ?? null,
     operationLabel: operationLabel(run.operation),

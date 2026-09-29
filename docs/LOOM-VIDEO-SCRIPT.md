@@ -42,7 +42,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 > "Three live apps on one engine. Devin wrote the code; I wrote the specs and reviewed every pull request."
 >
-> "A check in every build fails if anything but the engine writes to the database."
+> "Every write goes through the engine. There's a test that makes sure of it — and it fails the build if anything tries to go around."
 >
 > "First, a change inside an app we already run."
 
@@ -74,13 +74,13 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 > "One sentence, the four refunds, and three files it may change. No customer emails, no card numbers."
 >
-> "The edge cases are in a spec only the reviewer sees. Devin is told not to open it, so it has to find them in the code."
+> "The spec with the edge cases goes to the reviewer — and Devin is told not to open it."
 
 [Click **Send to Devin**.]
 
 [Cut to the finished run; read "Took …" aloud.]
 
-> "This took Devin *(time)*. Devin committed its plan first, listing every file it would touch. A check fails the build if it touches any other."
+> "This took Devin *(time)*. It committed the plan before writing any code — and there's a guard on the run, so touching a file outside that plan fails it."
 
 [Point at the changed assertion in `refunds-clusters.test.ts`.]
 
@@ -328,11 +328,9 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 >
 > "Pulling wasn't enough either. The new Chargebacks package didn't resolve."
 >
-> "So the sync has four layers. It confirms the merge with GitHub, and pulls only when nobody has local edits."
+> "So the fix works in four layers: confirm the merge actually happened, pull only into a clean checkout, install packages when the lockfile changes, then migrate and register the new settings and flags."
 >
-> "It installs packages when the dependency list changes. Then it migrates and registers new settings and flags."
->
-> "Pull merged code now runs all four, with no restart and no re-seed. The write-up is in the repo."
+> "That toast is all four — no restart, no re-seed."
 
 ---
 
