@@ -273,7 +273,6 @@
 
 **Before recording:**
 
-- [ ] Re-register the playbook (`pnpm devin:playbook`)
 - [ ] A day ahead, do the Devin runs in order:
   - [ ] Kestrel rule
   - [ ] `partial_delivery` pull request, after the rule
@@ -282,34 +281,38 @@
   - [ ] Undo the Kestrel rule
   - [ ] Companies House check
   - [ ] Chargebacks app
-- [ ] Answer any run that asks a question
 - [ ] Note each run's time, ACUs and test total
-- [ ] Kestrel session never opened the spec
 - [ ] Check out the demo tag on the branch
-- [ ] `pnpm install`; `git status` clean
 - [ ] `pnpm db:reset` within the hour
 - [ ] `/api/devin/status` reads `live`
-- [ ] `pnpm verify` green (328 tests)
-- [ ] Browser at 1440×900, notifications off
+- [ ] `pnpm verify` green
+- [ ] Close other apps and tabs
+- [ ] Turn on Do Not Disturb
+- [ ] Browser at 1440×900, zoom 100%, bookmarks bar hidden
 - [ ] Slide deck open in a second window
+- [ ] Test mic and camera in a 10-second Loom
 
 **During recording:**
 
 - [ ] Follow the ▶ SLIDE and ◀ CONSOLE cues
+- [ ] Move the cursor slowly; point before clicking
+- [ ] Pause a beat between sections
 - [ ] Show each run's real "Took …" time
 - [ ] Click `rfnd_0013`, `rfnd_0014`, `DSP-20401` only once
 - [ ] Screenshot the **Pull merged code** toast
-- [ ] Retake a one-time click after `pnpm db:seed`
 - [ ] Keep it under eight minutes
 
 **After recording:**
 
+- [ ] Watch it through once
+- [ ] Trim dead air and false starts
+- [ ] Add a title and thumbnail
 - [ ] Add chapters
-- [ ] Open the description with the slide 1 line
+- [ ] Add timestamps in comments
 - [ ] Link the GitHub repo in the description
-- [ ] Attach `docs/DEMO-SLIDES.pdf`
 - [ ] List the five pull requests with time and ACUs
-- [ ] Commit each run's replay to `runs/<run_id>/`
-- [ ] Stop Devin sessions, delete stray `runs/` folders
-- [ ] Reset the database
+- [ ] Attach `docs/DEMO-SLIDES.pdf`
+- [ ] Tag: #devin #ai-automation
+- [ ] Set sharing to anyone with the link
+- [ ] Stop Devin sessions and reset the database
 - [ ] Tag the recorded commit
