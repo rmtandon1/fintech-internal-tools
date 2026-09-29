@@ -18,6 +18,8 @@ export interface PullRef {
 export interface PullState {
   headSha: string;
   headRef: string;
+  /** GitHub's `state`: a merged PR is also `closed`. */
+  state: "open" | "closed";
   merged: boolean;
   mergeCommit: string | null;
 }
@@ -68,6 +70,7 @@ export class GitHubApiError extends Error {
 
 const Pull = z.object({
   head: z.object({ sha: z.string().min(1), ref: z.string().min(1) }),
+  state: z.enum(["open", "closed"]),
   merged: z.boolean(),
   merge_commit_sha: z.string().nullable(),
 });
@@ -133,6 +136,7 @@ export function httpGitHubClient(token: string, fetchImpl: FetchLike, baseUrl = 
       return {
         headSha: pull.head.sha,
         headRef: pull.head.ref,
+        state: pull.state,
         merged: pull.merged,
         mergeCommit: pull.merged ? pull.merge_commit_sha : null,
       };

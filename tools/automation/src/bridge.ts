@@ -648,13 +648,21 @@ export async function observeGitHubApproval(
 export type MergeOutcome =
   | { kind: "merged"; record: IntentResult; mergeCommit: string }
   | { kind: "open"; prUrl: string }
+  /** GitHub reports the PR closed without a merge; `stop` is the governed stop that ends the run. */
+  | { kind: "closed"; prUrl: string; number: number; stop: IntentResult }
   | { kind: "unavailable"; reason: string };
 
+/** The `stop` reason, and so the run's note, when its PR was closed without a merge. */
+export function prClosedReason(number: number): string {
+  return `PR #${number} was closed on GitHub without merging`;
+}
+
 /**
- * Observes the PR on GitHub; only an actual merge produces `record_merge`.
- * A run that names no PR yet is checked against the one its session
- * reports, so a PR merged on GitHub before the console approved it is
- * still recorded.
+ * Observes the PR on GitHub; only an actual merge produces `record_merge`,
+ * and a PR closed without one lands the governed `stop`, so the run does not
+ * wait on a merge that cannot come. A run that names no PR yet is checked
+ * against the one its session reports, so a PR merged on GitHub before the
+ * console approved it is still recorded.
  */
 export async function observeMerge(
   actor: Actor,
@@ -667,15 +675,27 @@ export async function observeMerge(
   if (!prUrl || !ref) return { kind: "unavailable", reason: "The run has no pull request yet" };
   if (!deps.github) return { kind: "unavailable", reason: "GitHub API is not configured" };
   const pull = await deps.github.getPull(ref);
-  if (!pull.merged || !pull.mergeCommit) return { kind: "open", prUrl };
-  const record = executeIntent(actor, {
-    tool: "automation",
-    action: "record_merge",
-    recordId: run.id,
-    input: { mergeCommit: pull.mergeCommit, prUrl },
-    idempotencyKey: key(run.id, `record_merge:${pull.mergeCommit}`),
-  });
-  return { kind: "merged", record, mergeCommit: pull.mergeCommit };
+  if (pull.merged && pull.mergeCommit) {
+    const record = executeIntent(actor, {
+      tool: "automation",
+      action: "record_merge",
+      recordId: run.id,
+      input: { mergeCommit: pull.mergeCommit, prUrl },
+      idempotencyKey: key(run.id, `record_merge:${pull.mergeCommit}`),
+    });
+    return { kind: "merged", record, mergeCommit: pull.mergeCommit };
+  }
+  if (pull.state === "closed" && !pull.merged) {
+    const stop = executeIntent(actor, {
+      tool: "automation",
+      action: "stop",
+      recordId: run.id,
+      input: { reason: prClosedReason(ref.number) },
+      idempotencyKey: key(run.id, `stop:pr_closed:${prUrl}`),
+    });
+    return { kind: "closed", prUrl, number: ref.number, stop };
+  }
+  return { kind: "open", prUrl };
 }
 
 export type SyncOutcome =

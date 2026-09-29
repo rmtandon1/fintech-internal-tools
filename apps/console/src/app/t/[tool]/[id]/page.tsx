@@ -63,7 +63,7 @@ export default async function RecordPage({
             </span>
           ) : undefined
         }
-        extra={run ? <RunView key={id} runId={id} showSummary /> : undefined}
+        extra={run ? <RunView key={id} runId={id} showSummary renderedStatus={run.status} /> : undefined}
       />
     </Panel>
   );

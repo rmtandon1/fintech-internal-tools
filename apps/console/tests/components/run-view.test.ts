@@ -283,6 +283,16 @@ describe("RunView", () => {
     expect(html).toMatch(/data-state="active"><span class="[^"]*"><span class="[^"]*bg-warning" aria-label="Paused"/);
   });
 
+  it("says why a stopped run stopped", () => {
+    const p = payload();
+    const html = render({
+      ...p,
+      run: { ...p.run, status: "stopped", lastNote: "PR #990 was closed on GitHub without merging" },
+    });
+    expect(html).toMatch(/data-testid="stopped-reason"[^>]*>Stopped: PR #990 was closed on GitHub without merging</);
+    expect(render(p)).not.toContain('data-testid="stopped-reason"');
+  });
+
   it("stops spinning and shows the last update once the run has ended", () => {
     const p = payload();
     const html = render({ ...p, run: { ...p.run, status: "stopped" } });
