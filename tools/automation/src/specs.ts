@@ -91,8 +91,8 @@ export const REFUND_CLUSTERING_HOLD: RunnableSpec = {
   },
   summaries: {
     change:
-      "Holding the merchant's not-received refunds once together they pass the manager line, and sending those customers' KYC approvals to a manager.",
-    undo: "Removing the hold, keeping everything merged since.",
+      "Devin is holding split refunds that add up past the manager limit.",
+    undo: "Devin is removing the split-refund hold, keeping everything merged since.",
   },
   outcomes: {
     change:
