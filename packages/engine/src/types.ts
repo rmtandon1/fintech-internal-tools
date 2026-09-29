@@ -13,6 +13,8 @@ export interface Actor {
   id: string;
   name: string;
   role: Role;
+  /** GitHub login whose reviews the console treats as this actor's approvals. */
+  githubLogin?: string;
 }
 
 export type FieldType =
@@ -172,6 +174,12 @@ export interface ActionDecl<TRecord = unknown, TInput = unknown, TPatch = unknow
   tone?: "default" | "destructive" | "primary";
   /** Set when the action creates the record it governs rather than mutating one. */
   createsRecord?: boolean;
+  /**
+   * When policy requires approval, only the policy's allowed roles may apply
+   * the action directly; no approval request is raised. Routing is decided
+   * before the form is filled, so its rules must not read input.
+   */
+  routeToApprover?: boolean;
   rules: Rule<TRecord, TInput>[];
   /**
    * Short ready-made text for the action's free-text inputs, keyed by input
@@ -241,6 +249,8 @@ export interface ToolDeclaration<TRecord extends GovernedRecord = GovernedRecord
   filters: FilterDecl[];
   /** Role-scoped counts rendered above the queue; omit for no strip. */
   stats?: StatDecl[];
+  /** Actor-specific filters applied only when the URL omits a filter field. */
+  defaultFilters?: (actor: Actor) => Record<string, string>;
   /**
    * Shows the queue as compact on/off switches: a record is on when `field`
    * is truthy, and flipping a switch runs the `on` or `off` action through
@@ -292,6 +302,8 @@ export interface ClusterGroup {
   /** What the count counts, e.g. a reason code; shown after the count. */
   qualifier?: string;
   totalUsdMinor: number;
+  /** Part of the total already sent to the processor, confirmed or not. */
+  sentUsdMinor?: number;
   /** Look-back window the group was computed over, in days. */
   windowDays?: number;
   recordIds: string[];

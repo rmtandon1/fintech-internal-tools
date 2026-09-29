@@ -52,10 +52,12 @@ function usd(minor: number): string {
 function LimitChart({
   rows,
   totalUsdMinor,
+  sentUsdMinor,
   limit,
 }: {
   rows: ClusterRow[];
   totalUsdMinor: number;
+  sentUsdMinor: number;
   limit: { usdMinor: number; label: string };
 }) {
   const max = Math.max(totalUsdMinor, limit.usdMinor) * 1.2;
@@ -112,7 +114,14 @@ function LimitChart({
           </span>
         ))}
         <span className="mx-2 w-px" />
-        <span className="flex-[1.4] text-xs font-medium text-foreground">Together</span>
+        <span className="flex-[1.4]">
+          <span className="block text-xs font-medium text-foreground">Together</span>
+          {sentUsdMinor > 0 ? (
+            <span className="block text-[11px] text-muted-foreground" data-testid="cluster-sent-split">
+              {usd(sentUsdMinor)} sent · {usd(totalUsdMinor - sentUsdMinor)} waiting
+            </span>
+          ) : null}
+        </span>
       </figcaption>
     </figure>
   );
@@ -124,6 +133,7 @@ export function ClusterDrawer({
   detail,
   limit,
   totalUsdMinor,
+  sentUsdMinor = 0,
   statuses,
   ruleLabels,
   rows,
@@ -136,6 +146,8 @@ export function ClusterDrawer({
   detail?: string;
   limit?: { usdMinor: number; label: string };
   totalUsdMinor: number;
+  /** Part of the total already sent to the processor. */
+  sentUsdMinor?: number;
   statuses: StatusDecl[];
   ruleLabels?: Record<string, string>;
   rows: ClusterRow[];
@@ -175,7 +187,7 @@ export function ClusterDrawer({
         </SheetHeader>
 
         <div className="min-h-0 flex-1 overflow-auto">
-          {limit ? <LimitChart rows={rows} totalUsdMinor={totalUsdMinor} limit={limit} /> : null}
+          {limit ? <LimitChart rows={rows} totalUsdMinor={totalUsdMinor} sentUsdMinor={sentUsdMinor} limit={limit} /> : null}
 
           <h3 className="px-4 pt-4 pb-1 text-sm font-semibold text-foreground">
             The {rows.length} refunds
@@ -240,7 +252,7 @@ export function ClusterDrawer({
 
         <SheetFooter className="mt-0 flex-row items-center gap-3 border-t border-border text-xs text-muted-foreground">
           {uncovered ? <p>No rule catches this today.</p> : null}
-          {!canRequestRule ? <p>A refunds manager can ask for one.</p> : null}
+          {!canRequestRule ? <p>A manager can ask for one.</p> : null}
           {dispatch && dispatch.length > 0 ? (
             <div className="ml-auto">
               <Button

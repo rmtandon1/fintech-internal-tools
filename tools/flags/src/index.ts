@@ -240,13 +240,13 @@ export const flagTool = defineTool<FeatureFlag>({
     {
       key: "partial_production",
       label: "Partial in production",
-      roles: ["kyc_manager", "refunds_manager"],
+      roles: ["manager"],
       source: { kind: "records", filters: { environment: "production", status: "partial" } },
     },
     {
       key: "expired_serving",
       label: "Expired, still serving",
-      roles: ["kyc_manager", "refunds_manager"],
+      roles: ["manager"],
       tone: "warning",
       source: { kind: "records", filters: { expired: "yes" } },
     },

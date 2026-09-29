@@ -15,10 +15,13 @@ import {
   type RunStatus,
 } from "@console/tool-automation";
 import {
+  describeGitHubApproval,
+  observeGitHubApproval,
   observeMerge,
   observeRun,
   observeSessionEnd,
   type PollOutcome,
+  readGitHub,
   readReplay,
   runPrompt,
 } from "@console/tool-automation/bridge";
@@ -81,6 +84,10 @@ export interface RunViewPayload {
   /** The spec's acceptance tests for this operation: the engineer's checklist, never sent to the session. */
   reviewerChecklist: string[];
   offers: RunOffers;
+  /** When this read last got an answer from GitHub (ms since epoch); null when GitHub was not read. */
+  githubSyncedAt: number | null;
+  /** A GitHub approval the console saw but did not record (unknown login, rules denied), or a merge message that failed. */
+  githubNotice: string | null;
 }
 
 /**
@@ -110,18 +117,28 @@ export async function handleGet(
   // frame; when the poll reports the session has ended without a merge,
   // observeSessionEnd lands the governed stop the run needs.
   let outcome: PollOutcome | null = null;
+  let githubRead = false;
+  let githubNotice: string | null = null;
   if (run.sessionId && IN_FLIGHT_STATUSES.includes(run.status as RunStatus)) {
     const requester =
       Object.values(DEMO_ACTORS).find((a) => a.id === run?.requestedBy) ?? actor;
     const observed = await observeRun(requester, run, deps).catch(() => null);
     if (observed) {
       outcome = observed.poll;
-      // A merge that landed before the session wound down must win over the
-      // session-end stop, so check GitHub first.
-      if (run.status === "approved") {
-        const approver =
-          Object.values(DEMO_ACTORS).find((a) => a.id === run?.approvedBy) ?? actor;
-        await observeMerge(approver, run, deps).catch(() => null);
+      run = getRun(runId) ?? run;
+      const polledPr = observed.poll.kind === "output" ? observed.poll.structuredOutput.pr_url : null;
+      // An approval given on GitHub counts as the engineer's; then a merge
+      // that landed before the session wound down must win over the
+      // session-end stop, so check GitHub before it.
+      const approval = await observeGitHubApproval(run, deps, polledPr).catch(() => null);
+      if (approval) {
+        githubRead ||= readGitHub(approval);
+        githubNotice = describeGitHubApproval(approval);
+        run = getRun(runId) ?? run;
+      }
+      if (run.status === "approved" || run.status === "running") {
+        const merge = await observeMerge(mergeRecorder(run, actor), run, deps, polledPr).catch(() => null);
+        if (merge) githubRead ||= readGitHub(merge);
         run = getRun(runId) ?? run;
       }
       if (IN_FLIGHT_STATUSES.includes(run.status as RunStatus)) {
@@ -130,11 +147,10 @@ export async function handleGet(
       }
     }
   }
-  // An approved run may have merged since; observe it as the approver.
-  if (run.status === "approved") {
-    const approver =
-      Object.values(DEMO_ACTORS).find((a) => a.id === run?.approvedBy) ?? actor;
-    await observeMerge(approver, run, deps).catch(() => null);
+  // A run with a PR may have merged since; observe it as the approver.
+  if (run.status === "approved" || (run.status === "running" && run.prUrl)) {
+    const merge = await observeMerge(mergeRecorder(run, actor), run, deps).catch(() => null);
+    if (merge) githubRead ||= readGitHub(merge);
     run = getRun(runId) ?? run;
   }
 
@@ -166,9 +182,24 @@ export async function handleGet(
       latest?.structured_output ?? null,
       // Reuse the URL the poll just reported instead of polling twice.
       run.prUrl ?? (outcome?.kind === "output" ? outcome.structuredOutput.pr_url : null),
-    )
+    ),
+    githubSyncedAt: githubRead ? (deps.now ?? Date.now)() : null,
+    githubNotice,
   };
   return { status: 200, body: payload };
+}
+
+/**
+ * Who records a merge GitHub reports: the approver when the console has one;
+ * otherwise the console's engineer actor, since a merge without a recorded
+ * approval belongs to no operator and `record_merge` is not open to every
+ * role that may be watching the run.
+ */
+function mergeRecorder(run: DevinRun, viewer: Actor): Actor {
+  if (run.approvedBy) {
+    return Object.values(DEMO_ACTORS).find((a) => a.id === run.approvedBy) ?? viewer;
+  }
+  return DEMO_ACTORS.engineer;
 }
 
 export async function handlePost(

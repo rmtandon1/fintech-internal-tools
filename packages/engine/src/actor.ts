@@ -6,17 +6,38 @@ import { ROLE_META, ROLES } from "@console/permissions";
 
 export const ACTOR_COOKIE = "ops_actor";
 
+/** The GitHub login the engineer actor answers to; `rmtandon1` unless `GITHUB_APPROVER_LOGIN` says otherwise. */
+export const DEFAULT_GITHUB_APPROVER_LOGIN = "rmtandon1";
+
+export function githubApproverLogin(): string {
+  return process.env.GITHUB_APPROVER_LOGIN?.trim() || DEFAULT_GITHUB_APPROVER_LOGIN;
+}
+
 /** Demo actors. Real deployments would resolve these from an identity provider. */
 export const DEMO_ACTORS: Record<Role, Actor> = {
-  kyc_reviewer: { id: "usr_kyc_reviewer", name: ROLE_META.kyc_reviewer.label, role: "kyc_reviewer" },
-  kyc_manager: { id: "usr_kyc_manager", name: ROLE_META.kyc_manager.label, role: "kyc_manager" },
-  refunds_agent: { id: "usr_refunds_agent", name: ROLE_META.refunds_agent.label, role: "refunds_agent" },
-  refunds_manager: { id: "usr_refunds_manager", name: ROLE_META.refunds_manager.label, role: "refunds_manager" },
-  engineer: { id: "usr_engineer", name: ROLE_META.engineer.label, role: "engineer" },
+  analyst: { id: "usr_analyst", name: ROLE_META.analyst.label, role: "analyst" },
+  manager: { id: "usr_manager", name: ROLE_META.manager.label, role: "manager" },
+  engineer: {
+    id: "usr_engineer",
+    name: ROLE_META.engineer.label,
+    role: "engineer",
+    // Read on access so the value follows the server's `.env`, which is
+    // loaded after this module may already have been imported.
+    get githubLogin() {
+      return githubApproverLogin();
+    },
+  },
   admin: { id: "usr_admin", name: ROLE_META.admin.label, role: "admin" },
 };
 
-export const DEFAULT_ACTOR = DEMO_ACTORS.kyc_reviewer;
+/** The console actor a GitHub login stands for, or null when no actor claims it. */
+export function actorForGitHubLogin(login: string): Actor | null {
+  const wanted = login.trim().toLowerCase();
+  if (!wanted) return null;
+  return Object.values(DEMO_ACTORS).find((a) => a.githubLogin?.toLowerCase() === wanted) ?? null;
+}
+
+export const DEFAULT_ACTOR = DEMO_ACTORS.analyst;
 
 let devSecret: string | null = null;
 

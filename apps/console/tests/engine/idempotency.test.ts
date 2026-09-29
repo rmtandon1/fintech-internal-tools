@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { ulid } from "ulid";
 import { executeIntent } from "@console/engine/execute-intent";
-import { kycReviewer, makeWidget, kycManager, setupHarness, widgetBalance } from "../helpers/harness";
+import { analyst, makeWidget, manager, setupHarness, widgetBalance } from "../helpers/harness";
 
 beforeAll(() => setupHarness());
 
@@ -17,8 +17,8 @@ describe("idempotency", () => {
       idempotencyKey: key,
     };
 
-    const first = executeIntent(kycReviewer, intent);
-    const second = executeIntent(kycReviewer, intent);
+    const first = executeIntent(analyst, intent);
+    const second = executeIntent(analyst, intent);
 
     expect(first.outcome.status).toBe("applied");
     expect(second.replayed).toBe(true);
@@ -36,12 +36,12 @@ describe("idempotency", () => {
       idempotencyKey: ulid(),
     };
 
-    const failed = executeIntent(kycReviewer, intent);
+    const failed = executeIntent(analyst, intent);
 
     expect(failed.outcome).toMatchObject({ status: "error", code: "internal_error" });
     expect(widgetBalance("w_crash")).toBe(100);
     // The key is free again: a retry is not blocked by a stranded reservation.
-    const retry = executeIntent(kycReviewer, { ...intent, action: "spend", input: { amount: 10, reason: "retry" } });
+    const retry = executeIntent(analyst, { ...intent, action: "spend", input: { amount: 10, reason: "retry" } });
     expect(retry.outcome.status).toBe("applied");
     expect(widgetBalance("w_crash")).toBe(90);
   });
@@ -56,8 +56,8 @@ describe("idempotency", () => {
       idempotencyKey: ulid(),
     };
 
-    const first = executeIntent(kycManager, intent);
-    const retransmission = executeIntent(kycManager, intent);
+    const first = executeIntent(manager, intent);
+    const retransmission = executeIntent(manager, intent);
 
     expect(first.outcome.status).toBe("applied");
     expect(retransmission.replayed).toBe(true);
@@ -67,7 +67,7 @@ describe("idempotency", () => {
   it("rejects the same key with a different payload", () => {
     makeWidget("w_conflict", 100);
     const key = ulid();
-    executeIntent(kycReviewer, {
+    executeIntent(analyst, {
       tool: "widgets",
       action: "spend",
       recordId: "w_conflict",
@@ -75,7 +75,7 @@ describe("idempotency", () => {
       idempotencyKey: key,
     });
 
-    const conflicting = executeIntent(kycReviewer, {
+    const conflicting = executeIntent(analyst, {
       tool: "widgets",
       action: "spend",
       recordId: "w_conflict",
@@ -93,7 +93,7 @@ describe("idempotency", () => {
   it("reports a reused key as a conflict once the record has moved on", () => {
     makeWidget("w_reused", 100);
     const key = ulid();
-    const spent = executeIntent(kycReviewer, {
+    const spent = executeIntent(analyst, {
       tool: "widgets",
       action: "spend",
       recordId: "w_reused",
@@ -101,7 +101,7 @@ describe("idempotency", () => {
       idempotencyKey: key,
     });
     expect(spent.outcome.status).toBe("applied");
-    executeIntent(kycManager, {
+    executeIntent(manager, {
       tool: "widgets",
       action: "close",
       recordId: "w_reused",
@@ -111,7 +111,7 @@ describe("idempotency", () => {
 
     // "spend" no longer accepts a closed widget, but key reuse is the failure
     // the caller needs to hear about.
-    const reused = executeIntent(kycReviewer, {
+    const reused = executeIntent(analyst, {
       tool: "widgets",
       action: "spend",
       recordId: "w_reused",

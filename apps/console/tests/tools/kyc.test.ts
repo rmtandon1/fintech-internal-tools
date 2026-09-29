@@ -4,7 +4,7 @@ import { executeIntent } from "@console/engine/execute-intent";
 import { registerConstants } from "@console/engine/policy/register";
 import type { Actor } from "@console/engine/types";
 import { kycTool } from "@console/tool-kyc";
-import { kycManager, kycReviewer, setupHarness } from "../helpers/harness";
+import { manager, analyst, setupHarness } from "../helpers/harness";
 import { expectRecordStatsMatchList } from "../helpers/stats";
 
 beforeAll(() => {
@@ -30,44 +30,44 @@ function act(
 
 describe("kyc review queue", () => {
   it("approves a low-risk case straight through", () => {
-    const result = act(kycReviewer, "approve", "kyc_0001");
+    const result = act(analyst, "approve", "kyc_0001");
     expect(result.outcome.status).toBe("applied");
     expect(kycTool.get("kyc_0001")?.status).toBe("approved");
   });
 
   it("sends a high-risk case to a manager instead of applying it", () => {
-    const result = act(kycReviewer, "approve", "kyc_0003");
+    const result = act(analyst, "approve", "kyc_0003");
     expect(result.outcome.status).toBe("pending_approval");
     expect(kycTool.get("kyc_0003")?.status).toBe("pending_review");
   });
 
-  it("escalates to an admin above the admin threshold", () => {
-    const result = act(kycReviewer, "approve", "kyc_0004");
+  it("routes a high-risk case to a manager", () => {
+    const result = act(analyst, "approve", "kyc_0004");
     if (result.outcome.status !== "pending_approval") {
       throw new Error("expected an approval request");
     }
     expect(result.outcome.trace).toContainEqual(
       expect.objectContaining({
         rule: "risk_tier_approval",
-        tier: "admin",
-        allowedRoles: ["admin"],
+        tier: "manager",
+        allowedRoles: ["manager"],
       }),
     );
   });
 
   it("denies approval while a sanctions hit is open", () => {
-    const result = act(kycManager, "approve", "kyc_0005");
+    const result = act(manager, "approve", "kyc_0005");
     expect(result.outcome).toMatchObject({ status: "denied" });
     expect(kycTool.get("kyc_0005")?.status).toBe("escalated");
   });
 
   it("denies approval while documents are outstanding", () => {
-    const result = act(kycReviewer, "approve", "kyc_0006");
+    const result = act(analyst, "approve", "kyc_0006");
     expect(result.outcome).toMatchObject({ status: "denied" });
   });
 
   it("denies approval for a prohibited country", () => {
-    const result = act(kycReviewer, "approve", "kyc_0007");
+    const result = act(analyst, "approve", "kyc_0007");
     if (result.outcome.status !== "denied") throw new Error("expected a denial");
     expect(result.outcome.trace).toContainEqual(
       expect.objectContaining({ rule: "country_permitted", type: "deny" }),
@@ -75,23 +75,23 @@ describe("kyc review queue", () => {
   });
 
   it("rejects a case with a reason and records the decider", () => {
-    const result = act(kycReviewer, "reject", "kyc_0008", {
+    const result = act(analyst, "reject", "kyc_0008", {
       reason: "Document tampering detected on upload",
     });
     expect(result.outcome.status).toBe("applied");
     const after = kycTool.get("kyc_0008");
     expect(after?.status).toBe("rejected");
-    expect(after?.decidedBy).toBe(kycReviewer.id);
+    expect(after?.decidedBy).toBe(analyst.id);
     expect(after?.version).toBe(2);
   });
 
   it("refuses an action that the record's status does not offer", () => {
-    const result = act(kycReviewer, "approve", "kyc_0012");
+    const result = act(analyst, "approve", "kyc_0012");
     expect(result.outcome).toMatchObject({ code: "invalid_status" });
   });
 
   it("validates the input before anything else runs", () => {
-    const result = act(kycReviewer, "reject", "kyc_0002", { reason: "no" });
+    const result = act(analyst, "reject", "kyc_0002", { reason: "no" });
     expect(result.outcome).toMatchObject({ code: "invalid_input" });
     expect(kycTool.get("kyc_0002")?.status).toBe("pending_review");
   });
@@ -138,7 +138,7 @@ describe("kyc review queue", () => {
   });
 
   it("requires a manager once a case has been escalated", () => {
-    const result = act(kycReviewer, "approve", "kyc_0011");
+    const result = act(analyst, "approve", "kyc_0011");
     if (result.outcome.status !== "pending_approval") {
       throw new Error("expected an approval request");
     }
@@ -149,9 +149,12 @@ describe("kyc review queue", () => {
 });
 
 describe("kyc stats", () => {
-  it("declares three stats for each role that can open the queue", () => {
+  it("declares queue and audit stats for each role that can open the queue", () => {
+    const expectedCounts: Record<string, number> = { analyst: 3, manager: 3, admin: 2 };
     for (const role of kycTool.visibleTo) {
-      expect(kycTool.stats?.filter((s) => s.roles.includes(role)).length, role).toBe(3);
+      expect(kycTool.stats?.filter((s) => s.roles.includes(role)).length, role).toBe(
+        expectedCounts[role],
+      );
     }
   });
 

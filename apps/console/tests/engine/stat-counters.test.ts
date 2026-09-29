@@ -7,16 +7,16 @@ import { setConstant } from "@console/engine/policy/set-constant";
 import { SPEND_FEE_KEY } from "../fixtures/widgets";
 import {
   admin,
-  kycManager,
-  kycReviewer,
+  manager,
+  analyst,
   makeWidget,
-  otherManager,
+  secondManager,
   setupHarness,
 } from "../helpers/harness";
 
 const HOUR = 60 * 60 * 1000;
 
-function requestSpend(recordId: string, actor = kycReviewer) {
+function requestSpend(recordId: string, actor = analyst) {
   const result = executeIntent(actor, {
     tool: "widgets",
     action: "spend",
@@ -36,26 +36,26 @@ beforeAll(() => {
   makeWidget("w_stat_c", 1000);
   requestSpend("w_stat_a");
   requestSpend("w_stat_b");
-  requestSpend("w_stat_c", kycManager);
+  requestSpend("w_stat_c", manager);
 });
 
 describe("approval counters", () => {
   it("counts decidable requests within one tool", () => {
-    expect(countPendingFor(kycManager, "widgets")).toBe(2);
-    expect(countPendingFor(otherManager, "widgets")).toBe(3);
-    expect(countPendingFor(kycManager, "vault")).toBe(0);
-    expect(countPendingFor(kycManager)).toBe(2);
+    expect(countPendingFor(manager, "widgets")).toBe(2);
+    expect(countPendingFor(secondManager, "widgets")).toBe(3);
+    expect(countPendingFor(manager, "vault")).toBe(0);
+    expect(countPendingFor(manager)).toBe(2);
   });
 
   it("excludes roles that cannot decide", () => {
-    expect(countPendingFor(kycReviewer, "widgets")).toBe(0);
+    expect(countPendingFor(analyst, "widgets")).toBe(0);
   });
 
   it("counts pending requests raised by the actor", () => {
-    expect(countRequestedBy(kycReviewer, "widgets")).toBe(2);
-    expect(countRequestedBy(kycManager, "widgets")).toBe(1);
+    expect(countRequestedBy(analyst, "widgets")).toBe(2);
+    expect(countRequestedBy(manager, "widgets")).toBe(1);
     expect(countRequestedBy(admin, "widgets")).toBe(0);
-    expect(countRequestedBy(kycReviewer, "vault")).toBe(0);
+    expect(countRequestedBy(analyst, "vault")).toBe(0);
   });
 });
 

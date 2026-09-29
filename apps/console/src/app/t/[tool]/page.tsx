@@ -25,6 +25,7 @@ import { devinMode } from "@/lib/devin-status";
 import { getSpec, operationsStartableBy } from "@console/tool-automation";
 import { modeFlagOff } from "@/lib/mode-flags";
 import { currentActor } from "@/lib/session";
+import { resolveQueueFilters } from "@/lib/tool-queue-filters";
 import { cn } from "@console/ui/utils";
 import { getTool } from "@/registry";
 
@@ -45,13 +46,7 @@ export default async function ToolQueuePage({
   if (!decl.visibleTo.includes(actor.role)) redirect("/");
   if (modeFlagOff(tool)) redirect(`/roadmap/${tool}`);
 
-  const filters: Record<string, string> = {};
-  for (const filter of decl.filters) {
-    const value = query[filter.field];
-    if (typeof value === "string" && value !== "" && value !== "all") {
-      filters[filter.field] = value;
-    }
-  }
+  const { filters, filterQuery } = resolveQueueFilters(decl, actor, query);
   const search = typeof query.q === "string" ? query.q : undefined;
   const sortable = decl.listColumns.filter((column) => column.sortable);
   const sortField =
@@ -84,7 +79,7 @@ export default async function ToolQueuePage({
 
   const href = (overrides: Record<string, string>) => {
     const next = new URLSearchParams();
-    for (const [key, value] of Object.entries(filters)) next.set(key, value);
+    for (const [key, value] of Object.entries(filterQuery)) next.set(key, value);
     if (search) next.set("q", search);
     if (sortField) {
       next.set("sort", sortField);
@@ -305,6 +300,7 @@ export default async function ToolQueuePage({
           detail={open.group.detail}
           limit={open.group.limit}
           totalUsdMinor={open.group.totalUsdMinor}
+          sentUsdMinor={open.group.sentUsdMinor ?? 0}
           statuses={decl.statuses}
           ruleLabels={decl.ruleLabels}
           rows={clusterRows(decl, open.cluster, open.group, actor)}

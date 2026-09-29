@@ -11,6 +11,7 @@ vi.mock("@/app/automation-actions", () => ({
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }));
 
+import { requesterLabel } from "@/components/run-summary";
 import { RunView } from "@/components/run-view";
 import type { RunViewPayload } from "@/lib/devin-route";
 import { phaseLine } from "@/lib/run-checklist";
@@ -37,8 +38,8 @@ function payload(overrides: Partial<RunViewPayload> = {}): RunViewPayload {
       prUrl: null,
       mergeCommit: null,
       reverses: null,
-      requestedBy: "usr_refunds_manager",
-      requestedByRole: "refunds_manager",
+      requestedBy: "usr_manager",
+      requestedByRole: "manager",
       approvedBy: null,
       lastNote: null,
       requestedAt: 0,
@@ -62,6 +63,8 @@ function payload(overrides: Partial<RunViewPayload> = {}): RunViewPayload {
       reverse: { offered: false },
       sync: false,
     },
+    githubSyncedAt: null,
+    githubNotice: null,
     ...overrides,
   };
 }
@@ -73,8 +76,18 @@ function render(p: RunViewPayload): string {
 describe("runTitle", () => {
   it("names what Devin is doing from the spec's summary for the operation", () => {
     expect(runTitle(payload())).toBe(
-      "Devin is holding split refunds that add up past the manager limit.",
+      "Devin is routing split refunds that add up past the manager limit to the manager's queue.",
     );
+  });
+});
+
+describe("requesterLabel", () => {
+  it("shows a legacy role string from a stored run row", () => {
+    const legacyRunRow = {
+      requestedBy: "usr_refunds_agent",
+      requestedByRole: "refunds_agent",
+    };
+    expect(requesterLabel(legacyRunRow)).toBe("refunds_agent · usr_refunds_agent");
   });
 });
 
@@ -276,5 +289,45 @@ describe("RunView", () => {
     expect(html).toContain("Devin’s last update");
     expect(html).not.toContain("animate-spin");
     expect(html).toMatch(/data-state="active"><span class="[^"]*"><span class="[^"]*bg-warning" aria-label="Paused"/);
+  });
+});
+
+describe("GitHub sync line", () => {
+  it("shows when GitHub was last read, with the GitHub mark, and any approval the console could not take", () => {
+    const html = render(payload({ githubSyncedAt: 1_700_000_000_000, githubNotice: "Approved on GitHub by @x (not a console engineer)" }));
+    const block = /<div[^>]*data-testid="github-sync"[^>]*>(.*?)<\/div>/.exec(html)?.[1] ?? "";
+    expect(block).toContain("Synced with GitHub · 0s ago");
+    expect(block).toContain("<svg");
+    expect(block).toContain("Approved on GitHub by @x (not a console engineer)");
+  });
+
+  it("omits the line before GitHub has been read", () => {
+    expect(render(payload())).not.toContain("Synced with GitHub");
+  });
+
+  it("names the GitHub approver on the approval row, not the actor id", () => {
+    const html = render(
+      payload({
+        run: { ...payload().run, status: "approved", approvedBy: "usr_engineer", lastNote: "Approved on GitHub by @rmtandon1" },
+      }),
+    );
+    expect(html).toContain("Approved on GitHub by @rmtandon1");
+    expect(html).not.toContain("Approved by an engineer");
+  });
+
+  it("marks a merge without a recorded approval as such", () => {
+    const html = render(
+      payload({
+        run: {
+          ...payload().run,
+          status: "merged",
+          prUrl: "https://github.com/rmtandon1/buy-v-build-cog-demo/pull/990",
+          mergeCommit: "d".repeat(40),
+          lastNote: "Merged on GitHub without a recorded approval",
+        },
+      }),
+    );
+    expect(html).toContain("Approved by an engineer");
+    expect(html).toContain("not recorded");
   });
 });

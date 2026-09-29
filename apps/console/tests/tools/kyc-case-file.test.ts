@@ -8,7 +8,7 @@ import { registerConstants } from "@console/engine/policy/register";
 import type { Actor, IntentOutcome } from "@console/engine/types";
 import { caseFile, kycTool } from "@console/tool-kyc";
 import { kycDiscrepancies } from "@console/tool-kyc/schema";
-import { kycManager, kycReviewer, setupHarness } from "../helpers/harness";
+import { manager, analyst, setupHarness } from "../helpers/harness";
 
 beforeAll(() => {
   setupHarness();
@@ -38,7 +38,7 @@ function traceOf(outcome: IntentOutcome) {
 
 describe("kyc case file", () => {
   it("kyc_0001 approves straight through", () => {
-    const result = act(kycReviewer, "approve", "kyc_0001");
+    const result = act(analyst, "approve", "kyc_0001");
     expect(result.outcome.status).toBe("applied");
     for (const o of traceOf(result.outcome)) {
       expect(o.type).toBe("allow");
@@ -46,7 +46,7 @@ describe("kyc case file", () => {
   });
 
   it("kyc_0003 needs a manager by risk score", () => {
-    const result = act(kycReviewer, "approve", "kyc_0003");
+    const result = act(analyst, "approve", "kyc_0003");
     expect(result.outcome.status).toBe("pending_approval");
     const trace = traceOf(result.outcome);
     expect(trace).toContainEqual(
@@ -63,7 +63,7 @@ describe("kyc case file", () => {
   });
 
   it("kyc_0005 is denied by no_sanctions_hit", () => {
-    const result = act(kycReviewer, "approve", "kyc_0005");
+    const result = act(analyst, "approve", "kyc_0005");
     expect(result.outcome.status).toBe("denied");
     expect(traceOf(result.outcome)).toContainEqual(
       expect.objectContaining({ rule: "no_sanctions_hit", type: "deny" }),
@@ -73,7 +73,7 @@ describe("kyc case file", () => {
   });
 
   it("kyc_0013 approves straight through and the trace holds nothing", () => {
-    const result = act(kycReviewer, "approve", "kyc_0013");
+    const result = act(analyst, "approve", "kyc_0013");
     expect(result.outcome.status).toBe("applied");
     for (const o of traceOf(result.outcome)) {
       expect(o.type).toBe("allow");
@@ -86,7 +86,7 @@ describe("kyc case file", () => {
   });
 
   it("kyc_0102 needs a manager by pep_approval only", () => {
-    const result = act(kycReviewer, "approve", "kyc_0102");
+    const result = act(analyst, "approve", "kyc_0102");
     expect(result.outcome.status).toBe("pending_approval");
     const trace = traceOf(result.outcome);
     const nonAllow = trace.filter((o) => o.type !== "allow");
@@ -104,14 +104,14 @@ describe("kyc case file", () => {
   });
 
   it("kyc_0104, a low-risk UK business checked by hand, approves straight through for a reviewer", () => {
-    const result = act(kycReviewer, "approve", "kyc_0104");
+    const result = act(analyst, "approve", "kyc_0104");
     expect(result.outcome.status).toBe("applied");
     expect(traceOf(result.outcome).every((o) => o.type === "allow")).toBe(true);
     expect(kycTool.get("kyc_0104")?.materialDifferences).toBe(0);
   });
 
   it("kyc_0103 needs a manager by declared_vs_found only", () => {
-    const result = act(kycReviewer, "approve", "kyc_0103");
+    const result = act(analyst, "approve", "kyc_0103");
     expect(result.outcome.status).toBe("pending_approval");
     const nonAllow = traceOf(result.outcome).filter((o) => o.type !== "allow");
     expect(nonAllow).toEqual([
@@ -126,13 +126,13 @@ describe("kyc case file", () => {
     expect(kycTool.get("kyc_0103")?.materialDifferences).toBe(2);
   });
 
-  it("a KYC manager can approve the held requests", () => {
+  it("a manager can approve the held requests", () => {
     const pending = listApprovals("pending").filter(
       (a) => a.tool === "kyc" && (a.recordId === "kyc_0102" || a.recordId === "kyc_0103"),
     );
     expect(pending.map((a) => a.recordId).sort()).toEqual(["kyc_0102", "kyc_0103"]);
     for (const a of pending) {
-      const result = approve(kycManager, a.id, "reviewed");
+      const result = approve(manager, a.id, "reviewed");
       expect(result.outcome.status).toBe("applied");
     }
     expect(kycTool.get("kyc_0102")?.status).toBe("approved");
@@ -202,7 +202,7 @@ describe("kyc case file", () => {
   });
 
   it("approve's rules run in order with the new rules before escalation", () => {
-    const result = act(kycReviewer, "approve", "kyc_0004");
+    const result = act(analyst, "approve", "kyc_0004");
     const rules = traceOf(result.outcome).map((o) => o.rule);
     expect(rules).toEqual([
       "documents_complete",

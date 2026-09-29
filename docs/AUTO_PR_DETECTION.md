@@ -167,7 +167,7 @@ The audit rows are written as the right person, whoever is watching. `handleGet`
 ┌─────────────────────────────────────────────────────────────┐
 │ Change  (Running)  LIVE · SESSION             ↗ Open in Devin│
 │ Once a merchant's "not received" refunds add up past the…    │
-│ requested by Refunds manager · … · Holds clustered refunds…  │
+│ requested by Manager · … · Holds clustered refunds…          │
 ├─────────────────────────────────────────────────────────────┤
 │ ✓ Read the evidence                             base 1a67f60 │
 │ ✓ Confirmed the base                                68 tests │
@@ -203,9 +203,9 @@ The audit rows are written as the right person, whoever is watching. `handleGet`
 
 ```
 Type    Request                        Asked by         Status           Pull request
-Change  Once a merchant's "not rec…    Refunds manager  (Devin working)  —
-Change  Once a merchant's "not rec…    Refunds manager  (Devin working)  #63
-Change  Once a merchant's "not rec…    Refunds manager  (Live)           #63
+Change  Once a merchant's "not rec…    Manager         (Devin working)  —
+Change  Once a merchant's "not rec…    Manager         (Devin working)  #63
+Change  Once a merchant's "not rec…    Manager         (Live)           #63
 ```
 
 ### 3. Visual states
@@ -233,7 +233,7 @@ The mode tag reads **Live · session** when a Devin key is set, and **Recorded �
 
 ## Complete Workflow
 
-A refunds manager asks for the clustering hold, an engineer approves it, and Devin merges it.
+A manager asks for the clustering hold, an engineer approves it, and Devin merges it.
 
 **Step 1: The manager asks Devin for a rule.**
 The manager clicks **Ask Devin for a rule** and sends the request. `dispatchRun` writes `runs/<id>/context.json`, applies `dispatch`, creates the session and applies `record_session`. The Devin window focuses the run, and `RunView` starts polling.
@@ -392,7 +392,8 @@ The poll cadence is a constant in code. Everything else comes from environment v
 | Terminal statuses | `run-view.tsx:19` (`TERMINAL`) | `merged`, `stopped`, `dispatch_failed` | When a view stops polling |
 | `DEVIN_API_KEY` | `.env` | unset | Required for PR detection. Without it, `pollRun` returns `unavailable` and nothing is recorded |
 | `DEVIN_ORG_ID` | `.env` | resolved per request via `GET /v3/self` | Set it to halve Devin calls |
-| `GITHUB_TOKEN` | `.env` | unset | Required for merge detection. Without it, `observeMerge` returns `unavailable` |
+| `GITHUB_TOKEN` | `.env` | unset | Required for approval and merge detection. Without it, `observeGitHubApproval` and `observeMerge` return `unavailable` |
+| `GITHUB_APPROVER_LOGIN` | `.env` | `rmtandon1` | GitHub login whose approving review `observeGitHubApproval` records as the engineer's `approve_pr` |
 | `DEVIN_API_BASE` / `GITHUB_API_BASE` | `.env` | `https://api.devin.ai/v3` / `https://api.github.com` | Point at a proxy or test server |
 | `RECONCILE_PAGE` | `bridge.ts:597` | 100 | Page size when **Reconcile** sweeps every approved run |
 

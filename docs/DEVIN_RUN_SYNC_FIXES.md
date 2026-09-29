@@ -37,7 +37,7 @@ it erased the PR from the view. Nothing had written it down.
   `approve_pr`, `record_merge`.
 
 Tests: `record_pr` applied once; the PR survives a poll with no structured output; no write while
-no PR is reported; a cross-domain manager is denied.
+no PR is reported.
 
 ## 2. Sessions didn't know the repository ✅ FIXED
 

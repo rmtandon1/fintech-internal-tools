@@ -19,7 +19,7 @@
 | Connect an outside source             | Check UK businesses on Companies House from the KYC case          | Devin run, pull request, engineer approval, Devin merge                                                                               | Yes                                 |
 | Add an app                            | `flags`, the third app Devin built, with `packages/engine/` untouched; Chargebacks, started from its Power Apps export | Larger Devin run, same guards. A migration starts with a first pull request and a list of what's left | Yes                                 |
 | Change a requirement every app shares | A reason and a ticket reference on every privileged action       | Devin run that touches shared paths. The engine owner approves as well as an engineer, and the reviewer checks every path before merge        | Yes, with the engine owner's review |
-| Change the engine                     | Refunds above a line need two different managers                 | An engineer designs it: a second approval record, a quorum check, a schema migration. Devin can implement it under engineering review | Not on its own                      |
+| Change the engine                     | Change routed refunds to require two different managers           | An engineer designs it: a second approval record, a quorum check, a schema migration. Devin can implement it under engineering review | Not on its own                      |
 
 
 Adding a rule is probably the change that needs code most often. That is an assumption, with no client data behind it. The clustering hold is a hard example of it:

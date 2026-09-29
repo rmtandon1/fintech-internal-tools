@@ -22,7 +22,7 @@ import {
   type CompaniesHouseTransport,
 } from "@console/tool-kyc";
 import { kycCases } from "@console/tool-kyc/schema";
-import { admin, kycReviewer, setupHarness } from "../helpers/harness";
+import { admin, analyst, setupHarness } from "../helpers/harness";
 
 const API_KEY = "ch-test-key-4f1c9e";
 
@@ -78,7 +78,7 @@ function profile(overrides: Record<string, unknown>): string {
 describe("Companies House check", () => {
   it("with kyc.companies_house_check off, checking Companies House is denied and the case is unchanged", () => {
     const before = { record: kycTool.get("kyc_0104"), file: caseFile("kyc_0104") };
-    const result = act(kycReviewer, "check_companies_house", "kyc_0104");
+    const result = act(analyst, "check_companies_house", "kyc_0104");
     expect(result.outcome).toMatchObject({ status: "denied" });
     if (result.outcome.status !== "denied") throw new Error("expected denial");
     expect(result.outcome.trace).toContainEqual(
@@ -93,7 +93,7 @@ describe("Companies House check", () => {
     turnOn();
     for (const id of ["kyc_0102", "kyc_0011"]) {
       const before = caseFile(id);
-      const result = act(kycReviewer, "check_companies_house", id);
+      const result = act(analyst, "check_companies_house", id);
       if (result.outcome.status !== "denied") {
         throw new Error(`${id}: expected denial, got ${result.outcome.status}`);
       }
@@ -108,7 +108,7 @@ describe("Companies House check", () => {
     turnOn();
     const lookup = lookupCompany("09318842");
     expect(lookup).toMatchObject({ kind: "found", testData: true });
-    expect(act(kycReviewer, "check_companies_house", "kyc_0104").outcome.status).toBe("applied");
+    expect(act(analyst, "check_companies_house", "kyc_0104").outcome.status).toBe("applied");
     const check = registry("kyc_0104");
     expect(check?.source).toBe(COMPANIES_HOUSE_TEST_SOURCE);
     expect(check?.detail).toMatch(/^Test data: /);
@@ -119,7 +119,7 @@ describe("Companies House check", () => {
 
   it("09318842 is late with its accounts and declared_vs_found holds approval for a manager", () => {
     turnOn();
-    act(kycReviewer, "check_companies_house", "kyc_0104");
+    act(analyst, "check_companies_house", "kyc_0104");
     expect(registry("kyc_0104")).toMatchObject({
       result: "findings",
       detail: "Test data: Late with its accounts, due 2025-06-30",
@@ -134,7 +134,7 @@ describe("Companies House check", () => {
     ]);
     expect(kycTool.get("kyc_0104")?.materialDifferences).toBe(1);
 
-    const result = act(kycReviewer, "approve", "kyc_0104");
+    const result = act(analyst, "approve", "kyc_0104");
     if (result.outcome.status !== "pending_approval") {
       throw new Error(`expected approval, got ${result.outcome.status}`);
     }
@@ -153,7 +153,7 @@ describe("Companies House check", () => {
   it("an active company with its accounts up to date clears the registry check and adds no row", () => {
     turnOn();
     const material = kycTool.get("kyc_0003")?.materialDifferences;
-    expect(act(kycReviewer, "check_companies_house", "kyc_0003").outcome.status).toBe("applied");
+    expect(act(analyst, "check_companies_house", "kyc_0003").outcome.status).toBe("applied");
     expect(registry("kyc_0003")).toMatchObject({
       result: "clear",
       source: COMPANIES_HOUSE_TEST_SOURCE,
@@ -165,7 +165,7 @@ describe("Companies House check", () => {
 
   it("a dissolved company adds a material Declared vs found row", () => {
     turnOn();
-    expect(act(kycReviewer, "check_companies_house", "kyc_ch_dissolved").outcome.status).toBe(
+    expect(act(analyst, "check_companies_house", "kyc_ch_dissolved").outcome.status).toBe(
       "applied",
     );
     expect(companiesHouseRows("kyc_ch_dissolved")).toEqual([
@@ -178,12 +178,12 @@ describe("Companies House check", () => {
     ]);
     expect(registry("kyc_ch_dissolved")?.result).toBe("findings");
     expect(kycTool.get("kyc_ch_dissolved")?.materialDifferences).toBe(1);
-    expect(act(kycReviewer, "approve", "kyc_ch_dissolved").outcome.status).toBe("pending_approval");
+    expect(act(analyst, "approve", "kyc_ch_dissolved").outcome.status).toBe("pending_approval");
   });
 
   it("a company in liquidation adds a material Declared vs found row", () => {
     turnOn();
-    act(kycReviewer, "check_companies_house", "kyc_ch_liquidation");
+    act(analyst, "check_companies_house", "kyc_ch_liquidation");
     expect(companiesHouseRows("kyc_ch_liquidation")).toEqual([
       expect.objectContaining({
         topic: "Company status",
@@ -192,19 +192,19 @@ describe("Companies House check", () => {
       }),
     ]);
     expect(kycTool.get("kyc_ch_liquidation")?.materialDifferences).toBe(1);
-    expect(act(kycReviewer, "approve", "kyc_ch_liquidation").outcome.status).toBe(
+    expect(act(analyst, "approve", "kyc_ch_liquidation").outcome.status).toBe(
       "pending_approval",
     );
   });
 
   it("a failed lookup marks the registry check needs review and keeps earlier findings", () => {
     turnOn();
-    act(kycReviewer, "check_companies_house", "kyc_0104");
+    act(analyst, "check_companies_house", "kyc_0104");
     expect(kycTool.get("kyc_0104")?.materialDifferences).toBe(1);
 
     process.env.COMPANIES_HOUSE_API_KEY = API_KEY;
     useCompaniesHouseTransport(() => ({ error: "timed out" }));
-    expect(act(kycReviewer, "check_companies_house", "kyc_0104").outcome.status).toBe("applied");
+    expect(act(analyst, "check_companies_house", "kyc_0104").outcome.status).toBe("applied");
     expect(registry("kyc_0104")).toMatchObject({
       result: "needs_review",
       source: COMPANIES_HOUSE_SOURCE,
@@ -214,7 +214,7 @@ describe("Companies House check", () => {
 
     useCompaniesHouseTransport(null);
     delete process.env.COMPANIES_HOUSE_API_KEY;
-    act(kycReviewer, "check_companies_house", "kyc_ch_unknown");
+    act(analyst, "check_companies_house", "kyc_ch_unknown");
     expect(registry("kyc_ch_unknown")).toMatchObject({
       result: "needs_review",
       detail: "Test data: Couldn't check: no company with this number",
@@ -260,7 +260,7 @@ describe("Companies House check", () => {
       status: 200,
       body: profile({ company_number: "11456078", company_status: "liquidation" }),
     }));
-    expect(act(kycReviewer, "check_companies_house", "kyc_ch_liquidation").outcome.status).toBe(
+    expect(act(analyst, "check_companies_house", "kyc_ch_liquidation").outcome.status).toBe(
       "applied",
     );
     expect(registry("kyc_ch_liquidation")).toMatchObject({
@@ -278,14 +278,14 @@ describe("Companies House check", () => {
 
   it("re-running the check replaces its own rows and approve gains no new rule", () => {
     turnOn();
-    act(kycReviewer, "check_companies_house", "kyc_0104");
-    act(kycReviewer, "check_companies_house", "kyc_0104");
+    act(analyst, "check_companies_house", "kyc_0104");
+    act(analyst, "check_companies_house", "kyc_0104");
     expect(companiesHouseRows("kyc_0104")).toHaveLength(1);
     expect(kycTool.get("kyc_0104")?.materialDifferences).toBe(1);
 
     process.env.COMPANIES_HOUSE_API_KEY = API_KEY;
     useCompaniesHouseTransport(() => ({ status: 200, body: profile({}) }));
-    act(kycReviewer, "check_companies_house", "kyc_0104");
+    act(analyst, "check_companies_house", "kyc_0104");
     expect(companiesHouseRows("kyc_0104")).toEqual([]);
     expect(kycTool.get("kyc_0104")?.materialDifferences).toBe(0);
 

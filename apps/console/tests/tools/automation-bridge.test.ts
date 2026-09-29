@@ -10,6 +10,7 @@ import { executeIntent } from "@console/engine/execute-intent";
 import { registerConstants } from "@console/engine/policy/register";
 import type { Actor } from "@console/engine/types";
 import {
+  type ApprovingReview,
   automationTool,
   type CreateSessionRequest,
   type DevinClient,
@@ -28,9 +29,11 @@ import {
 import {
   approveRun,
   type BridgeDeps,
+  describeGitHubApproval,
   describeSync,
   dispatchRun,
   isSynced,
+  observeGitHubApproval,
   observeMerge,
   observeRun,
   pollRun,
@@ -47,7 +50,7 @@ import { devinRuns } from "@console/tool-automation/schema";
 import { refundTool } from "@console/tool-refunds";
 import { handleGet, type RunViewPayload } from "@/lib/devin-route";
 import { fakeGit } from "../helpers/fake-git";
-import { admin, kycManager, refundsAgent, refundsManager, setupHarness } from "../helpers/harness";
+import { admin, analyst, manager, setupHarness } from "../helpers/harness";
 
 const REPO_ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"]).toString().trim();
 const engineer: Actor = { id: "usr_engineer", name: "Engineer", role: "engineer" };
@@ -106,6 +109,8 @@ function fakeGitHub(state: {
   contextSha?: string | null;
   approved?: boolean;
   reviewFails?: boolean;
+  /** Approving reviews GitHub lists at the head sha, beyond the console's own. */
+  reviews?: ApprovingReview[];
 }) {
   const calls: string[] = [];
   const client: GitHubClient = {
@@ -135,9 +140,19 @@ function fakeGitHub(state: {
       calls.push("reviews");
       return state.approved ?? false;
     },
+    async listApprovingReviews() {
+      calls.push("list-reviews");
+      return [
+        // The console posts its review as the token's owner — the same login the engineer maps to.
+        ...(state.approved ? [{ login: "rmtandon1", submittedAt: "2026-01-01T00:00:00Z", body: CONSOLE_REVIEW }] : []),
+        ...(state.reviews ?? []),
+      ];
+    },
   };
   return { client, calls };
 }
+
+const CONSOLE_REVIEW = "Approved from the ops console for run x (context 000000000000).";
 
 function deps(over: Partial<BridgeDeps>): BridgeDeps {
   return { devin: null, github: null, repoRoot, now: () => 1_700_000_000_000, ...over };
@@ -190,7 +205,7 @@ describe("dispatchRun", () => {
   it("writes context.json, dispatches, creates the session with the context attached, then records it", async () => {
     stopAll();
     const devin = fakeDevin({});
-    const out = await dispatchRun(kycManager, request, deps({ devin: devin.client }));
+    const out = await dispatchRun(manager, request, deps({ devin: devin.client }));
     expect(out.dispatch.outcome.status).toBe("applied");
     expect(out.session?.outcome.status).toBe("applied");
     expect(out.sessionUrl).toBe("https://app.devin.ai/sessions/abc");
@@ -251,7 +266,7 @@ describe("dispatchRun", () => {
   it("names the repository and base branch in the prompt when it is known", async () => {
     stopAll();
     const devin = fakeDevin({});
-    await dispatchRun(kycManager, request, deps({ devin: devin.client, repository: "acme/ops-console" }));
+    await dispatchRun(manager, request, deps({ devin: devin.client, repository: "acme/ops-console" }));
     expect(devin.created[0].prompt).toMatch(
       /Repository: https:\/\/github\.com\/acme\/ops-console\. Branch from devin\/test at [0-9a-f]{7} and open the pull request against devin\/test\./,
     );
@@ -261,7 +276,7 @@ describe("dispatchRun", () => {
     stopAll();
     const devin = fakeDevin({});
     const d = deps({ devin: devin.client, repository: "acme/ops-console" });
-    const out = await dispatchRun(kycManager, request, d);
+    const out = await dispatchRun(manager, request, d);
     expect(out.prompt).toBe(devin.created[0].prompt);
     const run = getRun(out.runId);
     if (!run) throw new Error("no run");
@@ -283,13 +298,13 @@ describe("dispatchRun", () => {
       lookups.push("lookup");
       return "playbook-found";
     };
-    await dispatchRun(kycManager, request, deps({ devin: found.client, resolvePlaybookId }));
+    await dispatchRun(manager, request, deps({ devin: found.client, resolvePlaybookId }));
     expect(found.created[0].playbookId).toBe("playbook-found");
 
     stopAll();
     const configured = fakeDevin({});
     await dispatchRun(
-      kycManager,
+      manager,
       request,
       deps({ devin: configured.client, playbookId: "playbook-env", resolvePlaybookId }),
     );
@@ -301,7 +316,7 @@ describe("dispatchRun", () => {
     stopAll();
     const devin = fakeDevin({});
     const out = await dispatchRun(
-      kycManager,
+      manager,
       request,
       deps({ devin: devin.client, resolvePlaybookId: () => Promise.reject(new Error("HTTP 500")) }),
     );
@@ -314,7 +329,7 @@ describe("dispatchRun", () => {
     const devin = fakeDevin({
       create: () => Promise.reject(new Error("Devin API 401 on /sessions: bad key")),
     });
-    const out = await dispatchRun(kycManager, request, deps({ devin: devin.client }));
+    const out = await dispatchRun(manager, request, deps({ devin: devin.client }));
     expect(out.dispatch.outcome.status).toBe("applied");
     const run = getRun(out.runId);
     expect(run?.status).toBe("dispatch_failed");
@@ -339,7 +354,7 @@ describe("dispatchRun", () => {
   it("never reaches Devin and leaves no run dir when the dispatch intent does not apply", async () => {
     stopAll();
     const devin = fakeDevin({});
-    const out = await dispatchRun(refundsAgent, request, deps({ devin: devin.client }));
+    const out = await dispatchRun(analyst, request, deps({ devin: devin.client }));
     expect(out.dispatch.outcome.status).toBe("error");
     expect(out.session).toBeNull();
     expect(devin.calls).toEqual([]);
@@ -352,12 +367,12 @@ describe("dispatchRun", () => {
     const url = "https://app.devin.ai/sessions/0f1e2d3c";
     const devin = fakeDevin({ create: async () => ({ sessionId: "devin-0f1e2d3c", url }) });
     const d = { ...deps({ devin: devin.client }), replaysDir: mkdtempSync(join(tmpdir(), "bridge-replays-")) };
-    const out = await dispatchRun(kycManager, request, d);
+    const out = await dispatchRun(manager, request, d);
     expect(getRun(out.runId)?.sessionUrl).toBe(url);
 
     vi.stubEnv("DEVIN_API_KEY", "test-key");
     try {
-      const body = (await handleGet(out.runId, kycManager, d)).body as RunViewPayload;
+      const body = (await handleGet(out.runId, manager, d)).body as RunViewPayload;
       expect(body.mode).toBe("live");
       expect(body.sessionUrl).toBe(url);
       expect(body.run.sessionUrl).toBe(url);
@@ -484,22 +499,18 @@ describe("observeRun", () => {
   it("records nothing while the session reports no pull request", async () => {
     const run = await running();
     const devin = fakeDevin({ snapshot: { status: "working", statusDetail: null, structuredOutput: output() } });
-    const out = await observeRun(kycManager, run, deps({ devin: devin.client }));
+    const out = await observeRun(manager, run, deps({ devin: devin.client }));
     expect(out.poll.kind).toBe("output");
     expect(out.record).toBeNull();
     expect(getRun(run.id)?.version).toBe(run.version);
   });
 
-  it("skips recording for a manager outside the run's domain, so the next poller can still record", async () => {
+  it("lets a manager record a pull request on a run for a known application", async () => {
     const run = await running();
-    const out = await observeRun(refundsManager, run, deps({ devin: reportingPr().client }));
-    expect(out.record).toBeNull();
-    expect(getRun(run.id)?.prUrl).toBeNull();
-    expect(getRun(run.id)?.version).toBe(run.version);
-
-    const next = await observeRun(admin, run, deps({ devin: reportingPr().client }));
-    expect(next.record?.outcome.status).toBe("applied");
+    const out = await observeRun(manager, run, deps({ devin: reportingPr().client }));
+    expect(out.record?.outcome.status).toBe("applied");
     expect(getRun(run.id)?.prUrl).toBe(PR);
+    expect(getRun(run.id)?.version).toBe(run.version + 1);
   });
 
   it("record_pr denies a repeat under a fresh key, same URL or not, without a new version", async () => {
@@ -593,7 +604,7 @@ describe("approveRun", () => {
   it("denies a non-engineer before touching the review endpoint", async () => {
     const run = await runningWithPr();
     const github = fakeGitHub({ green: true, contextSha: run.contextSha256 });
-    const out = await approveRun(kycManager, run, undefined, deps({ github: github.client, devin: reportingPr().client }));
+    const out = await approveRun(manager, run, undefined, deps({ github: github.client, devin: reportingPr().client }));
     expect(out.approve.outcome.status).not.toBe("applied");
     expect(github.calls).not.toContain("approve");
   });
@@ -684,6 +695,172 @@ describe("approveRun", () => {
   });
 });
 
+describe("observeGitHubApproval", () => {
+  const MERGE_MESSAGE = (run: { id: string }) => `message:Run ${run.id} is approved. Merge ${PR} now.`;
+  const byEngineer: ApprovingReview = { login: "rmtandon1", submittedAt: "2026-01-02T00:00:00Z", body: "LGTM" };
+
+  async function runningWithPr() {
+    stopAll();
+    const out = await dispatchRun(admin, request, deps({ devin: fakeDevin({}).client }));
+    const run = getRun(out.runId);
+    if (!run) throw new Error("no run");
+    return run;
+  }
+
+  it("treats the mapped engineer's GitHub approval as approve_pr and tells Devin to merge, without another review", async () => {
+    const run = await runningWithPr();
+    const github = fakeGitHub({ green: true, contextSha: run.contextSha256, reviews: [byEngineer] });
+    const devin = reportingPr();
+    const d = deps({ github: github.client, devin: devin.client });
+
+    const out = await observeGitHubApproval(run, d);
+    expect(out.kind).toBe("approved");
+    if (out.kind !== "approved") throw new Error(out.kind);
+    expect(out.login).toBe("rmtandon1");
+    expect(out.actor.id).toBe(engineer.id);
+    expect(out.approve.outcome.status).toBe("applied");
+    expect(out.messageError).toBeNull();
+    expect(describeGitHubApproval(out)).toBeNull();
+    expect(github.calls).toEqual(["pull", "list-reviews", "checks", "file"]);
+    expect(devin.calls).toEqual(["get", MERGE_MESSAGE(run)]);
+
+    const after = getRun(run.id);
+    expect(after?.status).toBe("approved");
+    expect(after?.prUrl).toBe(PR);
+    expect(after?.approvedBy).toBe(engineer.id);
+    expect(after?.lastNote).toBe("Approved on GitHub by @rmtandon1");
+    const approvals = auditTrailFor("devin_run", run.id).filter((row) => row.action === "approve_pr");
+    expect(approvals).toHaveLength(1);
+    expect(approvals[0]?.actorId).toBe(engineer.id);
+  });
+
+  it("a second poll neither re-approves nor re-messages", async () => {
+    const run = await runningWithPr();
+    const github = fakeGitHub({ green: true, contextSha: run.contextSha256, reviews: [byEngineer] });
+    const devin = reportingPr();
+    const d = deps({ github: github.client, devin: devin.client });
+
+    await observeGitHubApproval(run, d);
+    const approved = getRun(run.id);
+    if (!approved) throw new Error("no run");
+    const again = await observeGitHubApproval(approved, d);
+    expect(again.kind).toBe("skipped");
+    expect(devin.calls.filter((c) => c.startsWith("message:"))).toEqual([MERGE_MESSAGE(run)]);
+    expect(auditTrailFor("devin_run", run.id).filter((row) => row.action === "approve_pr")).toHaveLength(1);
+    expect(github.calls.filter((c) => c === "list-reviews")).toHaveLength(1);
+  });
+
+  it("denies the requester's own GitHub approval by the same rule as the button", async () => {
+    stopAll();
+    const id = ulid();
+    db.insert(devinRuns)
+      .values({
+        id,
+        operation: "change",
+        spec: COMPANIES_HOUSE_CHECK.file,
+        tool: "kyc",
+        intent: "engineer-requested run",
+        contextSha256: "e".repeat(64),
+        sessionId: "devin-self",
+        sessionUrl: null,
+        status: "running",
+        prUrl: PR,
+        mergeCommit: null,
+        reverses: null,
+        requestedBy: engineer.id,
+        requestedByRole: engineer.role,
+        approvedBy: null,
+        lastNote: null,
+        requestedAt: 1,
+        updatedAt: 1,
+        version: 1,
+      })
+      .run();
+    const run = getRun(id);
+    if (!run) throw new Error("no run");
+    const github = fakeGitHub({ green: true, contextSha: run.contextSha256, reviews: [byEngineer] });
+    const devin = reportingPr();
+
+    const out = await observeGitHubApproval(run, deps({ github: github.client, devin: devin.client }));
+    expect(out.kind).toBe("denied");
+    if (out.kind !== "denied") throw new Error(out.kind);
+    expect(out.reason).toBe("The person who asked for the run cannot approve its PR");
+    expect(describeGitHubApproval(out)).toBe(
+      "Approved on GitHub by @rmtandon1, but the console did not record it: The person who asked for the run cannot approve its PR",
+    );
+    expect(getRun(id)?.status).toBe("running");
+    expect(devin.calls).toEqual([]);
+    expect(auditTrailFor("devin_run", id)).toHaveLength(0);
+  });
+
+  it("surfaces an approval by a login no console engineer claims and records nothing", async () => {
+    const run = await runningWithPr();
+    const stranger: ApprovingReview = { login: "someone-else", submittedAt: "2026-01-02T00:00:00Z", body: "ship it" };
+    const github = fakeGitHub({ green: true, contextSha: run.contextSha256, reviews: [stranger] });
+    const devin = reportingPr();
+
+    const out = await observeGitHubApproval(run, deps({ github: github.client, devin: devin.client }));
+    expect(out).toEqual({ kind: "unmatched", login: "someone-else" });
+    expect(describeGitHubApproval(out)).toBe("Approved on GitHub by @someone-else (not a console engineer)");
+    expect(github.calls).toEqual(["pull", "list-reviews"]);
+    expect(devin.calls).toEqual(["get"]);
+    expect(getRun(run.id)?.status).toBe("running");
+    expect(auditTrailFor("devin_run", run.id).some((row) => row.action === "approve_pr")).toBe(false);
+  });
+
+  it("ignores the console's own review, even though it carries the engineer's login", async () => {
+    const run = await runningWithPr();
+    const github = fakeGitHub({ green: true, contextSha: run.contextSha256, approved: true });
+    const devin = reportingPr();
+
+    const out = await observeGitHubApproval(run, deps({ github: github.client, devin: devin.client }));
+    expect(out).toEqual({ kind: "none" });
+    expect(describeGitHubApproval(out)).toBeNull();
+    expect(github.calls).toEqual(["pull", "list-reviews"]);
+    expect(devin.calls).toEqual(["get"]);
+    expect(getRun(run.id)?.status).toBe("running");
+  });
+
+  it("reports a denial while checks are red without spending the approval's idempotency key", async () => {
+    const run = await runningWithPr();
+    const state = { green: false, contextSha: run.contextSha256, reviews: [byEngineer] };
+    const github = fakeGitHub(state);
+    const devin = reportingPr();
+    const d = deps({ github: github.client, devin: devin.client });
+
+    const red = await observeGitHubApproval(run, d);
+    expect(red.kind).toBe("denied");
+    if (red.kind !== "denied") throw new Error(red.kind);
+    expect(red.reason).toBe("The PR's checks are not green");
+    expect(red.checks).toBe("failed: verify");
+    expect(getRun(run.id)?.status).toBe("running");
+    expect(auditTrailFor("devin_run", run.id).some((row) => row.action === "approve_pr")).toBe(false);
+
+    state.green = true;
+    const green = await observeGitHubApproval(run, d);
+    expect(green.kind).toBe("approved");
+    expect(getRun(run.id)?.status).toBe("approved");
+    expect(devin.calls.filter((c) => c.startsWith("message:"))).toEqual([MERGE_MESSAGE(run)]);
+  });
+
+  it("does nothing for a run that is not waiting on approval, or that has no PR or GitHub", async () => {
+    const run = await runningWithPr();
+    const silent = fakeDevin({ snapshot: { status: "working", statusDetail: null, structuredOutput: output() } });
+    expect(await observeGitHubApproval(run, deps({ github: fakeGitHub({}).client, devin: silent.client }))).toEqual({
+      kind: "skipped",
+    });
+    expect(await observeGitHubApproval(run, deps({ devin: reportingPr().client }))).toEqual({
+      kind: "unavailable",
+      reason: "GitHub API is not configured",
+    });
+    const stopped = await stopRun(admin, run, "done", deps({ devin: fakeDevin({}).client }));
+    expect(stopped.stop.outcome.status).toBe("applied");
+    const after = getRun(run.id);
+    if (!after) throw new Error("no run");
+    expect(await observeGitHubApproval(after, deps({ github: fakeGitHub({}).client }))).toEqual({ kind: "skipped" });
+  });
+});
+
 describe("observeMerge and stopRun", () => {
   async function approved() {
     stopAll();
@@ -709,6 +886,45 @@ describe("observeMerge and stopRun", () => {
     expect(after?.status).toBe("merged");
     expect(after?.mergeCommit).toBe(MERGE);
     expect(after?.prUrl).toBe(PR);
+  });
+
+  it("records a merge GitHub reports on a running run, naming the missing approval", async () => {
+    stopAll();
+    const out = await dispatchRun(admin, request, deps({ devin: fakeDevin({}).client }));
+    const run = getRun(out.runId);
+    if (!run) throw new Error("no run");
+    expect(run.prUrl).toBeNull();
+
+    // No recorded PR yet: the URL comes from the session's latest output.
+    const open = await observeMerge(engineer, run, deps({ github: fakeGitHub({ merged: false }).client, devin: reportingPr().client }));
+    expect(open).toEqual({ kind: "open", prUrl: PR });
+
+    const merged = await observeMerge(engineer, run, deps({ github: fakeGitHub({ merged: true }).client, devin: reportingPr().client }));
+    expect(merged.kind).toBe("merged");
+    if (merged.kind !== "merged") throw new Error(merged.kind);
+    expect(merged.record.outcome.status).toBe("applied");
+    const after = getRun(run.id);
+    expect(after?.status).toBe("merged");
+    expect(after?.mergeCommit).toBe(MERGE);
+    expect(after?.prUrl).toBe(PR);
+    expect(after?.approvedBy).toBeNull();
+    expect(after?.lastNote).toBe("Merged on GitHub without a recorded approval");
+    expect(auditTrailFor("devin_run", run.id).map((row) => row.action)).toEqual([
+      "record_merge",
+      "record_session",
+      "dispatch",
+    ]);
+  });
+
+  it("stays unavailable without a PR from either the run or its session", async () => {
+    stopAll();
+    const out = await dispatchRun(admin, request, deps({ devin: fakeDevin({}).client }));
+    const run = getRun(out.runId);
+    if (!run) throw new Error("no run");
+    const silent = fakeDevin({ snapshot: { status: "working", statusDetail: null, structuredOutput: output() } });
+    const outcome = await observeMerge(engineer, run, deps({ github: fakeGitHub({ merged: true }).client, devin: silent.client }));
+    expect(outcome).toEqual({ kind: "unavailable", reason: "The run has no pull request yet" });
+    expect(getRun(run.id)?.status).toBe("running");
   });
 
   it("builds an undo's context from the merged run's evidence, not the caller's", async () => {
@@ -747,7 +963,7 @@ describe("observeMerge and stopRun", () => {
   it("does not terminate a session for a stop the policy denies", async () => {
     const run = await approved();
     const devin = fakeDevin({});
-    const out = await stopRun(refundsAgent, run, "nope", deps({ devin: devin.client }));
+    const out = await stopRun(analyst, run, "nope", deps({ devin: devin.client }));
     expect(out.stop.outcome.status).not.toBe("applied");
     expect(devin.calls).toEqual([]);
     expect(getRun(run.id)?.status).toBe("approved");
@@ -1397,6 +1613,26 @@ describe("HTTP clients", () => {
     expect(await client.hasApprovingReview(ref, HEAD)).toBe(true);
     reviews = [];
     expect(await client.hasApprovingReview(ref, HEAD)).toBe(false);
+  });
+
+  it("GitHub client lists who approved at the head sha, with when and what they wrote", async () => {
+    const http = recorder({
+      "GET https://api.github.com/repos/o/r/pulls/7/reviews": () => [
+        { state: "APPROVED", commit_id: HEAD, user: { login: "rmtandon1" }, submitted_at: "2026-01-02T03:04:05Z", body: "LGTM" },
+        { state: "APPROVED", commit_id: HEAD, user: { login: "bot" }, submitted_at: null, body: null },
+        { state: "APPROVED", commit_id: "0".repeat(40), user: { login: "stale" }, submitted_at: "2026-01-01T00:00:00Z", body: "old head" },
+        { state: "CHANGES_REQUESTED", commit_id: HEAD, user: { login: "critic" }, submitted_at: "2026-01-02T00:00:00Z", body: "no" },
+        { state: "APPROVED", commit_id: HEAD, user: null, submitted_at: "2026-01-02T00:00:00Z", body: "ghost" },
+      ],
+    });
+    const client = httpGitHubClient("tok", http.fetchImpl);
+    const ref = parsePullUrl("https://github.com/o/r/pull/7");
+    if (!ref) throw new Error("parse failed");
+    expect(await client.listApprovingReviews(ref, HEAD)).toEqual([
+      { login: "rmtandon1", submittedAt: "2026-01-02T03:04:05Z", body: "LGTM" },
+      { login: "bot", submittedAt: "", body: "" },
+    ]);
+    expect(await client.hasApprovingReview(ref, HEAD)).toBe(true);
   });
 
   it("parsePullUrl rejects anything that is not a github.com pull request", () => {

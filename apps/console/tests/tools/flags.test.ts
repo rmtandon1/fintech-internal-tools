@@ -7,9 +7,8 @@ import type { Actor } from "@console/engine/types";
 import { flagTool } from "@console/tool-flags";
 import {
   admin,
-  kycManager,
-  kycReviewer,
-  refundsManager,
+  manager,
+  analyst,
   setupHarness,
 } from "../helpers/harness";
 import { expectRecordStatsMatchList } from "../helpers/stats";
@@ -39,25 +38,25 @@ function act(
 describe("feature flags", () => {
   it("keeps domain agents and reviewers out of flag changes", () => {
     expect(
-      act(kycReviewer, "enable", "flag_0009", { reason: "Not my domain" }).outcome,
+      act(analyst, "enable", "flag_0009", { reason: "Not a manager" }).outcome,
     ).toMatchObject({ code: "forbidden_role" });
   });
 
-  it("lets a refunds manager enable a non-production flag", () => {
-    const result = act(refundsManager, "enable", "flag_0009", {
-      reason: "Cross-domain flag ownership",
+  it("lets a manager enable a non-production flag", () => {
+    const result = act(manager, "enable", "flag_0009", {
+      reason: "Flag ownership",
     });
     expect(result.outcome.status).toBe("applied");
     expect(flagTool.get("flag_0009")?.status).toBe("on");
   });
 
   it("lets any manager pull a kill switch without an approval", () => {
-    const enabled = act(kycManager, "set_rollout", "flag_0002", {
+    const enabled = act(manager, "set_rollout", "flag_0002", {
       percent: 25,
       reason: "Primary acquirer degraded",
     });
     expect(enabled.outcome.status).toBe("applied");
-    const off = act(kycManager, "disable", "flag_0002", {
+    const off = act(manager, "disable", "flag_0002", {
       reason: "Primary acquirer recovered",
     });
     expect(off.outcome.status).toBe("applied");
@@ -65,7 +64,7 @@ describe("feature flags", () => {
   });
 
   it("requires a manager to enable a customer-facing production flag", () => {
-    const result = act(kycManager, "enable", "flag_0001", {
+    const result = act(manager, "enable", "flag_0001", {
       reason: "Ramp instant payouts to everyone",
     });
     if (result.outcome.status !== "pending_approval") {
@@ -78,7 +77,7 @@ describe("feature flags", () => {
   });
 
   it("requires an admin for a permission flag", () => {
-    const result = act(kycManager, "enable", "flag_0006", {
+    const result = act(manager, "enable", "flag_0006", {
       reason: "Re-enable the low-risk bypass",
     });
     if (result.outcome.status !== "pending_approval") {
@@ -94,14 +93,14 @@ describe("feature flags", () => {
   });
 
   it("allows a rollout step inside the limit and holds a larger one", () => {
-    const small = act(kycManager, "set_rollout", "flag_0009", {
+    const small = act(manager, "set_rollout", "flag_0009", {
       percent: 30,
       reason: "Next ledger cohort",
     });
     expect(small.outcome.status).toBe("applied");
     expect(flagTool.get("flag_0009")?.status).toBe("partial");
 
-    const large = act(kycManager, "set_rollout", "flag_0009", {
+    const large = act(manager, "set_rollout", "flag_0009", {
       percent: 100,
       reason: "Straight to everyone",
     });
@@ -114,7 +113,7 @@ describe("feature flags", () => {
   });
 
   it("holds a small rollout that raises customer-facing production traffic", () => {
-    const result = act(kycManager, "set_rollout", "flag_0012", {
+    const result = act(manager, "set_rollout", "flag_0012", {
       percent: 25,
       reason: "Start the digest cohort",
     });
@@ -128,7 +127,7 @@ describe("feature flags", () => {
   });
 
   it("leaves a customer-facing production decrease ungated", () => {
-    const result = act(kycManager, "set_rollout", "flag_0001", {
+    const result = act(manager, "set_rollout", "flag_0001", {
       percent: 10,
       reason: "Funding balance under pressure",
     });
@@ -137,7 +136,7 @@ describe("feature flags", () => {
   });
 
   it("treats a decrease as ordinary regardless of size", () => {
-    const result = act(kycManager, "set_rollout", "flag_0005", {
+    const result = act(manager, "set_rollout", "flag_0005", {
       percent: 0,
       reason: "Shadow scoring skewing the queue",
     });
@@ -146,7 +145,7 @@ describe("feature flags", () => {
   });
 
   it("routes a flag past its review date to a manager", () => {
-    const result = act(kycManager, "set_rollout", "flag_0010", {
+    const result = act(manager, "set_rollout", "flag_0010", {
       percent: 90,
       reason: "Keep legacy reconciliation running",
     });
@@ -159,7 +158,7 @@ describe("feature flags", () => {
   });
 
   it("keeps archiving with managers and admins", () => {
-    expect(act(kycReviewer, "archive", "flag_0007", { reason: "Code path removed" }).outcome)
+    expect(act(analyst, "archive", "flag_0007", { reason: "Code path removed" }).outcome)
       .toMatchObject({ code: "forbidden_role" });
     const archived = act(admin, "archive", "flag_0007", {
       reason: "Bulk refunds shipped without a flag",
@@ -169,7 +168,7 @@ describe("feature flags", () => {
   });
 
   it("refuses to change an archived flag", () => {
-    const result = act(kycManager, "set_rollout", "flag_0007", {
+    const result = act(manager, "set_rollout", "flag_0007", {
       percent: 50,
       reason: "Bring it back",
     });
@@ -178,22 +177,22 @@ describe("feature flags", () => {
 
   it("rejects a rollout outside 0-100 and an empty reason", () => {
     expect(
-      act(kycManager, "set_rollout", "flag_0003", { percent: 140, reason: "Too far" })
+      act(manager, "set_rollout", "flag_0003", { percent: 140, reason: "Too far" })
         .outcome,
     ).toMatchObject({ code: "invalid_input" });
     expect(
-      act(kycManager, "set_rollout", "flag_0003", { percent: 50, reason: "no" }).outcome,
+      act(manager, "set_rollout", "flag_0003", { percent: 50, reason: "no" }).outcome,
     ).toMatchObject({ code: "invalid_input" });
   });
 
   it("records the actor and bumps the version on every change", () => {
     const before = flagTool.get("flag_0011");
-    const result = act(kycManager, "disable", "flag_0011", {
+    const result = act(manager, "disable", "flag_0011", {
       reason: "SMS provider outage",
     });
     expect(result.outcome.status).toBe("applied");
     const after = flagTool.get("flag_0011");
-    expect(after?.lastChangedBy).toBe(kycManager.id);
+    expect(after?.lastChangedBy).toBe(manager.id);
     expect(after?.version).toBe((before?.version ?? 0) + 1);
   });
 });
@@ -235,7 +234,7 @@ describe("feature flag switches", () => {
     const { rows } = flagTool.list({ filters: {}, limit: 500, offset: 0 });
     for (const row of rows) {
       const action = row[toggle.field] ? toggle.off : toggle.on;
-      const preview = previewActions(flagTool, row, kycManager).find((p) => p.action === action);
+      const preview = previewActions(flagTool, row, manager).find((p) => p.action === action);
       expect(preview?.offered, `${row.key} (${row.status})`).toBe(row.status !== "archived");
     }
   });
@@ -243,7 +242,7 @@ describe("feature flag switches", () => {
   it("turns a flag off through the write path when its switch is flipped", () => {
     const { rows } = flagTool.list({ filters: { status: "on" }, limit: 1, offset: 0 });
     const flag = rows[0];
-    const result = act(kycManager, toggle.off, flag.id, { reason: "Switch flipped off in test" });
+    const result = act(manager, toggle.off, flag.id, { reason: "Switch flipped off in test" });
     expect(result.outcome.status).toBe("applied");
     expect(flagTool.get(flag.id)?.[toggle.field]).toBe(0);
   });

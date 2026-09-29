@@ -66,7 +66,6 @@ export type {
 
 export const MANAGER_REVIEW_SCORE_KEY = "kyc.manager_review_score";
 export const COMPANIES_HOUSE_CHECK_KEY = "kyc.companies_house_check";
-export const ADMIN_REVIEW_SCORE_KEY = "kyc.admin_review_score";
 export const PROHIBITED_COUNTRIES_KEY = "kyc.prohibited_countries";
 
 const OPEN_STATUSES = ["pending_review", "info_requested", "escalated"];
@@ -108,17 +107,7 @@ const countryPermitted: CaseRule = ({ record, constants }) => {
 
 const riskTierApproval: CaseRule = ({ record, constants }) => {
   const managerScore = constants.number(MANAGER_REVIEW_SCORE_KEY, 70);
-  const adminScore = constants.number(ADMIN_REVIEW_SCORE_KEY, 85);
   const score = record?.riskScore ?? 0;
-  if (score >= adminScore) {
-    return {
-      type: "require_approval",
-      rule: "risk_tier_approval",
-      tier: "admin",
-      allowedRoles: ["admin"],
-      reason: "Risk score exceeds admin threshold",
-    };
-  }
   if (score >= managerScore) {
     return {
       type: "require_approval",
@@ -214,7 +203,7 @@ export const kycTool = defineTool<KycCase>({
   icon: "IdCard",
   group: "Risk & Compliance",
   recordType: "kyc_case",
-  visibleTo: rolesFor("kyc", "agent"),
+  visibleTo: [...rolesFor("kyc", "agent"), "admin"],
   fields: [
     { name: "customerName", label: "Customer", type: "string" },
     { name: "email", label: "Email", type: "string", isPII: true },
@@ -295,39 +284,39 @@ export const kycTool = defineTool<KycCase>({
     {
       key: "pending_review",
       label: "Pending review",
-      roles: ["kyc_reviewer"],
+      roles: ["analyst"],
       source: { kind: "records", filters: { status: "pending_review" } },
     },
     {
       key: "high_risk_pending",
       label: "High risk pending",
-      roles: ["kyc_reviewer"],
+      roles: ["analyst"],
       tone: "warning",
       source: { kind: "records", filters: { status: "pending_review", riskTier: "high" } },
     },
     {
       key: "due_12h",
       label: "Due in 12h",
-      roles: ["kyc_reviewer"],
+      roles: ["analyst"],
       source: { kind: "records", filters: { due: "due_12h" } },
     },
     {
       key: "overdue",
       label: "Overdue",
-      roles: ["kyc_manager"],
+      roles: ["manager"],
       tone: "warning",
       source: { kind: "records", filters: { due: "overdue" } },
     },
     {
       key: "escalated",
       label: "Escalated",
-      roles: ["kyc_manager"],
+      roles: ["manager"],
       source: { kind: "records", filters: { status: "escalated" } },
     },
     {
       key: "awaiting_approval",
       label: "Need your approval",
-      roles: ["kyc_manager", "admin"],
+      roles: ["manager"],
       source: { kind: "approvals", scope: "decidable" },
     },
     {
@@ -365,7 +354,7 @@ export const kycTool = defineTool<KycCase>({
   ],
   statusField: "status",
   titleField: "customerName",
-  revealRoles: rolesFor("kyc", "manager"),
+  revealRoles: ["manager", "admin"],
   openStatuses: OPEN_STATUSES,
   attention: (r, now) =>
     OPEN_STATUSES.includes(r.status) && r.dueAt < now ? "overdue" : null,
@@ -376,13 +365,6 @@ export const kycTool = defineTool<KycCase>({
       value: 70,
       type: "number",
       description: "Approving a customer at or above this risk score needs a manager.",
-      tool: "kyc",
-    },
-    {
-      key: ADMIN_REVIEW_SCORE_KEY,
-      value: 85,
-      type: "number",
-      description: "Approving a customer at or above this risk score needs an admin.",
       tool: "kyc",
     },
     {

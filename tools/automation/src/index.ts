@@ -53,7 +53,7 @@ export interface DevinRun extends GovernedRecord {
   version: number;
 }
 
-export const AUTOMATION_ROLES: Role[] = ["refunds_manager", "kyc_manager", "admin", "engineer"];
+export const AUTOMATION_ROLES: Role[] = ["manager", "admin", "engineer"];
 
 const STATUS_LABELS: Record<(typeof RUN_STATUSES)[number], string> = {
   dispatched: "Sent to Devin",
@@ -83,10 +83,6 @@ type DispatchInput = z.infer<typeof DispatchInput>;
 
 type RunRule<TInput> = Rule<DevinRun, TInput>;
 
-const allow =
-  <TInput>(rule: string): RunRule<TInput> =>
-  () => ({ type: "allow", rule });
-
 /** The spec must be one the console knows; every spec offers both operations. */
 const specKnown: RunRule<DispatchInput> = ({ input }) => {
   if (!getSpec(input.spec)) {
@@ -96,15 +92,13 @@ const specKnown: RunRule<DispatchInput> = ({ input }) => {
 };
 
 /**
- * DEVIN_RUN_PROTOCOL.md § Operations: the manager of the spec's domain or
- * the admin may ask for a change; only the admin may ask for an undo, or for
- * a change on a spec with no domain.
+ * Managers may ask for a change on a domain spec; admins may also ask for
+ * changes and are the only role that may ask for an undo.
  */
 export function roleMayStart(role: Role, spec: RunnableSpec, operation: Operation): boolean {
-  const meta = ROLE_META[role];
-  if (meta.level === "admin") return true;
+  if (role === "admin") return true;
   if (operation === "undo") return false;
-  return meta.level === "manager" && spec.domain !== null && meta.domain === spec.domain;
+  return role === "manager" && spec.domain !== null;
 }
 
 /** The operations of `spec` that `role` may dispatch. */
@@ -216,11 +210,11 @@ const contextMatchesDispatch: RunRule<ApproveInput> = ({ record, input }) =>
       }
     : { type: "allow", rule: "context_matches_dispatch" };
 
-/** A manager touches only runs against their own domain; admin and engineer see all. */
+/** Managers may act on domain runs; admin and engineer see all. */
 const actorOwnsRunDomain: RunRule<unknown> = ({ actor, record }) => {
   const meta = ROLE_META[actor.role];
   const spec = record ? getSpec(record.spec) : undefined;
-  const ok = meta.level !== "manager" || (spec !== undefined && spec.domain === meta.domain);
+  const ok = actor.role !== "manager" || (spec !== undefined && spec.domain !== null);
   return ok
     ? { type: "allow", rule: "actor_owns_run_domain" }
     : {
@@ -257,6 +251,14 @@ const RecordMergeInput = z.object({
   prUrl: z.string().url(),
 });
 type RecordMergeInput = z.infer<typeof RecordMergeInput>;
+
+export const MERGED_WITHOUT_APPROVAL_NOTE = "Merged on GitHub without a recorded approval";
+
+/** A merge is a fact GitHub reports; one recorded before any approval is allowed, and named. */
+const mergeRecordsApprovalGap: RunRule<RecordMergeInput> = ({ record }) =>
+  record?.status === "approved"
+    ? { type: "allow", rule: "merge_follows_approval" }
+    : { type: "allow", rule: "merge_without_recorded_approval", message: MERGED_WITHOUT_APPROVAL_NOTE };
 
 const StopInput = z.object({ reason: z.string().min(1).max(500) });
 
@@ -355,7 +357,7 @@ export const automationTool = defineTool<DevinRun>({
       name: "dispatch",
       label: "Ask Devin",
       description: "Ask Devin to run a spec. Creates the run; the session is recorded separately.",
-      allowedRoles: ["refunds_manager", "kyc_manager", "admin"],
+      allowedRoles: ["manager", "admin"],
       input: DispatchInput,
       createsRecord: true,
       tone: "primary",
@@ -407,7 +409,7 @@ export const automationTool = defineTool<DevinRun>({
       name: "record_session",
       label: "Record session",
       description: "Store the Devin session id and URL, or the reason the dispatch failed.",
-      allowedRoles: ["refunds_manager", "kyc_manager", "admin"],
+      allowedRoles: ["manager", "admin"],
       input: RecordSessionInput,
       fromStatus: ["dispatched"],
       rules: [actorOwnsRunDomain],
@@ -465,14 +467,19 @@ export const automationTool = defineTool<DevinRun>({
     defineAction<DevinRun, typeof RecordMergeInput, Transition>({
       name: "record_merge",
       label: "Record merge",
-      description: "Store the merge commit once the approved PR has landed.",
+      description: "Store the merge commit once the PR has landed, approved from the console or not.",
       allowedRoles: ["engineer", "admin"],
       input: RecordMergeInput,
-      fromStatus: ["approved"],
-      rules: [allow("merge_follows_approval")],
-      decide: ({ input }) => ({
+      fromStatus: ["approved", "running"],
+      rules: [mergeRecordsApprovalGap],
+      decide: ({ record, input }) => ({
         summary: `Merged as ${input.mergeCommit.slice(0, 12)}`,
-        patch: { status: "merged", mergeCommit: input.mergeCommit, prUrl: input.prUrl },
+        patch: {
+          status: "merged",
+          mergeCommit: input.mergeCommit,
+          prUrl: input.prUrl,
+          ...(record?.status === "approved" ? {} : { note: MERGED_WITHOUT_APPROVAL_NOTE }),
+        },
         nextStatus: "merged",
       }),
       apply: (ctx, decision) => transition(ctx, decision.patch),
@@ -481,7 +488,7 @@ export const automationTool = defineTool<DevinRun>({
       name: "stop",
       label: "Stop",
       description: "Stop the run. The session ends and its PR, if any, is not merged.",
-      allowedRoles: ["refunds_manager", "kyc_manager", "admin", "engineer"],
+      allowedRoles: ["manager", "admin", "engineer"],
       input: StopInput,
       fromStatus: ["dispatched", "running", "approved"],
       tone: "destructive",

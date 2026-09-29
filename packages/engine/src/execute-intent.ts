@@ -184,6 +184,26 @@ function runGoverned(
 
   // 4. approval — freeze payload, decision, trace and record version; stop here.
   if (policy.effect === "require_approval") {
+    if (action.routeToApprover) {
+      if (!policy.allowedRoles?.includes(actor.role)) {
+        return fail(
+          "forbidden_role",
+          `Needs a ${policy.tier ?? "manager"}: ${policy.reason ?? "Approval required"}`,
+        );
+      }
+
+      return applyEffect(tx, {
+        actor,
+        decl,
+        action,
+        record,
+        input,
+        trace: policy.trace,
+        event: "applied",
+        recordId: intent.recordId,
+      });
+    }
+
     const decision = action.decide(ctx);
     const approvalId = ulid();
     const reason = policy.reason ?? "Approval required";

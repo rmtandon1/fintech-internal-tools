@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { and, eq, like } from "drizzle-orm";
+import { eq, like } from "drizzle-orm";
 import { db } from "@console/db";
 import { auditLog } from "@console/db-core/engine-schema";
 import { registerConstants } from "@console/engine/policy/register";
@@ -16,9 +16,9 @@ function scenarioRows() {
 
 function auditRowsFor(recordId: string) {
   return db
-    .select({ id: auditLog.id, actorRole: auditLog.actorRole, action: auditLog.action })
+    .select({ id: auditLog.id, action: auditLog.action })
     .from(auditLog)
-    .where(and(eq(auditLog.tool, "refunds"), eq(auditLog.recordId, recordId)))
+    .where(eq(auditLog.recordId, recordId))
     .all();
 }
 
@@ -29,14 +29,15 @@ beforeAll(() => {
 });
 
 describe("courier-outage scenario", () => {
-  it("inserts 60 deterministic Fernhill Home refunds and submits each through the engine", () => {
+  it("inserts 60 deterministic Fernhill Home refunds and counts live manager routing", () => {
     const now = Date.now();
     const summary = courierOutage(now);
 
     expect(summary.inserted).toBe(60);
-    expect(summary.submitted).toBe(60);
-    expect(summary.applied + summary.pendingApproval + summary.denied).toBe(60);
-    expect(summary.errors).toBe(0);
+    const managerRows = refundTool
+      .list({ filters: { queue: "manager" }, limit: 1000, offset: 0 })
+      .rows.filter((row) => row.id.startsWith("rfnd_10") && row.merchant === "Fernhill Home");
+    expect(summary.inManagerQueue).toBe(managerRows.length);
 
     const rows = scenarioRows();
     expect(rows).toHaveLength(60);
@@ -52,16 +53,11 @@ describe("courier-outage scenario", () => {
       expect(r.amountMinor).toBeLessThanOrEqual(45_000);
       expect(r.requestedAt).toBeGreaterThanOrEqual(now - 48 * 60 * 60 * 1000);
       expect(r.requestedAt).toBeLessThanOrEqual(now);
+      expect(auditRowsFor(r.id)).toEqual([]);
     }
     expect(new Set(rows.map((r) => r.customerEmail)).size).toBe(60);
     expect(new Set(rows.map((r) => r.cardLast4)).size).toBe(60);
     expect(new Set(rows.map((r) => r.amountMinor)).size).toBe(60);
-
-    for (const r of rows) {
-      const audit = auditRowsFor(r.id);
-      expect(audit).toHaveLength(1);
-      expect(audit[0]).toMatchObject({ actorRole: "refunds_agent", action: "execute" });
-    }
   });
 
   it("adds nothing on a second run", () => {
@@ -71,8 +67,6 @@ describe("courier-outage scenario", () => {
     const summary = courierOutage();
 
     expect(summary.inserted).toBe(0);
-    expect(summary.submitted).toBe(0);
-    expect(summary.skipped).toBe(60);
     expect(scenarioRows()).toEqual(rowsBefore);
     expect(db.select({ id: auditLog.id }).from(auditLog).all().length).toBe(auditBefore);
   });
@@ -87,7 +81,7 @@ describe("courier-outage scenario", () => {
     const summary = courierOutage();
 
     expect(summary.collisions).toEqual(["rfnd_1060"]);
-    expect(summary.submitted).toBe(0);
+    expect(summary.inserted).toBe(0);
     expect(refundTool.get("rfnd_1060")?.status).toBe("requested");
     expect(auditRowsFor("rfnd_1060")).toHaveLength(auditBefore);
   });

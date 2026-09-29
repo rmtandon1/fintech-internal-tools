@@ -91,12 +91,12 @@ export const REFUND_CLUSTERING_HOLD: RunnableSpec = {
   },
   summaries: {
     change:
-      "Devin is holding split refunds that add up past the manager limit.",
+      "Devin is routing split refunds that add up past the manager limit to the manager's queue.",
     undo: "Devin is removing the split-refund hold, keeping everything merged since.",
   },
   outcomes: {
     change:
-      "A merchant's \"not received\" refunds go to a manager once together they pass the manager limit, and those customers' KYC approvals go to a manager too.",
+      "A merchant's \"not received\" refunds go to the manager's queue once together they pass the manager limit, where the manager can pay or reject them; those customers' KYC approvals go to a manager too.",
     undo: "The refund hold and the linked KYC rule are removed. Refunds and KYC approvals work as they did before.",
   },
   constantKeys: [MANAGER_APPROVAL_USD_KEY, MANAGER_REVIEW_SCORE_KEY],
@@ -104,11 +104,11 @@ export const REFUND_CLUSTERING_HOLD: RunnableSpec = {
   acceptance: {
     change: [
       "The first refund in a cluster whose running total is under the manager line is applied.",
-      "The refund that takes the merchant's `not_received` total over the manager line within the window goes to `pending_approval` at the manager tier. The trace names `clustering_hold`, the merchant and the running total.",
-      "Every later refund in the same cluster is also held.",
+      "The refund that takes the merchant's `not_received` total over the manager line within the window needs a manager: it leaves the analyst's queue for the manager's. The trace names `clustering_hold`, the merchant and the running total.",
+      "Every later refund in the same cluster is routed to the manager's queue too.",
       "A `faulty` refund from the same merchant is not affected.",
       "Rejected refunds don't count toward the total.",
-      "With `refunds.clustering_window_days` at 0, nothing is held. This is the KILL_SWITCH setting.",
+      "With `refunds.clustering_window_days` at 0, `clustering_hold` reads allow and no refund is routed by this rule. This is the KILL_SWITCH setting.",
       "Approving a case whose email matches a customer in a held cluster needs a manager, whatever the risk score. The trace names `linked_refund_hold`.",
       "A case whose customer has no held refunds is unchanged. Score 68 still clears.",
       "The existing KYC and refund tests that count or order the rules are changed on purpose and named in the plan; no test is lost.",
@@ -117,7 +117,7 @@ export const REFUND_CLUSTERING_HOLD: RunnableSpec = {
       "`pnpm verify` is green.",
       "The eight hold tests are gone, and the plan names them. No other test is lost.",
       "Against the change's base commit, every file it touched is back to its pre-merge content except later merged work, and nothing else changes.",
-      "After merge, executing the next Kestrel refund settles it, as it did before the change.",
+      "After merge, the next Kestrel refund is back in the analyst's queue and settles when sent, as it did before the change.",
     ],
   },
 };
@@ -188,7 +188,7 @@ export const CHARGEBACKS_FROM_POWER_APPS: RunnableSpec = {
   sendSpec: true,
   intents: {
     change:
-      "Start moving the Chargebacks Power App into the console, from the export in fixtures/power-apps/chargebacks. This is the first pull request, not the whole app: the queue with its fields, seeded from disputes.csv; the deadline alert as a count on the queue; and the two riskiest rules, fraud accepts over $500 and fights over $2,500, each needing a refunds manager. Use the refunds roles. In the pull request, list every formula and flow step as done or still to do. Put the app behind the feature flag `app.chargebacks` in Feature flags: set the mode's `flag` and seed the row off and not customer-facing in `tools/flags/src/seed.ts` for fresh databases — the console registers it on start for existing ones — so an admin turns it on after the merge.",
+      "Start moving the Chargebacks Power App into the console, from the export in fixtures/power-apps/chargebacks. This is the first pull request, not the whole app: the queue with its fields, seeded from disputes.csv; the deadline alert as a count on the queue; and the two riskiest rules, fraud accepts over $500 and fights over $2,500, each needing a manager. Use the existing Analyst and Manager roles. In the pull request, list every formula and flow step as done or still to do. Put the app behind the feature flag `app.chargebacks` in Feature flags: set the mode's `flag` and seed the row off and not customer-facing in `tools/flags/src/seed.ts` for fresh databases — the console registers it on start for existing ones — so an admin turns it on after the merge.",
     undo: "Remove the Chargebacks app: its tool, tables, seed and registry lines, and keep every change made since.",
   },
   summaries: {
@@ -208,8 +208,8 @@ export const CHARGEBACKS_FROM_POWER_APPS: RunnableSpec = {
       "The pull request lists every formula and flow step from the export as done in this pull request or still to do.",
       "The queue shows the export's fields, seeded from disputes.csv with each date's offset from the export time kept, so three disputes are due soon on the day of the demo.",
       "A count on the queue shows open disputes over $1,000 due within 48 hours.",
-      "Accepting a fraud dispute over $500, and fighting one over $2,500, each need a refunds manager.",
-      "The refunds roles work it; nothing new in the role catalog.",
+      "Accepting a fraud dispute over $500, and fighting one over $2,500, each need a manager.",
+      "The manager role works it; nothing new in the role catalog.",
       "New files sit under `tools/chargebacks/`, plus a registry line, a schema re-export, a migration and the lockfile; nothing under `packages/`.",
       "The app sits behind the `app.chargebacks` feature flag: the mode's `flag` is `app.chargebacks`, and the row is seeded off and not customer-facing in `tools/flags/src/seed.ts` for fresh databases — the console registers it on start for existing ones; the tile reads Switched off until an admin turns it on.",
     ],

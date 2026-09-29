@@ -11,7 +11,7 @@ import {
   refundTool,
 } from "@console/tool-refunds";
 import { refunds } from "@console/tool-refunds/schema";
-import { admin, refundsAgent, setupHarness } from "../helpers/harness";
+import { admin, analyst, setupHarness } from "../helpers/harness";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -55,7 +55,7 @@ describe("refunds clusters", () => {
     for (const id of kestrel.recordIds) {
       const record = refundTool.get(id);
       if (!record) throw new Error(`missing ${id}`);
-      const preview = previewActions(refundTool, record, refundsAgent).find(
+      const preview = previewActions(refundTool, record, analyst).find(
         (p) => p.action === "execute",
       );
       expect(preview?.decision?.effect).toBe("allow");
@@ -109,6 +109,22 @@ describe("refunds clusters", () => {
       .run();
   });
 
+  it("refunds sent to the processor count toward the total and are reported as sent", () => {
+    expect(notReceivedByMerchant()[0].sentUsdMinor).toBe(0);
+    db.update(refunds)
+      .set({ status: "executing" })
+      .where(eq(refunds.id, "rfnd_0013"))
+      .run();
+    const kestrel = notReceivedByMerchant().find((g) => g.key === "Kestrel Outdoors");
+    expect(kestrel?.totalUsdMinor).toBe(188_000);
+    expect(kestrel?.sentUsdMinor).toBe(46_000);
+
+    db.update(refunds)
+      .set({ status: "requested" })
+      .where(eq(refunds.id, "rfnd_0013"))
+      .run();
+  });
+
   it("aggregates contain no PII fields", () => {
     const piiFields = refundTool.fields.filter((f) => f.isPII).map((f) => f.name);
     expect(piiFields.length).toBeGreaterThan(0);
@@ -119,6 +135,7 @@ describe("refunds clusters", () => {
         "count",
         "qualifier",
         "totalUsdMinor",
+        "sentUsdMinor",
         "windowDays",
         "recordIds",
         "headline",
