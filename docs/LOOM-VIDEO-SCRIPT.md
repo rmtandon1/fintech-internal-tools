@@ -66,6 +66,8 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Click **Ask Devin for a rule**.]
 
+[Type the first words, press Tab.]
+
 > "A manager asks Devin for a rule that adds them up."
 
 [Point at the sentence, the four refunds, the two limits.]
@@ -210,11 +212,13 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Click **Ask Devin to add a check**.]
 
+[Type the first words, press Tab.]
+
 > "Adding a check to onboarding is an admin's request, not the reviewer's."
 
 [Point at **What Devin will see**: name, number, country.]
 
-> "Devin gets the company's public registration, no person's data, and a request to read the Companies House docs itself."
+> "One sentence, written like a ticket: a connector, an action, and the rule it feeds. How to build it — the key, the timeout, failing closed, shipping switched off — is in the repo's house rules, not the prompt."
 
 [Click **Send to Devin**.]
 
@@ -232,7 +236,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Switch role: Admin.]
 
-[In **Rule settings**, set `kyc.companies_house_check` to 1.]
+[In **Rule settings**, set the Companies House setting to 1.]
 
 > "It merged switched off. Turning it on is a separate change, with its own audit row."
 

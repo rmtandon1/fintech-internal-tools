@@ -18,7 +18,7 @@ Nothing in the console connects those facts, and no rule catches them.
 
 ### Intent
 
-The sentence the requester sends, prefilled from the cluster drawer and editable:
+The sentence the requester sends. The request box starts empty and offers it as a grey suggestion Tab accepts; the requester may type their own:
 
 > Once a merchant's "not received" refunds add up past the manager limit, send them to a manager for approval. Send those customers' KYC approvals to a manager too.
 

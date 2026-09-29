@@ -40,17 +40,11 @@ and Devin reads only the section marked as sent to Devin (`.devin/run-protocol.p
 
 ## The request (sent to Devin)
 
-Prefilled from `tools/automation/src/specs.ts`, and editable:
+Suggested from `tools/automation/src/specs.ts` — the request box starts empty and Tab fills it;
+the requester may type their own:
 
-> Start moving the Chargebacks Power App into the console, from the export in
-> fixtures/power-apps/chargebacks. This is the first pull request, not the whole app: the queue with
-> its fields, seeded from disputes.csv; the deadline alert as a count on the queue; and the two
-> riskiest rules, fraud accepts over $500 and fights over $2,500, each needing a refunds manager.
-> Use the refunds roles. In the pull request, list every formula and flow step as done or still
-> to do. Put the app behind the feature flag `app.chargebacks` in Feature flags: set the mode's
-> `flag` and seed the row off and not customer-facing in `tools/flags/src/seed.ts` for fresh
-> databases — the console registers it on start for existing ones — so an admin turns it on
-> after the merge.
+> Start moving the Chargebacks Power App into the console from its export: the queue and the
+> two riskiest rules first, the rest listed as still to do.
 
 ## Where it starts
 

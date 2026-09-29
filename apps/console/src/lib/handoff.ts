@@ -26,6 +26,7 @@ export interface HandoffOffer {
   /** The panel's heading and the one line under it, from the spec. */
   title: string;
   description: string;
+  /** The spec's suggestion for the request: for a change the box starts empty and Tab fills it; for an undo it is shown read-only. */
   intent: string;
   evidenceKey: string;
   evidenceIds: string[];

@@ -26,7 +26,7 @@ The inspection exists to act on the queue beside it. A drawer keeps the list vis
 
 1. `/t/refunds` shows a strip above the table: `Kestrel Outdoors · 4 not_received · $1,880 · 14d`.
 2. Clicking it opens the drawer. The drawer shows the group total, the rows behind it (PII masked per role), and the rules that ran on each row, all of which allowed it.
-3. **Ask Devin for a rule** opens the handoff panel with the intent sentence prefilled from the spec. The operator can edit it. Starting the run submits `automation.dispatch` through `submitIntent`, so it follows the same governed path and writes the same kind of audit row as everything else. How the panel behaves from there is in `AGENT_TRIGGER_SURFACE.md`.
+3. **Ask Devin for a rule** opens the handoff panel with the request box empty, the spec's sentence offered as a grey suggestion Tab accepts. The operator can type their own. Starting the run submits `automation.dispatch` through `submitIntent`, so it follows the same governed path and writes the same kind of audit row as everything else. How the panel behaves from there is in `AGENT_TRIGGER_SURFACE.md`.
 4. Until a rule exists, the drawer reads: "No rule covers this pattern."
 
 ### On camera

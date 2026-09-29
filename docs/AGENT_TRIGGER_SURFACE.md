@@ -3,7 +3,7 @@
 ## Summary
 
 - A Devin run starts from the screen that shows why it is needed: the cluster drawer, a rule's row, or a merged change. The request carries that screen's evidence with it.
-- The handoff panel holds one editable sentence, plus the evidence, allowed paths and mode the system fills in. The requester sees exactly what Devin will see.
+- The handoff panel holds the requester's sentence — the box starts empty, with the spec's short sentence as a grey suggestion Tab accepts — plus the evidence, allowed paths and mode the system fills in. The requester sees exactly what Devin will see.
 - The run view shows the artifacts an engineer would check: planned files, lines changed, test counts and the four CI checks by name. The finished run is the still the demo pauses on.
 - The approval dialog is where the human gate shows: an engineer who didn't request the run approves, then Devin merges.
 - Run mechanics live in `DEVIN_RUN_PROTOCOL.md`. This file covers the UI around them.
@@ -29,7 +29,7 @@ Switching a rule off uses the existing constant editor. The rule's spec names wh
 
 It opens in the Devin window (`apps/console/src/components/agent-window.tsx`; controls in `CONSOLE_ROLE_VIEWS.md`) and holds:
 
-- **Intent**: one sentence, prefilled from the spec and editable. This is the only free text in the flow.
+- **Intent**: starts empty, with the spec's short sentence as a grey suggestion Tab accepts; the requester can type their own. The only free text in the flow.
 - **Evidence**: what goes into the run's context: cluster rows with PII dropped, the live constants the rule depends on, and the base commit. It is shown so the requester sees exactly what Devin will see.
 - **Scope**: the files the spec allows, read-only.
 - **Start run**: submits the dispatch intent. A policy denial shows in the standard `PolicyTrace`, for example "a run is already in flight on refunds".
@@ -151,7 +151,7 @@ Refund rule · Evidence: Kestrel Outdoors cluster · 4 refunds
 Context attached · Scope governed        [ Ask Devin ]
 ```
 
-Keep it one sentence. Don't grow the field into a specification form. The sentence doesn't mention the window, rejected refunds or frozen-FX amounts; Devin handles each, and that gap is what the viewer should notice.
+Keep it one sentence. Don't grow the field into a specification form. The rules every change must follow live in the protocol's House rules, so the sentence carries only the business need and, optionally, the object it touches (e.g. Declared vs found). The sentence doesn't mention the window, rejected refunds or frozen-FX amounts; Devin handles each, and that gap is what the viewer should notice.
 
 **Which requests take a sentence.**
 

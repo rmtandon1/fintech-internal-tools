@@ -404,7 +404,7 @@ manager limit alone, and total $1,880 together.
    monitor and click **Ask Devin for a rule**.
 3. Read **What Devin will see**: the four refunds, the $500 and score-70 limits, and the start
    commit. No names, emails or card numbers.
-4. Keep or edit **The request**. The prefilled sentence is:
+4. Type or accept **The request**. The suggested sentence, filled in with Tab, is:
    > Once a merchant's "not received" refunds add up past the manager limit, send them to a
    > manager for approval. Send those customers' KYC approvals to a manager too.
 5. Click **Send to Devin**. The Devin window switches to the run view. *(async, 30–60 minutes)*

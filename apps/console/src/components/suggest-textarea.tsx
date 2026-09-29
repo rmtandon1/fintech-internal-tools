@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Textarea } from "@console/ui/textarea";
+import { cn } from "@console/ui/utils";
 
 /**
  * A message box that offers a short ready-made message as grey text. Tab
@@ -14,6 +15,7 @@ export function SuggestTextarea({
   value: controlled,
   onChange,
   rows = 3,
+  className,
   ...props
 }: Omit<React.ComponentProps<"textarea">, "value" | "onChange"> & {
   suggestion: string | null | undefined;
@@ -45,7 +47,7 @@ export function SuggestTextarea({
             set(suggestion);
           }
         }}
-        className={offer ? "pr-16" : undefined}
+        className={cn(className, offer && "pr-16")}
       />
       {offer ? (
         <kbd className="pointer-events-none absolute right-2 bottom-2 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">

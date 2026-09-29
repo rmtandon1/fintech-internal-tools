@@ -91,9 +91,9 @@ Viewing as → admin → /roadmap/chargebacks → Ask Devin to start this app �
 
 **What happens**
 
-- The request is prefilled and editable: move the queue, the deadline count and the two
-  riskiest rules; put the app behind `app.chargebacks`, off; list every formula and flow step
-  as done or still to do.
+- The request box starts empty, with a suggested sentence Tab accepts: move the queue, the
+  deadline count and the two riskiest rules; put the app behind `app.chargebacks`, off; list
+  every formula and flow step as done or still to do.
 - The context lists the export's files with their line counts. Devin reads the files
   themselves from the repository.
 - This request, unlike a rule, sends its brief: the prompt names
