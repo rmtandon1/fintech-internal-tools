@@ -68,6 +68,8 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Type the first words, press Tab.]
 
+> "The grey text is a suggestion saved with this change in the repo, so the take reads the same every time. Tab accepts it; a manager can type their own words instead."
+>
 > "A manager asks Devin for a rule that adds them up."
 
 [Point at the sentence, the four refunds, the two limits.]
