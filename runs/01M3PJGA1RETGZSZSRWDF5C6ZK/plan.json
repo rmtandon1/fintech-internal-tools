@@ -1,0 +1,80 @@
+{
+  "files": [
+    {
+      "path": "tools/kyc/src/companies-house.ts",
+      "op": "create",
+      "reason": "Companies House company-profile lookup by registration number: GET /company/{company_number} with the API key as the HTTP Basic username when COMPANIES_HOUSE_API_KEY is set, recorded responses labelled test data otherwise; maps company_status dissolved or liquidation and accounts.next_accounts.overdue to material Declared vs found findings, and 404, errors or timeouts to couldn't check"
+    },
+    {
+      "path": "tools/kyc/src/companies-house-recorded.ts",
+      "op": "create",
+      "reason": "Recorded Companies House company-profile responses used without an API key; 09318842 is late with its accounts, plus an active, a dissolved and a liquidation profile"
+    },
+    {
+      "path": "tools/kyc/src/index.ts",
+      "op": "modify",
+      "reason": "Add the check_companies_house KYC action through executeIntent: companies_house_check_on denies while kyc.companies_house_check is 0 so cases stay unchanged, uk_business_case denies non-UK and consumer cases; apply writes the company_registry check and Companies House rows to kyc_discrepancies; approval stays held by the existing declared_vs_found rule; add rule labels and fields"
+    },
+    {
+      "path": ".env.example",
+      "op": "modify",
+      "reason": "Document the optional server-only COMPANIES_HOUSE_API_KEY and that without it the check uses recorded test data"
+    },
+    {
+      "path": "apps/console/tests/tools/kyc-companies-house.test.ts",
+      "op": "create",
+      "reason": "Cover setting off leaves cases unchanged, UK business only, recorded test data, 09318842 late with accounts held for a manager, active, dissolved, liquidation, failed lookup, live Basic auth, refused live connection, key never stored, and re-running without duplicates or new approve rules"
+    },
+    {
+      "path": "apps/console/tests/tools/kyc-case-file.test.ts",
+      "op": "modify",
+      "reason": "Asserts kyc_0104 approves straight through with zero material differences and approve's exact rule order; both must still hold with the setting off, modified only if one of those assertions moves"
+    },
+    {
+      "path": "apps/console/tests/tools/kyc.test.ts",
+      "op": "modify",
+      "reason": "Asserts refused actions, input validation and that no seeded approved case breaks the approval rules; the new check_companies_house action joins the KYC action list, modified only if an assertion moves"
+    },
+    {
+      "path": "apps/console/tests/engine/approvals.test.ts",
+      "op": "modify",
+      "reason": "Iterates every KYC action asserting engineers get forbidden_role; check_companies_house joins that loop, modified only if the assertion moves"
+    }
+  ],
+  "reuses": [
+    {
+      "module": "@console/engine/execute-intent",
+      "reason": "The lookup is a KYC action on the single governed write path, so it is validated, policy-checked, audited and idempotent like every other write"
+    },
+    {
+      "module": "tools/kyc/src/index.ts#declaredVsFound",
+      "reason": "Material Companies House rows are held for a KYC manager by the existing declared_vs_found rule; approve gains no new rule"
+    },
+    {
+      "module": "tools/kyc/src/case-file.ts",
+      "reason": "CheckResult, KycDiscrepancy and the live materialDifferences count carry the result to the Checks and Declared vs found panels"
+    },
+    {
+      "module": "tools/kyc/src/schema.ts",
+      "reason": "Results are stored in the existing kyc_checks and kyc_discrepancies tables; no migration"
+    },
+    {
+      "module": "@console/engine/policy/constants",
+      "reason": "kyc.companies_house_check is the setting the KYC tool already declares with default 0; rules read it fresh on every evaluation and admins change it in rule settings"
+    }
+  ],
+  "acceptance": [
+    "with kyc.companies_house_check off, checking Companies House is denied and the case is unchanged",
+    "only UK business cases are checked; consumer and non-UK cases are denied",
+    "without COMPANIES_HOUSE_API_KEY the recorded response is used and labelled test data",
+    "09318842 is late with its accounts and declared_vs_found holds approval for a manager",
+    "an active company with its accounts up to date clears the registry check and adds no row",
+    "a dissolved company adds a material Declared vs found row",
+    "a company in liquidation adds a material Declared vs found row",
+    "a failed lookup marks the registry check needs review and keeps earlier findings",
+    "with COMPANIES_HOUSE_API_KEY the lookup sends the key by Basic auth to the company profile and is not test data",
+    "the live transport reports a refused connection as couldn't check",
+    "the API key never reaches the case file or the audit trail",
+    "re-running the check replaces its own rows and approve gains no new rule"
+  ]
+}
