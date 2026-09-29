@@ -135,6 +135,8 @@ export const StructuredOutput = z
         })
         .strict(),
     ),
+    /** Short plain sentences on what Devin did that the other fields don't show, tagged with the phase. */
+    notes: z.array(z.object({ phase: z.enum(PHASES), text: z.string().min(1) }).strict()).optional(),
     guards: z.array(z.object({ name: z.string().min(1), pass: z.boolean().nullable() }).strict()),
     conflicts: z.array(
       z.object({ file: z.string().min(1), kept: z.string(), removed: z.string() }).strict(),

@@ -499,7 +499,7 @@ describe("run files", () => {
     expect(STRUCTURED_OUTPUT_JSON_SCHEMA).toMatchObject({ type: "object" });
     const props = (STRUCTURED_OUTPUT_JSON_SCHEMA as { properties: Record<string, unknown> }).properties;
     expect(Object.keys(props)).toEqual(
-      expect.arrayContaining(["phase", "verify_steps", "conflicts", "pr_url", "stopped_by"]),
+      expect.arrayContaining(["phase", "verify_steps", "notes", "conflicts", "pr_url", "stopped_by"]),
     );
     expect(
       StructuredOutput.safeParse({
@@ -519,6 +519,34 @@ describe("run files", () => {
         stopped_by: null,
       }).success,
     ).toBe(true);
+  });
+
+  it("parses phase-tagged notes and rejects unknown phases or empty text", () => {
+    const output = {
+      phase: "verify",
+      phase_status: "running",
+      phase_durations_s: { intake: 4, baseline: 30 },
+      base_commit: "c0ffee1234abcd",
+      context_sha256: SHA,
+      branch: "devin/run-1",
+      plan_commit: null,
+      reuses: [],
+      files: [],
+      verify_steps: [{ name: "pnpm test", pass: null, before: 130, after: null }],
+      notes: [{ phase: "verify", text: "Ran the tests and saw all cases pass" }],
+      guards: [],
+      conflicts: [],
+      pr_url: null,
+      stopped_by: null,
+    };
+
+    expect(StructuredOutput.safeParse(output).success).toBe(true);
+    expect(
+      StructuredOutput.safeParse({ ...output, notes: [{ phase: "unknown", text: "Did a thing" }] }).success,
+    ).toBe(false);
+    expect(
+      StructuredOutput.safeParse({ ...output, notes: [{ phase: "verify", text: "" }] }).success,
+    ).toBe(false);
   });
 });
 
