@@ -58,8 +58,11 @@ describe("refunds clusters", () => {
       const preview = previewActions(refundTool, record, refundsAgent).find(
         (p) => p.action === "execute",
       );
-      expect(preview?.decision?.effect).toBe("allow");
+      expect(preview?.decision?.effect).toBe("require_approval");
       expect(preview?.decision?.trace).toContainEqual({ type: "allow", rule: "amount_approval" });
+      expect(preview?.decision?.trace).toContainEqual(
+        expect.objectContaining({ type: "require_approval", rule: "clustering_hold" }),
+      );
     }
   });
 

@@ -212,6 +212,7 @@ describe("kyc case file", () => {
       "pep_approval",
       "declared_vs_found",
       "escalated_needs_manager",
+      "linked_refund_hold",
     ]);
   });
 });
