@@ -10,6 +10,7 @@ import type {
   SortOption,
 } from "@console/engine/types";
 import { rolesFor } from "@console/permissions";
+import { heldRefundClusterForCustomer } from "@console/tool-refunds";
 import { caseFile, materialDifferences } from "./case-file";
 import { refundsForCase } from "./linked-activity";
 import { kycCases } from "./schema";
@@ -138,6 +139,19 @@ const declaredVsFound: CaseRule = ({ record }) => {
         reason: `${n} material difference${n === 1 ? "" : "s"} between what the customer declared and what the checks found`,
       }
     : { type: "allow", rule: "declared_vs_found" };
+};
+
+const linkedRefundHold: CaseRule = ({ record, constants }) => {
+  const merchant = record && heldRefundClusterForCustomer(record.email, constants);
+  return merchant
+    ? {
+        type: "require_approval",
+        rule: "linked_refund_hold",
+        tier: "manager",
+        allowedRoles: rolesFor("kyc", "manager"),
+        reason: `Customer has a refund in ${merchant}'s held not_received cluster`,
+      }
+    : { type: "allow", rule: "linked_refund_hold" };
 };
 
 const escalatedNeedsManager: CaseRule = ({ record }) =>
@@ -378,6 +392,7 @@ export const kycTool = defineTool<KycCase>({
         riskTierApproval,
         pepApproval,
         declaredVsFound,
+        linkedRefundHold,
         escalatedNeedsManager,
       ],
       suggest: () => ({ note: "Identity checks complete." }),
@@ -504,6 +519,7 @@ export const kycTool = defineTool<KycCase>({
     country_permitted: ["country"],
     risk_tier_approval: ["riskScore", "riskTier"],
     pep_approval: ["pep"],
+    linked_refund_hold: ["email"],
   },
   get: getCase,
   seed: seedKycCases,
