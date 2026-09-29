@@ -300,6 +300,7 @@ export default async function ToolQueuePage({
           detail={open.group.detail}
           limit={open.group.limit}
           totalUsdMinor={open.group.totalUsdMinor}
+          sentUsdMinor={open.group.sentUsdMinor ?? 0}
           statuses={decl.statuses}
           ruleLabels={decl.ruleLabels}
           rows={clusterRows(decl, open.cluster, open.group, actor)}
