@@ -1,0 +1,58 @@
+{
+  "files": [
+    {
+      "path": "tools/refunds/src/clustering-hold.ts",
+      "op": "create",
+      "reason": "Compute the rolling merchant not_received total and manager hold from existing refund records."
+    },
+    {
+      "path": "tools/refunds/src/index.ts",
+      "op": "modify",
+      "reason": "Register the clustering hold and its window constant on the refund execute policy."
+    },
+    {
+      "path": "tools/kyc/src/index.ts",
+      "op": "modify",
+      "reason": "Route KYC approvals for customers in held refund clusters through the manager policy."
+    },
+    {
+      "path": "apps/console/tests/tools/refunds-clusters.test.ts",
+      "op": "modify",
+      "reason": "Rewrite the assertion that every Kestrel preview is allowed, since later refunds now require approval."
+    },
+    {
+      "path": "apps/console/tests/tools/kyc-case-file.test.ts",
+      "op": "modify",
+      "reason": "Update the exact KYC approve rule-order assertion for linked_refund_hold."
+    },
+    {
+      "path": "apps/console/tests/tools/refund-clustering-hold.test.ts",
+      "op": "create",
+      "reason": "Exercise running totals, window and status exclusions, approval permissions, the kill switch and linked KYC outcomes."
+    }
+  ],
+  "reuses": [
+    {
+      "module": "tools/refunds/src/clusters.ts",
+      "reason": "Reuse its manager threshold and window keys and existing merchant grouping semantics."
+    },
+    {
+      "module": "packages/engine/src/approvals.ts",
+      "reason": "Use pending approval traces and the existing domain-specific approval roles for linked KYC decisions."
+    },
+    {
+      "module": "packages/engine/src/execute-intent.ts",
+      "reason": "Keep all policy, approval and audit writes on the existing governed intent path."
+    }
+  ],
+  "acceptance": [
+    "the first eligible refund under the merchant limit is applied",
+    "the refund crossing the rolling manager limit requests manager approval with a trace total",
+    "subsequent refunds from the same merchant remain held",
+    "faulty refunds and rejected not_received refunds do not contribute to the hold",
+    "a zero window disables the refund and linked KYC holds",
+    "held cluster customers need KYC manager approval even below the risk score",
+    "customers outside held clusters still clear KYC at score 68",
+    "the refund and KYC approval requests are decidable only by their domain managers"
+  ]
+}
