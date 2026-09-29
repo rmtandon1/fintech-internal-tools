@@ -158,15 +158,8 @@ describe("refunds clusters", () => {
   });
 
   it("a window of 0 switches the hold off but the strip keeps a 14-day window; a negative window falls back to 14 days", () => {
-    registerConstants([
-      {
-        key: CLUSTERING_WINDOW_DAYS_KEY,
-        value: 14,
-        type: "number",
-        description: "Days of refunds a cluster looks back over",
-        tool: "refunds",
-      },
-    ]);
+    expect(clusteringWindowDays()).toBe(0);
+    expect(setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "14").ok).toBe(true);
     expect(clusteringWindowDays()).toBe(14);
 
     expect(setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "0").ok).toBe(true);
