@@ -86,7 +86,7 @@
 
 [Switch role: Engineer. Click **Review and approve**. Point at the eight-line checklist. After approving, point at the rules the approval passed: `approver_is_not_requester`, `checks_green`, `context_matches_dispatch`. Check in rehearsal where they show; if they don't, drop the rule name from the first line and cut the second.]
 
-> "Watch what happens next — this is the point of the demo. The person who asked can't approve — `approver_is_not_requester` runs in the approval query, not in a wiki."
+> "Watch what happens next — this is the point of the demo. The person who asked can't approve — `approver_is_not_requester` is checked in code every time someone approves, not in a wiki."
 >
 > "It also checks the build is green and that Devin worked from the request we sent."
 
