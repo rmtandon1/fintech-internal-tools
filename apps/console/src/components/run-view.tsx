@@ -41,7 +41,7 @@ const PHASE_LABELS: Record<(typeof PHASE_ORDER)[number], string> = {
   merged: "Merged",
 };
 
-type CheckLine = { state: "done" | "active" | "waiting"; label: string; detail?: string };
+type CheckLine = { state: "done" | "active" | "waiting" | "failed"; label: string; detail?: string };
 type CheckPhase = CheckLine & { children?: CheckLine[] };
 
 function CheckRow({
@@ -62,6 +62,7 @@ function CheckRow({
         "flex flex-wrap items-center gap-x-3 py-1.5 text-sm",
         nested && "gap-x-2 py-0.5 text-[10px] text-muted-foreground",
         state === "active" && "font-medium text-info",
+        state === "failed" && "text-destructive",
         state === "waiting" && "text-muted-foreground",
       )}
       data-state={state}
@@ -69,6 +70,10 @@ function CheckRow({
       {state === "done" ? (
         <span className={cn("flex size-5 shrink-0 items-center justify-center rounded-full bg-success text-white", nested && "size-3.5")}>
           <Icon name="Check" className={nested ? "size-2.5" : "size-3"} strokeWidth={3} aria-label="Done" />
+        </span>
+      ) : state === "failed" ? (
+        <span className={cn("flex size-5 shrink-0 items-center justify-center", nested && "size-3.5")}>
+          <Icon name="CircleX" className={nested ? "size-3.5" : "size-5"} aria-label="Failed" />
         </span>
       ) : state === "active" && still ? (
         <span className={cn("flex size-5 shrink-0 items-center justify-center", nested && "size-3.5")}>
@@ -134,23 +139,28 @@ function Checklist({ out, run }: { out: StructuredOutput | null; run: RunViewPay
           state: "done", label: `Reused ${reuse.module.split("/").pop()}`, detail: reuse.reason,
         }));
         break;
-      case "edit":
+      case "edit": {
+        const editDone = stateOf("edit") === "done";
         row.detail = out && out.files.length > 0 && reached >= PHASE_ORDER.indexOf("edit")
           ? `+${out.files.reduce((n, f) => n + f.additions, 0)} −${out.files.reduce((n, f) => n + f.deletions, 0)}`
           : undefined;
         row.children = out?.files.map((file) => ({
-          state: "done",
+          state: editDone ? "done" : "waiting",
           label: `${file.op === "create" ? "Adding" : file.op === "delete" ? "Removing" : "Editing"} ${file.path}`,
           detail: `+${file.additions} −${file.deletions}`,
         }));
         break;
-      case "verify":
+      }
+      case "verify": {
+        const activeStep = out?.verify_steps.findIndex((step) => step.pass === null);
         row.detail = testStep?.after != null ? `${testStep.before ?? "?"} → ${testStep.after}` : undefined;
-        row.children = out?.verify_steps.map((step) => ({
-          state: step.pass === null ? stateOf("verify") : "done",
+        row.children = out?.verify_steps.map((step, i) => ({
+          state: step.pass === false ? "failed" : step.pass === true ? "done"
+            : stateOf("verify") === "active" && i === activeStep ? "active" : "waiting",
           label: `${step.name} ${step.pass === true ? "✓" : step.pass === false ? "✗" : "…"}`,
         }));
         break;
+      }
       case "pull_request":
         row.detail = prNumber ? `#${prNumber}` : undefined;
         break;
