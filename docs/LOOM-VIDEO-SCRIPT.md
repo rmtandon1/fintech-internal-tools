@@ -84,9 +84,9 @@
 >
 > "*(328)* tests before, *(new total)* after."
 
-[Switch role: Engineer. Click **Review and approve**. Point at the eight-line checklist. After approving, point at the rules the approval passed: `approver_is_not_requester`, `checks_green`, `context_matches_dispatch`. Check in rehearsal where they show; if they don't, cut the two lines below.]
+[Switch role: Engineer. Click **Review and approve**. Point at the eight-line checklist. After approving, point at the rules the approval passed: `approver_is_not_requester`, `checks_green`, `context_matches_dispatch`. Check in rehearsal where they show; if they don't, drop the rule name from the first line and cut the second.]
 
-> "I play every role here. The console still refuses the person who asked from approving."
+> "Watch what happens next — this is the point of the demo. The person who asked can't approve — `approver_is_not_requester` runs in the approval query, not in a wiki."
 >
 > "It also checks the build is green and that Devin worked from the request we sent."
 
@@ -99,6 +99,10 @@
 [Off camera: merge the `partial_delivery` pull request, then `pnpm db:scenario courier-outage`. Switch role: Refunds manager. Open **Approvals** in the sidebar: 60 Fernhill refunds held.]
 
 > "A courier outage. Sixty genuine refunds from a trusted merchant, all held."
+
+[Open **Audit log** in the sidebar: one row per held Fernhill refund. Rehearsal alternative: submit 2–3 refunds live as the Refunds agent so one hold is seen firing, then cut to the full inbox.]
+
+> "They came in overnight as ordinary refund requests. The live rule held each one, and each hold wrote its own audit row."
 
 [Switch role: Admin. Open **Rule settings** in the sidebar: `refunds.clustering_window_days` from 14 to 0. Save. Point at the audit row.]
 
@@ -115,6 +119,8 @@
 > "Devin kept the later work and took the rule out. Its tests are named as removed. Nothing else touched."
 
 [Switch role: Engineer. Approve, let Devin merge, then click **Pull merged code**.]
+
+> "Taking a rule out is the same risk as putting one in, so it gets the same review."
 
 ### Outcome
 
@@ -148,7 +154,9 @@
 
 [Switch role: Engineer. Approve, let Devin merge, then click **Pull merged code**. Switch role: Admin. Open **Rule settings** in the sidebar: `kyc.companies_house_check` from 0 to 1.]
 
-> "It merged switched off. An admin turns it on."
+> "It merged switched off. Merged isn't live: the check shipped dormant."
+>
+> "Turning it on is a separate decision, made by an admin and audited on its own, not part of the merge."
 
 ### Outcome
 
@@ -181,6 +189,8 @@
 > "*(Fifteen)* files. A new table, and nothing under the engine. It still gets roles, approvals and the audit log."
 
 [Switch role: Engineer. Approve, let Devin merge, then click **Pull merged code**; it installs the new `@console/tool-chargebacks` package. Switch role: Admin. In **Feature flags**, enable `app.chargebacks`.]
+
+> "The whole app lands dark behind one flag. Turning it on is a business decision, and if it doesn't match the Power App, it flips back off."
 
 ### Outcome
 
