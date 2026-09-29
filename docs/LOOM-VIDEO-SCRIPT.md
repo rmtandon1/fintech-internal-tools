@@ -312,21 +312,28 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 ---
 
-## 🔧 Challenge: Post-Merge Deployment Drift (30 seconds)
+## 🔧 Challenge: GitHub Approval Drift (30 seconds)
 
-**Differentiator:** a real problem from the build, diagnosed layer by layer and fixed in four.
+**Differentiator:** a real problem from the build, traced from GitHub back to the run record and fixed in four layers, each through the same governed write path.
 
 [Stay on the Chargebacks queue. Nothing new goes on screen.]
 
-> "One challenge from the build: post-merge deployment drift."
+> "One challenge from the build: approvals that went around the console."
 >
-> "GitHub said merged, and the screen didn't change. The merge commit wasn't in the console's checkout."
+> "Engineers review on GitHub. One approved a pull request there, and the console still said Devin was working. A merge on GitHub never reached the audit log at all."
 >
-> "Pulling wasn't enough either. The new Chargebacks package didn't resolve."
+> "For a regulated team, that's merged code nobody recorded approving."
 >
-> "The fix has four steps: confirm the merge actually happened, pull only into a clean checkout, install packages when the lockfile changes, then migrate and register the new settings and flags."
+> "The fix has four layers. Read the reviews from GitHub on every poll. Map the GitHub login to a console engineer. Run that approval through the same rules as the button, so the requester still can't approve. And if something merges with no approval, record the merge and name the gap."
 >
-> "Now Pull merged code handles it, with no restart and no re-seed."
+> "Approve in either place, and the record matches GitHub."
+
+Where each layer lives (not read aloud; write-up in `docs/GITHUB_APPROVAL_DRIFT.md`):
+
+- Read GitHub: `listApprovingReviews` in `tools/automation/src/github-api.ts`, polled from `handleGet` in `apps/console/src/lib/devin-route.ts`
+- Map the login: `actorForGitHubLogin` and `GITHUB_APPROVER_LOGIN` in `packages/engine/src/actor.ts`
+- Same rules: `observeGitHubApproval` in `tools/automation/src/bridge.ts` runs `approve_pr` through `executeIntent` with the button's idempotency key, so `approver_is_not_requester` applies
+- Name the gap: `record_merge` from `running` under `merge_without_recorded_approval` in `tools/automation/src/index.ts`
 
 ---
 
@@ -381,7 +388,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 **Before recording:**
 
 - [ ] A day ahead, do the Devin runs in order:
-  - [ ] Kestrel rule
+  - [ ] Kestrel rule, approved on GitHub as `rmtandon1` rather than in the console; its run reads "Approved on GitHub by @rmtandon1" and merges
   - [ ] `partial_delivery` pull request, after the rule
   - [ ] Undo conflicts on `git revert --no-commit`
   - [ ] Courier outage scenario, then switch the rule off
@@ -407,7 +414,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 - [ ] Add chapter timestamps in comments
 - [ ] Link the GitHub repo in the description
-- [ ] Link `docs/POST_MERGE_DEPLOYMENT_DRIFT.md` in the description for the deployment drift challenge
+- [ ] Link `docs/GITHUB_APPROVAL_DRIFT.md` in the description for the GitHub approval drift challenge
 - [ ] List the five pull requests with time and ACUs
 - [ ] Attach `docs/DEMO-SLIDES.pdf`
 - [ ] Tag: #devin #ai-automation

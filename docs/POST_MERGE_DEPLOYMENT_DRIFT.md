@@ -1,7 +1,8 @@
 # Post-Merge Deployment Drift
 
-Troubleshooting write-up for the one challenge the Loom script names: a pull request merged on
-GitHub while the console kept serving the code from before the merge. Found and fixed on
+Troubleshooting write-up for post-merge deployment drift: a pull request merged on GitHub while
+the console kept serving the code from before the merge. The Loom's challenge is now
+[GitHub approval drift](GITHUB_APPROVAL_DRIFT.md). Found and fixed on
 28 September 2026, across the Chargebacks merge (#62) and the fixes it exposed (#70, #72, #73).
 All fixes are on `cognition-dashboard-devin-integration`.
 
@@ -141,4 +142,4 @@ A skipped or failed sync says why: `pull skipped: working tree has uncommitted c
 - [GITHUB_INTEGRATION.md](GITHUB_INTEGRATION.md#merge-sync) — the merge sync step by step
 - [DEVIN_RUN_SYNC_FIXES.md](DEVIN_RUN_SYNC_FIXES.md) — the other defects between Devin, GitHub and the console
 - [INTEGRATION-SETUP.md](INTEGRATION-SETUP.md) — what serves from where, and recovery
-- [LOOM-VIDEO-SCRIPT.md](LOOM-VIDEO-SCRIPT.md#-challenge-post-merge-deployment-drift-30-seconds) — the 30-second telling
+- [GITHUB_APPROVAL_DRIFT.md](GITHUB_APPROVAL_DRIFT.md) — the challenge the Loom tells: approvals and merges made on GitHub
