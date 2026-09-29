@@ -46,8 +46,8 @@ describe("kyc linked refund hold", () => {
       "linked_refund_hold",
     ]);
 
-    const email = kycTool.get("kyc_0004")?.email;
-    if (!email) throw new Error("missing kyc_0004");
+    const email = "adaeze.okonkwo@example.com";
+    expect(kycTool.get("kyc_0004")?.email).toBe(email);
     db.insert(refunds)
       .values({
         id: "rfnd_link_admin",
