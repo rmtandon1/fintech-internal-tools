@@ -284,30 +284,31 @@
   - [ ] `pnpm db:scenario courier-outage`, then switch the rule off
   - [ ] Undo the Kestrel rule, approve, merge
   - [ ] Companies House check, then the Chargebacks first pull request
-- [ ] On the day: `git fetch --tags`, then `git checkout -B cognition-dashboard-devin-integration <demo-tag>` (stay on the branch; a detached HEAD breaks **Pull merged code**)
-- [ ] `pnpm install`
-- [ ] `git status` clean (delete stray `runs/` folders)
-- [ ] Within the hour: stop `pnpm dev`, `pnpm db:reset`, `pnpm dev` (rebuilds demo data but keeps the recorded runs, their audit rows and replays)
-- [ ] Pick a role again only after `rm -rf apps/console/data` (`pnpm db:reset` keeps the role cookie)
-- [ ] `.env` has `DEVIN_API_KEY` and `GITHUB_TOKEN`
-- [ ] `/api/devin/status` reports `live` (if not, stop)
-- [ ] `pnpm verify` green (328 tests)
-- [ ] Fresh browser window, 1440×900, notifications off
-- [ ] `docs/DEMO-SLIDES.html` open in a second window, same size, on slide 1
+- [ ] On the day:
+  - [ ] `git fetch --tags`, then `git checkout -B cognition-dashboard-devin-integration <demo-tag>` (stay on the branch; a detached HEAD breaks **Pull merged code**)
+  - [ ] `pnpm install`
+  - [ ] `git status` clean (delete stray `runs/` folders)
+  - [ ] Within the hour: stop `pnpm dev`, `pnpm db:reset`, `pnpm dev` (rebuilds demo data but keeps the recorded runs, their audit rows and replays)
+  - [ ] Pick a role again only after `rm -rf apps/console/data` (`pnpm db:reset` keeps the role cookie)
+  - [ ] `.env` has `DEVIN_API_KEY` and `GITHUB_TOKEN`
+  - [ ] `/api/devin/status` reports `live` (if not, stop)
+  - [ ] `pnpm verify` green (328 tests)
+  - [ ] Fresh browser window, 1440×900, notifications off
+  - [ ] `docs/DEMO-SLIDES.html` open in a second window, same size, on slide 1
 
 **During recording:**
 
 - [ ] Switch windows at ▶ SLIDE and ◀ CONSOLE cues (never said); aim for just under eight minutes
-- [ ] Shot 0: slide 1 for the opening, then slide 2, Power Apps is five products in one
+- [ ] Shot 0: slide 1 for the opening, then slide 2, Power Apps is five products in one (deck open on slide 1)
 - [ ] Shot 1: Home; Transaction monitoring Coming soon (Refunds manager; fresh seed at the tagged demo commit)
 - [ ] Shot 2: Kestrel drawer; `rfnd_0013` send, **once** (Refunds manager, Refunds agent; before the Kestrel merge)
-- [ ] Shot 3: handoff, finished run, approval dialog and its trace (Refunds manager, Engineer)
+- [ ] Shot 3: handoff, finished run, approval dialog and its trace (Refunds manager, Engineer; recorded run)
 - [ ] Shot 4: Approvals list of sixty; switch-off in Rule settings (Refunds manager, Admin; courier scenario run)
-- [ ] Shot 5: undo, finished undo; `rfnd_0014` send, **once**, trace, reason dropdown (Admin, Engineer, Refunds agent)
-- [ ] Shot 6: Thornbury before, handoff, finished run, setting on, **Approve** (KYC reviewer, Admin, Engineer)
-- [ ] Shot 7: Chargebacks Coming soon, handoff, pull request, flag on, queue, `DSP-20401` **Accept**, **once** (Admin, Engineer, Refunds agent); screenshot the **Pull merged code** toast
-- [ ] Shot 8: toast screenshot, then the four-layer table in `docs/POST_MERGE_DEPLOYMENT_DRIFT.md`
-- [ ] Shot 9: slide 3, what it costs; then slide 4, build or buy
+- [ ] Shot 5: undo, finished undo; `rfnd_0014` send, **once**, trace, reason dropdown (Admin, Engineer, Refunds agent; `partial_delivery` merged before the undo)
+- [ ] Shot 6: Thornbury before, handoff, finished run, setting on, **Approve** (KYC reviewer, Admin, Engineer; Companies House run recorded)
+- [ ] Shot 7: Chargebacks Coming soon, handoff, pull request, flag on, queue, `DSP-20401` **Accept**, **once** (Admin, Engineer, Refunds agent; Chargebacks run recorded); screenshot the **Pull merged code** toast
+- [ ] Shot 8: toast screenshot from shot 7, then the four-layer table in `docs/POST_MERGE_DEPLOYMENT_DRIFT.md`
+- [ ] Shot 9: slide 3, what it costs; then slide 4, build or buy (deck on slide 3)
 - [ ] Show every sped-up run with its real "Took …" time
 - [ ] To retake a **once** click, `pnpm db:seed` (it won't undo `pnpm db:scenario courier-outage`)
 
