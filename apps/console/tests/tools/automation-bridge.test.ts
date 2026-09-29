@@ -1260,11 +1260,31 @@ describe("HTTP clients", () => {
     expect(sessionBody.attachment_urls).toEqual(["https://files/ctx"]);
     expect(sessionBody.structured_output_required).toBe(true);
     expect(sessionBody.structured_output_schema).toEqual({ type: "object" });
+    expect(sessionBody).not.toHaveProperty("create_as_user_id");
 
     const snap = await client.getSession("devin-1");
     expect(snap).toEqual({ status: "blocked", statusDetail: "waiting", structuredOutput: { phase: "plan" } });
     await client.terminateSession("devin-1");
     expect(http.seen.at(-1)?.method).toBe("DELETE");
+  });
+
+  it("Devin client creates the session on behalf of the configured user", async () => {
+    const http = recorder({
+      "POST https://api.devin.ai/v3/organizations/org_1/attachments": () => ({ url: "https://files/ctx" }),
+      "POST https://api.devin.ai/v3/organizations/org_1/sessions": () => ({
+        session_id: "devin-1",
+        url: "https://app.devin.ai/sessions/1",
+      }),
+    });
+    const client = httpDevinClient({ apiKey: "k", orgId: "org_1", createAsUserId: "user-abc" }, http.fetchImpl);
+    await client.createSession({
+      prompt: "p",
+      title: "t",
+      tags: [],
+      attachment: { name: "context.json", body: "{}" },
+      structuredOutputSchema: { type: "object" },
+    });
+    expect(JSON.parse(http.seen[1].body ?? "{}").create_as_user_id).toBe("user-abc");
   });
 
   it("Devin client surfaces API errors with status and path", async () => {

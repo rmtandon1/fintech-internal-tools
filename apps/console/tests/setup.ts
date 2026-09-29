@@ -14,6 +14,7 @@ process.env.REPO_ROOT = mkdtempSync(join(tmpdir(), "ops-console-root-"));
 delete process.env.DEVIN_API_KEY;
 delete process.env.DEVIN_ORG_ID;
 delete process.env.DEVIN_PLAYBOOK_ID;
+delete process.env.DEVIN_CREATE_AS_USER_ID;
 
 // `pnpm verify` never reaches the network: the Devin and GitHub clients take
 // an injected fetch, and anything that falls through to the global one fails.

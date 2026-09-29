@@ -30,6 +30,13 @@ starts, see [DEVIN_RUN_PROTOCOL.md](DEVIN_RUN_PROTOCOL.md).
 The key is read on the server by `apps/console/src/lib/bridge.ts` and never reaches the
 browser. Restart `pnpm dev` after editing `.env`.
 
+Sessions created with the key belong to the service user, so they don't appear in anyone's
+session list in the Devin app. To create them on behalf of a person instead, set
+`DEVIN_CREATE_AS_USER_ID=user-…`. The console then sends it as `create_as_user_id`. The service
+user's role needs the `ImpersonateOrgSessions` permission, and the target user must be a member
+of the organisation with `UseDevinSessions`. Find the id with
+`GET /v3beta1/organizations/{org_id}/members/users?email=…`.
+
 ## 2. Check the key and organisation
 
 ```bash
