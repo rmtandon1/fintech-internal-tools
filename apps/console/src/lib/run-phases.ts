@@ -37,6 +37,19 @@ export const PHASE_SHORT: Record<Phase, string> = {
   merge: "Live",
 };
 
+/**
+ * One entry per gate, in first-seen order, carrying the last result Devin
+ * reported for it. A session that reruns a gate after a fix sometimes appends
+ * a second row instead of updating the first.
+ */
+export function latestVerifySteps(
+  steps: StructuredOutput["verify_steps"],
+): StructuredOutput["verify_steps"] {
+  const byName = new Map<string, StructuredOutput["verify_steps"][number]>();
+  for (const step of steps) byName.set(step.name, step);
+  return [...byName.values()];
+}
+
 export const PHASE_STATUS_LABELS: Record<StructuredOutput["phase_status"], string> = {
   running: "in progress",
   done: "done",

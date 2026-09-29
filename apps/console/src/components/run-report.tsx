@@ -1,7 +1,7 @@
 import type { StructuredOutput } from "@console/tool-automation/run-files";
 import { Icon } from "@console/ui/icon";
 import { cn } from "@console/ui/utils";
-import { PHASE_LABELS, PHASE_ORDER, PHASE_SHORT } from "@/lib/run-phases";
+import { PHASE_LABELS, PHASE_ORDER, PHASE_SHORT, latestVerifySteps } from "@/lib/run-phases";
 
 /**
  * Everything a Devin session reported, laid out for review: how long each
@@ -150,7 +150,8 @@ const STEP_NAMES: Record<string, string> = {
 };
 
 function Checks({ output }: { output: StructuredOutput }) {
-  const { verify_steps: steps, guards } = output;
+  const { guards } = output;
+  const steps = latestVerifySteps(output.verify_steps);
   if (steps.length === 0 && guards.length === 0) return null;
   const guardsFailed = guards.filter((g) => g.pass === false).length;
   const guardsPassed = guards.filter((g) => g.pass === true).length;
