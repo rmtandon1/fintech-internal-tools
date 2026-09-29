@@ -192,59 +192,57 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Switch role: Analyst.]
 
-[Open `kyc_0104`, Thornbury Couriers Ltd.]
+[Open `kyc_0104`, Wilko Limited.]
 
-> "That change stayed inside the console. This one reaches outside it, to a government register."
+> "That change stayed inside the console. This one reaches outside it, to a government register — every day."
 
-[Point at the registry check: "Checked by hand".]
+[Point at the registry check: "Checked by hand at onboarding: active", dated 2021.]
 
-[Point at the **Approve** preview: every rule passes.]
+[Point at the five Wilko refunds on `/t/refunds`, each settling straight through.]
 
-> "Thornbury's registry check was typed by hand, at onboarding. One click approves this business today."
+> "Wilko was checked once, when it was onboarded. UK rules want ongoing monitoring; nobody has looked since. Wilko is in liquidation today under a new name — and its five 'not received' refunds still pay straight through."
 
 ### Ask, build, approve
 
 [Switch role: Admin.]
 
-[Click **Ask Devin to add a check**.]
+[Click **Ask Devin to monitor merchants**.]
 
 [Type the first words, press Tab.]
 
-> "Adding a check to onboarding is an admin's request, not the analyst's."
+> "One sentence, written like a ticket: recheck approved UK merchants daily, and send an insolvent one and its refunds to a manager."
 
 [Point at **What Devin will see**: name, number, country.]
 
-> "One sentence, written like a ticket: a connector, an action, and the rule it feeds. How to build it — the key, the timeout, failing closed, shipping switched off — is in the repo's house rules, not the prompt."
+> "How to build it — the key, the timeout, failing closed, shipping switched off — is in the repo's house rules, not the prompt."
 
 [Click **Send to Devin**.]
 
 [Cut to the finished run; read "Took …" aloud.]
 
-[Point at the files, then the client's `GET /company/{number}`.]
+[Point at the files: the case link migration, the scheduler, the refund rule.]
 
-> "*(Five)* files, all in the KYC app. One call per case, a *(five)*-second timeout, the key kept on the server."
+> "This one had to build three things that didn't exist: refunds only carry a merchant name, so a migration links them to the KYC case; there was no scheduler, so the daily recheck runs as an audited system actor; and refund rules couldn't read KYC."
 >
-> "No answer, an error, an unknown number: it says 'couldn't check' and holds."
->
-> "There's no live key in this demo. Tests replay recorded responses, and the screen says 'test data'."
+> "A failed lookup flags the case for a manager without holding its refunds. Tests replay recorded responses — no live call."
 
 [As Engineer: approve, merge, **Pull merged code**.]
 
 [Switch role: Admin.]
 
-[In **Rule settings**, set the Companies House setting to 1.]
+[In **Rule settings**, set the merchant monitoring setting to 1, then click **Recheck now**.]
 
 > "It merged switched off. Turning it on is a separate change, with its own audit row."
 
 ### Outcome
 
-[Switch role: Analyst.]
+[Point at the recheck result: "4 UK merchants checked · 1 in liquidation · 5 refunds sent to a manager".]
 
-[On `kyc_0104`, run the Companies House check.]
+[Open `kyc_0104`: Declared vs found shows declared "Wilko Limited, active", found "WL REALISATIONS (2023) LIMITED, liquidation".]
 
-[Click **Approve**.]
+[Open `/t/refunds` as Manager: the five Wilko refunds wait for review.]
 
-> "Companies House says the company is late with its accounts. The same click now waits for a manager, and says why."
+> "Wilko is flagged with its live status, and its refunds wait for a manager. Lakeland, Timpson and Screwfix checked clean — nothing changed for them."
 
 ---
 
@@ -393,7 +391,7 @@ Where each layer lives (not read aloud; write-up in `docs/GITHUB_APPROVAL_DRIFT.
   - [ ] Undo conflicts on `git revert --no-commit`
   - [ ] Courier outage scenario, then switch the rule off
   - [ ] Undo the Kestrel rule
-  - [ ] Companies House check
+  - [ ] Merchant monitoring
   - [ ] Chargebacks app
 - [ ] Note each run's time, ACUs and test total
 - [ ] Check out the demo tag on the branch

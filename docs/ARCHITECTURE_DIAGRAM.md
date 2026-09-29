@@ -42,7 +42,7 @@
 | **Add** a rule | **Ask Devin for a rule** in the refunds cluster drawer | Route clustered refunds to the Manager queue for direct action | Engineer |
 | **Switch off** a rule | The rule's setting on `/admin/policy` | Set `refunds.clustering_window_days` to 0 during a courier outage | Admin only |
 | **Remove** a rule | **Undo this change** on a merged run in `/runs` | Remove the refund routing rule, keeping later work | Engineer |
-| **Automate** a check | **Ask Devin to add a check** on a KYC case | Look up UK businesses on Companies House from the case | Engineer |
+| **Monitor** merchants | **Ask Devin to monitor merchants** on a KYC case | Recheck approved UK merchants on Companies House daily | Engineer |
 | **Migrate** an app | **Ask Devin to start this app** on its Coming soon page | Move Chargebacks from Power Apps into the console | Engineer and engine owner |
 
 ## The three-layer system
@@ -177,7 +177,7 @@ Kestrel: Ask for a rule        --> tools/refunds/src/clustering-hold.ts + tests
 Refund routed: clustering_hold --> tools/refunds/src/index.ts (execute action rules)
 KYC approval needs a manager --> tools/kyc/src/index.ts: linked_refund_hold
 Window 14 days, /admin/policy  --> setting refunds.clustering_window_days (0 = off)
-Thornbury: Add a check         --> tools/kyc/src/companies-house.ts + recorded responses
+Wilko: Monitor merchants       --> tools/kyc/src/companies-house.ts + recorded responses
 Chargebacks: Start this app    --> tools/chargebacks/**, registry.ts, migration 0009
 Flag app.chargebacks on/off    --> tools/flags/src/seed.ts, modes.ts flag field
 /runs: Undo this change        --> git revert -m 1 of the merge + conflict resolution
@@ -189,8 +189,9 @@ What Devin (or the admin) does on each line, top to bottom:
 - Adds a KYC rule that reads held clusters.
 - Makes the rule read the window setting, with 0 as off. After that the admin edits the value
   directly, with no Devin run.
-- Reads the Companies House API docs and builds the client. The check reuses
-  `declared_vs_found` in `tools/kyc/src/index.ts` and adds no new rule.
+- Reads the Companies House API docs and builds the client and the daily recheck.
+  Insolvency reuses `declared_vs_found` in `tools/kyc/src/index.ts` and adds no new
+  rule. (The earlier connector-only run was scoped to one case.)
 - Migrates the Power Apps export into a new app.
 - Seeds the flag off and sets the flag field on the app's mode.
 - Removes the rule and keeps later work. The undo deletes `clustering-hold.ts`.
@@ -401,5 +402,5 @@ Rows in bold are milestones; the rows between them are the steps that lead to ea
 | [`AGENT_TRIGGER_SURFACE.md`](AGENT_TRIGGER_SURFACE.md) | Where requests start, and the run and approval screens |
 | [`DEVIN-NO-DEVIN.md`](DEVIN-NO-DEVIN.md) | Which changes need Devin and which are settings |
 | [`REFUND_CLUSTERING_HOLD.md`](REFUND_CLUSTERING_HOLD.md) | Specification: refund clustering hold |
-| [`COMPANIES_HOUSE_CHECK.md`](COMPANIES_HOUSE_CHECK.md) | Specification: Companies House check |
+| [`COMPANIES_HOUSE_CHECK.md`](COMPANIES_HOUSE_CHECK.md) | Specification: merchant monitoring on Companies House |
 | [`CHARGEBACKS_FROM_POWER_APPS.md`](CHARGEBACKS_FROM_POWER_APPS.md) | Specification: Chargebacks migration |

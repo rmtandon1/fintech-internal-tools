@@ -85,7 +85,7 @@ playbook titled **Governed console run**, together with the `StructuredOutput` J
 
 | Secret | Used by | Without it |
 |---|---|---|
-| `COMPANIES_HOUSE_API_KEY` | Part 2, the Companies House check | The check uses recorded responses and labels them test data |
+| `COMPANIES_HOUSE_API_KEY` | Part 2, merchant monitoring | The recheck uses recorded responses and labels them test data |
 
 Add these in Devin's secrets for the organisation if a run should call the live service.
 

@@ -86,7 +86,7 @@ The golden tests assert the outcome in the last column. Existing cases keep thei
 Constraints:
 
 - `kyc_0013` must keep approving straight through for a reviewer. Part 1's after-click depends on it.
-- `kyc_0104` Thornbury Couriers Ltd, a low-risk UK business (score 34) whose company registry check was typed by hand, must also approve straight through. Part 2's before-click depends on it (`COMPANIES_HOUSE_CHECK.md`).
+- `kyc_0104` Wilko Limited, an approved UK merchant (score 28) whose registry check was typed by hand at onboarding, must stay approved with zero material differences. Part 2's before-state depends on it (`COMPANIES_HOUSE_CHECK.md`). The only approved GB business cases are `kyc_0104`–`kyc_0107`; generated business cases are never GB, so a live Companies House lookup can only hit a real number.
 - Generated cases get checks that agree with their flags: all clear, plus a possible sanctions match where `sanctionsHit` is set. They get no PEP match and no differences, so the new rules touch only the hand-written cases.
 - Customer names are invented. Sources are real public registers. Nothing in a seed describes a real person.
 

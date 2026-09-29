@@ -141,17 +141,17 @@ Three parts of one demo in [`docs/LOOM-VIDEO-SCRIPT.md`](docs/LOOM-VIDEO-SCRIPT.
 
 ### 2. A manual step removed
 
-**Scenario.** Analysts check every UK business on Companies House in another tab, and type the result into the case. Question it answers: is this only rules, or real engineering against outside systems?
+**Scenario.** UK rules require ongoing monitoring of approved customers, but merchants are checked by hand once at onboarding. Wilko Limited, approved in 2021, is in liquidation today under a new name — and its "not received" refunds still pay straight through. Question it answers: is this only rules, or real engineering against outside systems?
 
-**Traditional cost.** A premium Power Automate connector licensed per user, or a ticket that waits for a sprint.
+**Traditional cost.** A premium Power Automate connector licensed per user plus a scheduled flow, or a ticket that waits for a sprint.
 
 **Automated path.**
 
-- The request names the outside API and asks Devin to read its documentation on the web. Devin gets the company's public registration, nothing about a person
-- Devin adds the lookup, records responses for its tests, and reuses the rule that already holds a case with a material difference
-- Thornbury Couriers, approved before on a check typed at onboarding, now waits for a manager because its accounts are late
+- One sentence asks for daily monitoring. Devin gets the company's public registration, nothing about a person, and the house rules carry the engineering constraints
+- Devin builds what doesn't exist: a refund-to-case link, a scheduled audited entry point, and a refund rule that reads the registry result — recorded responses for its tests
+- Wilko, approved on a check typed in 2021, is flagged for a manager with its live status, and its pending refunds wait for a Manager
 
-**Business value.** A lookup people repeat on every case runs from the case itself, with its source on screen, and a late or dissolved company can't be approved on a note typed at onboarding.
+**Business value.** Monitoring a policy requires actually happens on every merchant, every day, and an insolvent merchant's refunds stop flowing automatically — with a person reviewing the hold.
 
 Brief: [`docs/COMPANIES_HOUSE_CHECK.md`](docs/COMPANIES_HOUSE_CHECK.md)
 
@@ -277,24 +277,22 @@ What the automation does:
 7. Checks every other file is back to its pre-merge content, except later merged work.
 8. Opens the PR with the conflict record and what code can't undo: refunds still in the Manager queue for direct action and the setting row.
 
-### Automate a check
+### Monitor merchants
 
-**Scenario.** KYC analysts find checking every UK business on Companies House by hand slow and error-prone. They open another tab, read the filings and type a note.
+**Scenario.** UK rules require ongoing monitoring of approved customers, but merchants are checked by hand once at onboarding. Wilko Limited, approved in 2021, is in liquidation today under a new registered name.
 
-- **Traditional.** A premium Power Automate connector licensed per user, or a ticket that waits for a sprint.
-- **Automated.** A Manager or admin clicks **Ask Devin to add a check** on Thornbury Couriers (`kyc_0104`).
+- **Traditional.** A premium Power Automate connector licensed per user plus a scheduled flow, or a ticket that waits for a sprint.
+- **Automated.** A Manager or admin clicks **Ask Devin to monitor merchants** on Wilko Limited (`kyc_0104`).
 
 What the automation does:
 
-1. `context.json` carries the company name, registration number `09318842` and country. Nothing about a person.
-2. Devin reads the Companies House API docs on the web; none are pasted in.
-3. Plans five files and four reused modules, including `declared_vs_found`.
-4. Creates `tools/kyc/src/companies-house.ts` (249 lines): live lookup by Basic auth when `COMPANIES_HOUSE_API_KEY` is set; dissolved, liquidation and overdue accounts become material rows; errors become "couldn't check".
-5. Creates `tools/kyc/src/companies-house-recorded.ts` (75 lines): recorded responses, `09318842` late with its accounts.
-6. Adds a `check_companies_house` action to `tools/kyc/src/index.ts`, through `executeIntent`, UK business cases only.
-7. Documents the key in `.env.example`.
-8. Writes `apps/console/tests/tools/kyc-companies-house.test.ts` (362 lines, 14 behaviours, no live call).
-9. Adds no new rule: the existing `declared_vs_found` holds approval for a Manager.
+1. `context.json` carries the company name, registration number `00365335` and country. Nothing about a person.
+2. Devin reads the Companies House API docs on the web; the house rules carry the key handling, timeouts, recordings and the off-by-default setting.
+3. Discovers the three things that don't exist: a refund's link to the merchant's KYC case (a migration backfills it), a scheduler and an audited system actor, and a refund rule that reads KYC.
+4. Builds the daily recheck plus an admin **Recheck now** action, both through `executeIntent`.
+5. An insolvent merchant gains a material Declared vs found row — declared "Wilko Limited, active", found "WL REALISATIONS (2023) LIMITED, liquidation" — and `declared_vs_found` flags the case for a Manager. No new rule.
+6. That merchant's pending and new refunds leave the Analyst's queue for a Manager; a failed lookup flags the case without holding refunds.
+7. Writes tests against recorded responses — active, administration, liquidation, dissolved, not found, error, timeout — with no live call.
 
 ### Start an app
 
