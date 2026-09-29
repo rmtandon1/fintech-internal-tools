@@ -84,7 +84,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Point at the changed assertion in `refunds-clusters.test.ts`.]
 
-> "An existing test said all four refunds pass. Devin changed it to three held, in the open."
+> "An existing test said all four refunds pass. Devin changed it to three held."
 >
 > "*(328)* tests before, *(new total)* after."
 
@@ -94,7 +94,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Point at "The approver cannot be the requester".]
 
-> "Now I'm the engineer. The person who asked can't approve. That's checked in code every time someone approves, not in a wiki."
+> "Now I'm the engineer. The person who asked can't approve. That's checked in code every time someone approves."
 
 [Click **Approve as engineer**.]
 
@@ -106,7 +106,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Close the dialog; click **Pull merged code**.]
 
-> "Merged isn't live yet. An engineer pulls it into the running console."
+> "It's merged. An engineer pulls it into the running console."
 
 ### Held
 
@@ -156,7 +156,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Cut to the finished undo.]
 
-> "Undoing it is the hard part. A plain git revert conflicts: a partial-delivery reason code landed in the same file since."
+> "Undoing it is the hard part. A plain git revert conflicts, because a partial-delivery reason code has since gone into the same file."
 
 [Point at the conflict: kept `partial_delivery`, removed `clustering_hold`.]
 
@@ -164,7 +164,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Point at the removed tests, then the sixty held refunds.]
 
-> "Its tests are named as removed, and the sixty held refunds are listed for a person to release. Nothing else touched."
+> "Devin lists the tests it removed, and the sixty held refunds for someone to release. Nothing else was touched."
 
 [As Engineer: approve, merge, **Pull merged code**.]
 
@@ -306,7 +306,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [It waits for a manager.]
 
-> "A $2,480 fraud accept waits for a manager, as it did in Power Apps. The rest of the move is that list."
+> "A $2,480 fraud accept waits for a manager, as it did in Power Apps. Everything still to move is listed in the pull request."
 
 ---
 
@@ -318,15 +318,13 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 > "One challenge from the build: post-merge deployment drift."
 >
-> "GitHub said merged, and the screen didn't change."
->
-> "I walked it down layer by layer. The merge commit wasn't in the console's checkout."
+> "GitHub said merged, and the screen didn't change. The merge commit wasn't in the console's checkout."
 >
 > "Pulling wasn't enough either. The new Chargebacks package didn't resolve."
 >
-> "So the fix works in four layers: confirm the merge actually happened, pull only into a clean checkout, install packages when the lockfile changes, then migrate and register the new settings and flags."
+> "The fix has four steps: confirm the merge actually happened, pull only into a clean checkout, install packages when the lockfile changes, then migrate and register the new settings and flags."
 >
-> "That toast is all four — no restart, no re-seed."
+> "Now Pull merged code handles it, with no restart and no re-seed."
 
 ---
 
