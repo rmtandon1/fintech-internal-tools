@@ -14,8 +14,8 @@ A run starts from the screen that shows why it is needed, so the request carries
 
 | Request | Starts from | Button | Role |
 |---|---|---|---|
-| New rule | Cluster drawer on `/t/refunds` | **Ask Devin for a rule** | Refunds manager, admin |
-| New check (`COMPANIES_HOUSE_CHECK.md`) | A UK business case, `/t/kyc/<id>` | **Ask Devin to add a check** | KYC manager, admin. A KYC reviewer sees no button |
+| New rule | Cluster drawer on `/t/refunds` | **Ask Devin for a rule** | Manager, admin |
+| New check (`COMPANIES_HOUSE_CHECK.md`) | A UK business case, `/t/kyc/<id>` | **Ask Devin to add a check** | Manager, admin. An Analyst sees no button |
 | New app (`CHARGEBACKS_FROM_POWER_APPS.md`) | Its Coming soon page, `/roadmap/chargebacks`, once its export is committed | **Ask Devin to start this app** | Admin. Managers see it greyed out with who can ask |
 | Rule change or rule removal | A rule's row in the policy trace, or `/admin/policy` | **Ask Devin to change this rule** / **to remove this rule** | Manager of the rule's domain, admin (removal: admin) |
 | Undo a change | A merged change in `/runs` | **Undo this change** | Admin |
@@ -57,7 +57,7 @@ The run view is the demo's evidence that Devin did real engineering work. It sho
 
 - The intent sentence, the requester and the operation, in human terms: Change or Undo a change.
 - Status: running phase, waiting for a reply, PR open, merged, or stopped.
-- What changes once merged, in business terms: "Refunds that take a merchant's not-received total past the manager line go to the manager inbox."
+- What changes once merged, in business terms: "Refunds that take a merchant's not-received total past the manager line go to the manager's queue for direct payment or rejection."
 - **Stop run**, **Open in Devin**, and the **Reply box** while the session is waiting for a reply. The reply goes to the session's messages endpoint and is recorded on the run.
 
 ### Run checklist (between the two)
@@ -96,7 +96,7 @@ One timeline, one row per phase, each with a state (waiting, running with spinne
 For an undo, two more things show:
 
 - **What it reverses**, at the top: the original run id, its intent, its merge commit and PR, each linked. This is where the operator sees what "undo" refers to. Git and `runs/<run_id>/` hold the previous state, so there is no separate backup to show.
-- **The conflict**, as its own Edit sub-event: `git revert -m 1 <merge>` → conflict in `tools/refunds/src/index.ts` → kept `partial_delivery` (PR #n), removed `clustering_hold`. Below it, the PR's list of what code can't undo: held refunds awaiting a manager, and the window row in the live database.
+- **The conflict**, as its own Edit sub-event: `git revert -m 1 <merge>` → conflict in `tools/refunds/src/index.ts` → kept `partial_delivery` (PR #n), removed `clustering_hold`. Below it, the PR's list of what code can't undo: refunds still in the Manager queue for direct payment or rejection, and the window row in the live database.
 
 ### After the PR opens
 
@@ -108,7 +108,7 @@ A modal over the run view. It is where the human gate becomes visible, so it get
 
 ```
 ┌─ Approve PR #14 · clustering_hold ───────────────────────────┐
-│  Requested by Refunds manager · "Hold a merchant's not-received…"    │
+│  Requested by Manager · "Hold a merchant's not-received…"            │
 │                                                              │
 │  5 files · +146 −3                         View diff on  ⌥GH │
 │  Checks   lint ✓ typecheck ✓ boundaries ✓ tests 76 ✓         │
@@ -172,8 +172,8 @@ A list of every run: operation, intent, requester, status, PR, and the change it
 
 - `schema.ts`: the runs table (`id`, operation, spec, intent, context hash, session id, status, PR, merge commit, the run it undoes, requester, timestamps, `version`).
 - `index.ts`: actions dispatch, record session, approve PR, record merge and stop, with the rules from `DEVIN_RUN_PROTOCOL.md` § Starting a run is a governed write.
-- Add the `engineer` role to `ROLES` and `ROLE_META` (`packages/permissions/src/roles.ts`, `domain: null`) and `DEMO_ACTORS` (`packages/engine/src/actor.ts`), and to the role switcher. `RoleLevel` has no fit: `canApprove` lets every non-agent level decide ops approvals, so `engineer` needs its own level that `canApprove` and `rolesFor` exclude. The build agent does this, not a Devin run.
-- The `engineer` reviews code and approves PRs, and never decides ops approvals: `canApprove("engineer")` is `false`, `rolesFor` never returns it for any domain or level, and `MANAGER_ROLES` excludes it. It can see the inbox and the audit chain, but no **Approve** or **Reject** on a pending request renders for it.
+- The four flat roles are `analyst`, `manager`, `admin` and `engineer`; `rolesFor(domain, level)` applies the same queue-role mapping across domains. The `engineer` reviews code and approves PRs, and never decides ops approvals: `canApprove("engineer")` is `false`, `rolesFor` never returns it, and `MANAGER_ROLES` excludes it.
+- The engineer can see the inbox and the audit chain, but no **Approve** or **Reject** on a pending request renders for it.
 - `context.ts`: builds the run context from the live database. It drops PII, never masks it.
 - Register it in `apps/console/src/registry.ts` and `apps/console/src/schema.ts`, and generate a migration.
 
@@ -193,7 +193,7 @@ The build agent must first produce ASCII UI state diagrams for this domain and h
 
 1. **Run lifecycle.** `refused` → `dispatched` → `intake` → `baseline` → `plan` → `edit` → `verify` → `pr_open` → `approved` → `merged`. Side exits: `stopped`, waiting for a reply, `failed` (and at which phase), `dispatch_failed`. Mark which transitions are audited intents and which are observed by polling.
 2. **The rule's lifecycle across the demo.** `absent` → `requested` → `pr_open` → `live` → `off` (constant at its off value) → `undo requested` → `undo pr open` → `absent`. Show that `off` and `live` are the same code, and that only an undo removes it.
-3. **Cluster drawer.** `closed` → `open` (no rule covers this) → `run in flight` → `rule live` (rows show held) → `rule off`, drawn for `refunds_agent` vs `refunds_manager`.
+3. **Cluster drawer.** `closed` → `open` (no rule covers this) → `run in flight` → `rule live` (rows leave the Analyst queue for the Manager queue) → `rule off`, drawn for `analyst` vs `manager`.
 4. **Agent column.** Run in flight and history-only (no run in flight). Each state names its data source. A state with no source is cut, or labelled as simulated.
 5. **Finished run view.** The completed timeline for a new rule and for an undo, with every sub-event from `The run view` filled in from a completed Kestrel run. This is the still the demo pauses on, so draw it at full size.
 6. **Approval dialog.** Idle, approving, Devin merging, merged, and failed (checks re-running, merge conflict), with each row's owner (GitHub or Devin).

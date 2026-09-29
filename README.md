@@ -44,15 +44,14 @@ marked coming soon:
 | App | Area | What it holds |  
 |---|---|---|  
 | **KYC review** | Compliance | 104 onboarding cases awaiting review |  
-| **Refunds** | Money movement | 14 refund requests, several needing manager approval |  
+| **Refunds** | Money movement | 14 refund requests, some routed to managers for direct action |
 | **Feature flags** | Platform | 11 flags at different rollout stages |  
   
 The seventeen coming-soon apps include Chargebacks, Transaction monitoring,  
 Sanctions screening, Wire release and Pricing, spread across four areas:  
 Compliance, Money movement, Customers and Platform.  
   
-- **Roles:** five switchable — Refunds agent, Refunds manager, KYC reviewer,  
-  Admin, Engineer  
+- **Roles:** four switchable — Analyst, Manager, Admin, Engineer
 - **Devin briefs:** three prepared — refund clustering hold, Companies House  
   check, Chargebacks migration from Power Apps  
   
@@ -66,8 +65,9 @@ in [Managed entity schema](#managed-entity-schema).
 
 - **Queues and record views.** Filter, sort and page each app's queue, then open a record with
   masked personal data and an action panel that previews which rules will apply.
-- **Approval inbox.** Actions above a limit wait for a manager in `/inbox`. Nobody can approve their
-  own request, and approvals are scoped to the app's domain.
+- **Approval inbox.** KYC actions that need a second decision go to a manager in `/inbox`; over-limit
+  refunds go straight to the Manager's queue for direct payment or rejection. Admin has no refund
+  or KYC approval tier. Nobody can approve their own request.
 - **Live policy settings.** Admins change limits on `/admin/policy`. The next decision uses the new
   value, with no deploy.
 - **Devin window.** A side panel that shows what Devin will receive, sends the request, and then
@@ -95,7 +95,7 @@ in [Managed entity schema](#managed-entity-schema).
 ### System overview
 
 ```text
-                 Refunds agent · Refunds manager · KYC reviewer · Admin · Engineer
+                 Analyst · Manager · Admin · Engineer
                                             │  "Viewing as" (signed cookie)
                                             ▼
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
@@ -139,28 +139,26 @@ Three rules hold the layers apart:
 Each role works its own queue, and the engine carries work across apps and across people:
 
 ```text
- Refunds agent ──sends refund──▶ Refunds ──over the limit──▶ Inbox ──▶ Refunds manager approves
+ Analyst ──works refunds──▶ Refunds ──over the limit──▶ Manager queue ──▶ Manager pays or rejects
                                    │
                                    │ same customer (email)
                                    ▼
- KYC reviewer ──approves case──▶ KYC review ──linked refund held──▶ Inbox ──▶ KYC manager approves
+ Analyst ──works cases──▶ KYC review ──linked refund held──▶ Inbox ──▶ Manager approves
 
- Refunds manager ──"Ask Devin for a rule"──▶ Devin ──PR──▶ Engineer approves ──▶ Devin merges
+ Manager ──"Ask Devin for a rule"──▶ Devin ──PR──▶ Engineer approves ──▶ Devin merges
  Admin ──────────── switches a rule off on /admin/policy ─────▶ next decision uses it, no code change
  Any manager ────── disables a production flag ──────────────▶ applies at once, audited
 ```
 
 | Role | Works in | Can ask Devin for | Approves |
 |---|---|---|---|
-| **Refunds agent** | Refunds queue | Nothing | Nothing |
-| **Refunds manager** | Refunds, inbox, flags | A refunds rule | Refunds over the manager limit, flag changes |
-| **KYC reviewer** | KYC review | Nothing | Nothing |
-| **Admin** | Everything, `/admin/policy` | Any change, an undo, a new app | Admin-tier requests, permission flags |
+| **Analyst** | Refunds and KYC queues | Nothing | Nothing |
+| **Manager** | Refunds and KYC queues, inbox, flags | Rules and checks | KYC approvals, over-limit refunds directly, flag changes |
+| **Admin** | Policy settings, undo, app switches, flag permissions | Any change, an undo, a new app | Flag permission changes |
 | **Engineer** | `/runs`, run views, audit | Nothing | Devin's pull requests, never ops requests |
 
-A sixth role, `kyc_manager`, exists in the engine and tests but isn't in the switcher. Roles are
-checked on the server: a refunds agent who posts a KYC action is refused by the engine, not by the
-page.
+The same Analyst and Manager roles work both operational queues. Roles are checked on the server,
+not inferred from the current page.
 
 ### The Devin loop, end to end
 
@@ -398,9 +396,9 @@ Install-time problems, with commands to copy, are in [`docs/SETUP.md`](docs/SETU
 Four `not_received` refunds from Kestrel Outdoors ($465, $460, $475 and $480) each pass the $500
 manager limit alone, and total $1,880 together.
 
-1. As **Refunds agent**, open `/t/refunds`, open `rfnd_0013` and click **Send to processor**.
+1. As **Analyst**, open `/t/refunds`, open `rfnd_0013` and click **Send to processor**.
    It settles. *(instant)* This is the "before".
-2. Switch to **Refunds manager**. On `/t/refunds`, open the Kestrel Outdoors cluster in the pattern
+2. Switch to **Manager**. On `/t/refunds`, open the Kestrel Outdoors cluster in the pattern
    monitor and click **Ask Devin for a rule**.
 3. Read **What Devin will see**: the four refunds, the $500 and score-70 limits, and the start
    commit. No names, emails or card numbers.
@@ -425,25 +423,26 @@ manager limit alone, and total $1,880 together.
 7. Still as **Engineer**, close the dialog and click **Pull merged code** on the run. The toast
    reads `pulled … → …`. Merged isn't the same as on: the console only runs the new code once it
    is pulled into its own checkout.
-8. **Verify.** As **Refunds agent**, open `rfnd_0011` ($480) and click **Send to processor**. It
-   lands in the manager inbox with the status **Pending manager approval**, and the rule list shows
-   `clustering_hold` as **hold**: "Kestrel $1,880 over $500 in 14 days".
+8. **Verify.** As **Analyst**, `rfnd_0011` ($480) has left `/t/refunds` and **With a manager** counts
+   it. Switch to **Manager**: it is in the queue, and the rule list shows `clustering_hold` as
+   **hold**: "Kestrel $1,880 over $500 in 14 days". The manager clicks **Send to processor** or **Reject**.
 
 ### 2. Switch a rule off, and back on
 
-A courier outage sends 60 genuine Fernhill Home refunds to the manager inbox. The rule has to
+A courier outage sends 60 genuine Fernhill Home refunds to the manager's queue. The rule has to
 stop now, without an engineer.
 
 1. Load the scenario: `pnpm db:scenario courier-outage`.
-2. As **Refunds manager**, open `/inbox`. Sixty Fernhill Home refunds are waiting.
+2. As **Manager**, open `/t/refunds`. Sixty Fernhill Home refunds need your approval.
 3. Switch to **Admin**, open `/admin/policy`, set `refunds.clustering_window_days` from `14` to `0`
    and save. *(instant)*
    - The setting change goes through the engine like any other write and adds one audit row with
      the old and new value.
    - Nothing is deployed. The rule reads the setting on every decision.
-4. **Verify.** As **Refunds agent**, open `rfnd_0012` and click **Send to processor**. It settles.
-   `clustering_hold` still appears in the rule list, answering **allow**: switched off, not removed.
-5. To switch it back on, set the window back to `14`. The next Kestrel refund is held again.
+4. **Verify.** As **Analyst**, `rfnd_0012` is back in the queue. Click **Send to processor**. It
+   settles. `clustering_hold` still appears in the rule list, answering **allow**: switched off,
+   not removed.
+5. To switch it back on, set the window back to `14`. The next Kestrel refund returns to the Manager queue.
 
 ### 3. Remove a rule
 
@@ -458,18 +457,18 @@ merged since.
      `tools/refunds/src/index.ts`), Devin keeps the later work and removes only the rule.
    - Devin removes the rule, the KYC rule, the setting and the eight hold tests, naming each
      removed test in `plan.json`.
-   - The pull request lists what code can't undo: held refunds for a person to release, and the
+   - The pull request lists what code can't undo: routed refunds for a person to pay or reject, and the
      setting row left in the database.
 3. As **Engineer**, click **Review and approve**, then **Approve as engineer**. Once the run shows
    **Merged**, click **Pull merged code**.
-4. **Verify.** As **Refunds agent**, send `rfnd_0014`. It settles, and `clustering_hold` no longer
+4. **Verify.** As **Analyst**, send `rfnd_0014`. It settles, and `clustering_hold` no longer
    appears in the rule list. The refund reason dropdown still offers `partial_delivery`.
 
 ### 4. Automate a manual check
 
 KYC analysts look up every UK business on Companies House in another tab and type the result in.
 
-1. As **KYC reviewer**, open `/t/kyc/kyc_0104`, Thornbury Couriers Ltd. The Company registry check
+1. As **Analyst**, open `/t/kyc/kyc_0104`, Thornbury Couriers Ltd. The Company registry check
    reads "Checked by hand", and **Approve** passes every rule.
 2. Switch to **Admin** and click **Ask Devin to add a check**.
 3. Read **What Devin will see**: the company name, registration number `09318842` and country.
@@ -481,8 +480,8 @@ KYC analysts look up every UK business on Companies House in another tab and typ
    - It reuses the existing `declared_vs_found` rule to hold approval, instead of adding a rule.
    - Without `COMPANIES_HOUSE_API_KEY` the check uses recorded responses and says "test data".
 5. As **Engineer**, approve the pull request, then click **Pull merged code** once it merges.
-6. **Verify.** As **KYC reviewer**, back on `kyc_0104`, run the Companies House check. Declared vs
-   found gains a material row, "late with its accounts", and **Approve** now needs a KYC manager.
+6. **Verify.** As **Analyst**, back on `kyc_0104`, run the Companies House check. Declared vs
+   found gains a material row, "late with its accounts", and **Approve** now needs a Manager.
 
 ### 5. Start the next app
 
@@ -502,9 +501,9 @@ Chargebacks still runs in a Power App with two Power Automate flows. Its export 
    the new `@console/tool-chargebacks` package and migrates. The home tile reads **Switched off**,
    and `/t/chargebacks` still sends you to the roadmap page.
 5. As **Admin**, open `/t/flags`, find `app.chargebacks` and click **Enable**. *(instant)*
-6. **Verify.** The Chargebacks tile goes **Live**. As **Refunds agent**, open `/t/chargebacks`: the
+6. **Verify.** The Chargebacks tile goes **Live**. As **Analyst**, open `/t/chargebacks`: the
    count reads **3 due within 48 hours**. Click **Accept** on `DSP-20401` ($2,480, fraud). It waits
-   for a refunds manager.
+   for a manager.
 7. To take the app off screen again, click **Disable** on `app.chargebacks`. The tile returns to
    **Switched off**; the code and data stay.
 
@@ -515,7 +514,7 @@ Chargebacks still runs in a Power App with two Power Automate flows. Its export 
 | Move a limit, e.g. the refund manager limit from $500 to $750 | `/admin/policy` | Admin |
 | Disable a production flag in an incident | `/t/flags` → **Disable** | Any manager |
 | Raise a customer-facing rollout by more than 25 points | `/t/flags` → **Set rollout** | Manager, approved by another manager |
-| Reveal a masked document number | `/t/kyc/<id>` | KYC manager, admin (writes an audit row) |
+| Reveal a masked document number | `/t/kyc/<id>` | Manager, admin (writes an audit row) |
 
 ---
 
@@ -716,12 +715,12 @@ Find the layer first, then the symptom.
 
 ### Send to Devin is greyed out, or the Ask Devin button is missing
 
-- Check the role in **Viewing as**. Rules need the app's manager or admin; undo and new apps need
+- Check the role in **Viewing as**. Operational approvals need Manager; undo and new apps need
   admin.
 - Another run on the same app is in flight. Finish or **Stop run** it in `/runs`.
 - On a Coming soon page, the button hides once a merged run exists for that app. If the app was
   removed by hand, reset the database so `devin_runs` forgets the old run.
-- A KYC reviewer never sees **Ask Devin to add a check**; switch to Admin.
+- An Analyst never sees **Ask Devin to add a check**; switch to Manager or Admin.
 
 ### Run view stuck, checklist not moving
 
@@ -782,7 +781,7 @@ Find the layer first, then the symptom.
 | `pnpm db:reset` | Rebuild demo data, keeping recorded runs, their audit rows and replays |
 | `pnpm db:seed:new` | Seed only tools whose queue is still empty (the merge sync runs this) |
 | `pnpm db:generate` | Regenerate migrations from `apps/console/src/schema.ts` |
-| `pnpm db:scenario courier-outage` | Insert 60 Fernhill Home `not_received` refunds through the engine |
+| `pnpm db:scenario courier-outage` | Insert 60 Fernhill Home `not_received` refunds; the live rule routes them to Manager |
 | `pnpm test` / `pnpm test:watch` | Vitest |
 | `pnpm lint` / `pnpm typecheck` | ESLint / TypeScript across the workspace |
 | `pnpm check:boundaries` | Engine names no app; no relative imports across packages; only the engine writes |

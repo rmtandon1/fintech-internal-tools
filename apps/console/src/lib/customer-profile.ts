@@ -5,24 +5,21 @@ const HOUR = 60 * 60 * 1000;
 /** Matches the KYC queue's "Due in 12h" filter. */
 const DUE_SOON = 12 * HOUR;
 
-/** The live approval thresholds a risk score is read against. */
+/** The live manager approval threshold for a risk score. */
 export interface RiskThresholds {
   manager: number;
-  admin: number;
 }
 
 /**
- * The risk scale in four bands. The two upper edges are the live approval
- * thresholds, so the gauge's colours say who has to sign off. The 40 edge
- * is where the case's risk tier turns from low to medium.
+ * The risk scale in three bands. The manager edge is the live approval
+ * threshold. The 40 edge is where the case's risk tier turns from low to medium.
  */
-export function riskBands({ manager, admin }: RiskThresholds): GaugeBand[] {
+export function riskBands({ manager }: RiskThresholds): GaugeBand[] {
   const medium = Math.min(40, manager);
   return [
     { from: 0, to: medium, tone: "positive", label: "Low risk" },
     { from: medium, to: manager, tone: "caution", label: "Medium risk" },
-    { from: manager, to: admin, tone: "warning", label: "High risk" },
-    { from: admin, to: 100, tone: "negative", label: "Very high risk" },
+    { from: manager, to: 100, tone: "warning", label: "High risk" },
   ];
 }
 

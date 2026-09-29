@@ -74,7 +74,7 @@ The count of material rows is read from `kyc_discrepancies` when the case is loa
 
 The golden tests assert the outcome in the last column. Existing cases keep their current behaviour, and the two new cases take the first ids after the generated range (`kyc_0014` to `kyc_0101`).
 
-| Case | Shape | Case file | Approve as `kyc_reviewer` |
+| Case | Shape | Case file | Approve as `analyst` |
 |---|---|---|---|
 | `kyc_0001` Helena Vasquez | Standard individual | Five checks clear, no differences | Applied |
 | `kyc_0003` Northwind Freight Ltd | Small UK company | Company registry: needs review, two of three owners verified | Manager, by risk score (72) |
@@ -133,7 +133,7 @@ pnpm db:setup && pnpm dev
 ```
 
 - Each example case approves as the table says, and the trace names the rule that holds it.
-- A KYC manager can approve the held requests for `kyc_0102` and `kyc_0103` from `/inbox`.
+- A manager can approve the held requests for `kyc_0102` and `kyc_0103` from `/inbox`.
 - Approving `kyc_0013` as a reviewer is applied, and the trace holds nothing.
 - For every seeded case, the sanctions check agrees with `sanctionsHit` and the PEP check agrees with `pep`.
 - No seeded approved case has a PEP match or a material difference.
@@ -145,5 +145,5 @@ pnpm db:setup && pnpm dev
 
 The case file isn't a demo beat of its own. It makes an existing one credible:
 
-- **Part 1, after the merge.** Open `kyc_0013`. The register already showed a minor address difference, and nothing held it. Now **Approve** needs a KYC manager, and the trace names `linked_refund_hold`. The console had the evidence, and Devin's rule connects it to the refunds pattern.
+- **Part 1, after the merge.** Open `kyc_0013`. The register already showed a minor address difference, and nothing held it. Now **Approve** needs a manager, and the trace names `linked_refund_hold`. The console had the evidence, and Devin's rule connects it to the refunds pattern.
 - **Off camera.** `kyc_0103` answers "what does KYC look like in this console" in one page: three undisclosed directorships, a manager hold, and the reason in plain words.

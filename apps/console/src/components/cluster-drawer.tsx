@@ -240,7 +240,7 @@ export function ClusterDrawer({
 
         <SheetFooter className="mt-0 flex-row items-center gap-3 border-t border-border text-xs text-muted-foreground">
           {uncovered ? <p>No rule catches this today.</p> : null}
-          {!canRequestRule ? <p>A refunds manager can ask for one.</p> : null}
+          {!canRequestRule ? <p>A manager can ask for one.</p> : null}
           {dispatch && dispatch.length > 0 ? (
             <div className="ml-auto">
               <Button

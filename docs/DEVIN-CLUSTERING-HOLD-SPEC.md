@@ -23,7 +23,7 @@ hold is **not** in the code: #63 returned the demo to its before-state.
 |---|---|---|---|
 | Refund `execute` rules | `tools/refunds/src/index.ts` | 306 | `rules: [withinCapturedAmount, notDisputed, amountApproval, goodwillApproval],` |
 | Clusters import | `tools/refunds/src/index.ts` | 13 | `import { MANAGER_APPROVAL_USD_KEY, notReceivedByMerchant } from "./clusters";` |
-| Declared refund constants | `tools/refunds/src/index.ts` | 274–296 | Three: `manager_approval_usd_minor` 50,000, `admin_approval_usd_minor` 500,000, `goodwill_approval_usd_minor` 5,000 |
+| Declared refund constants | `tools/refunds/src/index.ts` | 274–296 | Two: `manager_approval_usd_minor` 50,000, `goodwill_approval_usd_minor` 5,000 |
 | Window key | `tools/refunds/src/clusters.ts` | 8 | `CLUSTERING_WINDOW_DAYS_KEY = "refunds.clustering_window_days"`, **declared nowhere** |
 | Window default | `tools/refunds/src/clusters.ts` | 11 | `DEFAULT_CLUSTERING_WINDOW_DAYS = 14` |
 | Window reader | `tools/refunds/src/clusters.ts` | 28–32 | `clusteringWindowDays()` returns 0 for 0 (off) and 14 for a negative value (#72; before that, 0 also became 14) |
@@ -148,7 +148,7 @@ function runningTotal(refund: ClusterMember, windowDays: number): number {
   return prior + refund.usdMinor;
 }
 
-/** Not-received refunds from one merchant are held once together they reach the manager line. */
+/** Not-received refunds from one merchant route to the manager once together they reach the line. */
 export const clusteringHold: Rule<ClusterMember, unknown> = ({ record, constants }) => {
   const windowDays = holdWindowDays(constants);
   if (!record || record.reasonCode !== "not_received" || windowDays <= 0) {
@@ -297,7 +297,7 @@ REPLACE:
       }
     : { type: "allow", rule: "escalated_needs_manager" };
 
-/** A customer whose refunds a clustering hold would catch needs a KYC manager, whatever the score. */
+/** A customer whose refunds a clustering hold would catch needs a manager, whatever the score. */
 const linkedRefundHold: CaseRule = ({ record, constants }) =>
   record && customerInHeldCluster(record.email, constants)
     ? {
@@ -468,9 +468,10 @@ Behavioural checks, on a fresh local database (never the one serving :3001):
 
 | As | Do | Expect |
 |---|---|---|
-| `refunds_agent` | Send `rfnd_0011` to the processor | Applied |
-| `refunds_agent` | Send `rfnd_0013` to the processor | Pending manager approval; trace names `clustering_hold` |
-| `kyc_reviewer` | Approve `kyc_0013` | Pending KYC manager; trace names `linked_refund_hold` |
+| `analyst` | Send `rfnd_0011` to the processor before the rule merges | Applied |
+| `analyst` | Find `rfnd_0011` absent from the queue after the rule merges | It is in the manager's queue; trace names `clustering_hold` |
+| `manager` | Send or reject the routed refund | Applied directly; no approval request |
+| `analyst` | Approve `kyc_0013` | Routed to a manager; trace names `linked_refund_hold` |
 | `admin` | Set `refunds.clustering_window_days` to 0, send `rfnd_0014` | Applied; `clustering_hold` reads allow |
 
 ---

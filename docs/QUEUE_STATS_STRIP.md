@@ -2,68 +2,68 @@
 
 ## Summary
 
-- Three counts at the top of every tool queue based on the selected role, to direct the person opening the queue to what they need to focus on next.
+- Role-specific counts at the top of each tool queue, to direct the person opening it to what they need to focus on next.
 - Each count links to exactly the rows it counts. Every number is a query.
-- Agents see what to work on next, managers see what is breaching or waiting on them.
+- Analysts see what to work on next, managers see what is breaching or needs their decision.
 - Switching role changes the numbers, which shows the role model without a line of copy.
 - Stats are declared on the tool, like filters, so a new tool gets a strip without touching the page or the engine. 
 
 ## Problem
 
-Currently the queue panel title shows one number, the total row count (`apps/console/src/app/t/[tool]/page.tsx`). Home's Work panel shows each tool's open count and one attention marker (`apps/console/src/lib/work.ts`), the same for every role that can see the tool. Neither tells a reviewer what to pick up or a manager what is about to breach.
+Currently the queue panel title shows one number, the total row count (`apps/console/src/app/t/[tool]/page.tsx`). Home's Work panel shows each tool's open count and one attention marker (`apps/console/src/lib/work.ts`), the same for every role that can see the tool. Neither tells an analyst what to pick up or a manager what is about to breach.
 
-Roles are domain-scoped (`packages/permissions/src/roles.ts`). A tool is opened by up to three roles: its domain's agent, its domain's manager, and admin. `toolsForRole` already hides tools a role can't see, so the strip only has to vary what those three are asked:
+Roles are flat across domains (`packages/permissions/src/roles.ts`). Analysts work the refunds and KYC queues; Managers decide both queues. Admins see the control-plane view, and engineers review Devin pull requests rather than working tool queues.
 
 | Role | First question | What that means in this code |
 |---|---|---|
-| Agent (`kyc_reviewer`, `refunds_agent`) | What do I work on next? | Volume, risk, and deadlines in the rows they can act on |
-| Domain manager (`kyc_manager`, `refunds_manager`) | Where is the team at risk of breaching SLA, and what is waiting on me? | `dueAt`, escalations, approvals they can decide in their domain |
-| Admin | Are the controls holding? | Policy denials, threshold changes, approvals at the admin tier |
+| Analyst | What do I work on next? | Volume, risk, and deadlines in the rows they can act on |
+| Manager | What needs my decision, and where is the team at risk of breaching SLA? | Queue routing, `dueAt`, escalations, approvals they can decide |
+| Admin | Are the controls holding? | Policy denials and setting changes |
 
 The strip is also a visible role check. Switch role and the numbers change, because each role's job is different. That is the governance model shown without a sentence of copy.
 
 ## What each role sees
 
-Three stats per role per tool. Three is enough to read at a glance; a fourth becomes a dashboard.
+The tables show each role's configured stats, capped at three per tool. KYC admins see two audit stats because they do not work the queue.
 
 ### KYC
 
 | Role | Stats | Source |
 |---|---|---|
-| KYC reviewer | Pending review · High risk pending · Due in 12h | `status`, `riskTier`, `dueAt` |
-| KYC manager | Overdue · Escalated · Awaiting your approval | `dueAt < now`, `status = escalated`, approvals the actor can decide |
-| Admin | Awaiting your approval · Denied 24h · Policy changes 7d | approvals, `audit_log.event` = `denied` / `constant_changed` |
+| Analyst | Pending review · High risk pending · Due in 12h | `status`, `riskTier`, `due` |
+| Manager | Overdue · Escalated · Need your approval | `due`, `status`, approvals the actor can decide |
+| Admin | Blocked in the last day · Setting changes this week | `audit_log.event` = `denied` / `constant_changed` |
 
 ### Refunds
 
 | Role | Stats | Source |
 |---|---|---|
-| Refunds agent | Requested · My requests awaiting approval · Failed | `status`, approvals where the actor is requester |
-| Refunds manager | Awaiting your approval · Requested · Failed | approvals, `status` |
-| Admin | Awaiting your approval · Denied 24h · Policy changes 7d | approvals, `audit_log` |
+| Analyst | Ready to send · With a manager · Failed | `status`, `queue` |
+| Manager | Need your approval · Failed · With processor | `queue`, `status` |
+| Admin | With a manager · Blocked in the last day · Setting changes this week | `queue`, `audit_log` |
 
-Once `REFUND_CLUSTERING_HOLD.md` ships, held refunds are pending approvals, so the refunds manager's "Awaiting your approval" is the number that reads 60 in the courier-outage reversal.
+Over-limit refunds leave the Analyst queue and appear in the Manager queue, where the Manager pays or rejects them directly. They do not create approval requests. In the courier-outage reversal, the Manager's "Need your approval" count reads 60 because it links to the manager queue.
 
 ### Flags
 
 | Role | Stats | Source |
 |---|---|---|
-| KYC manager, refunds manager | Partial in production · Expired, still serving · Awaiting your approval | `environment`, `status`, `expiresAt < now`, approvals |
-| Admin | Awaiting your approval · Denied 24h · Policy changes 7d | approvals, `audit_log` |
+| Manager | Partial in production · Expired, still serving · Need your approval | `environment`, `status`, `expiresAt < now`, approvals |
+| Admin | Need your approval · Blocked in the last day · Setting changes this week | approvals, `audit_log` |
 
 Flags has no domain, so it is visible to `MANAGER_ROLES` and admin only. Neither agent sees it, so there is no agent row.
 
 "Expired, still serving" is a flag past `expiresAt` whose status is `on` or `partial`: flag debt. The current seed already has one.
 
-The admin row is the same across tools on purpose. The admin role in this code owns thresholds (`/admin/policy`), the audit chain and the top approval tier. It is not working the queue, so it gets the control-plane view.
+Admins own policy settings (`/admin/policy`), the audit chain, undo and app switches. There is no admin approval tier for refunds or KYC; permission-flag changes remain an admin decision.
 
 ## Wireframe
 
-KYC queue as KYC manager. The total and the row are from the seed; the stat counts are illustrative.
+KYC queue as Manager. The total and the row are from the seed; the stat counts are illustrative.
 
 ```
 ┌ KYC REVIEW QUEUE ─────────────────────────────────────── 100 cases ┐
-│  ⚠ 6 Overdue      11 Escalated      3 Awaiting your approval       │
+│  ⚠ 6 Overdue      11 Escalated      3 Need your approval            │
 ├────────────────────────────────────────────────────────────────────┤
 │ Status ▾ │ Risk tier ▾ │ Due ▾ │ Search                 [Apply]    │
 ├────────────────────────────────────────────────────────────────────┤
@@ -136,9 +136,9 @@ pnpm verify
 pnpm db:setup && pnpm dev
 ```
 
-- Each role sees three stats on each tool queue, matching the tables above.
+- Stats match the role-specific tables above (KYC admins see two audit stats; other listed roles see three).
 - For every records stat, the count equals the row total of the page it links to.
-- As refunds agent, request a refund above the manager line: "My requests awaiting approval" goes up by one. As refunds manager, "Awaiting your approval" goes up by one on the same refund. As KYC manager, the refunds queue is not visible at all.
+- As Analyst, a refund routed above the manager line leaves the Analyst queue and appears in the Manager queue. As Manager, pay or reject it directly; no approval request is created. The records-stat count must equal the linked queue's total.
 - As admin, change a threshold in `/admin/policy`: "Policy changes 7d" goes up by one on that tool.
 - `pnpm check:boundaries` passes: no tool name in `packages/engine`.
 - A tool with no `stats` declared renders no strip and nothing breaks.
@@ -154,7 +154,7 @@ Tests: engine tests for the two approval counters and the audit `since` filter; 
 
 The strip earns its seconds inside two existing moments of the demo:
 
-- **Role switch.** KYC reviewer to KYC manager on the same KYC queue: the strip changes from "what do I pick up" to "what is breaching". One cut, and the viewer sees that roles are enforced, not decorative.
-- **Courier-outage reversal.** The refunds manager opens refunds and "Awaiting your approval" reads 60 before any row is read. The problem is visible in five seconds, which is the setup for "Reverse this change".
+- **Role switch.** Analyst to Manager on the same KYC queue: the strip changes from "what do I pick up" to "what is breaching or needs my decision". One cut, and the viewer sees that roles are enforced, not decorative.
+- **Courier-outage reversal.** The Manager opens refunds and "Need your approval" reads 60 before any row is read. The problem is visible in five seconds, which is the setup for "Reverse this change".
 
 Off camera it strengthens the repo: stats are one more thing a tool declares, and the `flags` receipt ("added no engine code") holds for them too.

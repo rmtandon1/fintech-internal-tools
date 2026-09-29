@@ -36,7 +36,7 @@ What a change may touch is the spec's `allowedPaths` list — the path globs the
 
 ### Switching a rule off in seconds (KILL_SWITCH)
 
-Every rule a run adds reads its thresholds from admin-editable constants, and its spec names one value that makes the rule inert. For the clustering hold, that is a window of 0 days. The admin sets it on `/admin/policy`: immediate, audited, and no flag in the code. It covers the minutes an undo takes to open and be approved, while the rule may be holding genuine refunds. The undo then removes the rule from the code.
+Every rule a run adds reads its thresholds from admin-editable constants, and its spec names one value that makes the rule inert. For the clustering hold, that is a window of 0 days. The admin sets it on `/admin/policy`: immediate, audited, and no flag in the code. It covers the minutes an undo takes to open and be approved, while the rule may be routing genuine refunds to the Manager queue. The undo then removes the rule from the code.
 
 Policy rules use constants, and product flags such as `payments.card_network_failover` stay flags, governed by the console. Reasoning: `DEVIN-NO-DEVIN.md` › Policy rules and product flags.
 
@@ -70,7 +70,7 @@ Every run therefore appears in the hash chain five times: when it was asked for,
 
 ## What the console hands Devin
 
-Devin's VM runs a freshly seeded database. It cannot see `apps/console/data/console.db`, where live constants, held refunds and admin edits live. So the console captures that state at dispatch and hands it over. Devin never reads the live database, and never has to guess it.
+Devin's VM runs a freshly seeded database. It cannot see `apps/console/data/console.db`, where live constants, refund rows and admin edits live. So the console captures that state at dispatch and hands it over. Devin never reads the live database, and never has to guess it.
 
 `runs/<run_id>/context.json` is written by the console and passed as a session attachment:
 
@@ -80,7 +80,7 @@ Devin's VM runs a freshly seeded database. It cannot see `apps/console/data/cons
   "operation": "change",
   "spec": "REFUND_CLUSTERING_HOLD.md",
   "intent": "Once a merchant's \"not received\" refunds add up past the manager limit, send them to a manager for approval. Send those customers' KYC approvals to a manager too.",
-  "requested_by": "refunds_manager",
+  "requested_by": "manager",
   "base": { "branch": "cognition-dashboard-devin-integration", "commit": "1a67f60…" },
   "allowed_paths": [
     "tools/refunds/src/clustering-hold.ts",
@@ -155,8 +155,8 @@ The Devin API doesn't stream sub-steps. The session's `structured_output` is the
   "plan_commit": "c7d19e2",
   "reuses": [
     { "module": "packages/engine/src/execute-intent.ts", "reason": "hold is registered as an intent, not a side path" },
-    { "module": "packages/engine/src/approvals.ts", "reason": "held refunds go to the existing manager tier" },
-    { "module": "packages/engine/src/audit", "reason": "every hold decision is an audit row" }
+    { "module": "packages/engine/src/execute-intent.ts", "reason": "routed actions are applied by allowed manager roles without an approval request" },
+    { "module": "packages/engine/src/audit", "reason": "the manager's direct action is audited; routing itself creates no row" }
   ],
   "files": [
     { "path": "tools/refunds/src/clustering-hold.ts", "op": "create", "additions": 84, "deletions": 0, "reason": "clustering_hold rule and shared cluster query" },
@@ -170,7 +170,7 @@ The Devin API doesn't stream sub-steps. The session's `structured_output` is the
   ],
   "notes": [
     { "phase": "baseline", "text": "Ran the base tests and saw all 68 pass" },
-    { "phase": "verify", "text": "Opened localhost:3001/t/refunds and saw the held refunds with a Held chip" }
+    { "phase": "verify", "text": "Opened localhost:3001/t/refunds and saw routed refunds in the Manager queue with the clustering_hold trace" }
   ],
   "conflicts": [],
   "pr_url": null,
@@ -213,7 +213,7 @@ Test counts, type escapes, seed edits and the shape of an undo are for the engin
 `runs/` and the guard sit under CODEOWNERS, so changing either needs a human reviewer.
 ## Undo
 
-An undo is not `git revert` run by a machine. A clean revert only works if nothing has touched the same lines since the merge. In practice other runs and ordinary PRs will have landed on top. An admin will have tuned the rule's constants. Refunds may be sitting in the inbox, held by a rule that is about to disappear. Working through that is the autonomous part.
+An undo is not `git revert` run by a machine. A clean revert only works if nothing has touched the same lines since the merge. In practice other runs and ordinary PRs will have landed on top. An admin will have tuned the rule's constants. Refunds may still be in the Manager queue, routed by a rule that is about to disappear. Working through that is the autonomous part.
 
 Devin's job on an undo:
 
@@ -221,7 +221,7 @@ Devin's job on an undo:
 2. Resolve conflicts so that the undone change's effect is gone, and every later change stays.
 3. Remove the constants that change declared. Restore any constant it changed to the value in its `context.json`, unless an admin has set it since. In that case, report both values in the PR and leave the declared default alone.
 4. Rewrite, don't delete, any later test that depended on the undone rule. Name each one.
-5. List in the PR anything the code can't undo: held refunds still awaiting approval, and constant rows still in the live database. These become operator steps.
+5. List in the PR anything the code can't undo: routed refunds still in the Manager queue, and constant rows still in the live database. These become operator steps.
 
 ## Snapshots
 
@@ -235,7 +235,7 @@ The sections Summary, Updates since last revision, Local testing results, and Re
 - **Intent:** the sentence as the requester wrote it.
 - **Tests:** per-file counts before and after. Every new or rewritten test is named, with its reason.
 - **Live state:** constants from `context.json` next to any declared default the PR changes.
-- **After merge:** operator steps, such as clearing held refunds. `record_merge` is written automatically; see § Approval and merge.
+- **After merge:** operator steps, such as paying or rejecting routed refunds. `record_merge` is written automatically; see § Approval and merge.
 
 
 
