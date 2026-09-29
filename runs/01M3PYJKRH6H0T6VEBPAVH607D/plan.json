@@ -1,0 +1,110 @@
+{
+  "files": [
+    {
+      "path": "tools/refunds/src/clustering-hold.ts",
+      "op": "create",
+      "reason": "clustering_hold rule on refunds.execute: once a merchant's not_received running total (oldest first, inside refunds.clustering_window_days, rejected excluded) reaches refunds.manager_approval_usd_minor, that refund and every later one in the cluster needs a refunds manager; the reason names the merchant, the running total, the line and the window; a window of 0 answers allow. Exports the held-refund lookup that KYC reuses"
+    },
+    {
+      "path": "tools/refunds/src/index.ts",
+      "op": "modify",
+      "reason": "Register clustering_hold on execute right after amount_approval, declare refunds.clustering_window_days at 0 (off until an admin turns it on, per the protocol's House rules; 14 is the working window), add its rule label and fields, re-export the held-refund lookup"
+    },
+    {
+      "path": "tools/kyc/src/index.ts",
+      "op": "modify",
+      "reason": "linked_refund_hold on approve, after declared_vs_found and before escalated_needs_manager: a case whose email matches the customer of a refund clustering_hold holds needs a KYC manager whatever the risk score; off with the hold"
+    },
+    {
+      "path": "apps/console/tests/tools/refunds-clustering-hold.test.ts",
+      "op": "create",
+      "reason": "Refund acceptance tests for clustering_hold: crossing refund, first refund, later refunds and queues, trace position, other reason codes, rejected rows, window and kill switch, manager direct send, declared setting"
+    },
+    {
+      "path": "apps/console/tests/tools/kyc-linked-refund-hold.test.ts",
+      "op": "create",
+      "reason": "KYC acceptance tests for linked_refund_hold with refunds and KYC both seeded"
+    },
+    {
+      "path": "apps/console/tests/tools/refunds-clusters.test.ts",
+      "op": "modify",
+      "reason": "'a window of 0 switches the hold off\u2026' registers the setting at 14 and expects clusteringWindowDays() 14, but the tool now declares it at 0 first, so the test sets 14 explicitly; 'every row in the group is allowed on its own by amount_approval' checked against clustering_hold at the default and when on"
+    },
+    {
+      "path": "apps/console/tests/tools/kyc-case-file.test.ts",
+      "op": "modify",
+      "reason": "'approve's rules run in order with the new rules before escalation' lists approve's rule order; linked_refund_hold joins it before escalated_needs_manager. kyc_0013 (a Kestrel customer) straight-through test checked against the new rule"
+    },
+    {
+      "path": "apps/console/tests/tools/refunds.test.ts",
+      "op": "modify",
+      "reason": "Queue and stats tests read the execute rules for routing; checked against clustering_hold moving Kestrel rows to the manager queue"
+    },
+    {
+      "path": "apps/console/tests/tools/kyc.test.ts",
+      "op": "modify",
+      "reason": "Approve-routing tests checked against the new linked_refund_hold rule"
+    },
+    {
+      "path": "apps/console/tests/tools/kyc-linked-activity.test.ts",
+      "op": "modify",
+      "reason": "Seeds refunds and KYC together and asserts held counts; checked against the new rules"
+    },
+    {
+      "path": "apps/console/tests/scripts/scenario.test.ts",
+      "op": "modify",
+      "reason": "courier-outage inserts 60 Fernhill Home not_received refunds and compares inManagerQueue with the live manager queue, which clustering_hold now fills"
+    },
+    {
+      "path": "apps/console/tests/lib/instrumentation.test.ts",
+      "op": "modify",
+      "reason": "Walks each tool's declared number constants; refunds gains refunds.clustering_window_days declared at 0"
+    }
+  ],
+  "reuses": [
+    {
+      "module": "tools/refunds/src/clusters.ts#notReceivedByMerchant",
+      "reason": "The existing cluster query picks which refunds count: not_received, not rejected, inside the window, and merchants whose rows are each under the manager line"
+    },
+    {
+      "module": "tools/refunds/src/clusters.ts#clusteringWindowDays",
+      "reason": "Reads refunds.clustering_window_days live; 0 keeps the hold off"
+    },
+    {
+      "module": "@console/engine/policy/evaluate",
+      "reason": "The rules are ordinary require_approval outcomes; approval beats allow and every rule stays in the trace"
+    },
+    {
+      "module": "tools/refunds/src/index.ts#managerRouteFor",
+      "reason": "Queue placement and the reject route already read the execute rules, so held refunds move to the manager queue without new routing code"
+    },
+    {
+      "module": "@console/engine/execute-intent",
+      "reason": "Held actions go through the governed paths: on refunds.execute (routeToApprover) an analyst is refused and a manager applies directly; on kyc approve an analyst's request queues for a manager"
+    },
+    {
+      "module": "@console/permissions#rolesFor",
+      "reason": "Manager tier roles for refunds and kyc"
+    },
+    {
+      "module": "tools/kyc/src/linked-activity.ts",
+      "reason": "The same customerEmail join links a KYC case to its refunds"
+    }
+  ],
+  "acceptance": [
+    "the refund that takes the merchant's not_received total over the manager line needs a manager",
+    "the first refund under the line goes straight through",
+    "every later refund in the cluster needs a manager and leaves the analyst queue",
+    "clustering_hold sits right after amount_approval in the execute trace",
+    "a refund with another reason code from the same merchant is not held",
+    "rejected refunds do not count toward the running total",
+    "refunds outside the window do not count",
+    "with refunds.clustering_window_days at 0 clustering_hold reads allow and no refund is routed by it",
+    "a manager sends a held refund to the processor directly",
+    "declares refunds.clustering_window_days at 0 so nothing is held until an admin turns it on",
+    "approving a case whose customer has a held refund needs a manager whatever the risk score",
+    "a case whose customer has no held refund is not held by linked_refund_hold",
+    "with the window at 0 linked_refund_hold reads allow",
+    "a KYC manager approves a linked case directly"
+  ]
+}
