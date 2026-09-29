@@ -141,6 +141,7 @@ describe("RunView", () => {
     const verifyLines = phaseLines(html).find((list) => list.includes("Lint"));
     expect(verifyLines?.match(/data-state="active"/g)).toHaveLength(1);
     expect(verifyLines?.match(/data-state="waiting"/g)).toHaveLength(3);
+    expect(verifyLines).toMatch(/>running<\/span>/);
 
     const failed = {
       ...verifying,
@@ -154,6 +155,24 @@ describe("RunView", () => {
     const failedVerifyLines = phaseLines(failedHtml).find((list) => list.includes("Lint"));
     expect(failedVerifyLines).toMatch(/<li class="[^"]*text-destructive[^"]*" data-state="failed"[^>]*>.*?Lint.*?failed.*?<\/li>/);
     expect(failedVerifyLines).not.toContain('aria-label="Failed"');
+  });
+
+  it("shows paused for the pending verification step when the phase is stopped", () => {
+    const verifying = frames.find((frame) => frame.structured_output.phase === "verify");
+    if (!verifying) throw new Error("no verification frame");
+    const stopped = {
+      ...verifying,
+      structured_output: { ...verifying.structured_output, phase_status: "stopped" as const },
+    };
+    const verifyLines = phaseLines(render(payload({ frames: [stopped], latest: stopped })))
+      .find((list) => list.includes("Lint"));
+    const activeLine = [...(verifyLines ?? "").matchAll(/<li\b[^>]*>.*?<\/li>/g)]
+      .map((match) => match[0])
+      .find((line) => line.includes("Lint"));
+
+    expect(activeLine).toContain('data-state="active"');
+    expect(activeLine).toMatch(/>paused<\/span>/);
+    expect(activeLine).not.toMatch(/>running<\/span>/);
   });
 
   it("renders nested lines without status glyphs while preserving top-level phase ticks", () => {
@@ -177,6 +196,22 @@ describe("RunView", () => {
     expect(verifyLines.match(/├─/g)).toHaveLength(lines.length - 1);
     expect(verifyLines.match(/└─/g)).toHaveLength(1);
     expect(lines.at(-1)).toContain("└─");
+  });
+
+  it("announces artifact status to screen readers without labelling notes", () => {
+    const verifying = frames.find((frame) => frame.structured_output.phase === "verify");
+    if (!verifying) throw new Error("no verification frame");
+    const html = render(payload({ frames: [verifying], latest: verifying }));
+    const fileLines = phaseLines(html).find((list) => list.includes("Adding "));
+    const doneFileLine = [...(fileLines ?? "").matchAll(/<li\b[^>]*>.*?<\/li>/g)]
+      .map((match) => match[0])
+      .find((line) => line.includes("Adding "));
+    expect(doneFileLine).toContain('<span class="sr-only">Done</span>');
+
+    const note = "Ran pnpm verify at the base: all 68 tests pass";
+    const noteLines = phaseLines(html).find((list) => list.includes(note));
+    expect(noteLines).toContain(note);
+    expect(noteLines).not.toContain("sr-only");
   });
 
   it("renders notes under their phase before artifacts and tolerates output without notes", () => {
