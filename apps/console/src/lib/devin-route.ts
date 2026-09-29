@@ -66,6 +66,8 @@ export interface RunViewPayload {
   sessionUrl: string | null;
   /** Devin's latest message in the live session; null in simulation or before it has said anything. */
   devinMessage: string | null;
+  /** The live session's `status_detail` from this read's poll (e.g. `working`, `waiting_for_user`); null when not polled. */
+  sessionStatusDetail: string | null;
   /** The business sentence for what the run changes once merged. */
   summary: string;
   /** The spec's once-merged line for this operation, when it names one. */
@@ -149,6 +151,8 @@ export async function handleGet(
       mode === "live" && run.sessionId && deps.devin?.latestMessage
         ? await deps.devin.latestMessage(run.sessionId).catch(() => null)
         : null,
+    sessionStatusDetail:
+      outcome?.kind === "output" || outcome?.kind === "no_output" ? outcome.statusDetail : null,
     summary: getSpec(run.spec)?.summaries?.[run.operation as Operation] ?? run.intent,
     outcome: getSpec(run.spec)?.outcomes?.[run.operation as Operation] ?? null,
     operationLabel: operationLabel(run.operation),

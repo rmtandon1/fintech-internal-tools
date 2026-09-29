@@ -102,11 +102,20 @@ function CheckRow({
   );
 }
 
-function Checklist({ out, run }: { out: StructuredOutput | null; run: RunViewPayload["run"] }) {
+function Checklist({
+  out,
+  run,
+  sessionStatusDetail,
+}: {
+  out: StructuredOutput | null;
+  run: RunViewPayload["run"];
+  sessionStatusDetail: string | null;
+}) {
   const durations = out?.phase_durations_s ?? {};
   const current = out?.phase ?? null;
-  // A running session that has not reported a phase yet is reading the evidence.
-  const reached = current ? PHASE_ORDER.indexOf(current === "merge" ? "merged" : current) : run.status === "running" ? 0 : -1;
+  // A running session that is working but has not reported a phase yet is reading the evidence.
+  const working = run.status === "running" && (sessionStatusDetail ?? "working") === "working";
+  const reached = current ? PHASE_ORDER.indexOf(current === "merge" ? "merged" : current) : working ? 0 : -1;
   const stateOf = (phase: (typeof PHASE_ORDER)[number]): CheckLine["state"] => {
     if (phase === "approved") return run.approvedBy ? "done" : run.status === "approved" ? "active" : "waiting";
     if (phase === "merged") return run.status === "merged" ? "done" : "waiting";
@@ -377,7 +386,7 @@ export function RunView({
           </section>
         ) : null}
 
-        <Checklist out={out} run={run} />
+        <Checklist out={out} run={run} sessionStatusDetail={payload.sessionStatusDetail} />
 
         {payload.prompt ? (
           <section className="px-5 pb-3" data-testid="devin-message">
