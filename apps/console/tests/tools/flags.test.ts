@@ -248,3 +248,19 @@ describe("feature flag switches", () => {
     expect(flagTool.get(flag.id)?.[toggle.field]).toBe(0);
   });
 });
+
+describe("app flags", () => {
+  it("seeds app.chargebacks off and not customer-facing", () => {
+    expect(flagTool.get("flag_app.chargebacks")).toMatchObject({
+      key: "app.chargebacks",
+      name: "Chargebacks",
+      flagType: "release",
+      environment: "production",
+      enabled: 0,
+      rolloutPercent: 0,
+      customerFacing: 0,
+      status: "off",
+      expiresAt: null,
+    });
+  });
+});

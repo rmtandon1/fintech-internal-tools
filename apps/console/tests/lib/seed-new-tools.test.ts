@@ -34,7 +34,7 @@ describe("pendingSeedTools", () => {
   it("names the seedable tools whose queue is empty, until they are seeded", () => {
     const rows: { id: string }[] = [];
     const fake = fakeTool(rows);
-    expect(pendingSeedTools([...TOOLS, fake])).toEqual(["automation", "fake"]);
+    expect(pendingSeedTools([...TOOLS, fake])).toEqual(["chargebacks", "automation", "fake"]);
 
     seedNewTools([...TOOLS, fake]);
     expect(pendingSeedTools([...TOOLS, fake])).toEqual(["automation"]);

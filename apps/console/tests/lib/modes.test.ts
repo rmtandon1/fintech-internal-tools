@@ -49,11 +49,30 @@ describe("ModeEntry.switchedOff", () => {
 
   it("modesFor and allModes take the enabled keys", () => {
     for (const entry of modesFor(admin.role, new Set())) {
-      expect(entry.switchedOff).toBe(false);
+      expect(entry.switchedOff, entry.id).toBe(entry.id === "chargebacks");
     }
     for (const entry of allModes(new Set())) {
-      expect(entry.switchedOff).toBe(false);
+      expect(entry.switchedOff, entry.id).toBe(entry.id === "chargebacks");
     }
+    for (const entry of allModes(new Set(["app.chargebacks"]))) {
+      expect(entry.switchedOff, entry.id).toBe(false);
+    }
+  });
+
+  it("puts Chargebacks behind app.chargebacks, switched off until the flag is on", () => {
+    const chargebacks = OPS_MODES.find((m) => m.id === "chargebacks");
+    if (!chargebacks) throw new Error("no chargebacks mode");
+    expect(chargebacks.flag).toBe("app.chargebacks");
+
+    const off = modeEntry(chargebacks, new Set());
+    expect(off.live).toBe(false);
+    expect(off.switchedOff).toBe(true);
+    expect(off.href).toBe("/roadmap/chargebacks");
+
+    const on = modeEntry(chargebacks, new Set(["app.chargebacks"]));
+    expect(on.live).toBe(true);
+    expect(on.switchedOff).toBe(false);
+    expect(on.href).toBe("/t/chargebacks");
   });
 });
 
@@ -69,6 +88,24 @@ describe("ensureModeFlags", () => {
 
     ensureModeFlags([flaggedKyc]);
     const { total } = flagTool.list({ filters: {}, search: "app.kyc_test", limit: 10, offset: 0 });
+    expect(total).toBe(1);
+  });
+
+  it("registers app.chargebacks on start as an off, internal flag", () => {
+    db.delete(featureFlags).where(eq(featureFlags.key, "app.chargebacks")).run();
+    ensureModeFlags();
+    expect(flagTool.get("flag_app.chargebacks")).toMatchObject({
+      key: "app.chargebacks",
+      enabled: 0,
+      rolloutPercent: 0,
+      status: "off",
+      environment: "production",
+      customerFacing: 0,
+    });
+    expect(modeFlagOff("chargebacks")).toBe(true);
+
+    ensureModeFlags();
+    const { total } = flagTool.list({ filters: {}, search: "app.chargebacks", limit: 10, offset: 0 });
     expect(total).toBe(1);
   });
 

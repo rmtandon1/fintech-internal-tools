@@ -158,6 +158,18 @@ const FLAGS: SeedFlag[] = [
     customerFacing: true,
     expiresInDays: 21,
   },
+  {
+    id: "flag_app.chargebacks",
+    key: "app.chargebacks",
+    name: "Chargebacks",
+    description: "Switches the Chargebacks app on in the console.",
+    flagType: "release",
+    environment: "production",
+    owner: "platform",
+    rolloutPercent: 0,
+    customerFacing: false,
+    expiresInDays: null,
+  },
 ];
 
 /**
