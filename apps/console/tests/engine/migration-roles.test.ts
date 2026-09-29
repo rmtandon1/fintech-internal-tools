@@ -10,7 +10,6 @@ import { appendAudit } from "@console/engine/audit/append";
 import { verifyChain } from "@console/engine/audit/verify";
 import type { Actor, WriteHandle } from "@console/engine/types";
 import { canDecide, getApproval } from "@console/engine/approvals";
-import { migratePersistedRoleJson } from "@/lib/role-migration";
 import { analyst, manager } from "../helpers/harness";
 
 function applyMigration(tag: string): void {
@@ -25,6 +24,8 @@ interface LegacyRow {
   allowedRolesJson: string;
   requesterId: string;
   requesterRole: string;
+  traceJson?: string;
+  decisionJson?: string;
 }
 
 function insertLegacyApproval(row: LegacyRow): void {
@@ -38,8 +39,8 @@ function insertLegacyApproval(row: LegacyRow): void {
       recordId: `${row.tool}_0001`,
       recordVersion: 1,
       payloadJson: "{}",
-      traceJson: "[]",
-      decisionJson: "{}",
+      traceJson: row.traceJson ?? "[]",
+      decisionJson: row.decisionJson ?? "{}",
       summary: `legacy ${row.tool} request`,
       reason: "raised under flat roles",
       tier: "manager",
@@ -74,6 +75,8 @@ beforeAll(() => {
     allowedRolesJson: '["refunds_manager","admin"]',
     requesterId: "usr_refunds_agent",
     requesterRole: "refunds_agent",
+    traceJson: JSON.stringify([{ type: "require_approval", allowedRoles: ["refunds_manager"] }]),
+    decisionJson: JSON.stringify({ allowedRoles: ["refunds_manager"] }),
   });
   insertLegacyApproval({
     id: "appr_flags",
@@ -134,7 +137,6 @@ beforeAll(() => {
       1,
     );
   applyMigration("0010");
-  migratePersistedRoleJson();
 });
 
 describe("0010_flatten_roles", () => {
@@ -166,7 +168,7 @@ describe("0010_flatten_roles", () => {
     expect(canDecide(approval, analyst).ok).toBe(false);
   });
 
-  it("flattens run and audit actor roles without breaking the audit chain", () => {
+  it("updates live runs without rewriting historical role values or JSON", () => {
     const run = sqlite
       .prepare(
         "SELECT requested_by, requested_by_role FROM devin_runs WHERE id = ?",
@@ -174,15 +176,24 @@ describe("0010_flatten_roles", () => {
       .get("run_legacy_role") as { requested_by: string; requested_by_role: string };
     expect(run).toEqual({ requested_by: "usr_manager", requested_by_role: "manager" });
 
+    const approval = db
+      .select({ traceJson: approvalRequests.traceJson, decisionJson: approvalRequests.decisionJson })
+      .from(approvalRequests)
+      .where(eq(approvalRequests.id, "appr_refunds"))
+      .get();
+    expect(JSON.parse(approval?.traceJson ?? "[]")[0].allowedRoles).toEqual(["refunds_manager"]);
+    expect(JSON.parse(approval?.decisionJson ?? "{}").allowedRoles).toEqual(["refunds_manager"]);
+
     const audit = db
       .select()
       .from(auditLog)
       .where(eq(auditLog.id, legacyAuditId))
       .get();
-    expect(audit?.actorRole).toBe("manager");
-    expect(audit?.actorId).toBe("usr_manager");
+    expect(audit?.actorRole).toBe("refunds_manager");
+    expect(audit?.actorId).toBe("usr_refunds_manager");
     expect(JSON.parse(audit?.decisionJson ?? "{}").allowedRoles).toEqual([
-      "manager",
+      "kyc_manager",
+      "refunds_manager",
       "admin",
     ]);
     expect(verifyChain().ok).toBe(true);

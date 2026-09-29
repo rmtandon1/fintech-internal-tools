@@ -214,6 +214,11 @@ describe("refund stats", () => {
         const query = Object.fromEntries(
           new URL(href, "http://x").searchParams.entries(),
         );
+        for (const field of Object.keys(refundTool.defaultFilters?.(actor) ?? {})) {
+          if (!(field in stat.source.filters)) {
+            expect(query[field], `${actor.role} ${stat.key} ${field}`).toBe("all");
+          }
+        }
         const { filters } = resolveQueueFilters(refundTool, actor, query);
         expect(
           refundTool.list({ filters, limit: 0, offset: 0 }).total,

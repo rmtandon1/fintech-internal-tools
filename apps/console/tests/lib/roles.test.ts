@@ -62,6 +62,10 @@ describe("role catalog", () => {
     expect(roleLabel("engineer")).toBe("Engineer");
   });
 
+  it("falls back to the stored value for a legacy role", () => {
+    expect(roleLabel("refunds_agent")).toBe("refunds_agent");
+  });
+
   it("uses the analyst as the default and ignores a stale role cookie", () => {
     expect(DEFAULT_ACTOR).toBe(DEMO_ACTORS.analyst);
     expect(actorFromCookie("stale.invalid")).toBe(DEFAULT_ACTOR);

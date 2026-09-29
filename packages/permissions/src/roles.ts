@@ -49,8 +49,8 @@ export const MANAGER_ROLES: Role[] = ["manager", "admin"];
 
 export const ALL_ROLES: Role[] = [...ROLES];
 
-export function roleLabel(role: Role): string {
-  return ROLE_META[role].label;
+export function roleLabel(role: string): string {
+  return ROLE_META[role as Role]?.label ?? role;
 }
 
 /** Managers and admins may decide approvals. */

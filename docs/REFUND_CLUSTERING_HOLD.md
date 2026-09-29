@@ -20,7 +20,7 @@ Nothing in the console connects those facts, and no rule catches them.
 
 The sentence the requester sends, prefilled from the cluster drawer and editable:
 
-> Once a merchant's "not received" refunds add up past the manager limit, route them to a manager's queue for direct payment or rejection. Send those customers' KYC approvals to a manager too.
+> Once a merchant's "not received" refunds add up past the manager limit, send them to a manager for approval. Send those customers' KYC approvals to a manager too.
 
 It is deliberately short. It doesn't mention the window, rejected refunds, frozen-FX amounts or where the rule sits in the trace. Devin never sees this file: it has to find each of those in the code, and the acceptance tests below are what the reviewer checks its tests against. That gap is what the viewer should notice (`AGENT_TRIGGER_SURFACE.md` § One sentence, not a chat panel).
 

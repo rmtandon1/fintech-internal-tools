@@ -86,7 +86,7 @@ export const REFUND_CLUSTERING_HOLD: RunnableSpec = {
   sendSpec: false,
   intents: {
     change:
-      "Once a merchant's \"not received\" refunds add up past the manager limit, route them to a manager's queue for direct payment or rejection. Send those customers' KYC approvals to a manager too.",
+      "Once a merchant's \"not received\" refunds add up past the manager limit, send them to a manager for approval. Send those customers' KYC approvals to a manager too.",
     undo: "Undo the refund hold: remove the refund rule, the linked KYC rule and its time-window setting, and keep every change made since.",
   },
   summaries: {
@@ -188,7 +188,7 @@ export const CHARGEBACKS_FROM_POWER_APPS: RunnableSpec = {
   sendSpec: true,
   intents: {
     change:
-      "Start moving the Chargebacks Power App into the console, from the export in fixtures/power-apps/chargebacks. This is the first pull request, not the whole app: the queue with its fields, seeded from disputes.csv; the deadline alert as a count on the queue; and the two riskiest rules, fraud accepts over $500 and fights over $2,500, each needing a manager. Use the manager role. In the pull request, list every formula and flow step as done or still to do. Put the app behind the feature flag `app.chargebacks` in Feature flags: set the mode's `flag` and seed the row off and not customer-facing in `tools/flags/src/seed.ts` for fresh databases — the console registers it on start for existing ones — so an admin turns it on after the merge.",
+      "Start moving the Chargebacks Power App into the console, from the export in fixtures/power-apps/chargebacks. This is the first pull request, not the whole app: the queue with its fields, seeded from disputes.csv; the deadline alert as a count on the queue; and the two riskiest rules, fraud accepts over $500 and fights over $2,500, each needing a manager. Use the existing Analyst and Manager roles. In the pull request, list every formula and flow step as done or still to do. Put the app behind the feature flag `app.chargebacks` in Feature flags: set the mode's `flag` and seed the row off and not customer-facing in `tools/flags/src/seed.ts` for fresh databases — the console registers it on start for existing ones — so an admin turns it on after the merge.",
     undo: "Remove the Chargebacks app: its tool, tables, seed and registry lines, and keep every change made since.",
   },
   summaries: {

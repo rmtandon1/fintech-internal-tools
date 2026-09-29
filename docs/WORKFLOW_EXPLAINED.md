@@ -100,8 +100,8 @@ Refunds → cluster drawer → Ask Devin for a rule → Send to Devin
 **What happens**
 
 - The Devin window opens with the request prefilled and editable:
-  *"Once a merchant's "not received" refunds add up past the manager limit, route them to a
-  manager's queue for direct payment or rejection. Send those customers' KYC approvals to a manager too."*
+  *"Once a merchant's "not received" refunds add up past the manager limit, send them to a
+  manager for approval. Send those customers' KYC approvals to a manager too."*
 - Below it, the context Devin will receive: the four amounts, the live $500 and score-70 lines,
   and the base commit. No email, no card number.
 - **Send to Devin** runs the same governed write as every other action: role check, one run per

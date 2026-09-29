@@ -403,8 +403,8 @@ manager limit alone, and total $1,880 together.
 3. Read **What Devin will see**: the four refunds, the $500 and score-70 limits, and the start
    commit. No names, emails or card numbers.
 4. Keep or edit **The request**. The prefilled sentence is:
-   > Once a merchant's "not received" refunds add up past the manager limit, route them to a
-   > manager's queue for direct payment or rejection. Send those customers' KYC approvals to a manager too.
+   > Once a merchant's "not received" refunds add up past the manager limit, send them to a
+   > manager for approval. Send those customers' KYC approvals to a manager too.
 5. Click **Send to Devin**. The Devin window switches to the run view. *(async, 30–60 minutes)*
    - The engine checks your role and that no other refunds run is in flight, then writes the run
      row and one audit row.
