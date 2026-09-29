@@ -251,12 +251,12 @@ export async function reconcileAutomationRuns(): Promise<BridgeResult> {
   }
 }
 
-export async function stopAutomationRun(runId: string, reason: string): Promise<BridgeResult> {
+export async function stopAutomationRun(runId: string): Promise<BridgeResult> {
   const actor = await currentActor();
   const run = getRun(runId);
   if (!run) return { ok: false, title: "Rule change not found" };
   try {
-    const outcome = await stopRun(actor, run, reason, bridgeDeps());
+    const outcome = await stopRun(actor, run, "Stopped by operator", bridgeDeps());
     revalidatePath("/", "layout");
     const ok = outcome.stop.outcome.status === "applied";
     return {

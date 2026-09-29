@@ -15,9 +15,6 @@ import { runTitle, thinkingLine } from "@/lib/run-heading";
 import type { RunViewPayload } from "@/lib/devin-route";
 import type { ReplayFrame, StructuredOutput } from "@console/tool-automation";
 
-/** Offered as the stop reason; Tab fills it in. */
-const STOP_SUGGESTION = "No longer needed.";
-
 const TERMINAL = new Set(["merged", "stopped", "dispatch_failed"]);
 
 async function fetchRun(runId: string): Promise<RunViewPayload | null> {
@@ -251,7 +248,6 @@ export function RunView({
   const [payload, setPayload] = useState<RunViewPayload | null>(initial ?? null);
   const [approveOpen, setApproveOpen] = useState(false);
   const [reply, setReply] = useState("");
-  const [stopOpen, setStopOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -295,12 +291,11 @@ export function RunView({
     });
   }
 
-  function stop(reason: string) {
+  function stop() {
     startTransition(async () => {
-      const result = await stopAutomationRun(runId, reason);
+      const result = await stopAutomationRun(runId);
       if (result.ok) toast.success(result.title, { description: result.detail });
       else toast.error(result.title, { description: result.detail });
-      setStopOpen(false);
     });
   }
 
@@ -436,43 +431,15 @@ export function RunView({
           </Button>
         ) : null}
         {offers.stop.offered ? (
-          stopOpen ? (
-            <form
-              className="flex flex-1 items-center gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                stop(new FormData(e.currentTarget).get("reason")?.toString() || "stopped by operator");
-              }}
-            >
-              <input
-                name="reason"
-                required
-                autoFocus
-                placeholder={STOP_SUGGESTION}
-                title="Tab fills in the suggested reason"
-                onKeyDown={(e) => {
-                  const box = e.currentTarget;
-                  if (e.key === "Tab" && !e.shiftKey && STOP_SUGGESTION.toLowerCase().startsWith(box.value.toLowerCase()) && box.value !== STOP_SUGGESTION) {
-                    e.preventDefault();
-                    box.value = STOP_SUGGESTION;
-                  }
-                }}
-                className="h-10 min-w-0 flex-1 rounded-lg border border-input bg-transparent px-3 text-sm"
-              />
-              <Button variant="destructive" className="h-10" disabled={pending}>
-                Stop
-              </Button>
-            </form>
-          ) : (
-            <button
-              type="button"
-              className={cn(linkButton, "bg-destructive/10 text-destructive hover:bg-destructive/20")}
-              onClick={() => setStopOpen(true)}
-            >
-              <Icon name="CircleStop" className="size-4" />
-              Stop run
-            </button>
-          )
+          <button
+            type="button"
+            className={cn(linkButton, "bg-destructive/10 text-destructive hover:bg-destructive/20")}
+            onClick={stop}
+            disabled={pending}
+          >
+            <Icon name="CircleStop" className="size-4" />
+            Stop run
+          </button>
         ) : null}
       </div>
 
