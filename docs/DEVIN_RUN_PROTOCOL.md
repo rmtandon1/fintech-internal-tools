@@ -168,6 +168,10 @@ The Devin API doesn't stream sub-steps. The session's `structured_output` is the
     { "name": "Boundaries", "pass": true },
     { "name": "Test", "pass": null, "before": 68, "after": null }
   ],
+  "notes": [
+    { "phase": "baseline", "text": "Ran the base tests and saw all 68 pass" },
+    { "phase": "verify", "text": "Opened localhost:3001/t/refunds and saw the held refunds with a Held chip" }
+  ],
   "conflicts": [],
   "pr_url": null,
   "stopped_by": null
@@ -176,6 +180,7 @@ The Devin API doesn't stream sub-steps. The session's `structured_output` is the
 
 - `reuses` is copied from `plan.json` when the Plan phase lands and does not change after. It drives the "Reusing …" lines of the run checklist.
 - `files` fills during Edit. Before that, the plan's paths come from `plan.json`.
+- `notes` records plain-English actions not shown by the other fields and drives the plain-English sub-lines under each checklist phase.
 - `conflicts` is used by an undo: one entry per conflicted file, with what was kept (`"partial_delivery reason code, PR #7"`) and what was removed (`"clustering_hold registration"`).
 
 The console polls the session (`GET /v3/organizations/{org_id}/sessions/{devin_id}`) and reads `status`, `status_detail` and `structured_output`. `status_detail = waiting_for_user` surfaces as a reply box, and the reply is sent through the messages endpoint. **Stop run** calls the terminate endpoint (`DELETE` on the same path) and marks the run `stopped` through an intent.
