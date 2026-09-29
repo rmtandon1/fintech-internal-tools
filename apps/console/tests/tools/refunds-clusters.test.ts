@@ -52,15 +52,22 @@ describe("refunds clusters", () => {
 
   it("every row in the group is allowed on its own by amount_approval", () => {
     const [kestrel] = notReceivedByMerchant();
+    const effects: Record<string, string | undefined> = {};
     for (const id of kestrel.recordIds) {
       const record = refundTool.get(id);
       if (!record) throw new Error(`missing ${id}`);
       const preview = previewActions(refundTool, record, refundsAgent).find(
         (p) => p.action === "execute",
       );
-      expect(preview?.decision?.effect).toBe("allow");
       expect(preview?.decision?.trace).toContainEqual({ type: "allow", rule: "amount_approval" });
+      effects[id] = preview?.decision?.effect;
     }
+    expect(effects).toEqual({
+      rfnd_0014: "allow",
+      rfnd_0013: "require_approval",
+      rfnd_0012: "require_approval",
+      rfnd_0011: "require_approval",
+    });
   });
 
   it("excludes a merchant whose single refund is over the manager line", () => {

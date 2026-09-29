@@ -1,10 +1,13 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { ulid } from "ulid";
 import { executeIntent } from "@console/engine/execute-intent";
+import { previewActions } from "@console/engine/policy/preview";
 import { registerConstants } from "@console/engine/policy/register";
-import type { Actor } from "@console/engine/types";
-import { kycTool } from "@console/tool-kyc";
-import { kycManager, kycReviewer, setupHarness } from "../helpers/harness";
+import { setConstant } from "@console/engine/policy/set-constant";
+import type { Actor, IntentOutcome } from "@console/engine/types";
+import { kycTool, type KycCase } from "@console/tool-kyc";
+import { CLUSTERING_WINDOW_DAYS_KEY, refundTool } from "@console/tool-refunds";
+import { admin, kycManager, kycReviewer, setupHarness } from "../helpers/harness";
 import { expectRecordStatsMatchList } from "../helpers/stats";
 
 beforeAll(() => {
@@ -184,5 +187,65 @@ describe("kyc stats", () => {
       ).length,
     );
     for (const row of soon.rows) expect(Number(row.dueAt)).toBeGreaterThanOrEqual(now);
+  });
+});
+
+describe("kyc linked refund hold", () => {
+  beforeAll(() => {
+    registerConstants(refundTool.constants ?? []);
+    refundTool.seed?.();
+  });
+
+  function noorCase(): KycCase {
+    const record = kycTool.get("kyc_0013");
+    if (!record) throw new Error("no kyc_0013");
+    return record as KycCase;
+  }
+
+  function approvePreview(record: KycCase) {
+    const preview = previewActions(kycTool, record, kycReviewer).find((p) => p.action === "approve");
+    if (!preview?.decision) throw new Error("no approve decision");
+    return preview.decision;
+  }
+
+  function traceOf(outcome: IntentOutcome) {
+    if (!("trace" in outcome) || !outcome.trace) throw new Error("outcome has no trace");
+    return outcome.trace;
+  }
+
+  it("leaves a case whose customer has no held refunds unchanged: score 68 still clears", () => {
+    const record = { ...noorCase(), email: "no.refunds@example.com" };
+    expect(record.riskScore).toBe(68);
+    const decision = approvePreview(record);
+    expect(decision.effect).toBe("allow");
+    expect(decision.trace).toContainEqual({ type: "allow", rule: "risk_tier_approval" });
+    expect(decision.trace).toContainEqual({ type: "allow", rule: "linked_refund_hold" });
+  });
+
+  it("stops holding linked cases with refunds.clustering_window_days at 0", () => {
+    expect(setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "0").ok).toBe(true);
+    const decision = approvePreview(noorCase());
+    expect(decision.effect).toBe("allow");
+    expect(decision.trace).toContainEqual({ type: "allow", rule: "linked_refund_hold" });
+    expect(setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "14").ok).toBe(true);
+  });
+
+  it("sends a case whose customer is in a held refund cluster to a manager whatever the risk score", () => {
+    expect(noorCase().riskScore).toBe(68);
+    const result = act(kycReviewer, "approve", "kyc_0013");
+    expect(result.outcome.status).toBe("pending_approval");
+    const trace = traceOf(result.outcome);
+    expect(trace).toContainEqual({ type: "allow", rule: "risk_tier_approval" });
+    expect(trace.filter((o) => o.type !== "allow")).toEqual([
+      expect.objectContaining({
+        rule: "linked_refund_hold",
+        type: "require_approval",
+        tier: "manager",
+        allowedRoles: expect.arrayContaining(["kyc_manager"]),
+        reason:
+          "Customer has a refund in a held cluster: Kestrel Outdoors $1,880 over $500 in 14 days",
+      }),
+    ]);
+    expect(kycTool.get("kyc_0013")?.status).toBe("pending_review");
   });
 });

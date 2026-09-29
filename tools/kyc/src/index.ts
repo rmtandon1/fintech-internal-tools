@@ -10,6 +10,12 @@ import type {
   SortOption,
 } from "@console/engine/types";
 import { rolesFor } from "@console/permissions";
+import {
+  DEFAULT_MANAGER_APPROVAL_USD_MINOR,
+  MANAGER_APPROVAL_USD_KEY,
+  describeHeldCluster,
+  heldClusterForCustomer,
+} from "@console/tool-refunds";
 import { caseFile, materialDifferences } from "./case-file";
 import { refundsForCase } from "./linked-activity";
 import { kycCases } from "./schema";
@@ -138,6 +144,21 @@ const declaredVsFound: CaseRule = ({ record }) => {
         reason: `${n} material difference${n === 1 ? "" : "s"} between what the customer declared and what the checks found`,
       }
     : { type: "allow", rule: "declared_vs_found" };
+};
+
+/** A customer whose refunds sit in a held merchant cluster needs a manager, whatever the score. */
+const linkedRefundHold: CaseRule = ({ record, constants }) => {
+  const managerUsd = constants.number(MANAGER_APPROVAL_USD_KEY, DEFAULT_MANAGER_APPROVAL_USD_MINOR);
+  const held = record ? heldClusterForCustomer(record.email, managerUsd) : null;
+  return held
+    ? {
+        type: "require_approval",
+        rule: "linked_refund_hold",
+        tier: "manager",
+        allowedRoles: rolesFor("kyc", "manager"),
+        reason: `Customer has a refund in a held cluster: ${describeHeldCluster(held)}`,
+      }
+    : { type: "allow", rule: "linked_refund_hold" };
 };
 
 const escalatedNeedsManager: CaseRule = ({ record }) =>
@@ -378,6 +399,7 @@ export const kycTool = defineTool<KycCase>({
         riskTierApproval,
         pepApproval,
         declaredVsFound,
+        linkedRefundHold,
         escalatedNeedsManager,
       ],
       suggest: () => ({ note: "Identity checks complete." }),
