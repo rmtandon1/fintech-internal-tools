@@ -39,6 +39,7 @@ export interface DevinRun extends GovernedRecord {
   intent: string;
   contextSha256: string;
   sessionId: string | null;
+  sessionUrl: string | null;
   status: string;
   prUrl: string | null;
   mergeCommit: string | null;
@@ -230,7 +231,7 @@ const actorOwnsRunDomain: RunRule<unknown> = ({ actor, record }) => {
 };
 
 const RecordSessionInput = z.union([
-  z.object({ sessionId: z.string().min(1) }),
+  z.object({ sessionId: z.string().min(1), sessionUrl: z.string().url().nullish() }),
   z.object({ error: z.string().min(1).max(1000) }),
 ]);
 type RecordSessionInput = z.infer<typeof RecordSessionInput>;
@@ -262,6 +263,7 @@ const StopInput = z.object({ reason: z.string().min(1).max(500) });
 interface Transition {
   status: string;
   sessionId?: string | null;
+  sessionUrl?: string | null;
   prUrl?: string | null;
   mergeCommit?: string | null;
   approvedBy?: string | null;
@@ -382,6 +384,7 @@ export const automationTool = defineTool<DevinRun>({
             intent: input.intent,
             contextSha256: input.contextSha256,
             sessionId: null,
+            sessionUrl: null,
             status: "dispatched",
             prUrl: null,
             mergeCommit: null,
@@ -403,7 +406,7 @@ export const automationTool = defineTool<DevinRun>({
     defineAction<DevinRun, typeof RecordSessionInput, Transition>({
       name: "record_session",
       label: "Record session",
-      description: "Store the Devin session id, or the reason the dispatch failed.",
+      description: "Store the Devin session id and URL, or the reason the dispatch failed.",
       allowedRoles: ["refunds_manager", "kyc_manager", "admin"],
       input: RecordSessionInput,
       fromStatus: ["dispatched"],
@@ -412,7 +415,7 @@ export const automationTool = defineTool<DevinRun>({
         "sessionId" in input
           ? {
               summary: `Session ${input.sessionId} is running`,
-              patch: { status: "running", sessionId: input.sessionId },
+              patch: { status: "running", sessionId: input.sessionId, sessionUrl: input.sessionUrl ?? null },
               nextStatus: "running",
             }
           : {
@@ -536,6 +539,7 @@ function transition(
     .set({
       status: patch.status,
       sessionId: patch.sessionId ?? record.sessionId,
+      sessionUrl: patch.sessionUrl ?? record.sessionUrl,
       prUrl: patch.prUrl ?? record.prUrl,
       mergeCommit: patch.mergeCommit ?? record.mergeCommit,
       approvedBy: patch.approvedBy ?? record.approvedBy,

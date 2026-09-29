@@ -2,9 +2,10 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { ulid } from "ulid";
 import { listAuditEvents } from "@console/engine/audit/query";
+import { db } from "@console/db";
 import { executeIntent } from "@console/engine/execute-intent";
 import { registerConstants } from "@console/engine/policy/register";
 import type { Actor } from "@console/engine/types";
@@ -18,6 +19,7 @@ import {
 } from "@console/tool-automation";
 import { replayDevinClient, replayGitHubClient, scriptedFrames } from "../helpers/scripted-clients";
 import { approveRun, dispatchRun } from "@console/tool-automation/bridge";
+import { devinRuns } from "@console/tool-automation/schema";
 import { kycTool } from "@console/tool-kyc";
 import { refundTool } from "@console/tool-refunds";
 import { handleGet, handlePost, type RunViewPayload } from "@/lib/devin-route";
@@ -262,6 +264,43 @@ describe("GET /api/devin/<runId>", () => {
     const body = (await handleGet(out.runId, admin, d)).body as RunViewPayload;
     expect(body.run.status).toBe("running");
     expect(listAuditEvents({ recordId: out.runId, action: "stop" }).rows).toHaveLength(0);
+  });
+
+  it("links a run recorded without a session URL to the app page, minus the id's devin- prefix", async () => {
+    const id = ulid();
+    db.insert(devinRuns)
+      .values({
+        id,
+        operation: "change",
+        spec: COMPANIES_HOUSE_CHECK.file,
+        tool: "kyc",
+        intent: "run recorded before session URLs were stored",
+        contextSha256: "f".repeat(64),
+        sessionId: "devin-9a8b7c6d",
+        sessionUrl: null,
+        status: "stopped",
+        prUrl: null,
+        mergeCommit: null,
+        reverses: null,
+        requestedBy: admin.id,
+        requestedByRole: admin.role,
+        approvedBy: null,
+        lastNote: null,
+        requestedAt: 1,
+        updatedAt: 1,
+        version: 1,
+      })
+      .run();
+
+    vi.stubEnv("DEVIN_API_KEY", "test-key");
+    try {
+      const body = (await handleGet(id, admin, deps())).body as RunViewPayload;
+      expect(body.mode).toBe("live");
+      expect(body.run.sessionUrl).toBeNull();
+      expect(body.sessionUrl).toBe("https://app.devin.ai/sessions/9a8b7c6d");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 

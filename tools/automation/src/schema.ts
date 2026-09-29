@@ -16,6 +16,8 @@ export const devinRuns = sqliteTable(
     intent: text("intent").notNull(),
     contextSha256: text("context_sha256").notNull(),
     sessionId: text("session_id"),
+    /** The session page the Devin API returned at creation. */
+    sessionUrl: text("session_url"),
     status: text("status").notNull(),
     prUrl: text("pr_url"),
     mergeCommit: text("merge_commit"),

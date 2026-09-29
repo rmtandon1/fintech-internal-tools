@@ -31,6 +31,7 @@ function payload(overrides: Partial<RunViewPayload> = {}): RunViewPayload {
       tool: "refunds",
       intent: REFUND_CLUSTERING_HOLD.intents.change,
       status: "running",
+      sessionUrl: null,
       prUrl: null,
       mergeCommit: null,
       reverses: null,

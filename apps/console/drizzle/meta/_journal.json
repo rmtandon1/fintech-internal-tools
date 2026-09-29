@@ -64,6 +64,13 @@
       "when": 1790569591156,
       "tag": "0008_fluffy_kingpin",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1790651547104,
+      "tag": "0009_reflective_rawhide_kid",
+      "breakpoints": true
     }
   ]
 }

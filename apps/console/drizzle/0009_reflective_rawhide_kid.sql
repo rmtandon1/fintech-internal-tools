@@ -1,0 +1,1 @@
+ALTER TABLE `devin_runs` ADD `session_url` text;
