@@ -118,6 +118,44 @@ describe("RunView", () => {
     expect(html).not.toContain('aria-label="Paused"');
   });
 
+  it("leaves reported files waiting until the edit phase finishes", () => {
+    const fileLines = (html: string) => [...html.matchAll(/<ul class="ml-2 mt-1 w-full border-l border-border\/60 pl-3">(.*?)<\/ul>/g)]
+      .map((match) => match[1])
+      .find((list) => list?.includes("Adding "));
+    const editingFiles = fileLines(render(payload()));
+    expect(editingFiles).toBeDefined();
+    expect(editingFiles?.match(/data-state="waiting"/g)).toHaveLength(editing[3]?.structured_output.files.length);
+    expect(editingFiles).not.toContain('data-state="done"');
+
+    const verifying = frames.find((frame) => frame.structured_output.phase === "verify");
+    if (!verifying) throw new Error("no verification frame");
+    const verifiedFiles = fileLines(render(payload({ frames: [verifying], latest: verifying })));
+    expect(verifiedFiles?.match(/data-state="done"/g)).toHaveLength(verifying.structured_output.files.length);
+  });
+
+  it("activates only the next pending check and marks failures red", () => {
+    const verifying = frames.find((frame) => frame.structured_output.phase === "verify");
+    if (!verifying) throw new Error("no verification frame");
+    const html = render(payload({ frames: [verifying], latest: verifying }));
+    const verifyLines = [...html.matchAll(/<ul class="ml-2 mt-1 w-full border-l border-border\/60 pl-3">(.*?)<\/ul>/g)]
+      .map((match) => match[1])
+      .find((list) => list?.includes("Lint"));
+    expect(verifyLines?.match(/data-state="active"/g)).toHaveLength(1);
+    expect(verifyLines?.match(/data-state="waiting"/g)).toHaveLength(3);
+
+    const failed = {
+      ...verifying,
+      structured_output: {
+        ...verifying.structured_output,
+        verify_steps: verifying.structured_output.verify_steps.map((step, i) =>
+          i === 0 ? { ...step, pass: false } : step),
+      },
+    };
+    const failedHtml = render(payload({ frames: [failed], latest: failed }));
+    expect(failedHtml).toMatch(/data-state="failed"><span[^>]*><svg[^>]*aria-label="Failed"/);
+    expect(failedHtml).toContain("Lint ✗");
+  });
+
   it("spins on the first step while a running session has reported no phase", () => {
     const html = render(payload({ frames: [], latest: null, devinMessage: "Starting run" }));
     expect(html.match(/data-state="active"/g)).toHaveLength(1);
