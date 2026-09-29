@@ -1,8 +1,10 @@
 # 5-Minute Loom Video Script: Devin-Driven Ownership of Platform Tools
 
-## 🎯 Opening (50 seconds)
+## 🎯 Opening (40 seconds)
 
-**▶ SLIDE 1 · Your team asks, Devin builds, an engineer approves.** The recording opens on it. Point along the four boxes.
+**▶ SLIDE 1 · Your team asks, Devin builds, an engineer approves.** The recording opens on it.
+
+[Point along the four boxes.]
 
 > "Without a release pipeline, a rule changes one of two ways."
 >
@@ -10,7 +12,7 @@
 >
 > "There's another option. Your team asks for a change, Devin builds it, and an engineer approves it."
 >
-> "I built Solon, this console, with Devin AI: a full-stack operations console for a regulated fintech. Next.js 15, React 19, Tailwind 4 and shadcn in front; a governed engine on SQLite behind it, and only the engine writes to the database."
+> "I built Solon, this console, with Devin AI: a full-stack operations console for a regulated fintech. Next.js and React in front, a governed engine on SQLite behind it, and only the engine writes to the database."
 >
 > "The console drives Devin through the Devin v3 API and GitHub's REST API. Devin coordinates the files, runs the test suite, opens the pull request and merges it. The person asking sends one sentence, and an engineer reviews."
 
@@ -24,121 +26,199 @@
 
 > "Power Apps is five products: an app builder, Dataverse, connectors, Power Automate, and an admin plane."
 >
-> "Leaving it means owning all five. Each part of this demo replaces one, in code your team owns."
+> "Leaving it means owning all five. Everything I show next replaces one, in code your team owns."
 
 | Power Apps gives you | In this console | Where you'll see it |
 |---|---|---|
-| App builder | Each app is a declared tool on one shared shell | Part 3, Apps |
+| App builder | Each app is a declared tool on one shared shell | Apps |
 | Dataverse | Tables per app, a role check on every action | Throughout |
-| Connectors (premium ones licensed per user or per app) | Code that calls the service, key kept on the server | Part 2, Connectors |
-| Power Automate | Rules and approvals on one governed write path | Part 1, Rules |
-| Admin plane | Roles, live rule settings, one audit log | Part 1, Rules |
+| Connectors (premium ones licensed per user or per app) | Code that calls the service, key kept on the server | Connectors |
+| Power Automate | Rules and approvals on one governed write path | Rules |
+| Admin plane | Roles, live rule settings, one audit log | Rules |
 
-**◀ CONSOLE.** [Viewing as Refunds manager, on the home page.]
+**◀ CONSOLE.** [Viewing as Refunds manager, on Home.]
 
 ---
 
-## 🧱 The Console (25 seconds)
+## 🧩 Rules: Added, Switched Off, Removed (2 minutes 20 seconds)
+
+### Before
 
 [Point at the three live apps.]
 
 > "Three live apps on one engine. Devin wrote the code; I wrote the specs and reviewed every pull request."
 >
 > "A check in every build fails if anything but the engine writes to the database."
-
-[Click **Transaction monitoring**, under Coming soon. Point at **Included automatically**.]
-
-> "An app nobody has built yet. It already has roles, approvals, live settings and an audit log."
 >
-> "You'll see that happen for real in Part 3."
+> "First, a change inside an app we already run."
 
----
+[Open the **Refunds** tile.]
 
-## 🧩 Part 1 · Rules: Added, Switched Off, Removed (2 minutes)
+[Open the Kestrel cluster drawer.]
 
-### Before
+> "Four 'not received' refunds from Kestrel Outdoors, each just under the $500 manager line. Together, $1,880."
 
-[Open the **Refunds** tile on Home, then the Kestrel cluster drawer.]
+[Switch role: Refunds agent.]
 
-> "Four 'not received' refunds from one merchant, each just under the $500 manager line. Together, $1,880."
+[On `rfnd_0013`, click **Send to processor**.]
 
-[Switch role: Refunds agent. On `rfnd_0013`, click **Send to processor**. It goes straight to **With processor**, no hold.]
+[It goes straight to **With processor**.]
 
-> "That takes Kestrel to $925, and it went straight through."
+> "An agent pays one. That takes Kestrel to $925, and it went straight through."
 
 ### Ask, build, approve
 
-[Switch role: Refunds manager. Click **Ask Devin for a rule**. Point at the sentence, the four refunds, the two limits, and the allowed paths: three files and tests.]
+[Switch role: Refunds manager.]
+
+[Click **Ask Devin for a rule**.]
+
+> "A manager asks Devin for a rule that adds them up."
+
+[Point at the sentence, the four refunds, the two limits.]
+
+[Point at the allowed paths: three files and tests.]
 
 > "One sentence, the four refunds, and three files it may change. No customer emails, no card numbers."
 >
-> "The spec with the edge cases goes to the reviewer. Devin's prompt tells it not to open it."
+> "The edge cases are in a spec only the reviewer sees. Devin is told not to open it, so it has to find them in the code."
 
-[Click **Send to Devin**. The run page polls every 2 seconds. Cut to the finished run; read "Took …".]
+[Click **Send to Devin**.]
 
-> "This took Devin *(time)*. The plan was committed before any code. The run guard fails any file outside it."
+[Cut to the finished run; read "Took …" aloud.]
 
-[Point at `refunds-clusters.test.ts`, one existing assertion changed.]
+> "This took Devin *(time)*. Devin committed its plan first, listing every file it would touch. A check fails the build if it touches any other."
 
-> "An existing test said all four Kestrel refunds pass. Devin changed it to three held, in the open."
+[Point at the changed assertion in `refunds-clusters.test.ts`.]
+
+> "An existing test said all four refunds pass. Devin changed it to three held, in the open."
 >
 > "*(328)* tests before, *(new total)* after."
 
-[Switch role: Engineer. Click **Review and approve**. Point at the eight-line checklist. After approving, point at the rules the approval passed: `approver_is_not_requester`, `checks_green`, `context_matches_dispatch`. Check in rehearsal where they show; if they don't, cut the two lines below.]
+[Switch role: Engineer.]
 
-> "I play every role here. The console still refuses the person who asked from approving."
->
+[Click **Review and approve**.]
+
+[Point at "The approver cannot be the requester".]
+
+> "Now I'm the engineer. I play every role here, and the console still refuses the person who asked from approving."
+
+[Click **Approve as engineer**.]
+
+[Point at **Checks** and **Context untouched ✓**.]
+
 > "It also checks the build is green and that Devin worked from the request we sent."
 
-[Click **Approve as engineer**. Let the rows fill in: Approving review, Devin merging, Merged, Audit row. Close the dialog and click **Pull merged code**; the toast reads `pulled … → …`.]
+[Let the rows fill in, down to the audit row.]
+
+[Close the dialog; click **Pull merged code**.]
 
 > "Merged isn't live yet. An engineer pulls it into the running console."
 
+### Held
+
+[Switch role: Refunds agent.]
+
+[On `rfnd_0011`, click **Send to processor**.]
+
+[The banner reads **Sent to manager for approval**.]
+
+> "Back to the agent, and the next Kestrel refund. The same click now waits for a manager."
+
+[Open the trace: `clustering_hold` and the running total.]
+
+> "The trace names the new rule and how much Kestrel has added up to."
+
 ### Switch it off
 
-[Off camera: merge the `partial_delivery` pull request, then `pnpm db:scenario courier-outage`. Switch role: Refunds manager. Open **Approvals** in the sidebar: 60 Fernhill refunds held.]
+[Off camera: merge the `partial_delivery` pull request.]
+
+[Off camera: `pnpm db:scenario courier-outage`.]
+
+[Switch role: Refunds manager.]
+
+[Open **Approvals** in the sidebar: 60 Fernhill refunds.]
 
 > "A courier outage. Sixty genuine refunds from a trusted merchant, all held."
 
-[Switch role: Admin. Open **Rule settings** in the sidebar: `refunds.clustering_window_days` from 14 to 0. Save. Point at the audit row.]
+[Switch role: Admin.]
 
-> "Zero means off, and a test proves it. One setting, one audit row, no deploy."
+[In **Rule settings**, set `refunds.clustering_window_days` to 0.]
+
+[Save; point at the audit row.]
+
+> "Switching it off is a business call, so an admin makes it, not an engineer. Zero means off, and a test proves it. One setting, one audit row, no deploy."
 
 ### Remove it
 
-[Open **Rule changes** in the sidebar, the merged Kestrel run: **Undo this change**, **Ask Devin to undo it**. Cut to the finished undo.]
+[Open **Rule changes**, then the merged Kestrel run.]
 
-> "A plain git revert conflicts: a partial-delivery reason code landed in the same file since."
+[Click **Undo this change**.]
 
-[Point at the conflict line: kept `partial_delivery`, removed `clustering_hold`. Then the removed tests, named, and the list of sixty held refunds for a person to release.]
+[Click **Ask Devin to undo it**.]
 
-> "Devin kept the later work and took the rule out. Its tests are named as removed. Nothing else touched."
+[Cut to the finished undo.]
 
-[Switch role: Engineer. Approve, let Devin merge, then click **Pull merged code**.]
+> "Undoing it is the hard part. A plain git revert conflicts: a partial-delivery reason code landed in the same file since."
+
+[Point at the conflict: kept `partial_delivery`, removed `clustering_hold`.]
+
+> "Devin kept the later work and took the rule out."
+
+[Point at the removed tests, then the sixty held refunds.]
+
+> "Its tests are named as removed, and the sixty held refunds are listed for a person to release. Nothing else touched."
+
+[As Engineer: approve, merge, **Pull merged code**.]
 
 ### Outcome
 
-[Switch role: Refunds agent. On `rfnd_0014`, click **Send to processor**. It goes straight to **With processor**. Open the trace, then the reason-code dropdown.]
+[Switch role: Refunds agent.]
 
-> "The agent's click goes straight through again. No trace of the rule, and partial delivery is still in the list."
+[On `rfnd_0014`, click **Send to processor**.]
+
+[It goes straight to **With processor**.]
+
+> "The agent's click goes straight through again."
+
+[Open the trace, then the reason-code dropdown.]
+
+> "No trace of the rule, and partial delivery is still in the list."
 
 ---
 
-## 🔎 Part 2 · Connectors: Automating a Manual Step (60 seconds)
+## 🔎 Connectors: Automating a Manual Step (60 seconds)
 
 ### Before
 
-[Switch role: KYC reviewer. Open `kyc_0104`, Thornbury Couriers Ltd. Point at the company registry check: "Checked by hand: active, directors match". Point at the **Approve** preview: every rule passes.]
+[Switch role: KYC reviewer.]
 
-> "This registry check was typed by hand, at onboarding. One click approves this business today."
+[Open `kyc_0104`, Thornbury Couriers Ltd.]
+
+> "That change stayed inside the console. This one reaches outside it, to a government register."
+
+[Point at the registry check: "Checked by hand".]
+
+[Point at the **Approve** preview: every rule passes.]
+
+> "Thornbury's registry check was typed by hand, at onboarding. One click approves this business today."
 
 ### Ask, build, approve
 
-[Switch role: Admin. Click **Ask Devin to add a check**. Point at **What Devin will see**: company name, registration number 09318842, country. No person's data.]
+[Switch role: Admin.]
 
-> "Devin gets the company's public registration, and a request to read the Companies House docs itself."
+[Click **Ask Devin to add a check**.]
 
-[Click **Send to Devin**. Cut to the finished run; read "Took …". Point at the files, then the client: `GET /company/{number}` on `api.company-information.service.gov.uk`, the key sent as HTTP Basic, the timeout.]
+> "Adding a check to onboarding is an admin's request, not the reviewer's."
+
+[Point at **What Devin will see**: name, number, country.]
+
+> "Devin gets the company's public registration, no person's data, and a request to read the Companies House docs itself."
+
+[Click **Send to Devin**.]
+
+[Cut to the finished run; read "Took …" aloud.]
+
+[Point at the files, then the client's `GET /company/{number}`.]
 
 > "*(Five)* files, all in the KYC app. One call per case, a *(five)*-second timeout, the key kept on the server."
 >
@@ -146,48 +226,84 @@
 >
 > "There's no live key in this demo. Tests replay recorded responses, and the screen says 'test data'."
 
-[Switch role: Engineer. Approve, let Devin merge, then click **Pull merged code**. Switch role: Admin. Open **Rule settings** in the sidebar: `kyc.companies_house_check` from 0 to 1.]
+[As Engineer: approve, merge, **Pull merged code**.]
+
+[Switch role: Admin.]
+
+[In **Rule settings**, set `kyc.companies_house_check` to 1.]
 
 > "It merged switched off. An admin turns it on."
 
 ### Outcome
 
-[Switch role: KYC reviewer. On `kyc_0104`, run the Companies House check, then click **Approve**.]
+[Switch role: KYC reviewer.]
 
-> "Companies House says Thornbury is late with its accounts. The same click now waits for a manager, and says why."
+[On `kyc_0104`, run the Companies House check.]
+
+[Click **Approve**.]
+
+> "Companies House says the company is late with its accounts. The same click now waits for a manager, and says why."
 
 ---
 
-## 📦 Part 3 · Apps: Starting the Next One (70 seconds)
+## 📦 Apps: Starting the Next One (70 seconds)
 
 ### Before
 
-[Switch role: Admin. On Home, open **Chargebacks** under Coming soon: sample rows.]
+> "Both of those changed an app that already exists. This time there's no app yet."
+
+[Switch role: Admin.]
+
+[On Home, open **Chargebacks** under Coming soon.]
+
+[Point at the sample rows.]
 
 > "Chargebacks still runs in a Power App, with two Power Automate flows."
 
+[Point at **Included automatically**.]
+
+> "Nobody has built it yet, and it already has roles, approvals, live settings and an audit log."
+
 ### Ask, build, approve
 
-[Click **Ask Devin to start this app**. Point at the export: seven files.]
+[Click **Ask Devin to start this app**.]
+
+[Point at the export: seven files.]
 
 > "Two screens, two flows, fifty disputes. I'm asking for the first pull request, not the whole app."
 
-[Click **Send to Devin**. Cut to the finished run; read "Took …". Open the pull request description on GitHub.]
+[Click **Send to Devin**.]
+
+[Cut to the finished run; read "Took …" aloud.]
+
+[Open the pull request description on GitHub.]
 
 > "This took Devin *(time)*. Every formula and flow step in the export is listed, done or still to do."
 
-[Point at the file list: `tools/chargebacks/`, a registry entry, migration `0009`, one flag row, nothing under `packages/`.]
+[Point at the file list: nothing under `packages/`.]
 
-> "*(Fifteen)* files. A new table, and nothing under the engine. It still gets roles, approvals and the audit log."
+> "*(Fifteen)* files. A new table, nothing under the engine, and the roles and approvals came with it."
 
-[Switch role: Engineer. Approve, let Devin merge, then click **Pull merged code**; it installs the new `@console/tool-chargebacks` package. Switch role: Admin. In **Feature flags**, enable `app.chargebacks`.]
+[As Engineer: approve, merge, **Pull merged code**.]
+
+[Switch role: Admin.]
+
+[In **Feature flags**, enable `app.chargebacks`.]
 
 ### Outcome
 
-[Switch role: Refunds agent. Open the **Chargebacks** tile on Home. Point at "Over $1,000, due within 48 hours": 3. On `DSP-20401`, the $2,480 fraud dispute, click **Accept**. It waits for a manager.]
+[Switch role: Refunds agent.]
+
+[Open the **Chargebacks** tile on Home.]
+
+[Point at "Over $1,000, due within 48 hours": 3.]
 
 > "The refunds team has a live queue. The hourly email is now a count: three due in 48 hours."
->
+
+[On `DSP-20401`, click **Accept**.]
+
+[It waits for a manager.]
+
 > "A $2,480 fraud accept waits for a manager, as it did in Power Apps. The rest of the move is that list."
 
 ---
@@ -196,7 +312,7 @@
 
 **Differentiator:** a real problem from the build, diagnosed layer by layer and fixed in four.
 
-[Show the screenshot of the Chargebacks **Pull merged code** toast from Part 3: `pulled … → … · dependencies installed · db migrated`.]
+[Show the Chargebacks **Pull merged code** toast screenshot.]
 
 > "One challenge from the build: post-merge deployment drift."
 >
@@ -208,9 +324,9 @@
 
 [Cut to the four-layer table in `docs/POST_MERGE_DEPLOYMENT_DRIFT.md`.]
 
-> "So the sync has four layers. It confirms the merge with GitHub, and pulls only into a clean checkout."
+> "So the sync has four layers. It confirms the merge with GitHub, and pulls only when nobody has local edits."
 >
-> "It installs packages when the lockfile moves. Then it migrates and registers new settings and flags."
+> "It installs packages when the dependency list changes. Then it migrates and registers new settings and flags."
 >
 > "That toast is all four, with no restart and no re-seed."
 
@@ -311,9 +427,10 @@ Clicks marked **once** change data; retake with `pnpm db:seed` (it won't undo `p
 | # | Shot | Viewing as | State it needs |
 |---|---|---|---|
 | 0 | Slide 1 for the opening; then slide 2, Power Apps is five products in one | — | Deck open on slide 1 |
-| 1 | Home; Transaction monitoring Coming soon | Refunds manager | Fresh seed at the tagged demo commit |
+| 1 | Home, three live apps | Refunds manager | Fresh seed at the tagged demo commit |
 | 2 | Kestrel drawer; `rfnd_0013` send (**once**) | Refunds manager, Refunds agent | Before the Kestrel merge |
 | 3 | Handoff, finished run, approval dialog and its trace | Refunds manager, Engineer | Recorded run |
+| 3a | `rfnd_0011` send (**once**), **Sent to manager for approval**, trace | Refunds agent | Kestrel rule merged and pulled |
 | 4 | Approvals list of sixty; switch-off in Rule settings | Refunds manager, Admin | Courier scenario run |
 | 5 | Undo, finished undo; `rfnd_0014` send (**once**), trace, reason dropdown | Admin, Engineer, Refunds agent | `partial_delivery` merged before the undo |
 | 6 | Thornbury before, handoff, finished run, setting on, **Approve** | KYC reviewer, Admin, Engineer | Companies House run recorded |
@@ -327,7 +444,7 @@ Show every sped-up run with its real "Took …" time.
 
 ## After Recording
 
-- [ ] Chapters: Opening, Power Apps today, The console, Rules, Connectors, Apps, Deployment drift, Cost, Build or buy
+- [ ] Chapters: Opening, Power Apps today, Rules, Connectors, Apps, Deployment drift, Cost, Build or buy
 - [ ] Description, with the one message ("your team asks, Devin builds, an engineer approves"), `docs/DEMO-SLIDES.pdf`, the repo link, the five pull requests, and each run's time, ACUs and test total
 - [ ] Copy each `apps/console/data/replays/<run_id>.json` to `runs/<run_id>/replay.json` and commit
 - [ ] Stop running Devin sessions
