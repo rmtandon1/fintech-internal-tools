@@ -104,11 +104,9 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
           className="text-sm read-only:bg-muted read-only:text-muted-foreground"
           aria-label="Intent"
         />
-        <p className="text-xs text-muted-foreground">
-          {undo
-            ? "An undo carries no free text."
-            : "Written in advance and yours to edit. This is the whole brief Devin gets."}
-        </p>
+        {undo ? (
+          <p className="text-xs text-muted-foreground">An undo carries no free text.</p>
+        ) : null}
       </div>
 
       <div className="mt-auto flex justify-end gap-2">

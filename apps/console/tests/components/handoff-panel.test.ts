@@ -39,7 +39,6 @@ describe("HandoffPanel", () => {
     expect(html).toContain("What Devin will see");
     expect(html).toContain("ref_1");
     expect(html).toContain("The request");
-    expect(html).toContain("This is the whole brief Devin gets.");
     expect(html).toContain("Send to Devin");
   });
 
