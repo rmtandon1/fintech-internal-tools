@@ -196,7 +196,7 @@
 
 **Differentiator:** a real problem from the build, diagnosed layer by layer and fixed in four.
 
-[Show the screenshot of the Chargebacks **Pull merged code** toast from Part 3: `pulled … → … · dependencies installed · db migrated`.]
+[No cut. Stay on the Chargebacks queue from Part 3 and say it; nothing new goes on screen.]
 
 > "One challenge from the build: post-merge deployment drift."
 >
@@ -205,14 +205,12 @@
 > "I walked it down layer by layer. The merge commit wasn't in the console's checkout."
 >
 > "Pulling wasn't enough either. The new Chargebacks package didn't resolve."
-
-[Cut to the four-layer table in `docs/POST_MERGE_DEPLOYMENT_DRIFT.md`.]
-
+>
 > "So the sync has four layers. It confirms the merge with GitHub, and pulls only into a clean checkout."
 >
 > "It installs packages when the lockfile moves. Then it migrates and registers new settings and flags."
 >
-> "That toast is all four, with no restart and no re-seed."
+> "Pull merged code now runs all four, with no restart and no re-seed. The write-up is in the repo."
 
 ---
 
@@ -317,9 +315,8 @@ Clicks marked **once** change data; retake with `pnpm db:seed` (it won't undo `p
 | 4 | Approvals list of sixty; switch-off in Rule settings | Refunds manager, Admin | Courier scenario run |
 | 5 | Undo, finished undo; `rfnd_0014` send (**once**), trace, reason dropdown | Admin, Engineer, Refunds agent | `partial_delivery` merged before the undo |
 | 6 | Thornbury before, handoff, finished run, setting on, **Approve** | KYC reviewer, Admin, Engineer | Companies House run recorded |
-| 7 | Chargebacks Coming soon, handoff, pull request, flag on, queue, `DSP-20401` **Accept** (**once**) | Admin, Engineer, Refunds agent | Chargebacks run recorded; screenshot the **Pull merged code** toast |
-| 8 | Toast screenshot, then the four-layer table in `docs/POST_MERGE_DEPLOYMENT_DRIFT.md` | — | Screenshot from shot 7 |
-| 9 | Slide 3, what it costs; then slide 4, build or buy | — | Deck on slide 3 |
+| 7 | Chargebacks Coming soon, handoff, pull request, flag on, queue, `DSP-20401` **Accept** (**once**) | Admin, Engineer, Refunds agent | Chargebacks run recorded |
+| 8 | Slide 3, what it costs; then slide 4, build or buy | — | Deck on slide 3 |
 
 Show every sped-up run with its real "Took …" time.
 
@@ -328,7 +325,7 @@ Show every sped-up run with its real "Took …" time.
 ## After Recording
 
 - [ ] Chapters: Opening, Power Apps today, The console, Rules, Connectors, Apps, Deployment drift, Cost, Build or buy
-- [ ] Description, with the one message ("your team asks, Devin builds, an engineer approves"), `docs/DEMO-SLIDES.pdf`, the repo link, the five pull requests, and each run's time, ACUs and test total
+- [ ] Description, with the one message ("your team asks, Devin builds, an engineer approves"), `docs/DEMO-SLIDES.pdf`, the repo link, `docs/POST_MERGE_DEPLOYMENT_DRIFT.md` for the deployment drift challenge, the five pull requests, and each run's time, ACUs and test total
 - [ ] Copy each `apps/console/data/replays/<run_id>.json` to `runs/<run_id>/replay.json` and commit
 - [ ] Stop running Devin sessions
 - [ ] Delete stray `runs/` folders
