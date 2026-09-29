@@ -8,19 +8,15 @@ import {
   roleLabel,
   rolesFor,
 } from "@console/permissions";
-import { DEMO_ACTORS } from "@console/engine/actor";
+import { actorFromCookie, DEFAULT_ACTOR, DEMO_ACTORS } from "@console/engine/actor";
 import { TOOLS, toolsForRole } from "@/registry";
 
 describe("role catalog", () => {
-  it("scopes agents and managers to their domain, with admin above all", () => {
-    expect(rolesFor("kyc", "agent")).toEqual(["kyc_reviewer", "kyc_manager", "admin"]);
-    expect(rolesFor("kyc", "manager")).toEqual(["kyc_manager", "admin"]);
-    expect(rolesFor("refunds", "agent")).toEqual([
-      "refunds_agent",
-      "refunds_manager",
-      "admin",
-    ]);
-    expect(rolesFor("refunds", "manager")).toEqual(["refunds_manager", "admin"]);
+  it("shares analyst and manager roles across queues without adding admin", () => {
+    expect(rolesFor("kyc", "agent")).toEqual(["analyst", "manager"]);
+    expect(rolesFor("kyc", "manager")).toEqual(["manager"]);
+    expect(rolesFor("refunds", "agent")).toEqual(["analyst", "manager"]);
+    expect(rolesFor("refunds", "manager")).toEqual(["manager"]);
     expect(rolesFor("refunds", "admin")).toEqual(["admin"]);
   });
 
@@ -32,7 +28,6 @@ describe("role catalog", () => {
     }
     expect(ROLE_META.engineer).toEqual({
       label: "Engineer",
-      domain: null,
       level: "engineer",
     });
     expect(ROLES).toContain("engineer");
@@ -47,24 +42,32 @@ describe("role catalog", () => {
     }
   });
 
-  it("lists every manager-or-above role across domains", () => {
-    expect(MANAGER_ROLES).toEqual(["kyc_manager", "refunds_manager", "admin"]);
-    expect(ALL_ROLES).toHaveLength(6);
+  it("lists the four shared demo roles", () => {
+    expect(MANAGER_ROLES).toEqual(["manager", "admin"]);
+    expect(ALL_ROLES).toEqual(["analyst", "manager", "engineer", "admin"]);
     expect(MANAGER_ROLES).not.toContain("engineer");
   });
 
-  it("only lets manager-level roles and admins approve", () => {
-    expect(canApprove("kyc_reviewer")).toBe(false);
-    expect(canApprove("refunds_agent")).toBe(false);
+  it("only lets managers and admins approve", () => {
+    expect(canApprove("analyst")).toBe(false);
     expect(canApprove("engineer")).toBe(false);
-    expect(canApprove("kyc_manager")).toBe(true);
-    expect(canApprove("refunds_manager")).toBe(true);
+    expect(canApprove("manager")).toBe(true);
     expect(canApprove("admin")).toBe(true);
   });
 
   it("labels every role for display", () => {
-    expect(roleLabel("kyc_reviewer")).toBe("KYC reviewer");
+    expect(roleLabel("analyst")).toBe("Analyst");
+    expect(roleLabel("manager")).toBe("Manager");
     expect(roleLabel("admin")).toBe("Admin");
     expect(roleLabel("engineer")).toBe("Engineer");
+  });
+
+  it("uses the analyst as the default and ignores a stale role cookie", () => {
+    expect(DEFAULT_ACTOR).toBe(DEMO_ACTORS.analyst);
+    expect(actorFromCookie("stale.invalid")).toBe(DEFAULT_ACTOR);
+    expect(DEMO_ACTORS.analyst.id).toBe("usr_analyst");
+    expect(DEMO_ACTORS.manager.id).toBe("usr_manager");
+    expect(DEMO_ACTORS.analyst.name).toBe("Analyst");
+    expect(DEMO_ACTORS.manager.name).toBe("Manager");
   });
 });

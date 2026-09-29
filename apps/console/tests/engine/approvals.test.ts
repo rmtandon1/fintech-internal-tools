@@ -8,17 +8,17 @@ import { TOOLS } from "@/registry";
 import { APPROVAL_THRESHOLD_KEY, SPEND_FEE_KEY } from "../fixtures/widgets";
 import {
   admin,
-  kycReviewer,
+  analyst,
   makeWidget,
-  kycManager,
-  otherManager,
+  manager,
+  secondManager,
   setupHarness,
   widgetBalance,
 } from "../helpers/harness";
 
 beforeAll(() => setupHarness());
 
-function requestSpend(recordId: string, amount: number, actor = kycReviewer) {
+function requestSpend(recordId: string, amount: number, actor = analyst) {
   const result = executeIntent(actor, {
     tool: "widgets",
     action: "spend",
@@ -69,9 +69,9 @@ describe("approvals", () => {
 
   it("blocks self-approval at the database predicate", () => {
     makeWidget("w_self", 1000);
-    const id = requestSpend("w_self", 500, kycManager);
+    const id = requestSpend("w_self", 500, manager);
 
-    const result = approve(kycManager, id, "approving my own request");
+    const result = approve(manager, id, "approving my own request");
 
     expect(result.outcome).toMatchObject({ status: "error", code: "self_approval" });
     expect(getApproval(id)?.status).toBe("pending");
@@ -84,7 +84,7 @@ describe("approvals", () => {
 
     // Moving the threshold after the fact must not change what was approved.
     setConstant(admin, APPROVAL_THRESHOLD_KEY, "900");
-    const result = approve(kycManager, id, "ok");
+    const result = approve(manager, id, "ok");
 
     expect(result.outcome.status).toBe("applied");
     expect(widgetBalance("w_frozen")).toBe(500);
@@ -97,7 +97,7 @@ describe("approvals", () => {
 
     // The fee feeds `decide`, so a recomputed decision would spend 600.
     setConstant(admin, SPEND_FEE_KEY, "100");
-    const result = approve(kycManager, id, "ok");
+    const result = approve(manager, id, "ok");
 
     expect(result.outcome.status).toBe("applied");
     expect(widgetBalance("w_decision")).toBe(500);
@@ -106,7 +106,7 @@ describe("approvals", () => {
 
   it("leaves nothing applied and nothing approved when the effect throws", () => {
     makeWidget("w_boom", 1000);
-    const requested = executeIntent(kycReviewer, {
+    const requested = executeIntent(analyst, {
       tool: "widgets",
       action: "explode",
       recordId: "w_boom",
@@ -117,7 +117,7 @@ describe("approvals", () => {
       throw new Error(`expected approval, got ${requested.outcome.status}`);
     }
 
-    const result = approve(kycManager, requested.outcome.approvalId, "go");
+    const result = approve(manager, requested.outcome.approvalId, "go");
 
     expect(result.outcome).toMatchObject({ status: "error", code: "internal_error" });
     // The claim and the partial write rolled back together.
@@ -129,7 +129,7 @@ describe("approvals", () => {
     makeWidget("w_stale", 1000);
     const id = requestSpend("w_stale", 500);
 
-    executeIntent(kycReviewer, {
+    executeIntent(analyst, {
       tool: "widgets",
       action: "spend",
       recordId: "w_stale",
@@ -137,7 +137,7 @@ describe("approvals", () => {
       idempotencyKey: ulid(),
     });
 
-    const result = approve(kycManager, id, "too late");
+    const result = approve(manager, id, "too late");
 
     expect(result.outcome).toMatchObject({ status: "error", code: "version_conflict" });
     expect(getApproval(id)?.status).toBe("failed");
@@ -148,8 +148,8 @@ describe("approvals", () => {
     makeWidget("w_twice", 1000);
     const id = requestSpend("w_twice", 500);
 
-    expect(approve(kycManager, id, "yes").outcome.status).toBe("applied");
-    expect(approve(otherManager, id, "again").outcome).toMatchObject({
+    expect(approve(manager, id, "yes").outcome.status).toBe("applied");
+    expect(approve(secondManager, id, "again").outcome).toMatchObject({
       status: "error",
       code: "approval_not_pending",
     });
@@ -159,7 +159,7 @@ describe("approvals", () => {
     makeWidget("w_reject", 1000);
     const id = requestSpend("w_reject", 500);
 
-    const result = reject(kycManager, id, "not justified");
+    const result = reject(manager, id, "not justified");
 
     expect(result.outcome.status).toBe("applied");
     if (result.outcome.status !== "applied") throw new Error("unreachable");

@@ -172,6 +172,11 @@ export interface ActionDecl<TRecord = unknown, TInput = unknown, TPatch = unknow
   tone?: "default" | "destructive" | "primary";
   /** Set when the action creates the record it governs rather than mutating one. */
   createsRecord?: boolean;
+  /**
+   * When policy requires approval, only the policy's allowed roles may apply
+   * the action directly; no approval request is raised.
+   */
+  routeToApprover?: boolean;
   rules: Rule<TRecord, TInput>[];
   /**
    * Short ready-made text for the action's free-text inputs, keyed by input
@@ -241,6 +246,8 @@ export interface ToolDeclaration<TRecord extends GovernedRecord = GovernedRecord
   filters: FilterDecl[];
   /** Role-scoped counts rendered above the queue; omit for no strip. */
   stats?: StatDecl[];
+  /** Actor-specific filters applied only when the URL omits a filter field. */
+  defaultFilters?: (actor: Actor) => Record<string, string>;
   /**
    * Shows the queue as compact on/off switches: a record is on when `field`
    * is truthy, and flipping a switch runs the `on` or `off` action through

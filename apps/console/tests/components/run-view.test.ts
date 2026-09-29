@@ -37,8 +37,8 @@ function payload(overrides: Partial<RunViewPayload> = {}): RunViewPayload {
       prUrl: null,
       mergeCommit: null,
       reverses: null,
-      requestedBy: "usr_refunds_manager",
-      requestedByRole: "refunds_manager",
+      requestedBy: "usr_manager",
+      requestedByRole: "manager",
       approvedBy: null,
       lastNote: null,
       requestedAt: 0,
@@ -73,7 +73,7 @@ function render(p: RunViewPayload): string {
 describe("runTitle", () => {
   it("names what Devin is doing from the spec's summary for the operation", () => {
     expect(runTitle(payload())).toBe(
-      "Devin is holding split refunds that add up past the manager limit.",
+      "Devin is routing split refunds that add up past the manager limit to the manager's queue.",
     );
   });
 });

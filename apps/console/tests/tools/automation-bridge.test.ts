@@ -47,7 +47,7 @@ import { devinRuns } from "@console/tool-automation/schema";
 import { refundTool } from "@console/tool-refunds";
 import { handleGet, type RunViewPayload } from "@/lib/devin-route";
 import { fakeGit } from "../helpers/fake-git";
-import { admin, kycManager, refundsAgent, refundsManager, setupHarness } from "../helpers/harness";
+import { admin, analyst, manager, setupHarness } from "../helpers/harness";
 
 const REPO_ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"]).toString().trim();
 const engineer: Actor = { id: "usr_engineer", name: "Engineer", role: "engineer" };
@@ -190,7 +190,7 @@ describe("dispatchRun", () => {
   it("writes context.json, dispatches, creates the session with the context attached, then records it", async () => {
     stopAll();
     const devin = fakeDevin({});
-    const out = await dispatchRun(kycManager, request, deps({ devin: devin.client }));
+    const out = await dispatchRun(manager, request, deps({ devin: devin.client }));
     expect(out.dispatch.outcome.status).toBe("applied");
     expect(out.session?.outcome.status).toBe("applied");
     expect(out.sessionUrl).toBe("https://app.devin.ai/sessions/abc");
@@ -251,7 +251,7 @@ describe("dispatchRun", () => {
   it("names the repository and base branch in the prompt when it is known", async () => {
     stopAll();
     const devin = fakeDevin({});
-    await dispatchRun(kycManager, request, deps({ devin: devin.client, repository: "acme/ops-console" }));
+    await dispatchRun(manager, request, deps({ devin: devin.client, repository: "acme/ops-console" }));
     expect(devin.created[0].prompt).toMatch(
       /Repository: https:\/\/github\.com\/acme\/ops-console\. Branch from devin\/test at [0-9a-f]{7} and open the pull request against devin\/test\./,
     );
@@ -261,7 +261,7 @@ describe("dispatchRun", () => {
     stopAll();
     const devin = fakeDevin({});
     const d = deps({ devin: devin.client, repository: "acme/ops-console" });
-    const out = await dispatchRun(kycManager, request, d);
+    const out = await dispatchRun(manager, request, d);
     expect(out.prompt).toBe(devin.created[0].prompt);
     const run = getRun(out.runId);
     if (!run) throw new Error("no run");
@@ -283,13 +283,13 @@ describe("dispatchRun", () => {
       lookups.push("lookup");
       return "playbook-found";
     };
-    await dispatchRun(kycManager, request, deps({ devin: found.client, resolvePlaybookId }));
+    await dispatchRun(manager, request, deps({ devin: found.client, resolvePlaybookId }));
     expect(found.created[0].playbookId).toBe("playbook-found");
 
     stopAll();
     const configured = fakeDevin({});
     await dispatchRun(
-      kycManager,
+      manager,
       request,
       deps({ devin: configured.client, playbookId: "playbook-env", resolvePlaybookId }),
     );
@@ -301,7 +301,7 @@ describe("dispatchRun", () => {
     stopAll();
     const devin = fakeDevin({});
     const out = await dispatchRun(
-      kycManager,
+      manager,
       request,
       deps({ devin: devin.client, resolvePlaybookId: () => Promise.reject(new Error("HTTP 500")) }),
     );
@@ -314,7 +314,7 @@ describe("dispatchRun", () => {
     const devin = fakeDevin({
       create: () => Promise.reject(new Error("Devin API 401 on /sessions: bad key")),
     });
-    const out = await dispatchRun(kycManager, request, deps({ devin: devin.client }));
+    const out = await dispatchRun(manager, request, deps({ devin: devin.client }));
     expect(out.dispatch.outcome.status).toBe("applied");
     const run = getRun(out.runId);
     expect(run?.status).toBe("dispatch_failed");
@@ -339,7 +339,7 @@ describe("dispatchRun", () => {
   it("never reaches Devin and leaves no run dir when the dispatch intent does not apply", async () => {
     stopAll();
     const devin = fakeDevin({});
-    const out = await dispatchRun(refundsAgent, request, deps({ devin: devin.client }));
+    const out = await dispatchRun(analyst, request, deps({ devin: devin.client }));
     expect(out.dispatch.outcome.status).toBe("error");
     expect(out.session).toBeNull();
     expect(devin.calls).toEqual([]);
@@ -352,12 +352,12 @@ describe("dispatchRun", () => {
     const url = "https://app.devin.ai/sessions/0f1e2d3c";
     const devin = fakeDevin({ create: async () => ({ sessionId: "devin-0f1e2d3c", url }) });
     const d = { ...deps({ devin: devin.client }), replaysDir: mkdtempSync(join(tmpdir(), "bridge-replays-")) };
-    const out = await dispatchRun(kycManager, request, d);
+    const out = await dispatchRun(manager, request, d);
     expect(getRun(out.runId)?.sessionUrl).toBe(url);
 
     vi.stubEnv("DEVIN_API_KEY", "test-key");
     try {
-      const body = (await handleGet(out.runId, kycManager, d)).body as RunViewPayload;
+      const body = (await handleGet(out.runId, manager, d)).body as RunViewPayload;
       expect(body.mode).toBe("live");
       expect(body.sessionUrl).toBe(url);
       expect(body.run.sessionUrl).toBe(url);
@@ -484,22 +484,18 @@ describe("observeRun", () => {
   it("records nothing while the session reports no pull request", async () => {
     const run = await running();
     const devin = fakeDevin({ snapshot: { status: "working", statusDetail: null, structuredOutput: output() } });
-    const out = await observeRun(kycManager, run, deps({ devin: devin.client }));
+    const out = await observeRun(manager, run, deps({ devin: devin.client }));
     expect(out.poll.kind).toBe("output");
     expect(out.record).toBeNull();
     expect(getRun(run.id)?.version).toBe(run.version);
   });
 
-  it("skips recording for a manager outside the run's domain, so the next poller can still record", async () => {
+  it("lets a manager record a pull request on a run for a known application", async () => {
     const run = await running();
-    const out = await observeRun(refundsManager, run, deps({ devin: reportingPr().client }));
-    expect(out.record).toBeNull();
-    expect(getRun(run.id)?.prUrl).toBeNull();
-    expect(getRun(run.id)?.version).toBe(run.version);
-
-    const next = await observeRun(admin, run, deps({ devin: reportingPr().client }));
-    expect(next.record?.outcome.status).toBe("applied");
+    const out = await observeRun(manager, run, deps({ devin: reportingPr().client }));
+    expect(out.record?.outcome.status).toBe("applied");
     expect(getRun(run.id)?.prUrl).toBe(PR);
+    expect(getRun(run.id)?.version).toBe(run.version + 1);
   });
 
   it("record_pr denies a repeat under a fresh key, same URL or not, without a new version", async () => {
@@ -593,7 +589,7 @@ describe("approveRun", () => {
   it("denies a non-engineer before touching the review endpoint", async () => {
     const run = await runningWithPr();
     const github = fakeGitHub({ green: true, contextSha: run.contextSha256 });
-    const out = await approveRun(kycManager, run, undefined, deps({ github: github.client, devin: reportingPr().client }));
+    const out = await approveRun(manager, run, undefined, deps({ github: github.client, devin: reportingPr().client }));
     expect(out.approve.outcome.status).not.toBe("applied");
     expect(github.calls).not.toContain("approve");
   });
@@ -747,7 +743,7 @@ describe("observeMerge and stopRun", () => {
   it("does not terminate a session for a stop the policy denies", async () => {
     const run = await approved();
     const devin = fakeDevin({});
-    const out = await stopRun(refundsAgent, run, "nope", deps({ devin: devin.client }));
+    const out = await stopRun(analyst, run, "nope", deps({ devin: devin.client }));
     expect(out.stop.outcome.status).not.toBe("applied");
     expect(devin.calls).toEqual([]);
     expect(getRun(run.id)?.status).toBe("approved");

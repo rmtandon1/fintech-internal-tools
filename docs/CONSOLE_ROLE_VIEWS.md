@@ -4,16 +4,16 @@ Reference for what each role can see in the console today. This describes shippe
 
 ## Linked activity on a KYC case
 
-A KYC record shows the same customer's refunds in a drawer (`linkedActivity` on `tools/kyc/src/index.ts`, rendered by `apps/console/src/components/context-drawer.tsx`). Roles are domain-scoped (`packages/permissions/src/roles.ts`) and KYC roles cannot open the refunds tool, so they get the aggregate only and admin gets the rows.
+A KYC record shows the same customer's refunds in a drawer (`linkedActivity` on `tools/kyc/src/index.ts`, rendered by `apps/console/src/components/context-drawer.tsx`). Analyst and Manager work both KYC and refunds queues; reveal permissions for masked data are a separate capability.
 
-| Element | KYC reviewer | KYC manager | Admin |
+| Element | Analyst | Manager | Admin |
 |---|---|---|---|
 | Refund count, total, reason codes, held marker | Yes | Yes | Yes |
-| Refund rows: amount, email, card number | Hidden | Hidden | Masked, reveal logged |
-| Open cluster in Refunds | Hidden | Hidden | Yes |
-| Approve a held refund | Hidden | Hidden (a refunds decision) | Yes, unless they requested it (maker ≠ checker) |
+| Refund rows: amount, email, card number | Masked | Masked, reveal logged | Masked, reveal logged |
+| Open cluster in Refunds | Yes | Yes | Yes |
+| Pay or reject a routed refund | Hidden | Yes, directly | Hidden |
 
-Run controls start where the evidence is: "Ask Devin for a rule" in the refunds cluster drawer for the refunds manager, "Ask Devin to add a check" on a UK business case, "Ask Devin to start this app" on the Chargebacks Coming soon page (`AGENT_TRIGGER_SURFACE.md`), "Ask Devin to change this rule" on `/admin/policy`, and "Undo this change" on `/runs` for an admin on a merged run. Their placement on a KYC case, and per-role visibility, is open for the UI rework.
+Run controls start where the evidence is: "Ask Devin for a rule" in the refunds cluster drawer for a manager, "Ask Devin to add a check" on a UK business case for a manager or admin, "Ask Devin to start this app" on the Chargebacks Coming soon page (`AGENT_TRIGGER_SURFACE.md`), "Ask Devin to change this rule" on `/admin/policy`, and "Undo this change" on `/runs` for an admin on a merged run. Routed refunds are paid or rejected directly by a Manager; the KYC approval-request flow remains unchanged. Their placement on a KYC case, and per-role visibility, is open for the UI rework.
 
 The join is KYC `email` = refunds `customerEmail`, run on the server with the read client so no unmasked email reaches the browser. Covered by `apps/console/tests/tools/kyc-linked-activity.test.ts`.
 

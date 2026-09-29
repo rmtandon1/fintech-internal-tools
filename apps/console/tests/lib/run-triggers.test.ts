@@ -9,9 +9,8 @@ import { refundTool } from "@console/tool-refunds";
 import { modeTriggers, recordTriggers } from "@/lib/run-triggers";
 import {
   admin,
-  kycManager,
-  kycReviewer,
-  refundsManager,
+  manager,
+  analyst,
   setupHarness,
 } from "../helpers/harness";
 
@@ -47,8 +46,8 @@ function kyc(id: string) {
 }
 
 describe("recordTriggers", () => {
-  it("offers the Companies House check on a UK business case to the KYC manager", () => {
-    const [t] = recordTriggers("kyc", kyc("kyc_0003"), kycManager);
+  it("offers the Companies House check on a UK business case to the manager", () => {
+    const [t] = recordTriggers("kyc", kyc("kyc_0003"), manager);
     expect(t.label).toBe("Ask Devin to add a check");
     expect(t.blocked).toBeNull();
     expect(t.offer?.evidenceIds).toEqual(["kyc_0003"]);
@@ -56,14 +55,14 @@ describe("recordTriggers", () => {
   });
 
   it("offers it on every UK business case, including the low-risk one the demo uses", () => {
-    expect(recordTriggers("kyc", kyc("kyc_0104"), kycManager)[0]?.offer?.evidenceIds).toEqual([
+    expect(recordTriggers("kyc", kyc("kyc_0104"), manager)[0]?.offer?.evidenceIds).toEqual([
       "kyc_0104",
     ]);
   });
 
-  it("shows nothing to a KYC reviewer, and nothing on a personal customer", () => {
-    expect(recordTriggers("kyc", kyc("kyc_0003"), kycReviewer)).toEqual([]);
-    expect(recordTriggers("kyc", kyc("kyc_0001"), kycManager)).toEqual([]);
+  it("shows nothing to an analyst, and nothing on a personal customer", () => {
+    expect(recordTriggers("kyc", kyc("kyc_0003"), analyst)).toEqual([]);
+    expect(recordTriggers("kyc", kyc("kyc_0001"), manager)).toEqual([]);
   });
 
 });
@@ -72,7 +71,7 @@ describe("modeTriggers", () => {
   it("offers to start Chargebacks from its committed export, for the admin only", () => {
     const [t] = modeTriggers("chargebacks", admin);
     expect(t.offer?.evidence.map((row) => row.id)).toContain("Data/disputes.csv");
-    expect(modeTriggers("chargebacks", refundsManager)[0]).toMatchObject({ offer: null });
+    expect(modeTriggers("chargebacks", manager)[0]).toMatchObject({ offer: null });
     expect(modeTriggers("wire_release", admin)).toEqual([]);
   });
 });

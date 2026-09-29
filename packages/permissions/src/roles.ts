@@ -1,29 +1,16 @@
-/**
- * The single role catalog. Roles are domain-scoped — a KYC manager cannot
- * decide a refunds approval — with `admin` standing above every domain. The
- * engine stays tool-agnostic, so the catalog lives here rather than in
- * `src/engine`.
- */
+/** The engine stays tool-agnostic, so the catalog lives here. */
 export const ROLES = [
-  "kyc_reviewer",
-  "kyc_manager",
-  "refunds_agent",
-  "refunds_manager",
+  "analyst",
+  "manager",
   "engineer",
   "admin",
 ] as const;
 
 export type Role = (typeof ROLES)[number];
 
-/**
- * The roles the demo header offers in its switcher: the ones the walkthrough
- * uses. `kyc_manager` stays in `ROLES` for the engine and tests but is not a
- * pickable lens.
- */
 export const DEMO_ROLES: readonly Role[] = [
-  "refunds_manager",
-  "refunds_agent",
-  "kyc_reviewer",
+  "analyst",
+  "manager",
   "admin",
   "engineer",
 ];
@@ -32,20 +19,11 @@ export type RoleDomain = "kyc" | "refunds";
 
 export type RoleLevel = "engineer" | "agent" | "manager" | "admin";
 
-export const ROLE_META: Record<
-  Role,
-  { label: string; domain: RoleDomain | null; level: RoleLevel }
-> = {
-  kyc_reviewer: { label: "KYC reviewer", domain: "kyc", level: "agent" },
-  kyc_manager: { label: "KYC manager", domain: "kyc", level: "manager" },
-  refunds_agent: { label: "Refunds agent", domain: "refunds", level: "agent" },
-  refunds_manager: {
-    label: "Refunds manager",
-    domain: "refunds",
-    level: "manager",
-  },
-  engineer: { label: "Engineer", domain: null, level: "engineer" },
-  admin: { label: "Admin", domain: null, level: "admin" },
+export const ROLE_META: Record<Role, { label: string; level: RoleLevel }> = {
+  analyst: { label: "Analyst", level: "agent" },
+  manager: { label: "Manager", level: "manager" },
+  admin: { label: "Admin", level: "admin" },
+  engineer: { label: "Engineer", level: "engineer" },
 };
 
 const LEVEL_RANK: Record<RoleLevel, number> = {
@@ -55,20 +33,19 @@ const LEVEL_RANK: Record<RoleLevel, number> = {
   admin: 2,
 };
 
-/** Roles allowed to act in `domain` at `level` or above; admin is always included. */
-export function rolesFor(domain: RoleDomain, level: RoleLevel): Role[] {
+/** All queues share roles. Admin is reserved for the admin level; engineer is never a queue role. */
+export function rolesFor(_domain: RoleDomain, level: RoleLevel): Role[] {
+  if (level === "admin") return ["admin"];
   const rank = LEVEL_RANK[level];
   return ROLES.filter(
     (role) =>
-      ROLE_META[role].level === "admin" ||
-      (ROLE_META[role].domain === domain && LEVEL_RANK[ROLE_META[role].level] >= rank),
+      ROLE_META[role].level !== "admin" &&
+      ROLE_META[role].level !== "engineer" &&
+      LEVEL_RANK[ROLE_META[role].level] >= rank,
   );
 }
 
-/** Every manager-or-above role across all domains. */
-export const MANAGER_ROLES: Role[] = ROLES.filter(
-  (role) => LEVEL_RANK[ROLE_META[role].level] >= LEVEL_RANK.manager,
-);
+export const MANAGER_ROLES: Role[] = ["manager", "admin"];
 
 export const ALL_ROLES: Role[] = [...ROLES];
 
@@ -76,7 +53,7 @@ export function roleLabel(role: Role): string {
   return ROLE_META[role].label;
 }
 
-/** Agents request; managers and admins may also decide approvals. */
+/** Managers and admins may decide approvals. */
 export function canApprove(role: Role): boolean {
-  return ROLE_META[role].level === "manager" || ROLE_META[role].level === "admin";
+  return role === "manager" || role === "admin";
 }

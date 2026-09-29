@@ -54,12 +54,17 @@ export function ActionBar({
   );
   const completed = useRef<Completed>({});
   const offered = previews.filter((p) => p.offered);
+  const routedTo = previews.find((preview) => preview.routedTo)?.routedTo;
 
 
   return (
     <div className="flex w-full flex-col gap-2">
       {offered.length === 0 ? (
-        <p className="py-1 text-sm text-muted-foreground">Nothing to do here right now.</p>
+        <p className="py-1 text-sm text-muted-foreground">
+          {routedTo
+            ? `With a ${routedTo.tier}: ${routedTo.reason}`
+            : "Nothing to do here right now."}
+        </p>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
           {offered.map((preview) => {
@@ -102,16 +107,21 @@ function buttonFor(preview: ActionPreview) {
   const denied = preview.decision?.effect === "deny";
   const needsApproval = preview.decision?.effect === "require_approval";
   const tier = preview.decision?.tier ?? "manager";
+  const actsAsApprover = preview.actsAsApprover === true;
   return {
-    label: needsApproval ? `Send to ${tier}` : preview.label,
+    label: needsApproval && !actsAsApprover ? `Send to ${tier}` : preview.label,
     variant:
       preview.tone === "destructive"
         ? ("destructive" as const)
-        : needsApproval
+        : needsApproval && !actsAsApprover
           ? ("secondary" as const)
           : ("default" as const),
     disabled: denied,
-    title: needsApproval ? `${preview.label} needs ${tier} approval` : undefined,
+    title: actsAsApprover
+      ? preview.decision?.reason
+      : needsApproval
+        ? `${preview.label} needs ${tier} approval`
+        : undefined,
   };
 }
 

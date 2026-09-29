@@ -1,25 +1,21 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import { eq } from "drizzle-orm";
 import { sqlite } from "@console/db-core";
-import { approvalRequests } from "@console/db-core/engine-schema";
+import { approvalRequests, auditLog } from "@console/db-core/engine-schema";
 import { db } from "@console/db";
+import { appendAudit } from "@console/engine/audit/append";
+import { verifyChain } from "@console/engine/audit/verify";
+import type { Actor, WriteHandle } from "@console/engine/types";
 import { canDecide, getApproval } from "@console/engine/approvals";
-import { kycManager, refundsManager } from "../helpers/harness";
-
-/**
- * Upgrade-path coverage for 0004_expand_roles: a database that already holds
- * approval rows written under the flat analyst/manager/admin roles must come
- * out the other side with domain-scoped roles and matching requester ids.
- * Migrations are applied file by file — 0000–0003 first, the legacy rows are
- * inserted, then 0004 runs — so the test exercises the real SQL, not a copy.
- */
+import { migratePersistedRoleJson } from "@/lib/role-migration";
+import { analyst, manager } from "../helpers/harness";
 
 function applyMigration(tag: string): void {
   const file = readdirSync("drizzle").find((f) => f.startsWith(tag));
   if (!file) throw new Error(`no migration file for ${tag}`);
-  // `--> statement-breakpoint` lines are SQL comments, so exec accepts the
-  // file as-is.
   sqlite.exec(readFileSync(join("drizzle", file), "utf8"));
 }
 
@@ -60,29 +56,31 @@ function insertLegacyApproval(row: LegacyRow): void {
     .run();
 }
 
+let legacyAuditId = "";
+
 beforeAll(() => {
   for (const tag of ["0000", "0001", "0002", "0003"]) applyMigration(tag);
 
   insertLegacyApproval({
     id: "appr_kyc",
     tool: "kyc",
-    allowedRolesJson: '["manager","admin"]',
-    requesterId: "usr_analyst",
-    requesterRole: "analyst",
+    allowedRolesJson: '["kyc_manager","admin"]',
+    requesterId: "usr_kyc_reviewer",
+    requesterRole: "kyc_reviewer",
   });
   insertLegacyApproval({
     id: "appr_refunds",
     tool: "refunds",
-    allowedRolesJson: '["manager","admin"]',
-    requesterId: "usr_manager",
-    requesterRole: "manager",
+    allowedRolesJson: '["refunds_manager","admin"]',
+    requesterId: "usr_refunds_agent",
+    requesterRole: "refunds_agent",
   });
   insertLegacyApproval({
     id: "appr_flags",
     tool: "flags",
-    allowedRolesJson: '["manager","admin"]',
-    requesterId: "usr_analyst",
-    requesterRole: "analyst",
+    allowedRolesJson: '["kyc_manager","refunds_manager","admin"]',
+    requesterId: "usr_kyc_reviewer",
+    requesterRole: "kyc_reviewer",
   });
   insertLegacyApproval({
     id: "appr_admin",
@@ -91,47 +89,102 @@ beforeAll(() => {
     requesterId: "usr_admin",
     requesterRole: "admin",
   });
-
   applyMigration("0004");
+  for (const tag of ["0005", "0006", "0007", "0008", "0009"]) applyMigration(tag);
+
+  const legacyManager = {
+    id: "usr_refunds_manager",
+    name: "Manager",
+    role: "refunds_manager",
+  } as unknown as Actor;
+  legacyAuditId = drizzle(sqlite).transaction((tx) =>
+    appendAudit(tx as unknown as WriteHandle, {
+      actor: legacyManager,
+      tool: "flags",
+      action: "set",
+      recordType: "flag",
+      recordId: "flag_legacy",
+      event: "applied",
+      summary: "legacy role audit",
+      payload: {},
+      before: null,
+      after: null,
+      decision: { allowedRoles: ["kyc_manager", "refunds_manager", "admin"] },
+    }),
+  );
+  sqlite
+    .prepare(
+      `INSERT INTO devin_runs
+        (id, operation, spec, tool, intent, context_sha256, status,
+         requested_by, requested_by_role, requested_at, updated_at, version)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      "run_legacy_role",
+      "change",
+      "REFUND_CLUSTERING_HOLD.md",
+      "refunds",
+      "legacy run",
+      "0".repeat(64),
+      "running",
+      "usr_refunds_manager",
+      "refunds_manager",
+      Date.now(),
+      Date.now(),
+      1,
+    );
+  applyMigration("0010");
+  migratePersistedRoleJson();
 });
 
-describe("0004_expand_roles", () => {
-  it("scopes a kyc approval to the kyc manager and remaps its requester", () => {
-    const approval = getApproval("appr_kyc");
-    expect(approval?.allowedRoles).toEqual(["kyc_manager", "admin"]);
-    expect(approval?.requesterRole).toBe("kyc_reviewer");
-    expect(approval?.requesterId).toBe("usr_kyc_reviewer");
+describe("0010_flatten_roles", () => {
+  it("flattens requester roles and shared manager permission lists", () => {
+    const kyc = getApproval("appr_kyc");
+    expect(kyc?.allowedRoles).toEqual(["manager", "admin"]);
+    expect(kyc?.requesterRole).toBe("analyst");
+    expect(kyc?.requesterId).toBe("usr_analyst");
+
+    const refunds = getApproval("appr_refunds");
+    expect(refunds?.allowedRoles).toEqual(["manager", "admin"]);
+    expect(refunds?.requesterRole).toBe("analyst");
+    expect(refunds?.requesterId).toBe("usr_analyst");
+
+    const flags = getApproval("appr_flags");
+    expect(flags?.allowedRoles).toEqual(["manager", "admin"]);
+    expect(flags?.requesterRole).toBe("analyst");
+    expect(flags?.requesterId).toBe("usr_analyst");
+
+    const adminOnly = getApproval("appr_admin");
+    expect(adminOnly?.allowedRoles).toEqual(["admin"]);
+    expect(adminOnly?.requesterRole).toBe("admin");
   });
 
-  it("scopes a refunds approval to the refunds manager and remaps its requester", () => {
+  it("keeps migrated approvals decidable by the shared manager", () => {
     const approval = getApproval("appr_refunds");
-    expect(approval?.allowedRoles).toEqual(["refunds_manager", "admin"]);
-    expect(approval?.requesterRole).toBe("refunds_manager");
-    expect(approval?.requesterId).toBe("usr_refunds_manager");
+    if (!approval) throw new Error("approval request missing");
+    expect(canDecide(approval, manager).ok).toBe(true);
+    expect(canDecide(approval, analyst).ok).toBe(false);
   });
 
-  it("opens a flags approval to every manager", () => {
-    const approval = getApproval("appr_flags");
-    expect(approval?.allowedRoles).toEqual([
-      "kyc_manager",
-      "refunds_manager",
+  it("flattens run and audit actor roles without breaking the audit chain", () => {
+    const run = sqlite
+      .prepare(
+        "SELECT requested_by, requested_by_role FROM devin_runs WHERE id = ?",
+      )
+      .get("run_legacy_role") as { requested_by: string; requested_by_role: string };
+    expect(run).toEqual({ requested_by: "usr_manager", requested_by_role: "manager" });
+
+    const audit = db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.id, legacyAuditId))
+      .get();
+    expect(audit?.actorRole).toBe("manager");
+    expect(audit?.actorId).toBe("usr_manager");
+    expect(JSON.parse(audit?.decisionJson ?? "{}").allowedRoles).toEqual([
+      "manager",
       "admin",
     ]);
-    expect(approval?.requesterRole).toBe("kyc_reviewer");
-    expect(approval?.requesterId).toBe("usr_kyc_reviewer");
-  });
-
-  it("leaves an admin-only approval untouched", () => {
-    const approval = getApproval("appr_admin");
-    expect(approval?.allowedRoles).toEqual(["admin"]);
-    expect(approval?.requesterRole).toBe("admin");
-    expect(approval?.requesterId).toBe("usr_admin");
-  });
-
-  it("keeps migrated approvals decidable by their own domain only", () => {
-    const kyc = getApproval("appr_kyc");
-    if (!kyc) throw new Error("approval request missing");
-    expect(canDecide(kyc, kycManager).ok).toBe(true);
-    expect(canDecide(kyc, refundsManager).ok).toBe(false);
+    expect(verifyChain().ok).toBe(true);
   });
 });

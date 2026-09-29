@@ -20,6 +20,8 @@ export interface ActionPreview {
   unavailableReason?: string;
   /** True when the action's input has not been supplied or does not parse. */
   needsInput?: boolean;
+  actsAsApprover?: boolean;
+  routedTo?: { tier: string; reason: string };
   decision: PolicyDecision | null;
   inputFields: InputFieldDesc[];
   /** Tab-to-fill text for free-text inputs, keyed by input name. */
@@ -92,7 +94,21 @@ export function previewActions(
       constants,
     };
 
-    return { ...base, offered: true, decision: evaluatePolicy(action.rules, ctx) };
+    const decision = evaluatePolicy(action.rules, ctx);
+    if (action.routeToApprover && decision.effect === "require_approval") {
+      const reason = decision.reason ?? "Approval required";
+      const tier = decision.tier ?? "manager";
+      const actsAsApprover = decision.allowedRoles?.includes(actor.role) ?? false;
+      return {
+        ...base,
+        offered: actsAsApprover,
+        actsAsApprover,
+        routedTo: actsAsApprover ? undefined : { tier, reason },
+        decision,
+      };
+    }
+
+    return { ...base, offered: true, decision };
   });
 }
 

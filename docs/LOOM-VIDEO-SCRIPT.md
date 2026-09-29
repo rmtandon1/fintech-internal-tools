@@ -30,7 +30,7 @@
 
 The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than reading the table here.
 
-**◀ CONSOLE.** [Viewing as Refunds manager, on Home.]
+**◀ CONSOLE.** [Viewing as Manager, on Home.]
 
 ---
 
@@ -52,17 +52,17 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 > "Four 'not received' refunds from Kestrel Outdoors, each just under the $500 manager line. Together, $1,880."
 
-[Switch role: Refunds agent.]
+[Switch role: Analyst.]
 
 [On `rfnd_0013`, click **Send to processor**.]
 
 [It goes straight to **With processor**.]
 
-> "An agent pays one. $460, under the line, straight through. Nothing stopped it."
+> "An analyst pays one. $460, under the line, straight through. Nothing stopped it."
 
 ### Ask, build, approve
 
-[Switch role: Refunds manager.]
+[Switch role: Manager.]
 
 [Click **Ask Devin for a rule**.]
 
@@ -110,17 +110,17 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 ### Held
 
-[Switch role: Refunds agent.]
+[Switch role: Analyst.]
 
-[On `rfnd_0011`, click **Send to processor**.]
+[`rfnd_0011` is no longer in the refunds queue; **With a manager** counts it.]
 
-[The banner reads **Sent to manager for approval**.]
+> "Back to the analyst. The next Kestrel refund has left their queue, and nobody clicked anything."
 
-> "Back to the agent, and the next Kestrel refund. The same click now waits for a manager."
+[Switch role: Manager. Open `rfnd_0011` in the manager's queue, then the trace: `clustering_hold` and the running total.]
 
-[Open the trace: `clustering_hold` and the running total.]
+> "It's in the manager's queue, and the trace says why: the new rule, and how much Kestrel has added up to."
 
-> "The trace names the new rule and how much Kestrel has added up to."
+> "The rule itself is a sum. The work is everything around it: the KYC side, a switch to turn it off, tests, review, and later an undo that keeps what came after."
 
 ### Switch it off
 
@@ -128,15 +128,11 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Off camera: `pnpm db:scenario courier-outage`.]
 
-[Switch role: Refunds manager.]
+[Switch role: Manager.]
 
-[Open **Approvals** in the sidebar: 60 Fernhill refunds.]
+[Open **Refunds**: 60 Fernhill refunds need your approval.]
 
-> "A courier outage. Sixty genuine refunds from a trusted merchant, all held."
-
-[Open **Audit log** in the sidebar: one row per held Fernhill refund.]
-
-> "They came in overnight as ordinary refund requests. The live rule held each one, and each hold wrote its own audit row."
+> "A courier outage. Sixty genuine refunds from a trusted merchant, all in the manager's queue."
 
 [Switch role: Admin.]
 
@@ -162,9 +158,9 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 > "Devin kept the later work and took the rule out."
 
-[Point at the removed tests, then the sixty held refunds.]
+[Point at the removed tests, then the sixty routed refunds.]
 
-> "Devin lists the tests it removed, and the sixty held refunds for someone to release. Nothing else was touched."
+> "Devin lists the tests it removed, and the sixty routed refunds still in the manager's queue for someone to pay or reject. Nothing else was touched."
 
 [As Engineer: approve, merge, **Pull merged code**.]
 
@@ -172,13 +168,13 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 ### Outcome
 
-[Switch role: Refunds agent.]
+[Switch role: Analyst.]
 
-[On `rfnd_0014`, click **Send to processor**.]
+[`rfnd_0014` is back in the analyst's queue; click **Send to processor**.]
 
 [It goes straight to **With processor**.]
 
-> "The agent's click goes straight through again."
+> "The analyst's click goes straight through again."
 
 [Open the trace, then the reason-code dropdown.]
 
@@ -190,7 +186,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 ### Before
 
-[Switch role: KYC reviewer.]
+[Switch role: Analyst.]
 
 [Open `kyc_0104`, Thornbury Couriers Ltd.]
 
@@ -208,7 +204,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Click **Ask Devin to add a check**.]
 
-> "Adding a check to onboarding is an admin's request, not the reviewer's."
+> "Adding a check to onboarding is an admin's request, not the analyst's."
 
 [Point at **What Devin will see**: name, number, country.]
 
@@ -236,7 +232,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 ### Outcome
 
-[Switch role: KYC reviewer.]
+[Switch role: Analyst.]
 
 [On `kyc_0104`, run the Companies House check.]
 
@@ -294,7 +290,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 ### Outcome
 
-[Switch role: Refunds agent.]
+[Switch role: Analyst.]
 
 [Open the **Chargebacks** tile on Home.]
 

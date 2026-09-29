@@ -15,7 +15,10 @@ import { getTool } from "@/registry";
 const INHERITED = [
   { name: "Access by role", detail: "Only the roles listed above can see it." },
   { name: "Checks on every action", detail: "Every action shows which rules it passed or failed." },
-  { name: "Approvals", detail: "Large actions wait for a manager. Nobody approves their own." },
+  {
+    name: "Approvals",
+    detail: "KYC and flag approvals go to a manager. Routed refunds go to the Manager queue for direct action.",
+  },
   { name: "Live settings", detail: "Limits change on the rule settings page, with no release." },
   { name: "No double actions", detail: "Clicking twice, or retrying, never does it twice." },
   { name: "Personal data hidden", detail: "Personal data is masked. Every reveal is logged." },

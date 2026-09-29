@@ -255,12 +255,12 @@ export const vaultTool = defineTool<Widget>({
   statuses: [{ value: "open", label: "Open", tone: "info" }],
   statusField: "status",
   titleField: "name",
-  revealRoles: ["kyc_reviewer", "admin"],
+  revealRoles: ["analyst", "admin"],
   actions: [
     defineAction<Widget, z.ZodObject<Record<string, never>>, null>({
       name: "close",
       label: "Close",
-      allowedRoles: ["kyc_reviewer", "admin"],
+      allowedRoles: ["analyst", "admin"],
       input: z.object({}),
       fromStatus: ["open"],
       rules: [() => ({ type: "allow", rule: "always" })],

@@ -3,14 +3,14 @@
 ## Summary
 
 - Four `not_received` refunds from one merchant each sit just under the $500 manager line and total $1,880. No rule catches them.
-- A refunds manager asks Devin for a rule from the cluster drawer (`TRANSACTION_INSPECTION.md`). Devin writes `clustering_hold` in the refunds tool, a KYC rule that sends those customers' approvals to a manager, a window setting, and eight tests. No flag.
+- A manager asks Devin for a rule from the cluster drawer (`TRANSACTION_INSPECTION.md`). Devin writes `clustering_hold` in the refunds tool, a KYC rule that sends those customers' approvals to a manager, a window setting, and eight tests. No flag.
 - An admin can switch the hold off in seconds by setting the window to 0.
 - Devin later removes the hold from the code, keeping a later change to the same file.
 - This spec gives the console the intent sentence and allowed paths, and gives the reviewer the acceptance tests. Devin's session never reads it. Shared run rules: `DEVIN_RUN_PROTOCOL.md`.
 
 ## The problem
 
-`amount_approval` looks at one refund at a time. Four `not_received` refunds from Kestrel Outdoors at $480, $475, $460 and $465 each clear alone. Together they are $1,880 through a line meant to pull in a second approver at $500. One of the customers behind them has a KYC case pending at risk score 68, two points under the manager line.
+`amount_approval` looks at one refund at a time. Four `not_received` refunds from Kestrel Outdoors at $480, $475, $460 and $465 each clear alone. Together they are $1,880 over the manager line at $500. One of the customers behind them has a KYC case pending at risk score 68, two points under the manager line.
 
 Nothing in the console connects those facts, and no rule catches them.
 
@@ -20,7 +20,7 @@ Nothing in the console connects those facts, and no rule catches them.
 
 The sentence the requester sends, prefilled from the cluster drawer and editable:
 
-> Once a merchant's "not received" refunds add up past the manager limit, send them to a manager for approval. Send those customers' KYC approvals to a manager too.
+> Once a merchant's "not received" refunds add up past the manager limit, route them to a manager's queue for direct payment or rejection. Send those customers' KYC approvals to a manager too.
 
 It is deliberately short. It doesn't mention the window, rejected refunds, frozen-FX amounts or where the rule sits in the trace. Devin never sees this file: it has to find each of those in the code, and the acceptance tests below are what the reviewer checks its tests against. That gap is what the viewer should notice (`AGENT_TRIGGER_SURFACE.md` § One sentence, not a chat panel).
 
@@ -42,11 +42,11 @@ These are the reviewer's contract, shown in the approval dialog. Devin does not 
 Refunds:
 
 1. The first refund in a cluster whose running total is under the manager line is applied.
-2. The refund that takes the merchant's `not_received` total over the manager line within the window goes to `pending_approval` at the manager tier. The trace names `clustering_hold`, the merchant and the running total.
-3. Every later refund in the same cluster is also held.
+2. The refund that takes the merchant's `not_received` total over the manager line within the window needs a manager: it leaves the analyst's queue for the manager's. The trace names `clustering_hold`, the merchant and the running total.
+3. Every later refund in the same cluster is routed to the manager's queue too.
 4. A `faulty` refund from the same merchant is not affected.
 5. Rejected refunds don't count toward the total.
-6. With `refunds.clustering_window_days` at 0, nothing is held. This is the KILL_SWITCH setting.
+6. With `refunds.clustering_window_days` at 0, `clustering_hold` reads allow and no refund is routed by this rule. This is the KILL_SWITCH setting.
 
 KYC:
 
@@ -56,7 +56,7 @@ KYC:
 
 ### Constraints
 
-- The hold is a `require_approval` at the manager tier, with `allowedRoles: rolesFor("refunds", "manager")`. `linked_refund_hold` on the KYC side uses `rolesFor("kyc", "manager")`: the refunds manager asks for the rule, and a KYC manager decides the case. It never denies. A structuring pattern is a reason for a second person to look, not proof of fraud.
+- The hold is a `require_approval` at the manager tier, with `allowedRoles: rolesFor("refunds", "manager")`. `linked_refund_hold` on the KYC side uses `rolesFor("kyc", "manager")`; both resolve to the Manager role. A manager asks for the rule, and a manager decides the KYC case. It never denies. A structuring pattern is a reason for a second person to look, not proof of fraud.
 - `clustering_hold` sits after `goodwill_approval` in the `execute` rules, because rule order sets trace order and reviewers read the trace.
 - The window is a runtime constant, `refunds.clustering_window_days`, default 14. The manager line is read from `refunds.manager_approval_usd_minor`, never copied.
 - The KYC rule reads refunds through the shared query in `clustering-hold.ts`. It does not duplicate the sum.
@@ -79,7 +79,7 @@ const DAY = 24 * 60 * 60 * 1000;
 
 /**
  * Not-received refunds from one merchant are summed over a window, so a run
- * of refunds each under the manager line is held once the total crosses it.
+ * of refunds each under the manager line is routed once the total crosses it.
  */
 export const clusteringHold: Rule<Refund, unknown> = ({ record, constants }) => {
   const windowDays = constants.number(CLUSTERING_WINDOW_DAYS_KEY, 14);
@@ -130,14 +130,14 @@ The constant declaration in `tools/refunds/src/index.ts`:
 ### What the operator sees after merge
 
 1. An engineer approves in the approval dialog, Devin merges, and `record_merge` is written. The checkout pulls, and the app reloads.
-2. As `refunds_agent`, execute the next Kestrel `not_received` refund. It goes to the inbox instead of settling. The policy trace names `clustering_hold` and the $1,880 running total.
-3. Open the linked KYC case (score 68). **Approve** now routes to a KYC manager, and the trace names `linked_refund_hold`.
+2. As **Analyst**, the next Kestrel `not_received` refund is no longer in the refunds queue. As **Manager**, it is in the manager's queue; its policy trace names `clustering_hold` and the $1,880 running total, and the manager pays or rejects it.
+3. As **Analyst**, open the linked KYC case (score 68). **Approve** now routes to a manager, and the trace names `linked_refund_hold`.
 
-Before the merge, the same two clicks settle the refund and clear the case. That before-and-after is the proof.
+Before the merge, the refund sits in the analyst's queue and settles on one click, and the case clears. That before-and-after is the proof.
 
 ## Switch the hold off (KILL_SWITCH)
 
-A setting change, with no Devin run. An admin sets `refunds.clustering_window_days` to 0 in `/admin/policy`. `setConstant` audits the change, and from the next refund nothing is held. Acceptance test 6 guarantees that 0 means off.
+A setting change, with no Devin run. An admin sets `refunds.clustering_window_days` to 0 in `/admin/policy`. `setConstant` audits the change, and from the next refund `clustering_hold` reads allow. Acceptance test 6 guarantees that 0 means off.
 
 Use it when the hold is catching genuine refunds and an undo would take too long.
 
@@ -145,9 +145,9 @@ Use it when the hold is catching genuine refunds and an undo would take too long
 
 ### When
 
-A regional courier failure produces genuine `not_received` refunds at Fernhill Home, a long-standing merchant, and the hold sends about 60 of them to the manager inbox. The admin applies the KILL_SWITCH. Risk judges the rule too blunt and withdraws it while designing a narrower one. The recorded demo needs a Fernhill seed for this step: about 60 `not_received` refunds under $500 each, requested after the change merges.
+A regional courier failure produces genuine `not_received` refunds at Fernhill Home, a long-standing merchant, and the hold sends about 60 of them to the manager's queue. The admin applies the KILL_SWITCH. Risk judges the rule too blunt and withdraws it while designing a narrower one. The recorded demo needs a Fernhill seed for this step: about 60 `not_received` refunds under $500 each, requested after the change merges.
 
-**Scenario data.** `pnpm db:scenario courier-outage` produces it: about 60 Fernhill Home `not_received` refunds between $30 and $450, ids `rfnd_1001`–`rfnd_1060`. The script inserts the rows and then submits each one through `executeIntent` as the refunds agent, so the live `clustering_hold` routes them to the manager inbox and every hold writes its own audit row. It is not a seed: it runs against the live `apps/console/data/console.db` after the change has merged, and it is what fills the inbox the undo's PR has to list.
+**Scenario data.** `pnpm db:scenario courier-outage` produces it: about 60 Fernhill Home `not_received` refunds between $30 and $450, ids `rfnd_1001`–`rfnd_1060`. The script inserts the rows; the live `clustering_hold` routes them to the manager's queue as they are read, with no submit step. It is not a seed: it runs against the live `apps/console/data/console.db` after the change has merged, and it is what fills the queue the undo's PR has to list.
 
 ### Intent
 
@@ -159,12 +159,11 @@ By the time of reversal, the demo's branch should carry at least one later chang
 
 - the revert conflicts in `tools/refunds/src/index.ts`, and Devin has to keep the new reason code while removing the rule
 - the admin has changed the window since merge (to 0, via the KILL_SWITCH), so the PR reports that live row and says it will stay in the database until someone removes it
-- refunds held by the rule are still in the inbox, and the PR lists them as operator steps: approve or reject each one
+- refunds routed by the rule are still in the manager's queue, and the PR lists them as operator steps: pay or reject each one
 
 ### Acceptance
 
 - `pnpm verify` is green.
 - The eight hold tests are gone, and the plan names them. No other test is lost.
 - Against the change's base commit, every file it touched is back to its pre-merge content except later merged work, and nothing else changes.
-- After merge, executing the next Kestrel refund settles it, as it did before the change.
-
+- After merge, the next Kestrel refund is back in the analyst's queue and settles when sent, as it did before the change.

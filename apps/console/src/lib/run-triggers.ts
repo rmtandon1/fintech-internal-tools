@@ -1,5 +1,4 @@
 import type { Actor } from "@console/engine/types";
-import { ROLE_META } from "@console/permissions";
 import {
   CHARGEBACKS_FROM_POWER_APPS,
   COMPANIES_HOUSE_CHECK,
@@ -42,9 +41,8 @@ function trigger(
 ): Trigger | null {
   if (isLive(spec)) return null;
   if (!roleMayStart(actor.role, spec, CHANGE)) {
-    const meta = ROLE_META[actor.role];
     // Only the people one step away from asking see the button, greyed out.
-    const nearly = meta.level === "manager" && (spec.domain === null || meta.domain === spec.domain);
+    const nearly = actor.role === "manager" && spec.domain === null;
     return nearly
       ? { label: spec.title, offer: null, blocked: "Only an admin can ask for this" }
       : null;

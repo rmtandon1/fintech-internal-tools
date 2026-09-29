@@ -50,7 +50,7 @@ pnpm verify                                # Test Files 39 passed · Tests 325 p
 - ✅ Chargebacks: **Coming soon**, export committed, **Ask Devin to start this app** offered to
   admins
 - ✅ `kyc_0104`: approves on its hand-typed registry check, **Ask Devin to add a check** offered
-  to KYC managers and admins
+  to managers and admins
 - ✅ Kestrel cluster visible on `/t/refunds`, no rule holding it
 - ⚠ The org playbook must be re-registered to pick up #65
 
