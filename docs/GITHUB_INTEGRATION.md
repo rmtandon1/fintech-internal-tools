@@ -5,8 +5,11 @@ branch protection, and the merge sync that brings merged code back into the cons
 
 ## Summary
 
-- The console reads pull requests and checks, and posts the engineer's approving review, with
-  `GITHUB_TOKEN` from the server's `.env`.
+- The console reads pull requests, checks and reviews, and posts the engineer's approving review,
+  with `GITHUB_TOKEN` from the server's `.env`.
+- An approving review given on GitHub by `GITHUB_APPROVER_LOGIN` (default `rmtandon1`) is
+  recorded as the console engineer's `approve_pr`; a PR merged on GitHub before any approval is
+  recorded as merged with the missing approval named on the run.
 - CI (`.github/workflows/verify.yml`) runs two jobs on every pull request: `verify` and `guards`.
 - CODEOWNERS adds the engine owner to any pull request that touches the governed write path.
 - Devin merges once the console approves. The console never pushes; it only pulls.
@@ -33,6 +36,16 @@ The review is posted as the token's owner, who acts as the approving engineer. G
 let an account approve its own pull request, so the token must not belong to Devin's GitHub
 account.
 
+`GITHUB_APPROVER_LOGIN` (default `rmtandon1`) is the GitHub login the console's `engineer` actor
+answers to. While a run is `running` with a PR, every poll lists the approving reviews at the
+PR's head; the first one by that login — other than the console's own review, whose body starts
+`Approved from the ops console` — runs the same `approve_pr` intent the **Review and approve**
+button runs, as that engineer, with the same server-read inputs and the same idempotency key, and
+then sends Devin the same merge message. No second review is posted. An approval by a login no
+actor claims is shown on the run view as `Approved on GitHub by @login (not a console engineer)`
+and records nothing; one the rules refuse (requester, red checks, changed context) shows the
+denial the same way the button would.
+
 ## Calls the console makes
 
 All from `tools/automation/src/github-api.ts`, server-side only.
@@ -44,6 +57,7 @@ All from `tools/automation/src/github-api.ts`, server-side only.
 | `fileSha256` | `GET /repos/{owner}/{repo}/contents/runs/<id>/context.json?ref=<sha>` | Approval: **Context untouched** |
 | `approvePull` | `POST /repos/{owner}/{repo}/pulls/{n}/reviews` with `event: APPROVE` | After `approve_pr` commits |
 | `hasApprovingReview` | `GET /repos/{owner}/{repo}/pulls/{n}/reviews` | Retrying an approval: re-posts the review only when it's missing (#64) |
+| `listApprovingReviews` | `GET /repos/{owner}/{repo}/pulls/{n}/reviews` | Every poll of a running run with a PR: approvals given on GitHub, with author, time and body |
 
 The repository comes from `GITHUB_REPOSITORY` when set (a plain `owner/repo` only), otherwise
 from the serving checkout's `origin` remote on github.com. `GITHUB_API_BASE` overrides
@@ -84,8 +98,11 @@ gh api repos/rmtandon1/fintech-internal-tools/branches/cognition-dashboard-devin
 # {"message":"Branch not protected", … "status":"404"}
 ```
 
-The console's approval still gates Devin's merge: Devin waits for the console's message, and
-`approve_pr` refuses the requester. What GitHub adds is enforcement against anything that
+The console's approval still gates Devin's merge: Devin waits for the console's message — sent
+after a console approval or after the console sees the mapped engineer's approval on GitHub —
+and `approve_pr` refuses the requester. A PR merged on GitHub without either is still recorded
+(`record_merge` from `running`), with the run's note reading `Merged on GitHub without a
+recorded approval` so the gap is visible rather than hidden. What GitHub adds is enforcement against anything that
 doesn't go through the console. To turn it on:
 
 ```bash

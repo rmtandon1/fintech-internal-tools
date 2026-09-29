@@ -4,6 +4,7 @@ import type { ComponentProps } from "react";
 import Link from "next/link";
 import { TableCell, TableRow } from "@console/ui/table";
 import { Button } from "@console/ui/button";
+import { GitHubMark } from "@console/ui/github-mark";
 import { StatusChip } from "@console/ui/status-chip";
 import { formatRelative } from "@console/ui/format";
 import { useWorkspace } from "@/components/workspace";
@@ -63,9 +64,9 @@ export function RunRow({
             target="_blank"
             rel="noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="font-mono text-[11px] hover:underline"
+            className="inline-flex items-center gap-1 font-mono text-[11px] hover:underline"
           >
-            #{prNumber ?? "pr"}
+            <GitHubMark className="size-3.5" />#{prNumber ?? "pr"}
           </a>
         ) : (
           "—"

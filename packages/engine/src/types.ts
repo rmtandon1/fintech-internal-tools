@@ -13,6 +13,8 @@ export interface Actor {
   id: string;
   name: string;
   role: Role;
+  /** GitHub login whose reviews the console treats as this actor's approvals. */
+  githubLogin?: string;
 }
 
 export type FieldType =

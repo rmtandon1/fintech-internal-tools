@@ -62,6 +62,8 @@ function payload(overrides: Partial<RunViewPayload> = {}): RunViewPayload {
       reverse: { offered: false },
       sync: false,
     },
+    githubSyncedAt: null,
+    githubNotice: null,
     ...overrides,
   };
 }
@@ -276,5 +278,45 @@ describe("RunView", () => {
     expect(html).toContain("Devin’s last update");
     expect(html).not.toContain("animate-spin");
     expect(html).toMatch(/data-state="active"><span class="[^"]*"><span class="[^"]*bg-warning" aria-label="Paused"/);
+  });
+});
+
+describe("GitHub sync line", () => {
+  it("shows when GitHub was last read, with the GitHub mark, and any approval the console could not take", () => {
+    const html = render(payload({ githubSyncedAt: 1_700_000_000_000, githubNotice: "Approved on GitHub by @x (not a console engineer)" }));
+    const block = /<div[^>]*data-testid="github-sync"[^>]*>(.*?)<\/div>/.exec(html)?.[1] ?? "";
+    expect(block).toContain("Synced with GitHub · 0s ago");
+    expect(block).toContain("<svg");
+    expect(block).toContain("Approved on GitHub by @x (not a console engineer)");
+  });
+
+  it("omits the line before GitHub has been read", () => {
+    expect(render(payload())).not.toContain("Synced with GitHub");
+  });
+
+  it("names the GitHub approver on the approval row, not the actor id", () => {
+    const html = render(
+      payload({
+        run: { ...payload().run, status: "approved", approvedBy: "usr_engineer", lastNote: "Approved on GitHub by @rmtandon1" },
+      }),
+    );
+    expect(html).toContain("Approved on GitHub by @rmtandon1");
+    expect(html).not.toContain("Approved by an engineer");
+  });
+
+  it("marks a merge without a recorded approval as such", () => {
+    const html = render(
+      payload({
+        run: {
+          ...payload().run,
+          status: "merged",
+          prUrl: "https://github.com/rmtandon1/buy-v-build-cog-demo/pull/990",
+          mergeCommit: "d".repeat(40),
+          lastNote: "Merged on GitHub without a recorded approval",
+        },
+      }),
+    );
+    expect(html).toContain("Approved by an engineer");
+    expect(html).toContain("not recorded");
   });
 });

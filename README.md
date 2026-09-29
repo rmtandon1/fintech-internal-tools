@@ -344,8 +344,10 @@ The console runs without either key. Devin then shows as not connected, and ever
    Bring your own keys; none ship with the repo. With `DEVIN_API_KEY` set, the console runs live:
    each request starts a session in that key's Devin organisation, and the run page links to it.
    Left blank, the console runs in simulation mode: everything else works, the Devin window says
-   **Devin not connected**, and no handoff is sent. Without `GITHUB_TOKEN`, **Review and approve**
-   and the merge check don't work.
+   **Devin not connected**, and no handoff is sent. Without `GITHUB_TOKEN`, **Review and approve**,
+   the GitHub approval sync and the merge check don't work. `GITHUB_APPROVER_LOGIN` names the
+   GitHub login whose approving review on a run's PR counts as the console engineer's approval
+   (default `rmtandon1`).
 
 4. Create and seed the database.
 
@@ -795,7 +797,8 @@ Find the layer first, then the symptom.
 | Variable | Required | Purpose |
 |---|---|---|
 | `DEVIN_API_KEY` | For live runs | The only variable Devin needs. Organisation comes from `GET /v3/self` |
-| `GITHUB_TOKEN` | For approval | **Review and approve** and merge detection |
+| `GITHUB_TOKEN` | For approval | **Review and approve**, reading approvals given on GitHub, and merge detection |
+| `GITHUB_APPROVER_LOGIN` | No | GitHub login mapped to the console's `engineer` actor; an approving review by it records `approve_pr`. Default `rmtandon1` |
 | `DEVIN_ORG_ID` | No | Skip the organisation lookup (halves Devin calls per poll) |
 | `DEVIN_PLAYBOOK_ID` | No | Otherwise the playbook titled "Governed console run" is used |
 | `COMPANIES_HOUSE_API_KEY` | No | Live Companies House lookups; without it, recorded test data |

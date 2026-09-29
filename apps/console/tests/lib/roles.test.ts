@@ -8,7 +8,7 @@ import {
   roleLabel,
   rolesFor,
 } from "@console/permissions";
-import { DEMO_ACTORS } from "@console/engine/actor";
+import { actorForGitHubLogin, DEMO_ACTORS } from "@console/engine/actor";
 import { TOOLS, toolsForRole } from "@/registry";
 
 describe("role catalog", () => {
@@ -40,10 +40,32 @@ describe("role catalog", () => {
       id: "usr_engineer",
       name: "Engineer",
       role: "engineer",
+      githubLogin: "rmtandon1",
     });
     expect(toolsForRole("engineer").map((t) => t.name)).toEqual(["automation"]);
     for (const tool of TOOLS.filter((t) => t.name !== "automation")) {
       expect(tool.visibleTo).not.toContain("engineer");
+    }
+  });
+
+  it("maps a GitHub login to the engineer, from GITHUB_APPROVER_LOGIN when set", () => {
+    const before = process.env.GITHUB_APPROVER_LOGIN;
+    try {
+      delete process.env.GITHUB_APPROVER_LOGIN;
+      expect(DEMO_ACTORS.engineer.githubLogin).toBe("rmtandon1");
+      expect(actorForGitHubLogin("RMTandon1")?.id).toBe("usr_engineer");
+      expect(actorForGitHubLogin("somebody")).toBeNull();
+      expect(actorForGitHubLogin(" ")).toBeNull();
+      process.env.GITHUB_APPROVER_LOGIN = " octo-eng ";
+      expect(DEMO_ACTORS.engineer.githubLogin).toBe("octo-eng");
+      expect(actorForGitHubLogin("octo-eng")?.id).toBe("usr_engineer");
+      expect(actorForGitHubLogin("rmtandon1")).toBeNull();
+      for (const actor of Object.values(DEMO_ACTORS)) {
+        if (actor.role !== "engineer") expect(actor.githubLogin).toBeUndefined();
+      }
+    } finally {
+      if (before === undefined) delete process.env.GITHUB_APPROVER_LOGIN;
+      else process.env.GITHUB_APPROVER_LOGIN = before;
     }
   });
 

@@ -13,6 +13,7 @@ import {
   automationTool,
   type DevinClient,
   getRun,
+  type GitHubClient,
   IN_FLIGHT_STATUSES,
   COMPANIES_HOUSE_CHECK,
   type SessionSnapshot,
@@ -237,6 +238,9 @@ describe("GET /api/devin/<runId>", () => {
       async hasApprovingReview() {
         return true;
       },
+      async listApprovingReviews() {
+        return [];
+      },
     };
     const d = { ...deps(), devin: devin.client, github };
     const out = await dispatchRun(admin, request, d);
@@ -250,6 +254,109 @@ describe("GET /api/devin/<runId>", () => {
     expect(body.run.mergeCommit).toBe("d".repeat(40));
     expect(listAuditEvents({ recordId: out.runId, action: "record_merge" }).rows).toHaveLength(1);
     expect(listAuditEvents({ recordId: out.runId, action: "stop" }).rows).toHaveLength(0);
+  });
+
+  /** A GitHub whose PR carries `reviews` at the head and is merged when `merged`. */
+  function githubWith(state: { reviews?: { login: string; body?: string }[]; merged?: boolean; contextSha: () => string | null }) {
+    const client: GitHubClient = {
+      async getPull() {
+        return {
+          headSha: "c".repeat(40),
+          headRef: "devin/run",
+          merged: state.merged ?? false,
+          mergeCommit: state.merged ? "d".repeat(40) : null,
+        };
+      },
+      async getChecks() {
+        return { green: true, summary: "all checks green" };
+      },
+      async fileSha256() {
+        return state.contextSha();
+      },
+      async approvePull() {
+        throw new Error("the sync must not post a review");
+      },
+      async hasApprovingReview() {
+        return (state.reviews ?? []).length > 0;
+      },
+      async listApprovingReviews() {
+        return (state.reviews ?? []).map((r) => ({ login: r.login, submittedAt: "2026-01-02T00:00:00Z", body: r.body ?? "" }));
+      },
+    };
+    return client;
+  }
+
+  const prReported = () =>
+    scriptedDevin({
+      status: "working",
+      statusDetail: "working",
+      structuredOutput: scriptedFrames("change", "run", "0".repeat(64), "0".repeat(40)).at(-1)!.structured_output,
+    });
+
+  it("records the mapped engineer's GitHub approval on the poll and tells Devin to merge, once", async () => {
+    stopAll();
+    const devin = prReported();
+    let contextSha: string | null = null;
+    const github = githubWith({ reviews: [{ login: "rmtandon1", body: "LGTM" }], contextSha: () => contextSha });
+    const d = { ...deps(), devin: devin.client, github };
+    const out = await dispatchRun(admin, request, d);
+    contextSha = getRun(out.runId)?.contextSha256 ?? null;
+
+    const first = (await handleGet(out.runId, admin, d)).body as RunViewPayload;
+    expect(first.run.status).toBe("approved");
+    expect(first.run.approvedBy).toBe(engineer.id);
+    expect(first.run.lastNote).toBe("Approved on GitHub by @rmtandon1");
+    expect(first.run.prUrl).toMatch(/pull\/990$/);
+    expect(first.githubSyncedAt).toBe(t);
+    expect(first.githubNotice).toBeNull();
+    expect(devin.sent).toEqual([`Run ${out.runId} is approved. Merge ${first.run.prUrl} now.`]);
+
+    const again = (await handleGet(out.runId, admin, d)).body as RunViewPayload;
+    expect(again.run.status).toBe("approved");
+    expect(devin.sent).toHaveLength(1);
+    expect(listAuditEvents({ recordId: out.runId, action: "approve_pr" }).rows).toHaveLength(1);
+  });
+
+  it("shows an approval by a login no engineer claims without recording it", async () => {
+    stopAll();
+    const devin = prReported();
+    const github = githubWith({ reviews: [{ login: "drive-by" }], contextSha: () => null });
+    const d = { ...deps(), devin: devin.client, github };
+    const out = await dispatchRun(admin, request, d);
+
+    const body = (await handleGet(out.runId, admin, d)).body as RunViewPayload;
+    expect(body.run.status).toBe("running");
+    expect(body.githubSyncedAt).toBe(t);
+    expect(body.githubNotice).toBe("Approved on GitHub by @drive-by (not a console engineer)");
+    expect(devin.sent).toEqual([]);
+    expect(listAuditEvents({ recordId: out.runId, action: "approve_pr" }).rows).toHaveLength(0);
+  });
+
+  it("records a merge GitHub reports before any approval, and says so on the run", async () => {
+    stopAll();
+    const devin = prReported();
+    const github = githubWith({ merged: true, contextSha: () => null });
+    const d = { ...deps(), devin: devin.client, github };
+    const out = await dispatchRun(admin, request, d);
+
+    const merged = (await handleGet(out.runId, admin, d)).body as RunViewPayload;
+    expect(merged.run.status).toBe("merged");
+    expect(merged.run.mergeCommit).toBe("d".repeat(40));
+    expect(merged.run.approvedBy).toBeNull();
+    expect(merged.run.lastNote).toBe("Merged on GitHub without a recorded approval");
+    expect(merged.githubSyncedAt).toBe(t);
+    expect(listAuditEvents({ recordId: out.runId, action: "record_merge" }).rows).toHaveLength(1);
+    expect(listAuditEvents({ recordId: out.runId, action: "approve_pr" }).rows).toHaveLength(0);
+  });
+
+  it("reports no GitHub sync when the server has no GitHub client", async () => {
+    stopAll();
+    const d = { ...deps(), devin: prReported().client, github: null };
+    const out = await dispatchRun(admin, request, d);
+    const body = (await handleGet(out.runId, admin, d)).body as RunViewPayload;
+    expect(body.run.status).toBe("running");
+    expect(body.githubSyncedAt).toBeNull();
+    expect(body.githubNotice).toBeNull();
   });
 
   it("does not stop a run whose session is merely blocked", async () => {

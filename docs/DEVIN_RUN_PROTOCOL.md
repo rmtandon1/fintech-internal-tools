@@ -64,7 +64,9 @@ Polled run state is never written to `devin_runs`. Phase, `status_detail` and `s
 - The PR's required checks are green: Lint, Typecheck, Boundaries and Test (what `pnpm verify` runs).
 - **Context untouched**: the branch's `runs/<run_id>/context.json` hashes (SHA-256) to the `contextSha256` stored in the dispatch audit row. This is the one check the console runs itself, because CI can't read its SQLite.
 
-Its effect submits an approving review to GitHub as the engineer, then messages the Devin session to merge. See § Approval and merge.
+Its effect submits an approving review to GitHub as the engineer, then messages the Devin session to merge. The same intent also runs when a poll finds an approving review on GitHub by the engineer's mapped login (`GITHUB_APPROVER_LOGIN`, default `rmtandon1`), acting as that engineer, with the note `Approved on GitHub by @login` and no second review. See § Approval and merge.
+
+`record_merge` accepts a run in `approved` or `running`. A merge GitHub reports before the console recorded an approval is still written, with `approvedBy` left null and the run's note set to `Merged on GitHub without a recorded approval`: the audit trail shows the gap rather than hiding it.
 
 Every run therefore appears in the hash chain five times: when it was asked for, when Devin picked it up, when it opened its pull request, when an engineer approved it, and when it merged.
 
@@ -244,14 +246,16 @@ The sections Summary, Updates since last revision, Local testing results, and Re
 Humans approve. Devin merges. The control a regulated change process needs is separation of duties: whoever wrote a change doesn't approve it. The approval is the control, not the merge click, so Devin can do the click.
 
 1. The PR opens. The run view shows **Review and approve** to anyone with the `engineer` role who didn't request the run.
-2. The engineer opens the approval dialog (`AGENT_TRIGGER_SURFACE.md` § Approval dialog) and approves. The dialog lists the spec's acceptance tests as the reviewer's checklist; the engineer checks the PR's tests against it. `approve_pr` checks the rules above and writes the audit row.
-3. Its effect, after the commit, submits an approving review to GitHub (`POST /repos/{owner}/{repo}/pulls/{n}/reviews`, `event: APPROVE`) as the engineer, and sends the Devin session a message to merge. The approval is recorded once per head sha; retrying an approval whose GitHub review failed re-posts the review without a second audit row.
+2. The engineer approves in one of two places, and both record the same `approve_pr`:
+   - **In the console.** The approval dialog (`AGENT_TRIGGER_SURFACE.md` § Approval dialog) lists the spec's acceptance tests as the reviewer's checklist; the engineer checks the PR's tests against it. `approve_pr` checks the rules above and writes the audit row. Its effect, after the commit, submits an approving review to GitHub (`POST /repos/{owner}/{repo}/pulls/{n}/reviews`, `event: APPROVE`) as the engineer. The approval is recorded once per head sha; retrying an approval whose GitHub review failed re-posts the review without a second audit row.
+   - **On GitHub.** The console polls the PR's reviews while the run is `running`. An approving review at the head sha by the login `GITHUB_APPROVER_LOGIN` maps to (default `rmtandon1`, the `engineer` actor) runs `approve_pr` as that engineer with the same server-read `checksGreen` and `branchContextSha256`, the same idempotency key and the note `Approved on GitHub by @login`. The console's own review is not counted; an approval by an unmapped login is shown on the run but records nothing; a denial (requester, red checks, changed context) is shown the way the button shows it. No second review is posted.
+3. Either way, the console then sends the Devin session the message to merge. Devin waits for that message, not for the GitHub review.
 4. Devin merges and reports `merge_commit` in `structured_output`.
-5. The console writes `record_merge` for the same engineer, with the PR URL and merge commit.
+5. The console writes `record_merge` for the same engineer, with the PR URL and merge commit. If the PR was merged on GitHub with no approval the console recorded, `record_merge` still runs from `running`, with `approvedBy` null and the note `Merged on GitHub without a recorded approval`. The run view shows when GitHub was last read (`Synced with GitHub · Ns ago`).
 
 Enforcement lives in GitHub. Branch protection on `cognition-dashboard-devin-integration` requires one approving review, the four CI checks — Lint, Typecheck, Boundaries and Test — and no bypass for Devin's GitHub account. Devin's docs recommend exactly this: branch protection "to ensure all required checks pass before Devin can merge changes" (docs.devin.ai, GitHub integration). A security profile can also restrict the session's git and GitHub CLI access (docs.devin.ai, Security Profiles).
 
-Demo setup: the engineer's GitHub token sits in the server environment next to `DEVIN_API_KEY`.
+Demo setup: the engineer's GitHub token sits in the server environment next to `DEVIN_API_KEY`, with `GITHUB_APPROVER_LOGIN` naming the engineer's GitHub login when it is not `rmtandon1`.
 
 ## After merge
 
