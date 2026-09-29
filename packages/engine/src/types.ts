@@ -292,6 +292,8 @@ export interface ClusterGroup {
   /** What the count counts, e.g. a reason code; shown after the count. */
   qualifier?: string;
   totalUsdMinor: number;
+  /** Part of the total already paid out, if any. */
+  paidUsdMinor?: number;
   /** Look-back window the group was computed over, in days. */
   windowDays?: number;
   recordIds: string[];

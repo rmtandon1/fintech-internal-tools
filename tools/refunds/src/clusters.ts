@@ -12,6 +12,8 @@ export const DEFAULT_CLUSTERING_WINDOW_DAYS = 14;
 
 const DAY = 24 * 60 * 60 * 1000;
 
+const PAID_STATUSES = new Set(["executing", "settled"]);
+
 /** `$1,880`, or `$1,880.50` when there are cents. */
 function usd(minor: number): string {
   return (minor / 100).toLocaleString("en-US", {
@@ -53,6 +55,7 @@ export function notReceivedByMerchant(now = Date.now()): ClusterGroup[] {
       id: refunds.id,
       merchant: refunds.merchant,
       usdMinor: refunds.usdMinor,
+      status: refunds.status,
       requestedAt: refunds.requestedAt,
     })
     .from(refunds)
@@ -86,6 +89,9 @@ export function notReceivedByMerchant(now = Date.now()): ClusterGroup[] {
       count: bucket.length,
       qualifier: "not_received",
       totalUsdMinor,
+      paidUsdMinor: bucket
+        .filter((r) => PAID_STATUSES.has(r.status))
+        .reduce((sum, r) => sum + r.usdMinor, 0),
       windowDays,
       recordIds: bucket.map((r) => r.id),
       headline: `${bucket.length} refunds from ${merchant} add up to ${usd(totalUsdMinor)}`,
