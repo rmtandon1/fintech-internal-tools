@@ -6,21 +6,24 @@ import { dispatchAutomationRun } from "@/app/automation-actions";
 import { Button } from "@console/ui/button";
 import { Label } from "@console/ui/label";
 import { Textarea } from "@console/ui/textarea";
+import { SuggestTextarea } from "@/components/suggest-textarea";
 import { useWorkspace } from "@/components/workspace";
 import { factLabel, factValue } from "@/lib/fact-format";
 import type { HandoffOffer } from "@/lib/handoff";
 
 /**
- * The handoff: the request, prefilled from the spec and editable, and
- * everything the system attaches to it. Rendered in the Devin window from
+ * The handoff: the request the requester types, and everything the system
+ * attaches to it. For a change the request box starts empty, with the
+ * spec's short sentence as a grey suggestion Tab accepts; for an undo the
+ * intent is shown read-only. Rendered in the Devin window from
  * `AgentFocus` ("handoff"). Without `DEVIN_API_KEY` the brief is shown and
  * the send button is disabled.
  */
 export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
   const { setAgentFocus } = useWorkspace();
-  const [intent, setIntent] = useState(offer.intent);
-  const [pending, startTransition] = useTransition();
   const undo = offer.operation === "undo";
+  const [intent, setIntent] = useState(undo ? offer.intent : "");
+  const [pending, startTransition] = useTransition();
 
   function start() {
     const form = new FormData();
@@ -94,16 +97,29 @@ export function HandoffPanel({ offer }: { offer: HandoffOffer }) {
         <Label htmlFor="handoff-intent" className="text-sm">
           {undo ? "What will be undone" : "The request"}
         </Label>
-        <Textarea
-          id="handoff-intent"
-          rows={6}
-          maxLength={1000}
-          value={intent}
-          readOnly={undo}
-          onChange={(e) => setIntent(e.target.value)}
-          className="text-sm read-only:bg-muted read-only:text-muted-foreground"
-          aria-label="Intent"
-        />
+        {undo ? (
+          <Textarea
+            id="handoff-intent"
+            rows={6}
+            maxLength={1000}
+            value={intent}
+            readOnly
+            onChange={(e) => setIntent(e.target.value)}
+            className="text-sm read-only:bg-muted read-only:text-muted-foreground"
+            aria-label="Intent"
+          />
+        ) : (
+          <SuggestTextarea
+            id="handoff-intent"
+            rows={6}
+            maxLength={1000}
+            value={intent}
+            onChange={setIntent}
+            suggestion={offer.intent}
+            className="text-sm"
+            aria-label="Intent"
+          />
+        )}
         {undo ? (
           <p className="text-xs text-muted-foreground">An undo carries no free text.</p>
         ) : null}

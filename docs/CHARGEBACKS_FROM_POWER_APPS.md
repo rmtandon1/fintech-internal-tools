@@ -40,7 +40,13 @@ and Devin reads only the section marked as sent to Devin (`.devin/run-protocol.p
 
 ## The request (sent to Devin)
 
-Prefilled from `tools/automation/src/specs.ts`, and editable:
+The requester's sentence: the request box starts empty, with this suggestion from
+`tools/automation/src/specs.ts` that Tab fills; the requester may type their own:
+
+> Start moving the Chargebacks Power App into the console from its export: the queue and the
+> two riskiest rules first, the rest listed as still to do.
+
+The migration brief Devin reads with it:
 
 > Start moving the Chargebacks Power App into the console, from the export in
 > fixtures/power-apps/chargebacks. This is the first pull request, not the whole app: the queue with

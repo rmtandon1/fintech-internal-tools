@@ -3,7 +3,7 @@
 ## Summary
 
 - A business rule in this console is code. Devin adds, changes or removes it in a run, and a person approves every merge.
-- Feature specs (`REFUND_CLUSTERING_HOLD.md`, `COMPANIES_HOUSE_CHECK.md`, `CHARGEBACKS_FROM_POWER_APPS.md`) supply each run's intent sentence, allowed paths and the reviewer's acceptance checklist. A session never reads the spec unless the spec asks to be sent; then it reads only the sections marked as sent to Devin.
+- Feature specs (`REFUND_CLUSTERING_HOLD.md`, `COMPANIES_HOUSE_CHECK.md`, `CHARGEBACKS_FROM_POWER_APPS.md`) supply a suggested sentence the requester can accept or rewrite, plus allowed paths and the reviewer checklist. The house rules below apply to every run. A session never reads the spec unless the spec asks to be sent; then it reads only the sections marked as sent to Devin.
 - Starting a run is a governed write, like any other action. Each run appears in the audit chain five times, when it is requested, picked up, opens its pull request, is approved, and merges.
 - The console hands Devin a context file with the live settings and evidence, without customer data. Devin commits its plan before its first edit, and security checks in CI hold the diff to that plan.
 - An engineer approves, then Devin merges.
@@ -121,6 +121,16 @@ The session itself gets:
 - `tags`: `run:<run_id>`, `operation:<operation>`.
 
 It never gets reference code. A run never gets the spec unless the spec asks to be sent. The spec's acceptance tests are the engineer's checklist in the approval dialog (`RunnableSpec.acceptance`), so the time window, which refunds count and where the rule sits in the trace are Devin's to work out from the code, and the reviewer checks them afterwards. Specs include a reference implementation for the reviewer, and Devin works out its own.
+
+## House rules for new code
+
+The requester's sentence carries the business need; these rules carry how the code is built. They apply to every run, whatever the sentence says.
+
+- **Outside services.** Read the provider's API docs on the web before writing a client. The client lives in the tool that uses it. Its key is read on the server from `<SERVICE>_API_KEY`, documented in `.env.example`, and never logged or sent to the browser. One call per action, with a timeout of at most five seconds.
+- **Failure holds, never passes.** A lookup that times out, errors or finds nothing shows "couldn't check" and holds approval like a material difference.
+- **Recorded responses.** Tests never call the live service; they replay recorded responses. When the session has the key, record them from the live service; otherwise write them from the provider's documented response shape. Without the key at runtime, the console uses the same recordings and labels the result "test data". A seeded record's result comes from the service, never from a recording invented for it.
+- **Off until an admin turns it on.** A new check or rule that changes decisions sits behind a rule setting the tool declares, named `<tool>.<snake_case_name>`, 0 by default. At 0 nothing changes; an admin turns it on after the merge, as its own audited change.
+- **Reuse the write path.** Writes go through `executeIntent` from an action; opening a page writes nothing. A new finding lands in the tables and rules that already hold that kind of finding (for KYC, the case's checks and Declared vs found) before any new table or rule.
 
 ## Phases
 

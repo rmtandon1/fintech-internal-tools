@@ -39,11 +39,13 @@ export interface EvidenceSource {
 }
 
 /**
- * A change Devin can make from the console. The prompt for each operation is
- * written here, ahead of time, so the requester starts from a tested brief
- * and can edit it; the console never parses the spec's prose, and a run
- * whose spec is not sent to Devin never reads it. The reviewer's checklist
- * is copied here too, for the approval dialog.
+ * A change Devin can make from the console. `intents.change` is the short
+ * suggestion the requester sees in the request box and can accept with Tab
+ * or replace with their own words; the engineering rules every run follows
+ * come from docs/DEVIN_RUN_PROTOCOL.md › House rules, not the sentence. The
+ * console never parses the spec's prose, and a run whose spec is not sent
+ * to Devin never reads it. The reviewer's checklist is copied here too,
+ * for the approval dialog.
  */
 export interface RunnableSpec {
   file: string;
@@ -133,7 +135,7 @@ export const COMPANIES_HOUSE_CHECK: RunnableSpec = {
   sendSpec: false,
   intents: {
     change:
-      "Add a Companies House check to UK business cases. Look the company up by its registration number. If it is dissolved, in liquidation or late with its accounts, add that to Declared vs found as material, so a manager has to approve. Read the Companies House API docs on the web first. Without COMPANIES_HOUSE_API_KEY, use recorded responses and label the result as test data; record 09318842 as late with its accounts. Put the check behind a setting `kyc.companies_house_check` in rule settings, off by default, so an admin turns it on after the merge; when off, cases are unchanged.",
+      "Add a Companies House connector to KYC: a check action on UK business cases that feeds Declared vs found, so the existing approval rule holds dissolved, liquidating or overdue companies.",
     undo: "Undo the Companies House check: remove the lookup, its recorded responses and what it adds to the case file, and keep every change made since.",
   },
   summaries: {
@@ -153,11 +155,11 @@ export const COMPANIES_HOUSE_CHECK: RunnableSpec = {
       "Only UK business cases are checked; consumer and non-UK cases are untouched.",
       "The lookup runs from a KYC action through `executeIntent`; opening a case writes nothing.",
       "`COMPANIES_HOUSE_API_KEY` is read on the server, documented in `.env.example`, and never logged or sent to the browser.",
-      "Without the key, recorded responses are used and the check says test data; 09318842 is late with its accounts.",
+      "Without the key, recorded responses are used and the check says test data; no recording invents a seeded company's result.",
       "A timeout, an error or an unknown number shows \"couldn't check\" and holds approval.",
       "Results land in `kyc_checks` and `kyc_discrepancies`, and `declared_vs_found` does the holding; no duplicate rule.",
       "Tests cover active, dissolved, in liquidation, accounts overdue, not found and an API error, with no live call.",
-      "With `kyc.companies_house_check` off (the default) no case changes; on, the check runs. The setting is declared by the KYC tool.",
+      "The check sits behind a KYC rule setting the KYC tool declares, 0 by default; at 0 no case changes, at 1 the check runs.",
     ],
     undo: [
       "`pnpm verify` is green.",
@@ -188,7 +190,7 @@ export const CHARGEBACKS_FROM_POWER_APPS: RunnableSpec = {
   sendSpec: true,
   intents: {
     change:
-      "Start moving the Chargebacks Power App into the console, from the export in fixtures/power-apps/chargebacks. This is the first pull request, not the whole app: the queue with its fields, seeded from disputes.csv; the deadline alert as a count on the queue; and the two riskiest rules, fraud accepts over $500 and fights over $2,500, each needing a manager. Use the existing Analyst and Manager roles. In the pull request, list every formula and flow step as done or still to do. Put the app behind the feature flag `app.chargebacks` in Feature flags: set the mode's `flag` and seed the row off and not customer-facing in `tools/flags/src/seed.ts` for fresh databases — the console registers it on start for existing ones — so an admin turns it on after the merge.",
+      "Start moving the Chargebacks Power App into the console from its export: the queue and the two riskiest rules first, the rest listed as still to do.",
     undo: "Remove the Chargebacks app: its tool, tables, seed and registry lines, and keep every change made since.",
   },
   summaries: {

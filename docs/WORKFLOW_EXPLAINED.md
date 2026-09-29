@@ -99,7 +99,7 @@ Refunds → cluster drawer → Ask Devin for a rule → Send to Devin
 
 **What happens**
 
-- The Devin window opens with the request prefilled and editable:
+- The Devin window opens with the request box empty, offering the spec's sentence as a grey suggestion Tab accepts; the requester may type their own:
   *"Once a merchant's "not received" refunds add up past the manager limit, send them to a
   manager for approval. Send those customers' KYC approvals to a manager too."*
 - Below it, the context Devin will receive: the four amounts, the live $500 and score-70 lines,

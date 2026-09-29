@@ -478,7 +478,7 @@ pnpm verify
 
 **Source files**
 
-- `tools/automation/src/specs.ts:73` `REFUND_CLUSTERING_HOLD`, `:124` `COMPANIES_HOUSE_CHECK`, `:168` `CHARGEBACKS_FROM_POWER_APPS` — runnable specs, allowed paths, prefilled sentences
+- `tools/automation/src/specs.ts:73` `REFUND_CLUSTERING_HOLD`, `:124` `COMPANIES_HOUSE_CHECK`, `:168` `CHARGEBACKS_FROM_POWER_APPS` — runnable specs, allowed paths, suggested sentences
 - `tools/automation/src/bridge.ts:149` `dispatchRun` · `:274` `pollRun` · `:369` `observeRun` · `:408` `approveRun` · `:469` `observeMerge` · `:513` `syncMergedRun` · `:599` `reconcileRuns` · `:639` `stopRun`
 - `tools/automation/src/run-files.ts` — `ContextFile`, `PlanFile`, `StructuredOutput` schemas
 - `packages/engine/src/policy/constants.ts` — `loadConstants`

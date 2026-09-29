@@ -22,15 +22,16 @@ stays manual.
 
 ## The request
 
-Prefilled in the handoff panel from `tools/automation/src/specs.ts`, and editable:
+The request box in the handoff panel starts empty, with this sentence from
+`tools/automation/src/specs.ts` as a grey suggestion Tab accepts; the requester may type their
+own:
 
-> Add a Companies House check to UK business cases. Look the company up by its registration
-> number. If it is dissolved, in liquidation or late with its accounts, add that to Declared vs
-> found as material, so a manager has to approve. Read the Companies House API docs on the web
-> first. Without COMPANIES_HOUSE_API_KEY, use recorded responses and label the result as test
-> data; record 09318842 as late with its accounts. Put the check behind a setting
-> `kyc.companies_house_check` in rule settings, off by default, so an admin turns it on after
-> the merge; when off, cases are unchanged.
+> Add a Companies House connector to KYC: a check action on UK business cases that feeds
+> Declared vs found, so the existing approval rule holds dissolved, liquidating or overdue
+> companies.
+
+The key handling, the failure behaviour, the recorded responses and the off-by-default setting
+come from `DEVIN_RUN_PROTOCOL.md` › House rules, not the request.
 
 ## Where it starts
 
@@ -50,19 +51,19 @@ status, and today's hand-typed registry check. No contact email, no person's nam
 - **The key stays on the server.** `COMPANIES_HOUSE_API_KEY` is read server-side, documented in
   `.env.example`, and never logged or sent to the browser.
 - **Recorded responses are labelled.** Without the key, results come from committed recorded
-  responses and the check says "test data". The recorded 09318842 is late with its accounts.
+  responses and the check says "test data"; no recording invents a seeded company's result.
 - **Failure holds, never passes.** A timeout, an error or an unknown number shows "couldn't
   check" and holds approval like a material difference.
 - **It reuses what exists.** The check writes to `kyc_checks` and `kyc_discrepancies`, and
   `declared_vs_found` does the holding. A second rule that duplicates it is a finding.
 - **Tests cover each outcome:** active, dissolved, in liquidation, accounts overdue, not found,
   and an API error. No test calls the live API.
-- **A settings switch.** With `kyc.companies_house_check` off (the default) no case changes; on,
-  the check runs. The setting is declared by the KYC tool.
+- **A settings switch.** The check sits behind a KYC rule setting, 0 by default: at 0 no case
+  changes, at 1 the check runs. The setting is declared by the KYC tool.
 
 ## After merge
 
-1. An admin turns `kyc.companies_house_check` on in `/admin/policy` (rule settings).
+1. An admin turns the Companies House setting on in `/admin/policy` (rule settings).
 2. As Analyst, open `kyc_0104` and run the Companies House check.
 3. The Company registry check reads "Accounts overdue" from Companies House (test data), and
    Declared vs found gains a material row.
