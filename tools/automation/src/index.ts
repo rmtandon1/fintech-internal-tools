@@ -83,10 +83,6 @@ type DispatchInput = z.infer<typeof DispatchInput>;
 
 type RunRule<TInput> = Rule<DevinRun, TInput>;
 
-const allow =
-  <TInput>(rule: string): RunRule<TInput> =>
-  () => ({ type: "allow", rule });
-
 /** The spec must be one the console knows; every spec offers both operations. */
 const specKnown: RunRule<DispatchInput> = ({ input }) => {
   if (!getSpec(input.spec)) {
@@ -255,6 +251,14 @@ const RecordMergeInput = z.object({
   prUrl: z.string().url(),
 });
 type RecordMergeInput = z.infer<typeof RecordMergeInput>;
+
+export const MERGED_WITHOUT_APPROVAL_NOTE = "Merged on GitHub without a recorded approval";
+
+/** A merge is a fact GitHub reports; one recorded before any approval is allowed, and named. */
+const mergeRecordsApprovalGap: RunRule<RecordMergeInput> = ({ record }) =>
+  record?.status === "approved"
+    ? { type: "allow", rule: "merge_follows_approval" }
+    : { type: "allow", rule: "merge_without_recorded_approval", message: MERGED_WITHOUT_APPROVAL_NOTE };
 
 const StopInput = z.object({ reason: z.string().min(1).max(500) });
 
@@ -463,14 +467,19 @@ export const automationTool = defineTool<DevinRun>({
     defineAction<DevinRun, typeof RecordMergeInput, Transition>({
       name: "record_merge",
       label: "Record merge",
-      description: "Store the merge commit once the approved PR has landed.",
+      description: "Store the merge commit once the PR has landed, approved from the console or not.",
       allowedRoles: ["engineer", "admin"],
       input: RecordMergeInput,
-      fromStatus: ["approved"],
-      rules: [allow("merge_follows_approval")],
-      decide: ({ input }) => ({
+      fromStatus: ["approved", "running"],
+      rules: [mergeRecordsApprovalGap],
+      decide: ({ record, input }) => ({
         summary: `Merged as ${input.mergeCommit.slice(0, 12)}`,
-        patch: { status: "merged", mergeCommit: input.mergeCommit, prUrl: input.prUrl },
+        patch: {
+          status: "merged",
+          mergeCommit: input.mergeCommit,
+          prUrl: input.prUrl,
+          ...(record?.status === "approved" ? {} : { note: MERGED_WITHOUT_APPROVAL_NOTE }),
+        },
         nextStatus: "merged",
       }),
       apply: (ctx, decision) => transition(ctx, decision.patch),

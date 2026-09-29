@@ -478,5 +478,9 @@ export function replayGitHubClient(now: () => number = Date.now): GitHubClient {
       const status = runFor(pr)?.status;
       return status === "approved" || status === "merged";
     },
+    async listApprovingReviews() {
+      // Replay approvals come from the console button, never from GitHub.
+      return [];
+    },
   };
 }

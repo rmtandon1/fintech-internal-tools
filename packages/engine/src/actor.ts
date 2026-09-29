@@ -6,13 +6,36 @@ import { ROLE_META, ROLES } from "@console/permissions";
 
 export const ACTOR_COOKIE = "ops_actor";
 
+/** The GitHub login the engineer actor answers to; `rmtandon1` unless `GITHUB_APPROVER_LOGIN` says otherwise. */
+export const DEFAULT_GITHUB_APPROVER_LOGIN = "rmtandon1";
+
+export function githubApproverLogin(): string {
+  return process.env.GITHUB_APPROVER_LOGIN?.trim() || DEFAULT_GITHUB_APPROVER_LOGIN;
+}
+
 /** Demo actors. Real deployments would resolve these from an identity provider. */
 export const DEMO_ACTORS: Record<Role, Actor> = {
   analyst: { id: "usr_analyst", name: ROLE_META.analyst.label, role: "analyst" },
   manager: { id: "usr_manager", name: ROLE_META.manager.label, role: "manager" },
-  engineer: { id: "usr_engineer", name: ROLE_META.engineer.label, role: "engineer" },
+  engineer: {
+    id: "usr_engineer",
+    name: ROLE_META.engineer.label,
+    role: "engineer",
+    // Read on access so the value follows the server's `.env`, which is
+    // loaded after this module may already have been imported.
+    get githubLogin() {
+      return githubApproverLogin();
+    },
+  },
   admin: { id: "usr_admin", name: ROLE_META.admin.label, role: "admin" },
 };
+
+/** The console actor a GitHub login stands for, or null when no actor claims it. */
+export function actorForGitHubLogin(login: string): Actor | null {
+  const wanted = login.trim().toLowerCase();
+  if (!wanted) return null;
+  return Object.values(DEMO_ACTORS).find((a) => a.githubLogin?.toLowerCase() === wanted) ?? null;
+}
 
 export const DEFAULT_ACTOR = DEMO_ACTORS.analyst;
 

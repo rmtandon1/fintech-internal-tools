@@ -36,6 +36,15 @@ export interface GitHubClient {
   approvePull(pr: PullRef, headSha: string, body: string): Promise<void>;
   /** True when an APPROVED review exists for `headSha` on the PR. */
   hasApprovingReview(pr: PullRef, headSha: string): Promise<boolean>;
+  /** Every APPROVED review submitted at `headSha`, with who wrote it and what it said. */
+  listApprovingReviews(pr: PullRef, headSha: string): Promise<ApprovingReview[]>;
+}
+
+export interface ApprovingReview {
+  login: string;
+  /** ISO timestamp GitHub reports for the review, or "" when it has none. */
+  submittedAt: string;
+  body: string;
 }
 
 export const GITHUB_API_BASE = "https://api.github.com";
@@ -78,7 +87,15 @@ const CombinedStatus = z.object({
   total_count: z.number().int(),
 });
 
-const Reviews = z.array(z.object({ state: z.string(), commit_id: z.string() }));
+const Reviews = z.array(
+  z.object({
+    state: z.string(),
+    commit_id: z.string(),
+    user: z.object({ login: z.string() }).nullish(),
+    submitted_at: z.string().nullish(),
+    body: z.string().nullish(),
+  }),
+);
 
 const Contents = z.object({
   encoding: z.string(),
@@ -167,6 +184,14 @@ export function httpGitHubClient(token: string, fetchImpl: FetchLike, baseUrl = 
       });
       const reviews = Reviews.parse(json);
       return reviews.some((r) => r.state === "APPROVED" && r.commit_id === headSha);
+    },
+    async listApprovingReviews(pr, headSha) {
+      const json = await call(`${repoPath(pr)}/pulls/${pr.number}/reviews?per_page=100`, {
+        method: "GET",
+      });
+      return Reviews.parse(json)
+        .filter((r) => r.state === "APPROVED" && r.commit_id === headSha && r.user?.login)
+        .map((r) => ({ login: r.user?.login ?? "", submittedAt: r.submitted_at ?? "", body: r.body ?? "" }));
     },
   };
 }

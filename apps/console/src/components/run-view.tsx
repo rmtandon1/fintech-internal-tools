@@ -5,6 +5,7 @@ import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { stopAutomationRun, syncAutomationRun } from "@/app/automation-actions";
 import { Button } from "@console/ui/button";
+import { GitHubMark } from "@console/ui/github-mark";
 import { Icon } from "@console/ui/icon";
 import { cn } from "@console/ui/utils";
 import { StatusChip } from "@console/ui/status-chip";
@@ -26,6 +27,8 @@ async function fetchRun(runId: string): Promise<RunViewPayload | null> {
 const RUN_STATUSES = RUN_STATUS_OPTIONS;
 
 const PHASE_ORDER = ["intake", "baseline", "plan", "edit", "verify", "pull_request", "approved", "merged"] as const;
+/** The note `observeGitHubApproval` records; the approval row shows it in place of the actor id. */
+const GITHUB_APPROVAL_PREFIX = "Approved on GitHub by @";
 
 const PHASE_LABELS: Record<(typeof PHASE_ORDER)[number], string> = {
   intake: "Read the evidence",
@@ -244,7 +247,11 @@ function Checklist({
         row.detail = prNumber ? `#${prNumber}` : undefined;
         break;
       case "approved":
-        row.detail = run.approvedBy ?? undefined;
+        if (run.lastNote?.startsWith(GITHUB_APPROVAL_PREFIX)) {
+          row.label = run.lastNote;
+        } else {
+          row.detail = run.approvedBy ?? (run.status === "merged" ? "not recorded" : undefined);
+        }
         break;
       case "merged":
         row.detail = run.mergeCommit?.slice(0, 7);
@@ -314,6 +321,25 @@ function Detail({ frames }: { frames: ReplayFrame[] }) {
           ))}
       </ol>
     </details>
+  );
+}
+
+/** "Synced with GitHub · Ns ago", counting up each second between polls. */
+function SyncedWithGitHub({ at }: { at: number }) {
+  // Start at the sync instant so the server and client render the same text;
+  // the clock takes over once mounted.
+  const [now, setNow] = useState(at);
+  useEffect(() => {
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [at]);
+  const seconds = Math.max(0, Math.round((now - at) / 1000));
+  return (
+    <p className="flex items-center gap-1.5">
+      <GitHubMark className="size-3.5" />
+      Synced with GitHub · {seconds}s ago
+    </p>
   );
 }
 
@@ -507,12 +533,13 @@ export function RunView({
             rel="noreferrer"
             className={cn(linkButton, "border border-border text-foreground hover:bg-muted")}
           >
-            <Icon name="GitPullRequest" className="size-4" />
+            <GitHubMark className="size-4" />
             PR #{pr.match(/pull\/(\d+)/)?.[1] ?? ""}
           </a>
         ) : null}
         {offers.sync ? (
           <Button className="h-10 flex-1" disabled={pending} onClick={pullMerged}>
+            <GitHubMark className="size-4" />
             Pull merged code
           </Button>
         ) : null}
@@ -533,6 +560,13 @@ export function RunView({
           </button>
         ) : null}
       </div>
+
+      {payload.githubSyncedAt !== null || payload.githubNotice ? (
+        <div className="flex flex-col gap-1 px-5 pb-3 text-[11px] text-muted-foreground" data-testid="github-sync">
+          {payload.githubSyncedAt !== null ? <SyncedWithGitHub at={payload.githubSyncedAt} /> : null}
+          {payload.githubNotice ? <p className="text-warning">{payload.githubNotice}</p> : null}
+        </div>
+      ) : null}
 
       <ApprovalDialog runId={runId} payload={payload} open={approveOpen} onOpenChange={setApproveOpen} />
     </div>

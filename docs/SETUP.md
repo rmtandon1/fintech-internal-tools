@@ -168,6 +168,9 @@ pnpm verify                                          # lint, typecheck, boundari
   echo 'GITHUB_TOKEN=ghp_…' >> .env
   ```
 
+- If approvals given on GitHub are not picked up, set `GITHUB_APPROVER_LOGIN` to the approving
+  engineer's GitHub login (default `rmtandon1`).
+
 - The console reads `owner/repo` from the `origin` remote. Check it points at GitHub, or set it:
 
   ```bash

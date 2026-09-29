@@ -86,8 +86,8 @@ describe("recordTriggers", () => {
         prUrl: null,
         mergeCommit: null,
         reverses: null,
-        requestedBy: kycManager.id,
-        requestedByRole: kycManager.role,
+        requestedBy: manager.id,
+        requestedByRole: manager.role,
         approvedBy: null,
         lastNote: null,
         requestedAt: Date.now(),
@@ -96,17 +96,17 @@ describe("recordTriggers", () => {
       })
       .run();
 
-    expect(recordTriggers("kyc", kyc("kyc_0003"), kycManager)[0]).toMatchObject({
+    expect(recordTriggers("kyc", kyc("kyc_0003"), manager)[0]).toMatchObject({
       offer: null,
       blocked: null,
       run: { id, status: "Devin working" },
     });
-    expect(recordTriggers("kyc", kyc("kyc_0104"), kycManager)[0]).toMatchObject({
+    expect(recordTriggers("kyc", kyc("kyc_0104"), manager)[0]).toMatchObject({
       run: { id, status: "Devin working" },
     });
 
     db.update(devinRuns).set({ status: "stopped" }).where(eq(devinRuns.id, id)).run();
-    const [t] = recordTriggers("kyc", kyc("kyc_0003"), kycManager);
+    const [t] = recordTriggers("kyc", kyc("kyc_0003"), manager);
     expect(t.offer?.evidenceIds).toEqual(["kyc_0003"]);
     expect(t.run).toBeNull();
   });

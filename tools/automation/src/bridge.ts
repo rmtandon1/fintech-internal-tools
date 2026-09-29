@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ulid } from "ulid";
+import { actorForGitHubLogin } from "@console/engine/actor";
 import { executeIntent } from "@console/engine/execute-intent";
 import { previewActions } from "@console/engine/policy/preview";
 import type { Actor, IntentResult } from "@console/engine/types";
@@ -532,16 +533,138 @@ export async function approveRun(
   return { approve, reviewError, checks: checks.summary };
 }
 
+/** Body prefix of the review `approveRun` posts; GitHub-side sync skips these as the console's own. */
+export const CONSOLE_REVIEW_PREFIX = "Approved from the ops console";
+
+export type GitHubApprovalOutcome =
+  /** A mapped engineer approved on GitHub and `approve_pr` applied; `messageError` is set when Devin was not told. */
+  | { kind: "approved"; login: string; actor: Actor; approve: IntentResult; messageError: string | null }
+  /** A mapped engineer approved on GitHub but the same rules the button runs said no. */
+  | { kind: "denied"; login: string; actor: Actor; reason: string; checks: string }
+  /** Someone approved on GitHub whose login no console engineer claims. */
+  | { kind: "unmatched"; login: string }
+  /** GitHub was read and shows no approval the console has not already accounted for. */
+  | { kind: "none" }
+  /** Nothing to read: the run is not waiting on approval or names no PR. */
+  | { kind: "skipped" }
+  | { kind: "unavailable"; reason: string };
+
+/** True when the outcome came from a successful GitHub read. */
+export function readGitHub(outcome: GitHubApprovalOutcome | MergeOutcome): boolean {
+  return outcome.kind !== "skipped" && outcome.kind !== "unavailable";
+}
+
+/** One line for the run view; null when there is nothing worth saying. */
+export function describeGitHubApproval(outcome: GitHubApprovalOutcome): string | null {
+  switch (outcome.kind) {
+    case "approved":
+      return outcome.messageError
+        ? `Approved on GitHub by @${outcome.login}; Devin was not told to merge: ${outcome.messageError}`
+        : null;
+    case "denied":
+      return `Approved on GitHub by @${outcome.login}, but the console did not record it: ${outcome.reason}`;
+    case "unmatched":
+      return `Approved on GitHub by @${outcome.login} (not a console engineer)`;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Reads the approving reviews at the PR's head from GitHub and treats the
+ * first one written by a login that maps to a console engineer exactly as
+ * the **Review and approve** button would: the same `approve_pr` intent with
+ * the same server-read inputs and idempotency key, acting as that engineer,
+ * then the same merge message to Devin. The console's own review is not an
+ * approval to sync; a login nobody claims is reported, not recorded. The
+ * policy is previewed first so a transient denial (checks still pending)
+ * leaves no stored outcome under the key the eventual approval needs.
+ */
+export async function observeGitHubApproval(
+  run: DevinRun,
+  deps: BridgeDeps,
+  knownPrUrl: string | null = null,
+): Promise<GitHubApprovalOutcome> {
+  if (run.status !== "running") return { kind: "skipped" };
+  const prUrl = run.prUrl ?? knownPrUrl ?? (await currentPrUrl(run, deps));
+  const ref = prUrl ? parsePullUrl(prUrl) : null;
+  if (!prUrl || !ref) return { kind: "skipped" };
+  if (!deps.github) return { kind: "unavailable", reason: "GitHub API is not configured" };
+
+  const pull = await deps.github.getPull(ref);
+  const reviews = (await deps.github.listApprovingReviews(ref, pull.headSha)).filter(
+    (r) => !r.body.startsWith(CONSOLE_REVIEW_PREFIX),
+  );
+  if (reviews.length === 0) return { kind: "none" };
+  const mapped = reviews
+    .map((r) => ({ login: r.login, actor: actorForGitHubLogin(r.login) }))
+    .find((m): m is { login: string; actor: Actor } => m.actor?.role === "engineer");
+  if (!mapped) return { kind: "unmatched", login: reviews[0].login };
+
+  const checks = await deps.github.getChecks(ref, pull.headSha);
+  const branchContextSha256 =
+    (await deps.github.fileSha256(ref, pull.headSha, `runs/${run.id}/context.json`)) ?? "0".repeat(64);
+  const input = {
+    prUrl,
+    checksGreen: checks.green,
+    branchContextSha256,
+    note: `Approved on GitHub by @${mapped.login}`,
+  };
+  const preview = previewActions(automationTool, run, mapped.actor, { approve_pr: input }).find(
+    (p) => p.action === "approve_pr",
+  );
+  if (preview?.offered !== true || preview.decision?.effect !== "allow") {
+    const reason =
+      preview?.decision?.reason ?? preview?.unavailableReason ?? "The console's approval rules did not allow it";
+    return { kind: "denied", login: mapped.login, actor: mapped.actor, reason, checks: checks.summary };
+  }
+  const approve = executeIntent(mapped.actor, {
+    tool: "automation",
+    action: "approve_pr",
+    recordId: run.id,
+    input,
+    idempotencyKey: key(run.id, `approve_pr:${pull.headSha}`),
+  });
+  if (!applied(approve)) {
+    return {
+      kind: "denied",
+      login: mapped.login,
+      actor: mapped.actor,
+      reason: describeIntent(approve),
+      checks: checks.summary,
+    };
+  }
+  let messageError: string | null = null;
+  if (deps.devin && run.sessionId) {
+    try {
+      await deps.devin.sendMessage(run.sessionId, `Run ${run.id} is approved. Merge ${prUrl} now.`);
+    } catch (error) {
+      messageError = errorText(error);
+    }
+  }
+  return { kind: "approved", login: mapped.login, actor: mapped.actor, approve, messageError };
+}
+
 export type MergeOutcome =
   | { kind: "merged"; record: IntentResult; mergeCommit: string }
   | { kind: "open"; prUrl: string }
   | { kind: "unavailable"; reason: string };
 
-/** Observes the PR on GitHub; only an actual merge produces `record_merge`. */
-export async function observeMerge(actor: Actor, run: DevinRun, deps: BridgeDeps): Promise<MergeOutcome> {
-  const prUrl = run.prUrl;
+/**
+ * Observes the PR on GitHub; only an actual merge produces `record_merge`.
+ * A run that names no PR yet is checked against the one its session
+ * reports, so a PR merged on GitHub before the console approved it is
+ * still recorded.
+ */
+export async function observeMerge(
+  actor: Actor,
+  run: DevinRun,
+  deps: BridgeDeps,
+  knownPrUrl: string | null = null,
+): Promise<MergeOutcome> {
+  const prUrl = run.prUrl ?? knownPrUrl ?? (await currentPrUrl(run, deps));
   const ref = prUrl ? parsePullUrl(prUrl) : null;
-  if (!prUrl || !ref) return { kind: "unavailable", reason: "The run has no approved pull request" };
+  if (!prUrl || !ref) return { kind: "unavailable", reason: "The run has no pull request yet" };
   if (!deps.github) return { kind: "unavailable", reason: "GitHub API is not configured" };
   const pull = await deps.github.getPull(ref);
   if (!pull.merged || !pull.mergeCommit) return { kind: "open", prUrl };

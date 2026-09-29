@@ -392,7 +392,8 @@ The poll cadence is a constant in code. Everything else comes from environment v
 | Terminal statuses | `run-view.tsx:19` (`TERMINAL`) | `merged`, `stopped`, `dispatch_failed` | When a view stops polling |
 | `DEVIN_API_KEY` | `.env` | unset | Required for PR detection. Without it, `pollRun` returns `unavailable` and nothing is recorded |
 | `DEVIN_ORG_ID` | `.env` | resolved per request via `GET /v3/self` | Set it to halve Devin calls |
-| `GITHUB_TOKEN` | `.env` | unset | Required for merge detection. Without it, `observeMerge` returns `unavailable` |
+| `GITHUB_TOKEN` | `.env` | unset | Required for approval and merge detection. Without it, `observeGitHubApproval` and `observeMerge` return `unavailable` |
+| `GITHUB_APPROVER_LOGIN` | `.env` | `rmtandon1` | GitHub login whose approving review `observeGitHubApproval` records as the engineer's `approve_pr` |
 | `DEVIN_API_BASE` / `GITHUB_API_BASE` | `.env` | `https://api.devin.ai/v3` / `https://api.github.com` | Point at a proxy or test server |
 | `RECONCILE_PAGE` | `bridge.ts:597` | 100 | Page size when **Reconcile** sweeps every approved run |
 
