@@ -100,7 +100,7 @@
 
 > "A courier outage. Sixty genuine refunds from a trusted merchant, all held."
 
-[Open **Audit log** in the sidebar: one row per held Fernhill refund. Rehearsal alternative: submit 2–3 refunds live as the Refunds agent so one hold is seen firing, then cut to the full inbox.]
+[Open **Audit log** in the sidebar: one row per held Fernhill refund. Rehearsal alternative: submit 2–3 refunds live as the Refunds agent so one hold is seen firing, then cut to the full inbox. The scenario submits all 60, so stage 2–3 extra unsubmitted Fernhill refunds for this ahead of time.]
 
 > "They came in overnight as ordinary refund requests. The live rule held each one, and each hold wrote its own audit row."
 
