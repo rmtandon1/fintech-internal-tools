@@ -36,7 +36,7 @@ The run view polls the run's Devin session every 2 seconds and renders a live ch
 
 5. **Controls**
    - **Reply box** (`Reply to Devin…` + `Send`) when `offers.reply` is true, i.e. the latest frame's `structured_output.phase_status` is `waiting_for_user` (`run-view.tsx:417-435`, `apps/console/src/lib/run-surface.ts:76`). The reply is `POST /api/devin/<runId>` with `{ "message": "…" }`.
-   - **Stop run** button, which opens an inline reason form (`Tab` fills in `No longer needed.`) (`run-view.tsx:377-414`).
+   - **Stop run** button, which stops the run in one click with no reason prompt; the stop is recorded as `Stopped by operator` (`run-view.tsx:433-444`, `apps/console/src/app/automation-actions.ts:254-260`).
    - **Open in Devin** link to `https://app.devin.ai/sessions/<id>` (`run-view.tsx:318-328`); the URL is built server-side only in live mode (`apps/console/src/lib/devin-route.ts:131-134`).
 
    ```
