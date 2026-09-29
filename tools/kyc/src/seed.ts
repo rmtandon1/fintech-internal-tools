@@ -348,7 +348,7 @@ const CASES: SeedCase[] = [
     sanctionsHit: false,
     documentsComplete: true,
     status: "approved",
-    openedHoursAgo: 35_000,
+    openedHoursAgo: 44_000,
     lastNote: "Approved merchant since 2021. Registry checked by hand at onboarding.",
     checks: {
       company_registry: {
@@ -371,7 +371,7 @@ const CASES: SeedCase[] = [
     sanctionsHit: false,
     documentsComplete: true,
     status: "approved",
-    openedHoursAgo: 35_000,
+    openedHoursAgo: 44_000,
     lastNote: "Approved merchant since 2021. Registry checked by hand at onboarding.",
     checks: {
       company_registry: {
@@ -394,7 +394,7 @@ const CASES: SeedCase[] = [
     sanctionsHit: false,
     documentsComplete: true,
     status: "approved",
-    openedHoursAgo: 35_000,
+    openedHoursAgo: 44_000,
     lastNote: "Approved merchant since 2021. Registry checked by hand at onboarding.",
     checks: {
       company_registry: {
@@ -417,7 +417,7 @@ const CASES: SeedCase[] = [
     sanctionsHit: false,
     documentsComplete: true,
     status: "approved",
-    openedHoursAgo: 35_000,
+    openedHoursAgo: 44_000,
     lastNote: "Approved merchant since 2021. Registry checked by hand at onboarding.",
     checks: {
       company_registry: {

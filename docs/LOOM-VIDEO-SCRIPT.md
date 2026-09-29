@@ -186,7 +186,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 ---
 
-## 🔎 Connectors: Automating a Manual Step (60 seconds)
+## 🔎 Connectors: Monitoring Merchants Every Day (75 seconds)
 
 ### Before
 
@@ -220,7 +220,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Cut to the finished run; read "Took …" aloud.]
 
-[Point at the files: the case link migration, the scheduler, the refund rule.]
+[Point at the files: *(the refund-to-case link migration, the daily entry point, the refund rule)*.]
 
 > "This one had to build three things that didn't exist: refunds only carry a merchant name, so a migration links them to the KYC case; there was no scheduler, so the daily recheck runs as an audited system actor; and refund rules couldn't read KYC."
 >
