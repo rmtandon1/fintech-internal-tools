@@ -355,9 +355,12 @@ export function RunView({
   initial,
   showSummary = false,
   onTitle,
+  renderedStatus,
 }: {
   runId: string;
   initial?: RunViewPayload | null;
+  /** The run status the surrounding server-rendered page shows; a polled change refreshes it. */
+  renderedStatus?: string;
   /** Render the run summary card above the live view (the record page wants it). */
   showSummary?: boolean;
   /** Receives the run's title once its payload arrives (the Devin window shows it). */
@@ -369,12 +372,16 @@ export function RunView({
   const [reply, setReply] = useState("");
   const [pending, startTransition] = useTransition();
 
+  const initialStatus = renderedStatus ?? (initial?.run.id === runId ? initial.run.status : null);
   useEffect(() => {
     let cancelled = false;
+    let lastStatus = initialStatus;
     async function poll() {
       const body = await fetchRun(runId);
       if (!body || cancelled) return;
       setPayload(body);
+      if (lastStatus !== null && lastStatus !== body.run.status) router.refresh();
+      lastStatus = body.run.status;
       return !TERMINAL.has(body.run.status);
     }
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -387,7 +394,7 @@ export function RunView({
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [runId]);
+  }, [runId, router, initialStatus]);
 
   const title = payload && payload.run.id === runId ? runTitle(payload) : null;
   useEffect(() => {
