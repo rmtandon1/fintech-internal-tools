@@ -1,0 +1,157 @@
+{
+  "files": [
+    {
+      "path": "tools/chargebacks/package.json",
+      "op": "create",
+      "reason": "New @console/tool-chargebacks workspace package exporting the tool, its schema and its seed, with the same dependencies as the refunds tool"
+    },
+    {
+      "path": "tools/chargebacks/tsconfig.json",
+      "op": "create",
+      "reason": "Typecheck the new package against tsconfig.base.json like the other tools"
+    },
+    {
+      "path": "tools/chargebacks/src/schema.ts",
+      "op": "create",
+      "reason": "chargebacks table with every Disputes field from App.pa.yaml: id (DisputeId), card network, reason code and category, merchant, USD amount in integer cents, opened and due times, status, evidence uploaded, notes, plus decidedBy and version"
+    },
+    {
+      "path": "tools/chargebacks/src/disputes.ts",
+      "op": "create",
+      "reason": "The 50 rows of fixtures/power-apps/chargebacks/Data/disputes.csv as typed data, with the export snapshot time 2026-09-28T09:00:00Z"
+    },
+    {
+      "path": "tools/chargebacks/src/seed.ts",
+      "op": "create",
+      "reason": "Idempotent seed of the 50 disputes, moving each OpenedOn and DueDate by the same offset from the snapshot so the deadline count reads as it did in the export"
+    },
+    {
+      "path": "tools/chargebacks/src/index.ts",
+      "op": "create",
+      "reason": "Tool declaration: queue soonest deadline first with status, network, open-work and due-within-48h filters, the 48-hour count as a records stat, accept and fight actions with a required note, fraud_accept_approval (fraud over $500) and fight_approval (over $2,500) held for rolesFor(refunds, manager), both limits declared as settings"
+    },
+    {
+      "path": "apps/console/src/registry.ts",
+      "op": "modify",
+      "reason": "Register chargebackTool in TOOLS"
+    },
+    {
+      "path": "apps/console/src/schema.ts",
+      "op": "modify",
+      "reason": "Re-export the chargebacks table so drizzle-kit generates its migration"
+    },
+    {
+      "path": "apps/console/src/lib/modes.ts",
+      "op": "modify",
+      "reason": "Set flag: app.chargebacks on the chargebacks mode so the registered tool stays switched off until an admin enables the flag"
+    },
+    {
+      "path": "apps/console/package.json",
+      "op": "modify",
+      "reason": "Depend on @console/tool-chargebacks"
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "op": "modify",
+      "reason": "Workspace link for the new package"
+    },
+    {
+      "path": "apps/console/drizzle/0010_chargebacks.sql",
+      "op": "create",
+      "reason": "Migration creating the chargebacks table and its indexes (drizzle-kit generate --name chargebacks)"
+    },
+    {
+      "path": "apps/console/drizzle/meta/0010_snapshot.json",
+      "op": "create",
+      "reason": "drizzle-kit schema snapshot for migration 0010"
+    },
+    {
+      "path": "apps/console/drizzle/meta/_journal.json",
+      "op": "modify",
+      "reason": "drizzle-kit journal entry for migration 0010"
+    },
+    {
+      "path": "tools/flags/src/seed.ts",
+      "op": "modify",
+      "reason": "Seed app.chargebacks off (rollout 0) and not customer-facing for fresh databases, with id flag_app.chargebacks so it matches the row ensureFlagRow registers on start"
+    },
+    {
+      "path": "apps/console/tests/tools/chargebacks.test.ts",
+      "op": "create",
+      "reason": "Acceptance tests: seed matches disputes.csv, deadline offsets, queue order and filters, the 48-hour count of 3, both approval rules and their boundaries, manager-only decisions, note required, refunds roles only"
+    },
+    {
+      "path": "apps/console/tests/lib/modes.test.ts",
+      "op": "modify",
+      "reason": "'modesFor and allModes take the enabled keys' asserts no entry is switched off with no flags on; chargebacks now is, so the assertion moves to 'switched off exactly when a registered mode's flag is off'; add the app.chargebacks mode and start-registration tests"
+    },
+    {
+      "path": "apps/console/tests/lib/seed-new-tools.test.ts",
+      "op": "modify",
+      "reason": "'names the seedable tools whose queue is empty' expects [automation, fake]; the new registered chargebacks tool is empty too, so beforeAll seeds it with the other shipped tools and the assertions stay"
+    },
+    {
+      "path": "apps/console/tests/tools/flags.test.ts",
+      "op": "modify",
+      "reason": "Add a test that the fresh seed has app.chargebacks off and not customer-facing"
+    },
+    {
+      "path": "apps/console/tests/lib/roles.test.ts",
+      "op": "modify",
+      "reason": "Iterates every registered tool for engineer visibility; planned in case registering chargebacks moves an assertion"
+    },
+    {
+      "path": "apps/console/tests/engine/approvals.test.ts",
+      "op": "modify",
+      "reason": "Iterates every registered tool action for engineer forbidden_role; planned in case registering chargebacks moves an assertion"
+    },
+    {
+      "path": "apps/console/tests/lib/instrumentation.test.ts",
+      "op": "modify",
+      "reason": "Picks the first registered tool with a numeric constant; planned in case adding chargebacks settings moves that choice"
+    }
+  ],
+  "reuses": [
+    {
+      "module": "@console/engine/declare",
+      "reason": "defineTool and defineAction put accept and fight on the governed executeIntent path with policy, approval and audit"
+    },
+    {
+      "module": "@console/permissions#rolesFor",
+      "reason": "Queue roles are rolesFor(refunds, agent) and both approvals go to rolesFor(refunds, manager); no new roles"
+    },
+    {
+      "module": "@console/db",
+      "reason": "Read client for list/get and the seed, as the refunds tool does"
+    },
+    {
+      "module": "apps/console/src/lib/mode-flags.ts#ensureModeFlags",
+      "reason": "Registers app.chargebacks off on start for existing databases once the mode has a flag and the tool is registered"
+    },
+    {
+      "module": "@console/engine/approvals",
+      "reason": "Held accepts and fights are decided through the existing approval requests"
+    },
+    {
+      "module": "apps/console/tests/helpers/stats.ts#expectRecordStatsMatchList",
+      "reason": "The 48-hour count is checked against the list its link opens"
+    }
+  ],
+  "acceptance": [
+    "seeds the 50 disputes from disputes.csv with every export field",
+    "keeps each deadline's offset from the export snapshot",
+    "lists open work soonest deadline first, filterable by network",
+    "counts the 3 open disputes over $1,000 due within 48 hours",
+    "counts each records stat with the same query its link opens",
+    "holds a fraud accept over $500 for a refunds manager",
+    "accepts a fraud dispute at $500 or less, and a non-fraud dispute, straight away",
+    "holds a fight over $2,500 for a refunds manager",
+    "fights a dispute at $2,500 or less straight away",
+    "only lets a refunds manager or admin decide a chargebacks approval",
+    "needs a note on every decision",
+    "opens the queue to the refunds roles only",
+    "puts Chargebacks behind app.chargebacks, switched off until the flag is on",
+    "registers app.chargebacks on start, off and not customer-facing",
+    "seeds app.chargebacks off and not customer-facing for fresh databases"
+  ]
+}
