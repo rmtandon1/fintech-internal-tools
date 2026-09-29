@@ -10,6 +10,8 @@ import type {
   SortOption,
 } from "@console/engine/types";
 import { rolesFor } from "@console/permissions";
+import { heldRefunds } from "@console/tool-refunds";
+import { refunds } from "@console/tool-refunds/schema";
 import { caseFile, materialDifferences } from "./case-file";
 import { refundsForCase } from "./linked-activity";
 import { kycCases } from "./schema";
@@ -127,6 +129,31 @@ const declaredVsFound: CaseRule = ({ record }) => {
         reason: `${n} material difference${n === 1 ? "" : "s"} between what the customer declared and what the checks found`,
       }
     : { type: "allow", rule: "declared_vs_found" };
+};
+
+/** A customer whose refund `clustering_hold` sends to a manager needs a manager here too. */
+const linkedRefundHold: CaseRule = ({ record }) => {
+  if (!record) return { type: "allow", rule: "linked_refund_hold" };
+  const held = heldRefunds();
+  const merchants = [
+    ...new Set(
+      db
+        .select({ id: refunds.id })
+        .from(refunds)
+        .where(eq(refunds.customerEmail, record.email))
+        .all()
+        .flatMap((r) => held.get(r.id)?.merchant ?? []),
+    ),
+  ];
+  return merchants.length > 0
+    ? {
+        type: "require_approval",
+        rule: "linked_refund_hold",
+        tier: "manager",
+        allowedRoles: rolesFor("kyc", "manager"),
+        reason: `Customer has a refund held for a manager in the ${merchants.join(", ")} not_received cluster`,
+      }
+    : { type: "allow", rule: "linked_refund_hold" };
 };
 
 const escalatedNeedsManager: CaseRule = ({ record }) =>
@@ -360,6 +387,7 @@ export const kycTool = defineTool<KycCase>({
         riskTierApproval,
         pepApproval,
         declaredVsFound,
+        linkedRefundHold,
         escalatedNeedsManager,
       ],
       suggest: () => ({ note: "Identity checks complete." }),
