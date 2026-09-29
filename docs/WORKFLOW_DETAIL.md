@@ -351,7 +351,7 @@ sqlite3 apps/console/data/console.db ".tables" | tr -s ' ' '\n' | grep -i disput
 ```bash
 pnpm install
 pnpm db:setup
-cp .env.example .env    # DEVIN_API_KEY and GITHUB_TOKEN
+cp -n .env.example .env    # DEVIN_API_KEY and GITHUB_TOKEN
 pnpm devin:playbook
 pnpm dev
 ```

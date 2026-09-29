@@ -148,7 +148,7 @@ GITHUB_TOKEN=<set>
 ```
 
 `DEVIN_ORG_ID=<set>` may also appear; it is optional.
-**If nothing prints:** `cp .env.example .env` and fill in the keys.
+**If nothing prints:** `cp -n .env.example .env` and fill in the keys.
 
 ### 6. Database and migrations
 

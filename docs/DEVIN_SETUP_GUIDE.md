@@ -23,7 +23,7 @@ starts, see [DEVIN_RUN_PROTOCOL.md](DEVIN_RUN_PROTOCOL.md).
 3. Put the key in the repository root, not in `apps/console`:
 
    ```bash
-   cp .env.example .env
+   cp -n .env.example .env
    # DEVIN_API_KEY=cog_…
    ```
 

@@ -446,7 +446,7 @@ git log --oneline -3 origin/cognition-dashboard-devin-integration
 ```bash
 pnpm install
 pnpm db:setup
-cp .env.example .env    # set DEVIN_API_KEY and GITHUB_TOKEN
+cp -n .env.example .env    # set DEVIN_API_KEY and GITHUB_TOKEN
 pnpm devin:playbook     # register the run playbook with Devin, once per organisation
 pnpm dev
 ```

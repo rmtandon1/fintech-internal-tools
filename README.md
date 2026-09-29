@@ -333,7 +333,7 @@ The console runs without either key. Devin then shows as not connected, and ever
    the server.
 
    ```bash
-   cp .env.example .env
+   cp -n .env.example .env
    # then set your own keys:
    #   DEVIN_API_KEY=cog_…
    #   GITHUB_TOKEN=ghp_…

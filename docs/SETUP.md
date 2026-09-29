@@ -32,7 +32,7 @@ pnpm --version                      # CI pins 12.6.0
 git clone https://github.com/rmtandon1/fintech-internal-tools.git
 cd fintech-internal-tools
 pnpm install
-cp .env.example .env                # then set your own DEVIN_API_KEY and GITHUB_TOKEN; blank = simulation mode
+cp -n .env.example .env                # then set your own DEVIN_API_KEY and GITHUB_TOKEN; blank = simulation mode
 pnpm db:setup
 pnpm devin:playbook                 # needs DEVIN_API_KEY
 pnpm dev
