@@ -2,7 +2,7 @@
 
 Post-mortem of the defects found while wiring console runs to Devin and GitHub, 25–28 September
 2026. Each one broke the link between what Devin or GitHub had done and what the console
-showed. All are fixed on `cognition-dashboard-devin-integration`. Post-merge deployment drift, the running console
+showed. All are fixed on `devin/1790697259-loom-sandbox`. Post-merge deployment drift, the running console
 lagging the merged branch, is written up separately in [POST_MERGE_DEPLOYMENT_DRIFT.md](POST_MERGE_DEPLOYMENT_DRIFT.md).
 
 ## Issues Identified
@@ -50,8 +50,8 @@ GitHub repository, base branch or base commit.
 **Fix Applied.**
 
 - The prompt now reads `Repository: https://github.com/<owner>/<repo>. Branch from
-  cognition-dashboard-devin-integration at <sha7> and open the pull request against
-  cognition-dashboard-devin-integration.`
+  devin/1790697259-loom-sandbox at <sha7> and open the pull request against
+  devin/1790697259-loom-sandbox.`
 - The repository comes from `GITHUB_REPOSITORY`, else the checkout's `origin` remote.
 - `parseGitHubRepository` accepts only `github.com` remotes, and an override that isn't a plain
   `owner/repo` is dropped, so it can't add lines to the prompt.

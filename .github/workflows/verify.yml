@@ -3,7 +3,7 @@ name: verify
 on:
   pull_request:
   push:
-    branches: [cognition-dashboard-devin-integration]
+    branches: [devin/1790697259-loom-sandbox]
 
 concurrency:
   group: verify-${{ github.workflow }}-${{ github.ref }}

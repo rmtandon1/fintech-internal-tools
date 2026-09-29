@@ -11,7 +11,7 @@ import { promisify } from "node:util";
  */
 
 export const SYNC_REMOTE = "origin";
-export const SYNC_BRANCH = "cognition-dashboard-devin-integration";
+export const SYNC_BRANCH = "devin/1790697259-loom-sandbox";
 
 export interface StatusEntry {
   path: string;

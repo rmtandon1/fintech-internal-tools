@@ -4,7 +4,7 @@ Troubleshooting write-up for post-merge deployment drift: a pull request merged 
 the console kept serving the code from before the merge. The Loom's challenge is now
 [GitHub approval drift](GITHUB_APPROVAL_DRIFT.md). Found and fixed on
 28 September 2026, across the Chargebacks merge (#62) and the fixes it exposed (#70, #72, #73).
-All fixes are on `cognition-dashboard-devin-integration`.
+All fixes are on `devin/1790697259-loom-sandbox`.
 
 ## Why this was predictable
 
@@ -70,7 +70,7 @@ install, migrate and register hooks are wired in `apps/console/src/lib/bridge.ts
 ### Layer 2 · Pull only what's safe to pull
 
 - Syncs are serialised, so two clicks never run two pulls.
-- The checkout must be on `cognition-dashboard-devin-integration`; a detached `HEAD` or another
+- The checkout must be on `devin/1790697259-loom-sandbox`; a detached `HEAD` or another
   branch is skipped with a reason.
 - Any uncommitted change is skipped, so local edits are never clobbered. The one exception is a
   merged run's untracked `runs/<id>/context.json` whose bytes match the dispatched digest: it's
@@ -112,7 +112,7 @@ A skipped or failed sync says why: `pull skipped: working tree has uncommitted c
 | Toast or symptom | Cause | Fix |
 |---|---|---|
 | No **Pull merged code** button, and the run isn't **Merged** | The merge hasn't been recorded | **Sync with GitHub** on `/runs` |
-| `pull skipped: checkout is not on cognition-dashboard-devin-integration` | Detached `HEAD`, often after checking out a tag | `git checkout -B cognition-dashboard-devin-integration <tag>` |
+| `pull skipped: checkout is not on devin/1790697259-loom-sandbox` | Detached `HEAD`, often after checking out a tag | `git checkout -B devin/1790697259-loom-sandbox <tag>` |
 | `pull skipped: working tree has uncommitted changes` | Local edits, or stray `runs/<id>/` folders from stopped runs | Commit or remove them, then click again |
 | `pull failed: … is not on HEAD after the pull` | The remote branch doesn't contain the merge commit | Check `SYNC_REMOTE` and `SYNC_BRANCH`, then `git fetch` |
 | `pull failed: pnpm install failed: …` | Install error, usually network or a lockfile out of date on the branch | Fix the error and click again; the button stays offered and the lagging lockfile retriggers the install |

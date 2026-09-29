@@ -248,7 +248,7 @@ export function ApprovalDialog({
               <Row
                 mark="Devin"
                 label="Devin merging"
-                detail="squash into cognition-dashboard-devin-integration"
+                detail="squash into devin/1790697259-loom-sandbox"
                 state={
                   stage === "merging" ? "active" : stage === "merged" ? "done" : "waiting"
                 }

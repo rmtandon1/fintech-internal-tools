@@ -72,7 +72,7 @@ pnpm verify                                # Test Files 39 passed · Tests 325 p
 
 ### Optional enhancements
 
-- Turn on branch protection for `cognition-dashboard-devin-integration`
+- Turn on branch protection for `devin/1790697259-loom-sandbox`
   ([GITHUB_INTEGRATION.md](GITHUB_INTEGRATION.md) § Branch protection).
 - Set a `max_acu_limit` on dispatched sessions; the console sends none today.
 - Commit a finished live run's poll recording as `runs/<run_id>/replay.json`, so the run view can

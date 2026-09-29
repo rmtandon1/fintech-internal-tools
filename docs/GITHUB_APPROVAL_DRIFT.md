@@ -2,14 +2,14 @@
 
 Write-up for the engineering challenge the Loom script names: engineers approved and merged
 Devin's pull requests on GitHub, and the console's governed record didn't follow. Found and fixed
-on 29 September 2026 in #123. The fix is on `cognition-dashboard-devin-integration`.
+on 29 September 2026 in #123. The fix is on `devin/1790697259-loom-sandbox`.
 
 ## Why this was predictable
 
 The console is the control: `approve_pr` runs through `executeIntent`, where
 `approver_is_not_requester`, green checks and **Context untouched** are evaluated and an audit
 row is written. But engineers review where the code is, on GitHub, and the integration branch has
-no branch protection in this demo (`gh api …/branches/cognition-dashboard-devin-integration/protection`
+no branch protection in this demo (`gh api …/branches/devin/1790697259-loom-sandbox/protection`
 returns `Branch not protected`). So there were two places to approve and merge, and the record
 only listened to one.
 

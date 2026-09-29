@@ -13,7 +13,7 @@ merge sync (`git pull --ff-only` + `pnpm db:migrate` + setting registration) →
 ## Rules that will bite you
 
 1. **The checkout that runs `pnpm dev` is the console's deployment.** It must sit on
-   `cognition-dashboard-devin-integration` with a clean working tree, or the merge sync skips
+   `devin/1790697259-loom-sandbox` with a clean working tree, or the merge sync skips
    and merged runs never reach the screen. Don't edit files in the serving checkout; do feature
    and docs work in a `git worktree`.
 2. **GitHub is the source of truth for code.** The console never pushes. Devin opens pull
@@ -99,11 +99,11 @@ git rev-parse --abbrev-ref HEAD && git status --porcelain | wc -l
 Expected:
 
 ```
-cognition-dashboard-devin-integration
+devin/1790697259-loom-sandbox
        0
 ```
 
-**If the branch differs:** `git switch cognition-dashboard-devin-integration`.
+**If the branch differs:** `git switch devin/1790697259-loom-sandbox`.
 **If the count is not 0:** move the work into a worktree (see Common Issues 2). An untracked
 `runs/<id>/context.json` for a run that later merged is the one allowed exception; the sync
 deletes it. Delete `runs/<id>/` folders left by stopped runs, or the sync refuses to pull.
@@ -111,7 +111,7 @@ deletes it. Delete `runs/<id>/` folders left by stopped runs, or the sync refuse
 ### 3. Remote and freshness
 
 ```bash
-git remote get-url origin && git fetch -q && git rev-list --count HEAD..origin/cognition-dashboard-devin-integration
+git remote get-url origin && git fetch -q && git rev-list --count HEAD..origin/devin/1790697259-loom-sandbox
 ```
 
 Expected:
@@ -121,7 +121,7 @@ https://github.com/rmtandon1/fintech-internal-tools.git
 0
 ```
 
-**If the count is above 0:** `git pull --ff-only origin cognition-dashboard-devin-integration`.
+**If the count is above 0:** `git pull --ff-only origin devin/1790697259-loom-sandbox`.
 
 ### 4. Dependencies
 
@@ -250,14 +250,14 @@ review; **Review and approve** will fail at the GitHub step. See
 ### 12. CI and branch protection
 
 ```bash
-gh run list --branch cognition-dashboard-devin-integration --limit 1
-gh api repos/rmtandon1/fintech-internal-tools/branches/cognition-dashboard-devin-integration/protection --jq '.required_status_checks.contexts' 2>&1 | head -1
+gh run list --branch devin/1790697259-loom-sandbox --limit 1
+gh api repos/rmtandon1/fintech-internal-tools/branches/devin/1790697259-loom-sandbox/protection --jq '.required_status_checks.contexts' 2>&1 | head -1
 ```
 
 Expected:
 
 ```
-completed	success	…	verify	cognition-dashboard-devin-integration	push	…
+completed	success	…	verify	devin/1790697259-loom-sandbox	push	…
 ["verify","guards"]
 ```
 
@@ -292,7 +292,7 @@ same failure.
 ```
 Edit in a worktree (never the serving checkout)
   └─→ pnpm verify in the worktree
-        └─→ push a branch, open a PR against cognition-dashboard-devin-integration
+        └─→ push a branch, open a PR against devin/1790697259-loom-sandbox
               └─→ CI: verify + guards
                     └─→ merge on GitHub
                           └─→ serving checkout: git pull --ff-only
@@ -349,7 +349,7 @@ sqlite3 apps/console/data/console.db "select id, status, merge_commit from devin
 
 **Solutions:**
 
-1. If the branch is wrong: `git switch cognition-dashboard-devin-integration`, then **Pull merged
+1. If the branch is wrong: `git switch devin/1790697259-loom-sandbox`, then **Pull merged
    code** on the run.
 2. If the tree is dirty: move the changes out (see issue 2), then **Pull merged code**.
 3. If the run is still **Approved**: `/runs` → **Sync with GitHub** as `engineer`.
@@ -371,7 +371,7 @@ git status --short
 1. Move the changes to a branch in a worktree:
    ```bash
    git stash -u
-   git worktree add ../work-fix -b fix/my-change origin/cognition-dashboard-devin-integration
+   git worktree add ../work-fix -b fix/my-change origin/devin/1790697259-loom-sandbox
    cd ../work-fix && git stash pop
    ```
 2. Leave an untracked `runs/<id>/context.json` alone if a dispatch wrote it; the sync deletes it
@@ -401,7 +401,7 @@ curl -s http://localhost:3001/api/devin/status
 **Diagnosis:**
 
 ```bash
-pnpm exec tsx scripts/run-guard.ts --base origin/cognition-dashboard-devin-integration
+pnpm exec tsx scripts/run-guard.ts --base origin/devin/1790697259-loom-sandbox
 ```
 
 **Solutions:**
@@ -450,7 +450,7 @@ pnpm -v
 git rev-parse --abbrev-ref HEAD
 git status --porcelain
 git remote get-url origin
-git fetch -q && git rev-list --count HEAD..origin/cognition-dashboard-devin-integration
+git fetch -q && git rev-list --count HEAD..origin/devin/1790697259-loom-sandbox
 
 # === Environment (names only) ===
 sed 's/=.*/=<set>/' .env | grep -v '^#' | grep .
@@ -465,7 +465,7 @@ curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3001/
 curl -s http://localhost:3001/api/devin/status
 
 # === GitHub ===
-gh run list --branch cognition-dashboard-devin-integration --limit 3
+gh run list --branch devin/1790697259-loom-sandbox --limit 3
 gh pr list --state open --limit 10
 
 # === Quality gate ===
@@ -511,7 +511,7 @@ pnpm verify
 
 | What | Source of Truth | Served From | Edited By | Synced Via |
 |---|---|---|---|---|
-| Rule code | `origin/cognition-dashboard-devin-integration` | Serving checkout, `pnpm dev` | Devin (PR), engineers (PR) | Merge sync: `git pull --ff-only` |
+| Rule code | `origin/devin/1790697259-loom-sandbox` | Serving checkout, `pnpm dev` | Devin (PR), engineers (PR) | Merge sync: `git pull --ff-only` |
 | Rule settings | `runtime_constants` in `console.db` | Read per decision | Admin on `/admin/policy` | Instant; new keys via `registerToolConstants` |
 | Records (refunds, KYC, flags) | `console.db` | Engine read client | Operators through `executeIntent` | Instant |
 | Schema | `apps/console/drizzle/` | `console.db` | Devin or engineers (PR) | Merge sync: `pnpm db:migrate` |
@@ -526,7 +526,7 @@ pnpm verify
 ## Red Flags
 
 1. ❌ `git status` in the serving checkout shows modified tracked files.
-2. ❌ The serving checkout is on any branch but `cognition-dashboard-devin-integration`.
+2. ❌ The serving checkout is on any branch but `devin/1790697259-loom-sandbox`.
 3. ❌ `/api/devin/status` says `simulation` when you expect live runs.
 4. ❌ `__drizzle_migrations` has fewer rows than the drizzle journal has entries.
 5. ❌ `pnpm verify` fails on the integration branch.
@@ -556,7 +556,7 @@ pnpm verify
 ## Pre-Flight Checklist
 
 - [ ] Node 24 and pnpm installed
-- [ ] Serving checkout on `cognition-dashboard-devin-integration`, clean, up to date
+- [ ] Serving checkout on `devin/1790697259-loom-sandbox`, clean, up to date
 - [ ] `pnpm install --frozen-lockfile` ran after the last pull
 - [ ] `.env` has `DEVIN_API_KEY` and `GITHUB_TOKEN`
 - [ ] `apps/console/data/console.db` exists and migrations match the journal
@@ -580,7 +580,7 @@ and every local run record.** Read it before running it.
 # Reset the serving checkout to origin and re-seed the local database.
 set -euo pipefail
 
-BRANCH=cognition-dashboard-devin-integration
+BRANCH=devin/1790697259-loom-sandbox
 REPO="$(git rev-parse --show-toplevel)"
 cd "$REPO"
 
@@ -627,7 +627,7 @@ Read-only: it changes nothing. Save as `/tmp/integration-check.sh` and run
 # Prints ✅/❌ per check for the console's integrations. Read-only.
 set -uo pipefail
 
-BRANCH=cognition-dashboard-devin-integration
+BRANCH=devin/1790697259-loom-sandbox
 PORT="${PORT:-3001}"
 DB=apps/console/data/console.db
 fails=0

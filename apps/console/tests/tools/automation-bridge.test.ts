@@ -1015,7 +1015,7 @@ describe("syncMergedRun", () => {
     const run = await merged();
     const fake = fakeGit({ branch: "devin/run" });
     const sync = await syncMergedRun(run, deps({ git: fake.git }));
-    expect(sync).toEqual({ kind: "skipped", reason: "checkout is not on cognition-dashboard-devin-integration" });
+    expect(sync).toEqual({ kind: "skipped", reason: "checkout is not on devin/1790697259-loom-sandbox" });
     expect(fake.calls).not.toContain("status");
   });
 
@@ -1376,7 +1376,7 @@ describe("reconcileRuns", () => {
     if (!after) throw new Error("no run");
     expect(after.status).toBe("merged");
     expect(after.mergeCommit).toBe(MERGE);
-    expect(fake.calls.some((c) => c.startsWith("pull:origin/cognition-dashboard-devin-integration"))).toBe(true);
+    expect(fake.calls.some((c) => c.startsWith("pull:origin/devin/1790697259-loom-sandbox"))).toBe(true);
 
     // A second look at the same merge replays the idempotent intent instead of writing again.
     const again = await observeMerge(engineer, after, deps({ github: fakeGitHub({ merged: true }).client }));
