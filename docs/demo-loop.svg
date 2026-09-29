@@ -27,13 +27,13 @@
 <text x="625.0" y="177.2" text-anchor="middle" font-size="16" font-weight="400" fill="#4b5563" font-style="italic">every change goes through the same steps</text>
 <text x="20" y="257.1" text-anchor="start" font-size="18" font-weight="700" fill="#111827">What this demo covers</text>
 <rect x="20" y="276" width="386" height="84" rx="12" fill="#f3f4f6" stroke="#6b7280" stroke-width="2"/>
-<text x="213.0" y="310.1" text-anchor="middle" font-size="19" font-weight="700" fill="#111827">Part 1 · A rule</text>
+<text x="213.0" y="310.1" text-anchor="middle" font-size="19" font-weight="700" fill="#111827">A rule</text>
 <text x="213.0" y="340.1" text-anchor="middle" font-size="17" font-weight="400" fill="#374151">A refund rule for Kestrel</text>
 <rect x="426" y="276" width="386" height="84" rx="12" fill="#f3f4f6" stroke="#6b7280" stroke-width="2"/>
-<text x="619.0" y="310.1" text-anchor="middle" font-size="19" font-weight="700" fill="#111827">Part 2 · A connector</text>
+<text x="619.0" y="310.1" text-anchor="middle" font-size="19" font-weight="700" fill="#111827">A connector</text>
 <text x="619.0" y="340.1" text-anchor="middle" font-size="17" font-weight="400" fill="#374151">Automatic Companies House checks</text>
 <rect x="832" y="276" width="386" height="84" rx="12" fill="#f3f4f6" stroke="#6b7280" stroke-width="2"/>
-<text x="1025.0" y="310.1" text-anchor="middle" font-size="19" font-weight="700" fill="#111827">Part 3 · An app</text>
+<text x="1025.0" y="310.1" text-anchor="middle" font-size="19" font-weight="700" fill="#111827">An app</text>
 <text x="1025.0" y="340.1" text-anchor="middle" font-size="17" font-weight="400" fill="#374151">Chargebacks, moved off Power Apps</text>
 <rect x="20" y="384" width="30" height="18" rx="4" fill="#fef3c7" stroke="#d97706" stroke-width="2" stroke-dasharray="8 6"/>
 <text x="60" y="398.2" text-anchor="start" font-size="16" font-weight="400" fill="#374151">A person</text>
