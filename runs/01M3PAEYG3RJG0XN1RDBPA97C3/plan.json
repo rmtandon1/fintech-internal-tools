@@ -1,0 +1,93 @@
+{
+  "files": [
+    {
+      "path": "tools/refunds/src/clustering-hold.ts",
+      "op": "create",
+      "reason": "clustering_hold refund rule and the held-refund lookup by customer email, both built on the merchant_not_received cluster groups"
+    },
+    {
+      "path": "tools/refunds/src/index.ts",
+      "op": "modify",
+      "reason": "Add clustering_hold to the execute rule list after goodwill_approval, with its rule label and fields; re-export the held-refund lookup for KYC"
+    },
+    {
+      "path": "tools/kyc/src/index.ts",
+      "op": "modify",
+      "reason": "Add linked_refund_hold to the approve rule list after escalated_needs_manager, sending a customer whose refund sits in a held cluster to a KYC manager"
+    },
+    {
+      "path": "apps/console/tests/tools/clustering-hold.test.ts",
+      "op": "create",
+      "reason": "Acceptance tests for the refund cluster hold and the linked KYC hold"
+    },
+    {
+      "path": "apps/console/tests/tools/refunds-clusters.test.ts",
+      "op": "modify",
+      "reason": "'every row in the group is allowed on its own by amount_approval' asserts the execute decision is allow; each Kestrel row now resolves to require_approval via clustering_hold while amount_approval still allows"
+    },
+    {
+      "path": "apps/console/tests/tools/kyc-case-file.test.ts",
+      "op": "modify",
+      "reason": "'approve's rules run in order with the new rules before escalation' asserts the exact approve rule list, which gains linked_refund_hold at the end"
+    },
+    {
+      "path": "apps/console/tests/tools/kyc-linked-activity.test.ts",
+      "op": "modify",
+      "reason": "Seeds refunds and KYC together; held counts and approvals for kyc_0013 (customer of Kestrel rfnd_0012) may move"
+    },
+    {
+      "path": "apps/console/tests/tools/refunds.test.ts",
+      "op": "modify",
+      "reason": "Asserts execute decisions and traces for seeded refunds; the execute trace gains clustering_hold"
+    },
+    {
+      "path": "apps/console/tests/tools/kyc.test.ts",
+      "op": "modify",
+      "reason": "Asserts approve decisions for seeded KYC cases; the approve trace gains linked_refund_hold"
+    },
+    {
+      "path": "apps/console/tests/scripts/scenario.test.ts",
+      "op": "modify",
+      "reason": "Courier-outage scenario submits 60 Fernhill Home not_received refunds through execute; they now form a held cluster and go to pending_approval"
+    },
+    {
+      "path": "apps/console/tests/tools/automation.test.ts",
+      "op": "modify",
+      "reason": "Asserts the Kestrel evidence rows and context constants built from the merchant_not_received cluster"
+    }
+  ],
+  "reuses": [
+    {
+      "module": "tools/refunds/src/clusters.ts",
+      "reason": "notReceivedByMerchant defines which refunds count (not_received, not rejected, inside the window, no single row over the line) and clusteringWindowDays is the hold's kill switch at 0"
+    },
+    {
+      "module": "packages/permissions",
+      "reason": "rolesFor('refunds', 'manager') and rolesFor('kyc', 'manager') name the approvers"
+    },
+    {
+      "module": "packages/engine/src/policy/evaluate.ts",
+      "reason": "Existing deny > require_approval > allow precedence and trace; the holds are plain rules on the existing execute/approve actions"
+    },
+    {
+      "module": "packages/engine/src/approvals.ts",
+      "reason": "Held refunds and KYC cases go through the existing approval request, approve and audit path"
+    },
+    {
+      "module": "tools/kyc/src/linked-activity.ts",
+      "reason": "Same customer join as linked activity: KYC case email = refund customer_email"
+    }
+  ],
+  "acceptance": [
+    "holds every Kestrel not_received refund for a refunds manager once the merchant total passes the limit",
+    "names the merchant and running total in the clustering_hold trace after the existing refund rules",
+    "leaves a merchant under the limit and a single refund over the line to the existing rules",
+    "does not count rejected, out-of-window or other-reason refunds toward the total",
+    "switches both holds off when the clustering window is 0",
+    "lets a refunds manager approve a held refund through the existing approval path",
+    "sends a held customer's KYC approval to a KYC manager even below the risk score",
+    "keeps the admin tier when a held customer's risk score is over the admin line",
+    "keeps KYC approvals for customers without held refunds on the existing rules",
+    "keeps merchant names, refund ids and emails out of the KYC hold reason"
+  ]
+}
