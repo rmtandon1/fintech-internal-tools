@@ -250,7 +250,7 @@ export const refundTool = defineTool<Refund>({
         { value: "cancelled", label: "Cancelled" },
         { value: "goodwill", label: "Goodwill" },
         { value: "fraud", label: "Fraud" },
-        { value: "partial_delivery", label: "Partially Delivered" 
+        { value: "partial_delivery", label: "Partially Delivered" },
       ],
     },
     {
