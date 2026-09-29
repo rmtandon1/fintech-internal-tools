@@ -58,8 +58,16 @@ describe("refunds clusters", () => {
       const preview = previewActions(refundTool, record, refundsAgent).find(
         (p) => p.action === "execute",
       );
-      expect(preview?.decision?.effect).toBe("allow");
       expect(preview?.decision?.trace).toContainEqual({ type: "allow", rule: "amount_approval" });
+      // Only the running total holds a row: the oldest, rfnd_0014, is under the line alone.
+      const hold = preview?.decision?.trace.find((o) => o.rule === "clustering_hold");
+      if (id === "rfnd_0014") {
+        expect(preview?.decision?.effect).toBe("allow");
+        expect(hold).toEqual({ type: "allow", rule: "clustering_hold" });
+      } else {
+        expect(preview?.decision?.effect).toBe("require_approval");
+        expect(hold).toMatchObject({ type: "require_approval", rule: "clustering_hold", tier: "manager" });
+      }
     }
   });
 
