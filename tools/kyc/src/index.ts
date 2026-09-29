@@ -10,6 +10,7 @@ import type {
   SortOption,
 } from "@console/engine/types";
 import { rolesFor } from "@console/permissions";
+import { MANAGER_APPROVAL_USD_KEY, heldClusterRefunds } from "@console/tool-refunds";
 import { caseFile, materialDifferences } from "./case-file";
 import { refundsForCase } from "./linked-activity";
 import { kycCases } from "./schema";
@@ -138,6 +139,25 @@ const declaredVsFound: CaseRule = ({ record }) => {
         reason: `${n} material difference${n === 1 ? "" : "s"} between what the customer declared and what the checks found`,
       }
     : { type: "allow", rule: "declared_vs_found" };
+};
+
+/**
+ * A customer whose not-received refund is held by the refunds clustering hold
+ * needs a manager to approve, whatever the risk score. The reason names no
+ * merchant or refund: KYC roles see refunds only in aggregate.
+ */
+const linkedRefundHold: CaseRule = ({ record, constants }) => {
+  const managerUsd = constants.number(MANAGER_APPROVAL_USD_KEY, 50_000);
+  const n = record ? heldClusterRefunds(record.email, managerUsd).length : 0;
+  return n > 0
+    ? {
+        type: "require_approval",
+        rule: "linked_refund_hold",
+        tier: "manager",
+        allowedRoles: rolesFor("kyc", "manager"),
+        reason: `${n} of this customer's refunds ${n === 1 ? "is" : "are"} held for a manager by the clustering hold`,
+      }
+    : { type: "allow", rule: "linked_refund_hold" };
 };
 
 const escalatedNeedsManager: CaseRule = ({ record }) =>
@@ -378,6 +398,7 @@ export const kycTool = defineTool<KycCase>({
         riskTierApproval,
         pepApproval,
         declaredVsFound,
+        linkedRefundHold,
         escalatedNeedsManager,
       ],
       suggest: () => ({ note: "Identity checks complete." }),

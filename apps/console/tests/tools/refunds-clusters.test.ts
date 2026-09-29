@@ -58,9 +58,17 @@ describe("refunds clusters", () => {
       const preview = previewActions(refundTool, record, refundsAgent).find(
         (p) => p.action === "execute",
       );
-      expect(preview?.decision?.effect).toBe("allow");
       expect(preview?.decision?.trace).toContainEqual({ type: "allow", rule: "amount_approval" });
     }
+    const effects = [...kestrel.recordIds]
+      .sort((a, b) => (refundTool.get(a)?.requestedAt ?? 0) - (refundTool.get(b)?.requestedAt ?? 0))
+      .map((id) => {
+        const record = refundTool.get(id);
+        if (!record) throw new Error(`missing ${id}`);
+        return previewActions(refundTool, record, refundsAgent).find((p) => p.action === "execute")
+          ?.decision?.effect;
+      });
+    expect(effects).toEqual(["allow", "require_approval", "require_approval", "require_approval"]);
   });
 
   it("excludes a merchant whose single refund is over the manager line", () => {
