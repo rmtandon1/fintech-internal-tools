@@ -200,7 +200,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 **Differentiator:** a real problem from the build, diagnosed layer by layer and fixed in four.
 
-[Show the screenshot of the Chargebacks **Pull merged code** toast from Part 3: `pulled … → … · dependencies installed · db migrated`.]
+[No cut. Stay on the Chargebacks queue from Part 3 and say it; nothing new goes on screen.]
 
 > "One challenge from the build: post-merge deployment drift."
 >
@@ -209,14 +209,12 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 > "I walked it down layer by layer. The merge commit wasn't in the console's checkout."
 >
 > "Pulling wasn't enough either. The new Chargebacks package didn't resolve."
-
-[Cut to the four-layer table in `docs/POST_MERGE_DEPLOYMENT_DRIFT.md`.]
-
+>
 > "So the sync has four layers. It confirms the merge with GitHub, and pulls only into a clean checkout."
 >
 > "It installs packages when the lockfile moves. Then it migrates and registers new settings and flags."
 >
-> "That toast is all four, with no restart and no re-seed."
+> "Pull merged code now runs all four, with no restart and no re-seed. The write-up is in the repo."
 
 ---
 
@@ -291,13 +289,13 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 - [ ] Follow the ▶ SLIDE and ◀ CONSOLE cues
 - [ ] Show each run's real "Took …" time
 - [ ] Click `rfnd_0013`, `rfnd_0014`, `DSP-20401` only once
-- [ ] Screenshot the **Pull merged code** toast
 - [ ] Keep it under eight minutes
 
 **After recording:**
 
 - [ ] Add chapter timestamps in comments
 - [ ] Link the GitHub repo in the description
+- [ ] Link `docs/POST_MERGE_DEPLOYMENT_DRIFT.md` in the description for the deployment drift challenge
 - [ ] List the five pull requests with time and ACUs
 - [ ] Attach `docs/DEMO-SLIDES.pdf`
 - [ ] Tag: #devin #ai-automation
