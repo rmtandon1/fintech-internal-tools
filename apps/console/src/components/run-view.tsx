@@ -28,135 +28,138 @@ async function fetchRun(runId: string): Promise<RunViewPayload | null> {
 
 const RUN_STATUSES = RUN_STATUS_OPTIONS;
 
-const PHASE_LABELS: Record<string, string> = {
+const PHASE_ORDER = ["intake", "baseline", "plan", "edit", "verify", "pull_request", "approved", "merged"] as const;
+
+const PHASE_LABELS: Record<(typeof PHASE_ORDER)[number], string> = {
   intake: "Read the evidence",
   baseline: "Confirmed the base",
   plan: "Planned",
   edit: "Made the change",
   verify: "Verified",
   pull_request: "PR open",
-  merge: "Merged",
+  approved: "Approved by an engineer",
+  merged: "Merged",
 };
+
+type CheckLine = { state: "done" | "active" | "waiting"; label: string; detail?: string };
+type CheckPhase = CheckLine & { children?: CheckLine[] };
 
 function CheckRow({
   state,
   label,
   detail,
+  children,
+  nested = false,
   still = false,
-}: {
-  state: "done" | "active" | "waiting";
-  label: string;
-  detail?: string;
+}: CheckPhase & {
+  nested?: boolean;
   /** Devin isn't working on the active step (the run ended, or it waits for a reply): no spinner. */
   still?: boolean;
 }) {
   return (
     <li
       className={cn(
-        "flex items-center gap-3 py-1.5 text-sm",
+        "flex flex-wrap items-center gap-x-3 py-1.5 text-sm",
+        nested && "gap-x-2 py-0.5 text-[10px] text-muted-foreground",
         state === "active" && "font-medium text-info",
         state === "waiting" && "text-muted-foreground",
       )}
       data-state={state}
     >
       {state === "done" ? (
-        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-success text-white">
-          <Icon name="Check" className="size-3" strokeWidth={3} aria-label="Done" />
+        <span className={cn("flex size-5 shrink-0 items-center justify-center rounded-full bg-success text-white", nested && "size-3.5")}>
+          <Icon name="Check" className={nested ? "size-2.5" : "size-3"} strokeWidth={3} aria-label="Done" />
         </span>
       ) : state === "active" && still ? (
-        <span className="flex size-5 shrink-0 items-center justify-center">
-          <span className="size-2.5 rounded-full bg-warning" aria-label="Paused" />
+        <span className={cn("flex size-5 shrink-0 items-center justify-center", nested && "size-3.5")}>
+          <span className={cn("size-2.5 rounded-full bg-warning", nested && "size-2")} aria-label="Paused" />
         </span>
       ) : state === "active" ? (
         <span
           role="status"
           aria-label="In progress"
-          className="inline-block size-5 shrink-0 animate-spin rounded-full border-2 border-info border-t-transparent"
+          className={cn("inline-block size-5 shrink-0 animate-spin rounded-full border-2 border-info border-t-transparent", nested && "size-3.5")}
         />
       ) : (
-        <span className="flex size-5 shrink-0 items-center justify-center">
-          <span className="size-2.5 rounded-full border border-muted-foreground/40" />
+        <span className={cn("flex size-5 shrink-0 items-center justify-center", nested && "size-3.5")}>
+          <span className={cn("size-2.5 rounded-full border border-muted-foreground/40", nested && "size-2")} />
         </span>
       )}
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {detail ? (
-        <span className="shrink-0 font-mono text-xs text-muted-foreground tabular-nums">{detail}</span>
+        <span className={cn("shrink-0 font-mono text-xs text-muted-foreground tabular-nums", nested && "max-w-[50%] truncate text-[10px]")} title={nested ? detail : undefined}>{detail}</span>
+      ) : null}
+      {children && children.length > 0 ? (
+        <ul className="ml-2 mt-1 w-full border-l border-border/60 pl-3">
+          {children.map((child, i) => (
+            <CheckRow key={i} {...child} nested still={still} />
+          ))}
+        </ul>
       ) : null}
     </li>
   );
 }
 
-const PHASE_ORDER = ["intake", "baseline", "plan", "edit", "verify", "pull_request", "merge"];
-
 function Checklist({ out, run }: { out: StructuredOutput | null; run: RunViewPayload["run"] }) {
-  const rows: { state: "done" | "active" | "waiting"; label: string; detail?: string }[] = [];
   const durations = out?.phase_durations_s ?? {};
   const current = out?.phase ?? null;
-  const reached = current ? PHASE_ORDER.indexOf(current) : -1;
-  const stateOf = (phase: string): "done" | "active" | "waiting" => {
+  const reached = current ? PHASE_ORDER.indexOf(current === "merge" ? "merged" : current) : -1;
+  const stateOf = (phase: (typeof PHASE_ORDER)[number]): CheckLine["state"] => {
+    if (phase === "approved") return run.approvedBy ? "done" : run.status === "approved" ? "active" : "waiting";
+    if (phase === "merged") return run.status === "merged" ? "done" : "waiting";
+    if (phase === "pull_request" && (run.prUrl || out?.pr_url)) return "done";
     const i = PHASE_ORDER.indexOf(phase);
     if (run.status === "merged" || i < reached) return "done";
     if (i === reached) return out?.phase_status === "done" ? "done" : "active";
     return "waiting";
   };
 
-  rows.push({
-    state: stateOf("intake"),
-    label: PHASE_LABELS.intake,
-    detail: out?.base_commit ? `base ${out.base_commit.slice(0, 7)}` : undefined,
-  });
   const testStep = out?.verify_steps.find((s) => s.name === "Test");
-  rows.push({
-    state: stateOf("baseline"),
-    label: PHASE_LABELS.baseline,
-    detail:
-      durations.baseline !== undefined && testStep?.before != null
-        ? `${testStep.before} tests`
-        : undefined,
-  });
-  rows.push({
-    state: stateOf("plan"),
-    label: `${PHASE_LABELS.plan} ${out && out.files.length > 0 ? `${out.files.length} files` : "files"}`,
-    detail: durations.plan !== undefined ? `${durations.plan}s` : undefined,
-  });
-  for (const reuse of out?.reuses ?? []) {
-    rows.push({ state: "done", label: `Reusing ${reuse.module.split("/").pop()}`, detail: reuse.module });
-  }
-  const editing = out && current === "edit" ? out.files[out.files.length - 1] : null;
-  rows.push({
-    state: stateOf("edit"),
-    label: editing ? `Editing ${editing.path}` : PHASE_LABELS.edit,
-    detail:
-      out && out.files.length > 0 && reached >= PHASE_ORDER.indexOf("edit")
-        ? `+${out.files.reduce((n, f) => n + f.additions, 0)} −${out.files.reduce((n, f) => n + f.deletions, 0)}`
-        : undefined,
-  });
-  const steps = out?.verify_steps ?? [];
-  rows.push({
-    state: stateOf("verify"),
-    label:
-      steps.length > 0
-        ? `${PHASE_LABELS.verify}: ${steps
-            .map((s) => `${s.name} ${s.pass === true ? "✓" : s.pass === false ? "✗" : "…"}`)
-            .join(" ")}`
-        : PHASE_LABELS.verify,
-    detail: testStep?.after
-      ? `${testStep.before} → ${testStep.after}`
-      : undefined,
-  });
   const pr = run.prUrl ?? out?.pr_url ?? null;
-  rows.push({
-    state: run.prUrl || out?.pr_url ? "done" : stateOf("pull_request"),
-    label: `PR open${pr ? ` #${pr.match(/pull\/(\d+)/)?.[1] ?? ""}` : ""}`,
-  });
-  rows.push({
-    state: run.approvedBy ? "done" : run.status === "approved" ? "active" : "waiting",
-    label: run.approvedBy ? `Approved by ${run.approvedBy}` : "Approved by an engineer",
-  });
-  rows.push({
-    state: run.status === "merged" ? "done" : "waiting",
-    label: "Merged",
-    detail: run.mergeCommit?.slice(0, 7),
+  const prNumber = pr?.match(/pull\/(\d+)/)?.[1];
+  const rows: CheckPhase[] = PHASE_ORDER.map((phase) => {
+    const row: CheckPhase = { state: stateOf(phase), label: PHASE_LABELS[phase] };
+    switch (phase) {
+      case "intake":
+        row.detail = out?.base_commit ? `base ${out.base_commit.slice(0, 7)}` : undefined;
+        break;
+      case "baseline":
+        row.detail = durations.baseline !== undefined && testStep?.before != null
+          ? `${testStep.before} tests` : undefined;
+        break;
+      case "plan":
+        row.detail = durations.plan !== undefined ? `${durations.plan}s` : undefined;
+        row.children = out?.reuses.map((reuse) => ({
+          state: "done", label: `Reused ${reuse.module.split("/").pop()}`, detail: reuse.reason,
+        }));
+        break;
+      case "edit":
+        row.detail = out && out.files.length > 0 && reached >= PHASE_ORDER.indexOf("edit")
+          ? `+${out.files.reduce((n, f) => n + f.additions, 0)} −${out.files.reduce((n, f) => n + f.deletions, 0)}`
+          : undefined;
+        row.children = out?.files.map((file) => ({
+          state: "done",
+          label: `${file.op === "create" ? "Adding" : file.op === "delete" ? "Removing" : "Editing"} ${file.path}`,
+          detail: `+${file.additions} −${file.deletions}`,
+        }));
+        break;
+      case "verify":
+        row.detail = testStep?.after != null ? `${testStep.before ?? "?"} → ${testStep.after}` : undefined;
+        row.children = out?.verify_steps.map((step) => ({
+          state: step.pass === null ? stateOf("verify") : "done",
+          label: `${step.name} ${step.pass === true ? "✓" : step.pass === false ? "✗" : "…"}`,
+        }));
+        break;
+      case "pull_request":
+        row.detail = prNumber ? `#${prNumber}` : undefined;
+        break;
+      case "approved":
+        row.detail = run.approvedBy ?? undefined;
+        break;
+      case "merged":
+        row.detail = run.mergeCommit?.slice(0, 7);
+    }
+    return row;
   });
   const still =
     TERMINAL.has(run.status) ||
@@ -165,7 +168,7 @@ function Checklist({ out, run }: { out: StructuredOutput | null; run: RunViewPay
   return (
     <ul className="px-5 py-3">
       {rows.map((row, i) => (
-        <CheckRow key={i} {...row} still={still} />
+        <CheckRow key={PHASE_ORDER[i]} {...row} still={still} />
       ))}
     </ul>
   );
