@@ -12,7 +12,7 @@ export const DEFAULT_CLUSTERING_WINDOW_DAYS = 14;
 
 const DAY = 24 * 60 * 60 * 1000;
 
-const PAID_STATUSES = new Set(["executing", "settled"]);
+const SENT_STATUSES = new Set(["executing", "settled"]);
 
 /** `$1,880`, or `$1,880.50` when there are cents. */
 function usd(minor: number): string {
@@ -89,8 +89,8 @@ export function notReceivedByMerchant(now = Date.now()): ClusterGroup[] {
       count: bucket.length,
       qualifier: "not_received",
       totalUsdMinor,
-      paidUsdMinor: bucket
-        .filter((r) => PAID_STATUSES.has(r.status))
+      sentUsdMinor: bucket
+        .filter((r) => SENT_STATUSES.has(r.status))
         .reduce((sum, r) => sum + r.usdMinor, 0),
       windowDays,
       recordIds: bucket.map((r) => r.id),

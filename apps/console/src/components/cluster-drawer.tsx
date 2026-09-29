@@ -52,12 +52,12 @@ function usd(minor: number): string {
 function LimitChart({
   rows,
   totalUsdMinor,
-  paidUsdMinor,
+  sentUsdMinor,
   limit,
 }: {
   rows: ClusterRow[];
   totalUsdMinor: number;
-  paidUsdMinor: number;
+  sentUsdMinor: number;
   limit: { usdMinor: number; label: string };
 }) {
   const max = Math.max(totalUsdMinor, limit.usdMinor) * 1.2;
@@ -116,9 +116,9 @@ function LimitChart({
         <span className="mx-2 w-px" />
         <span className="flex-[1.4]">
           <span className="block text-xs font-medium text-foreground">Together</span>
-          {paidUsdMinor > 0 ? (
-            <span className="block text-[11px] text-muted-foreground" data-testid="cluster-paid-split">
-              {usd(paidUsdMinor)} paid · {usd(totalUsdMinor - paidUsdMinor)} waiting
+          {sentUsdMinor > 0 ? (
+            <span className="block text-[11px] text-muted-foreground" data-testid="cluster-sent-split">
+              {usd(sentUsdMinor)} sent · {usd(totalUsdMinor - sentUsdMinor)} waiting
             </span>
           ) : null}
         </span>
@@ -133,7 +133,7 @@ export function ClusterDrawer({
   detail,
   limit,
   totalUsdMinor,
-  paidUsdMinor = 0,
+  sentUsdMinor = 0,
   statuses,
   ruleLabels,
   rows,
@@ -146,8 +146,8 @@ export function ClusterDrawer({
   detail?: string;
   limit?: { usdMinor: number; label: string };
   totalUsdMinor: number;
-  /** Part of the total already paid out. */
-  paidUsdMinor?: number;
+  /** Part of the total already sent to the processor. */
+  sentUsdMinor?: number;
   statuses: StatusDecl[];
   ruleLabels?: Record<string, string>;
   rows: ClusterRow[];
@@ -187,7 +187,7 @@ export function ClusterDrawer({
         </SheetHeader>
 
         <div className="min-h-0 flex-1 overflow-auto">
-          {limit ? <LimitChart rows={rows} totalUsdMinor={totalUsdMinor} paidUsdMinor={paidUsdMinor} limit={limit} /> : null}
+          {limit ? <LimitChart rows={rows} totalUsdMinor={totalUsdMinor} sentUsdMinor={sentUsdMinor} limit={limit} /> : null}
 
           <h3 className="px-4 pt-4 pb-1 text-sm font-semibold text-foreground">
             The {rows.length} refunds

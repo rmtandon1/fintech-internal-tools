@@ -109,15 +109,15 @@ describe("refunds clusters", () => {
       .run();
   });
 
-  it("paid refunds count toward the total and are reported as paid", () => {
-    expect(notReceivedByMerchant()[0].paidUsdMinor).toBe(0);
+  it("refunds sent to the processor count toward the total and are reported as sent", () => {
+    expect(notReceivedByMerchant()[0].sentUsdMinor).toBe(0);
     db.update(refunds)
       .set({ status: "executing" })
       .where(eq(refunds.id, "rfnd_0013"))
       .run();
     const kestrel = notReceivedByMerchant().find((g) => g.key === "Kestrel Outdoors");
     expect(kestrel?.totalUsdMinor).toBe(188_000);
-    expect(kestrel?.paidUsdMinor).toBe(46_000);
+    expect(kestrel?.sentUsdMinor).toBe(46_000);
 
     db.update(refunds)
       .set({ status: "requested" })
@@ -135,7 +135,7 @@ describe("refunds clusters", () => {
         "count",
         "qualifier",
         "totalUsdMinor",
-        "paidUsdMinor",
+        "sentUsdMinor",
         "windowDays",
         "recordIds",
         "headline",
