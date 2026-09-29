@@ -60,6 +60,8 @@ export interface DevinClient {
   getSession(sessionId: string): Promise<SessionSnapshot>;
   sendMessage(sessionId: string, message: string): Promise<void>;
   terminateSession(sessionId: string): Promise<void>;
+  /** Devin's most recent message in the session, or null before it has said anything. */
+  latestMessage?(sessionId: string): Promise<string | null>;
 }
 
 interface CallInit {
@@ -69,6 +71,8 @@ interface CallInit {
 }
 
 export const DEVIN_API_BASE = "https://api.devin.ai/v3";
+/** Pages of 100 read when looking for Devin's latest message. */
+const MESSAGE_PAGE_LIMIT = 20;
 
 export class DevinApiError extends Error {
   constructor(
@@ -185,6 +189,26 @@ export function httpDevinClient(creds: DevinCredentials, fetchImpl: FetchLike): 
         statusDetail: typeof detail === "string" ? detail : null,
         structuredOutput: field(json, "structured_output") ?? null,
       };
+    },
+    async latestMessage(sessionId) {
+      let latest: string | null = null;
+      let after: string | null = null;
+      for (let page = 0; page < MESSAGE_PAGE_LIMIT; page++) {
+        const query = new URLSearchParams({ first: "100", ...(after ? { after } : {}) });
+        const json = await call(
+          `${await orgPath()}/sessions/${encodeURIComponent(sessionId)}/messages?${query}`,
+          { method: "GET" },
+        );
+        const items = field(json, "items");
+        for (const item of Array.isArray(items) ? items : []) {
+          const text = field(item, "message");
+          if (field(item, "source") === "devin" && typeof text === "string" && text.trim()) latest = text.trim();
+        }
+        const cursor = field(json, "end_cursor");
+        if (field(json, "has_next_page") !== true || typeof cursor !== "string") break;
+        after = cursor;
+      }
+      return latest;
     },
     async sendMessage(sessionId, message) {
       await call(`${await orgPath()}/sessions/${encodeURIComponent(sessionId)}/messages`, {

@@ -45,6 +45,7 @@ function payload(overrides: Partial<RunViewPayload> = {}): RunViewPayload {
     frames: editing,
     latest: editing.at(-1) ?? null,
     sessionUrl: null,
+    devinMessage: null,
     summary: REFUND_CLUSTERING_HOLD.summaries.change,
     outcome: REFUND_CLUSTERING_HOLD.outcomes.change,
     operationLabel: "Change",
@@ -84,6 +85,10 @@ describe("thinkingLine", () => {
     expect(thinkingLine(latest)).toBe(phaseLine(latest.structured_output));
   });
 
+  it("prefers Devin's latest message in the session", () => {
+    expect(thinkingLine(editing.at(-1) ?? null, "Running the baseline tests")).toBe("Running the baseline tests");
+  });
+
   it("is empty before the first frame", () => {
     expect(thinkingLine(null)).toBeNull();
   });
@@ -111,6 +116,13 @@ describe("RunView", () => {
     expect(html).toMatch(/data-state="done"><span class="[^"]*bg-success[^"]*"><svg[^>]*aria-label="Done"/);
     expect(html).toMatch(/data-state="waiting"><span class="[^"]*"><span class="[^"]*border-muted-foreground/);
     expect(html).not.toContain('aria-label="Paused"');
+  });
+
+  it("spins on the first step while a running session has reported no phase", () => {
+    const html = render(payload({ frames: [], latest: null, devinMessage: "Starting run" }));
+    expect(html.match(/data-state="active"/g)).toHaveLength(1);
+    expect(html).toMatch(/data-state="active"><span role="status" aria-label="In progress" class="[^"]*animate-spin[^"]*"><\/span><span[^>]*>Read the evidence/);
+    expect(html).toContain("Starting run");
   });
 
   it("does not spin while Devin waits for a reply", () => {

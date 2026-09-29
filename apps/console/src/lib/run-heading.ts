@@ -6,7 +6,13 @@ export function runTitle(payload: Pick<RunViewPayload, "summary">): string {
   return payload.summary;
 }
 
-/** What Devin last said it is doing: the session's status detail, else its reported phase. */
-export function thinkingLine(latest: RunViewPayload["latest"]): string | null {
-  return latest?.status_detail ?? phaseLine(latest?.structured_output ?? null);
+/**
+ * What Devin last said it is doing: its latest message in the session, else the
+ * session's status detail, else its reported phase.
+ */
+export function thinkingLine(
+  latest: RunViewPayload["latest"],
+  devinMessage: string | null = null,
+): string | null {
+  return devinMessage ?? latest?.status_detail ?? phaseLine(latest?.structured_output ?? null);
 }
