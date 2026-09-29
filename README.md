@@ -555,7 +555,7 @@ Chargebacks still runs in a Power App with two Power Automate flows. Its export 
 | `observeAutomationMerge` | **Check merge** | Asks GitHub whether the PR merged; records and pulls it |
 | `syncAutomationRun` | **Pull merged code** | Engineer only. `git pull --ff-only`, `pnpm install --frozen-lockfile` if a package file changed, `pnpm db:migrate` if migrations are pending, then `pnpm db:seed:new` |
 | `reconcileAutomationRuns` | **Reconcile** | Rechecks every approved run on GitHub and pulls the newest merge |
-| `stopAutomationRun` | **Stop run** | Terminates the session and records `stop` with a reason |
+| `stopAutomationRun` | **Stop run** | Terminates the session and records `stop` (one click, no reason prompt) |
 
 **Outbound calls** (all from `tools/automation`, authenticated with server-side keys):
 
