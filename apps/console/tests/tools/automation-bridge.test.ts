@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { ulid } from "ulid";
 import { auditTrailFor } from "@console/engine/audit/query";
 import { executeIntent } from "@console/engine/execute-intent";
@@ -45,6 +45,7 @@ import { db } from "@console/db";
 import { kycTool } from "@console/tool-kyc";
 import { devinRuns } from "@console/tool-automation/schema";
 import { refundTool } from "@console/tool-refunds";
+import { handleGet, type RunViewPayload } from "@/lib/devin-route";
 import { fakeGit } from "../helpers/fake-git";
 import { admin, kycManager, refundsAgent, refundsManager, setupHarness } from "../helpers/harness";
 
@@ -197,6 +198,7 @@ describe("dispatchRun", () => {
     const run = getRun(out.runId);
     expect(run?.status).toBe("running");
     expect(run?.sessionId).toBe("devin-abc");
+    expect(run?.sessionUrl).toBe("https://app.devin.ai/sessions/abc");
 
     const contextPath = join(repoRoot, "runs", out.runId, "context.json");
     const json = readFileSync(contextPath, "utf8");
@@ -339,6 +341,25 @@ describe("dispatchRun", () => {
     expect(devin.calls).toEqual([]);
     expect(existsSync(join(repoRoot, "runs", out.runId))).toBe(false);
     expect(getRun(out.runId)).toBeNull();
+  });
+
+  it("stores the session URL the Devin API returned and hands it to the run view", async () => {
+    stopAll();
+    const url = "https://app.devin.ai/sessions/0f1e2d3c";
+    const devin = fakeDevin({ create: async () => ({ sessionId: "devin-0f1e2d3c", url }) });
+    const d = { ...deps({ devin: devin.client }), replaysDir: mkdtempSync(join(tmpdir(), "bridge-replays-")) };
+    const out = await dispatchRun(kycManager, request, d);
+    expect(getRun(out.runId)?.sessionUrl).toBe(url);
+
+    vi.stubEnv("DEVIN_API_KEY", "test-key");
+    try {
+      const body = (await handleGet(out.runId, kycManager, d)).body as RunViewPayload;
+      expect(body.mode).toBe("live");
+      expect(body.sessionUrl).toBe(url);
+      expect(body.run.sessionUrl).toBe(url);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 
@@ -1239,11 +1260,31 @@ describe("HTTP clients", () => {
     expect(sessionBody.attachment_urls).toEqual(["https://files/ctx"]);
     expect(sessionBody.structured_output_required).toBe(true);
     expect(sessionBody.structured_output_schema).toEqual({ type: "object" });
+    expect(sessionBody).not.toHaveProperty("create_as_user_id");
 
     const snap = await client.getSession("devin-1");
     expect(snap).toEqual({ status: "blocked", statusDetail: "waiting", structuredOutput: { phase: "plan" } });
     await client.terminateSession("devin-1");
     expect(http.seen.at(-1)?.method).toBe("DELETE");
+  });
+
+  it("Devin client creates the session on behalf of the configured user", async () => {
+    const http = recorder({
+      "POST https://api.devin.ai/v3/organizations/org_1/attachments": () => ({ url: "https://files/ctx" }),
+      "POST https://api.devin.ai/v3/organizations/org_1/sessions": () => ({
+        session_id: "devin-1",
+        url: "https://app.devin.ai/sessions/1",
+      }),
+    });
+    const client = httpDevinClient({ apiKey: "k", orgId: "org_1", createAsUserId: "user-abc" }, http.fetchImpl);
+    await client.createSession({
+      prompt: "p",
+      title: "t",
+      tags: [],
+      attachment: { name: "context.json", body: "{}" },
+      structuredOutputSchema: { type: "object" },
+    });
+    expect(JSON.parse(http.seen[1].body ?? "{}").create_as_user_id).toBe("user-abc");
   });
 
   it("Devin client surfaces API errors with status and path", async () => {

@@ -62,7 +62,8 @@ let playbookLookup: Promise<string | null> | null = null;
  * Credentials for the Devin and GitHub APIs are read here, on the server,
  * and nowhere else. `DEVIN_API_KEY` is the only one Devin needs: the org comes
  * from `GET /v3/self` unless `DEVIN_ORG_ID` is set, and the playbook is found
- * by title unless `DEVIN_PLAYBOOK_ID` is set. Without the key the Devin client
+ * by title unless `DEVIN_PLAYBOOK_ID` is set. `DEVIN_CREATE_AS_USER_ID` creates
+ * sessions on behalf of that user instead of the service user. Without the key the Devin client
  * is null and the console runs in simulation mode (`lib/devin-status.ts`).
  */
 export function bridgeDeps(): AppBridgeDeps {
@@ -72,7 +73,12 @@ export function bridgeDeps(): AppBridgeDeps {
   const repoRoot = defaultRepoRoot();
   const fetchImpl = (input: string, init?: RequestInit) => fetch(input, init);
   const creds = apiKey
-    ? { apiKey, orgId: process.env.DEVIN_ORG_ID || undefined, baseUrl: process.env.DEVIN_API_BASE }
+    ? {
+        apiKey,
+        orgId: process.env.DEVIN_ORG_ID || undefined,
+        baseUrl: process.env.DEVIN_API_BASE,
+        createAsUserId: process.env.DEVIN_CREATE_AS_USER_ID || undefined,
+      }
     : null;
   return {
     devin: creds ? httpDevinClient(creds, fetchImpl) : null,

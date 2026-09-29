@@ -14,6 +14,12 @@ export interface DevinCredentials {
   /** Resolved from `GET /v3/self` when absent, so the key alone is enough. */
   orgId?: string;
   baseUrl?: string;
+  /**
+   * The user sessions are created on behalf of (`create_as_user_id`), so they
+   * appear in that user's session list. Needs `ImpersonateOrgSessions` on the
+   * service user's role.
+   */
+  createAsUserId?: string;
 }
 
 /** Who the API key authenticates as (`GET /v3/self`). */
@@ -159,6 +165,7 @@ export function httpDevinClient(creds: DevinCredentials, fetchImpl: FetchLike): 
           structured_output_required: true,
           ...(req.playbookId ? { playbook_id: req.playbookId } : {}),
           ...(req.maxAcuLimit !== undefined ? { max_acu_limit: req.maxAcuLimit } : {}),
+          ...(creds.createAsUserId ? { create_as_user_id: creds.createAsUserId } : {}),
         }),
       });
       const sessionId = field(json, "session_id");

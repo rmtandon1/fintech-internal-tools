@@ -274,7 +274,7 @@ export async function dispatchRun(
     base: built.context.base,
   });
 
-  let sessionInput: { sessionId: string } | { error: string };
+  let sessionInput: { sessionId: string; sessionUrl: string | null } | { error: string };
   let sessionUrl: string | null = null;
   if (!deps.devin) {
     sessionInput = { error: "Devin API is not configured: set DEVIN_API_KEY and DEVIN_ORG_ID on the server" };
@@ -293,7 +293,7 @@ export async function dispatchRun(
         playbookId,
         maxAcuLimit: deps.maxAcuLimit,
       });
-      sessionInput = { sessionId: created.sessionId };
+      sessionInput = { sessionId: created.sessionId, sessionUrl: created.url };
       sessionUrl = created.url;
       writeFileSync(promptPath(deps.repoRoot, runId), prompt);
     } catch (error) {

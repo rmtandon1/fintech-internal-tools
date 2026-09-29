@@ -45,6 +45,7 @@ function publicRun(run: DevinRun) {
     tool: run.tool,
     intent: run.intent,
     status: run.status,
+    sessionUrl: run.sessionUrl,
     prUrl: run.prUrl,
     mergeCommit: run.mergeCommit,
     reverses: run.reverses,
@@ -76,6 +77,16 @@ export interface RunViewPayload {
   /** The spec's acceptance tests for this operation: the engineer's checklist, never sent to the session. */
   reviewerChecklist: string[];
   offers: RunOffers;
+}
+
+/**
+ * The URL the Devin API returned at creation. Runs recorded before the URL was
+ * stored fall back to the app page, whose path drops the id's `devin-` prefix.
+ */
+function sessionPage(run: DevinRun): string | null {
+  if (run.sessionUrl) return run.sessionUrl;
+  if (!run.sessionId) return null;
+  return `https://app.devin.ai/sessions/${run.sessionId.replace(/^devin-/, "")}`;
 }
 
 function forbidden(actor: Actor): boolean {
@@ -131,10 +142,7 @@ export async function handleGet(
     run: publicRun(run),
     frames,
     latest,
-    sessionUrl:
-      mode === "live" && run.sessionId
-        ? `https://app.devin.ai/sessions/${run.sessionId}`
-        : null,
+    sessionUrl: mode === "live" ? sessionPage(run) : null,
     summary: getSpec(run.spec)?.summaries?.[run.operation as Operation] ?? run.intent,
     outcome: getSpec(run.spec)?.outcomes?.[run.operation as Operation] ?? null,
     operationLabel: operationLabel(run.operation),
