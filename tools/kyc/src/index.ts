@@ -11,8 +11,9 @@ import type {
 } from "@console/engine/types";
 import { rolesFor } from "@console/permissions";
 import { caseFile, materialDifferences } from "./case-file";
+import { companiesHouseResult, type CompaniesHouseResult } from "./companies-house";
 import { refundsForCase } from "./linked-activity";
-import { kycCases } from "./schema";
+import { kycCases, kycChecks, kycDiscrepancies } from "./schema";
 import { seedKycCases } from "./seed";
 
 export interface KycCase extends GovernedRecord {
@@ -48,6 +49,20 @@ export type {
   KycCheck,
   KycDiscrepancy,
 } from "./case-file";
+export {
+  COMPANIES_HOUSE_API,
+  COMPANIES_HOUSE_SOURCE,
+  COMPANIES_HOUSE_TEST_SOURCE,
+  liveTransport,
+  lookupCompany,
+  useCompaniesHouseTransport,
+} from "./companies-house";
+export type {
+  CompaniesHouseRequest,
+  CompaniesHouseResponse,
+  CompaniesHouseTransport,
+  CompanyLookup,
+} from "./companies-house";
 
 export const MANAGER_REVIEW_SCORE_KEY = "kyc.manager_review_score";
 export const COMPANIES_HOUSE_CHECK_KEY = "kyc.companies_house_check";
@@ -150,6 +165,29 @@ const escalatedNeedsManager: CaseRule = ({ record }) =>
         reason: "Escalated cases need a manager",
       }
     : { type: "allow", rule: "escalated_needs_manager" };
+
+const companiesHouseCheckOn: CaseRule = ({ constants }) =>
+  constants.number(COMPANIES_HOUSE_CHECK_KEY, 0) === 1
+    ? { type: "allow", rule: "companies_house_check_on" }
+    : {
+        type: "deny",
+        rule: "companies_house_check_on",
+        reason: `The Companies House check is off: an admin sets ${COMPANIES_HOUSE_CHECK_KEY} to 1 in rule settings`,
+      };
+
+const ukBusinessCase: CaseRule = ({ record }) =>
+  record &&
+  record.segment === "business" &&
+  record.country === "GB" &&
+  record.documentType === "company_registry"
+    ? { type: "allow", rule: "uk_business_case" }
+    : {
+        type: "deny",
+        rule: "uk_business_case",
+        reason: "Companies House only covers UK business cases",
+      };
+
+const checkCompaniesHouseInput = z.object({});
 
 const allow =
   (rule: string): CaseRule =>
@@ -450,6 +488,26 @@ export const kycTool = defineTool<KycCase>({
       }),
       apply: (ctx, decision) => write(ctx, decision.patch),
     }),
+    defineAction<KycCase, typeof checkCompaniesHouseInput, CompaniesHouseResult>({
+      name: "check_companies_house",
+      label: "Check Companies House",
+      description:
+        "Look the company up on Companies House by its registration number. Dissolved, in liquidation or late with its accounts is a material difference.",
+      allowedRoles: rolesFor("kyc", "agent"),
+      input: checkCompaniesHouseInput,
+      fromStatus: OPEN_STATUSES,
+      rules: [companiesHouseCheckOn, ukBusinessCase],
+      decide: ({ record }) => {
+        const result = companiesHouseResult(record?.documentNumber ?? "", {
+          apiKey: process.env.COMPANIES_HOUSE_API_KEY,
+        });
+        return {
+          summary: `Check Companies House for ${record?.id ?? ""}: ${result.check.detail}`,
+          patch: result,
+        };
+      },
+      apply: (ctx, decision) => writeCompaniesHouse(ctx, decision.patch),
+    }),
   ],
   list: ({ filters, search, sort, limit, offset }) => {
     const clauses = [];
@@ -497,6 +555,8 @@ export const kycTool = defineTool<KycCase>({
     request_info_always_permitted: "Asking for information is always allowed",
     escalate_always_permitted: "Escalating is always allowed",
     linked_refund_hold: "Linked refund hold",
+    companies_house_check_on: "Companies House check on",
+    uk_business_case: "UK business case",
   },
   ruleFields: {
     documents_complete: ["documentsComplete"],
@@ -504,6 +564,7 @@ export const kycTool = defineTool<KycCase>({
     country_permitted: ["country"],
     risk_tier_approval: ["riskScore", "riskTier"],
     pep_approval: ["pep"],
+    uk_business_case: ["country", "segment", "documentType"],
   },
   get: getCase,
   seed: seedKycCases,
@@ -531,6 +592,61 @@ function write(
       decidedBy: decided ? actor.id : record.decidedBy,
       version: record.version + 1,
     })
+    .where(and(eq(kycCases.id, record.id), eq(kycCases.version, record.version)))
+    .run();
+  const after = getCase(record.id);
+  if (!after) throw new Error(`kyc case ${record.id} vanished mid-apply`);
+  return { recordId: record.id, before: record, after };
+}
+
+const COMPANIES_HOUSE_ROW = "_companies_house_";
+
+/**
+ * Writes one Companies House lookup: the company registry check, and the
+ * case's Companies House register rows, replaced unless the lookup failed.
+ * Material rows are what `declared_vs_found` counts.
+ */
+function writeCompaniesHouse(
+  { tx, record, now }: ApplyContext<KycCase, unknown>,
+  result: CompaniesHouseResult,
+): ApplyResult<KycCase> {
+  if (!record) throw new Error("kyc actions require a case");
+  const check = {
+    id: `${record.id}_company_registry`,
+    caseId: record.id,
+    kind: "company_registry",
+    ...result.check,
+    checkedAt: now,
+  };
+  tx.insert(kycChecks)
+    .values(check)
+    .onConflictDoUpdate({ target: kycChecks.id, set: check })
+    .run();
+  if (result.findings) {
+    tx.delete(kycDiscrepancies)
+      .where(
+        and(
+          eq(kycDiscrepancies.caseId, record.id),
+          like(kycDiscrepancies.id, `${record.id}${COMPANIES_HOUSE_ROW}%`),
+        ),
+      )
+      .run();
+    for (const f of result.findings) {
+      tx.insert(kycDiscrepancies)
+        .values({
+          id: `${record.id}${COMPANIES_HOUSE_ROW}${f.key}`,
+          caseId: record.id,
+          topic: f.topic,
+          declared: f.declared,
+          found: f.found,
+          source: result.check.source,
+          severity: "material",
+        })
+        .run();
+    }
+  }
+  tx.update(kycCases)
+    .set({ version: record.version + 1 })
     .where(and(eq(kycCases.id, record.id), eq(kycCases.version, record.version)))
     .run();
   const after = getCase(record.id);
