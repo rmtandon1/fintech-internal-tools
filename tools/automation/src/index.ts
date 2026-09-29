@@ -53,7 +53,7 @@ export interface DevinRun extends GovernedRecord {
   version: number;
 }
 
-export const AUTOMATION_ROLES: Role[] = ["refunds_manager", "kyc_manager", "admin", "engineer"];
+export const AUTOMATION_ROLES: Role[] = ["manager", "admin", "engineer"];
 
 const STATUS_LABELS: Record<(typeof RUN_STATUSES)[number], string> = {
   dispatched: "Sent to Devin",
@@ -92,15 +92,13 @@ const specKnown: RunRule<DispatchInput> = ({ input }) => {
 };
 
 /**
- * DEVIN_RUN_PROTOCOL.md § Operations: the manager of the spec's domain or
- * the admin may ask for a change; only the admin may ask for an undo, or for
- * a change on a spec with no domain.
+ * Managers may ask for a change on a domain spec; admins may also ask for
+ * changes and are the only role that may ask for an undo.
  */
 export function roleMayStart(role: Role, spec: RunnableSpec, operation: Operation): boolean {
-  const meta = ROLE_META[role];
-  if (meta.level === "admin") return true;
+  if (role === "admin") return true;
   if (operation === "undo") return false;
-  return meta.level === "manager" && spec.domain !== null && meta.domain === spec.domain;
+  return role === "manager" && spec.domain !== null;
 }
 
 /** The operations of `spec` that `role` may dispatch. */
@@ -212,11 +210,11 @@ const contextMatchesDispatch: RunRule<ApproveInput> = ({ record, input }) =>
       }
     : { type: "allow", rule: "context_matches_dispatch" };
 
-/** A manager touches only runs against their own domain; admin and engineer see all. */
+/** Managers may act on domain runs; admin and engineer see all. */
 const actorOwnsRunDomain: RunRule<unknown> = ({ actor, record }) => {
   const meta = ROLE_META[actor.role];
   const spec = record ? getSpec(record.spec) : undefined;
-  const ok = meta.level !== "manager" || (spec !== undefined && spec.domain === meta.domain);
+  const ok = actor.role !== "manager" || (spec !== undefined && spec.domain !== null);
   return ok
     ? { type: "allow", rule: "actor_owns_run_domain" }
     : {
@@ -359,7 +357,7 @@ export const automationTool = defineTool<DevinRun>({
       name: "dispatch",
       label: "Ask Devin",
       description: "Ask Devin to run a spec. Creates the run; the session is recorded separately.",
-      allowedRoles: ["refunds_manager", "kyc_manager", "admin"],
+      allowedRoles: ["manager", "admin"],
       input: DispatchInput,
       createsRecord: true,
       tone: "primary",
@@ -411,7 +409,7 @@ export const automationTool = defineTool<DevinRun>({
       name: "record_session",
       label: "Record session",
       description: "Store the Devin session id and URL, or the reason the dispatch failed.",
-      allowedRoles: ["refunds_manager", "kyc_manager", "admin"],
+      allowedRoles: ["manager", "admin"],
       input: RecordSessionInput,
       fromStatus: ["dispatched"],
       rules: [actorOwnsRunDomain],
@@ -490,7 +488,7 @@ export const automationTool = defineTool<DevinRun>({
       name: "stop",
       label: "Stop",
       description: "Stop the run. The session ends and its PR, if any, is not merged.",
-      allowedRoles: ["refunds_manager", "kyc_manager", "admin", "engineer"],
+      allowedRoles: ["manager", "admin", "engineer"],
       input: StopInput,
       fromStatus: ["dispatched", "running", "approved"],
       tone: "destructive",

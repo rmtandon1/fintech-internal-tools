@@ -25,7 +25,7 @@ import { kycTool } from "@console/tool-kyc";
 import { refundTool } from "@console/tool-refunds";
 import { handleGet, handlePost, type RunViewPayload } from "@/lib/devin-route";
 import type { AppBridgeDeps } from "@/lib/bridge";
-import { admin, refundsAgent, setupHarness } from "../helpers/harness";
+import { admin, analyst, setupHarness } from "../helpers/harness";
 
 const engineer: Actor = { id: "usr_engineer", name: "Engineer", role: "engineer" };
 const CASE = ["kyc_0003"];
@@ -84,7 +84,7 @@ function stopAll() {
 
 describe("GET /api/devin/<runId>", () => {
   it("rejects a role outside AUTOMATION_ROLES", async () => {
-    const result = await handleGet("whatever", refundsAgent, deps());
+    const result = await handleGet("whatever", analyst, deps());
     expect(result.status).toBe(403);
   });
 

@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { ulid } from "ulid";
 import { executeIntent } from "@console/engine/execute-intent";
+import { maskRecord } from "@console/engine/pii/mask";
 import { registerConstants } from "@console/engine/policy/register";
 import type { LinkedActivity } from "@console/engine/types";
 import { kycTool, type KycCase } from "@console/tool-kyc";
@@ -10,9 +11,8 @@ import { db } from "@console/db";
 import { eq } from "drizzle-orm";
 import {
   admin,
-  kycManager,
-  kycReviewer,
-  refundsAgent,
+  manager,
+  analyst,
   setupHarness,
 } from "../helpers/harness";
 
@@ -70,17 +70,23 @@ describe("kyc linked activity", () => {
     expect(kycTool.linkedActivity?.(orphan, admin)).toBeNull();
   });
 
-  it("gives non-admin KYC roles the aggregate and no PII", () => {
-    for (const actor of [kycReviewer, kycManager]) {
-      const activity = linked("kyc_0002", actor);
-      expect(activity.summary.count).toBeGreaterThan(0);
-      expect(activity.rows).toEqual([]);
-      expect(activity.href).toBeNull();
-      const json = JSON.stringify(activity);
-      expect(json).not.toContain("tomas.reinholt@example.com");
-      expect(json).not.toContain("9032");
-      expect(json).not.toContain("Kestrel Outdoors");
-    }
+  it("lets analysts open linked refunds while masking refund PII", () => {
+    const activity = linked("kyc_0002", analyst);
+    expect(activity.summary.count).toBeGreaterThan(0);
+    expect(activity.rows).toHaveLength(activity.summary.count);
+    expect(activity.href).toMatch(/^\/t\/refunds\?q=/);
+
+    const row = activity.rows[0];
+    if (!row) throw new Error("expected a linked refund");
+    const masked = maskRecord(refundTool, row, analyst);
+    expect(masked.canReveal).toBe(false);
+    expect(masked.maskedFields).toContain("customerEmail");
+    expect(JSON.stringify(masked.values)).not.toContain("tomas.reinholt@example.com");
+    expect(JSON.stringify(masked.values)).not.toContain("9032");
+
+    const managerView = maskRecord(refundTool, row, manager, ["customerEmail"]);
+    expect(managerView.canReveal).toBe(true);
+    expect(managerView.values.customerEmail).toBe(row.customerEmail);
   });
 
   it("gives admin the rows and a link into the refunds tool", () => {
@@ -94,21 +100,21 @@ describe("kyc linked activity", () => {
     expect(activity.rowFields).toContain("customerEmail");
   });
 
-  it("marks a refund held while it has a pending approval request", () => {
-    expect(linked("kyc_0008", kycReviewer).summary.held).toBe(0);
+  it("does not create a pending approval marker for a directly routed refund", () => {
+    expect(linked("kyc_0008", analyst).summary.held).toBe(0);
 
-    const result = executeIntent(refundsAgent, {
+    const result = executeIntent(manager, {
       tool: "refunds",
       action: "execute",
       recordId: "rfnd_0003",
       input: {},
       idempotencyKey: ulid(),
     });
-    expect(result.outcome.status).toBe("pending_approval");
+    expect(result.outcome.status).toBe("applied");
 
     const activity = linked("kyc_0008", admin);
-    expect(activity.summary.held).toBe(1);
-    expect(activity.heldIds).toEqual(["rfnd_0003"]);
-    expect(linked("kyc_0008", kycReviewer).summary.held).toBe(1);
+    expect(activity.summary.held).toBe(0);
+    expect(activity.heldIds).toEqual([]);
+    expect(linked("kyc_0008", analyst).summary.held).toBe(0);
   });
 });

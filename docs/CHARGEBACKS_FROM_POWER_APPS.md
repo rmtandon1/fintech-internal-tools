@@ -45,8 +45,8 @@ Prefilled from `tools/automation/src/specs.ts`, and editable:
 > Start moving the Chargebacks Power App into the console, from the export in
 > fixtures/power-apps/chargebacks. This is the first pull request, not the whole app: the queue with
 > its fields, seeded from disputes.csv; the deadline alert as a count on the queue; and the two
-> riskiest rules, fraud accepts over $500 and fights over $2,500, each needing a refunds manager.
-> Use the refunds roles. In the pull request, list every formula and flow step as done or still
+> riskiest rules, fraud accepts over $500 and fights over $2,500, each needing a manager.
+> Use the flat roles. In the pull request, list every formula and flow step as done or still
 > to do. Put the app behind the feature flag `app.chargebacks` in Feature flags: set the mode's
 > `flag` and seed the row off and not customer-facing in `tools/flags/src/seed.ts` for fresh
 > databases — the console registers it on start for existing ones — so an admin turns it on
@@ -62,12 +62,12 @@ file list with line counts. It reads the files themselves from the repository.
 
 - **The list in the pull request.** Every formula and flow step from the export, each marked done
   in this pull request or still to do. Nothing dropped without being listed.
-- **Two rules, not all of them:** accepting a fraud dispute over $500 needs a refunds manager;
-  fighting one over $2,500 needs a refunds manager's approval.
+- **Two rules, not all of them:** accepting a fraud dispute over $500 needs a manager;
+  fighting one over $2,500 needs a manager's approval.
 - **The deadline alert as a count** on the queue: open disputes over $1,000 due within 48 hours.
 - **Dates stay live.** The seed keeps each date's offset from the export time (28 September 2026,
   09:00 UTC), so three disputes are due soon on the day of the demo.
-- **The refunds roles work it**, with nothing new in the role catalog.
+- **Analyst and Manager work it**, with nothing new in the role catalog.
 - **The engine is untouched.** New files under `tools/chargebacks/`, one line in
   `apps/console/src/registry.ts`, a schema re-export, a migration, the package dependency, the
   lockfile and one seeded flag row in `tools/flags/src/seed.ts`. Nothing under `packages/`.
@@ -82,6 +82,6 @@ file list with line counts. It reads the files themselves from the repository.
 1. The Chargebacks tile on home moves from Coming soon to Switched off.
 2. An admin turns `app.chargebacks` on in Feature flags: the tile goes Live.
 3. The queue's count reads 3: open disputes over $1,000 due within 48 hours.
-4. As refunds agent, accept `DSP-20401` (fraud, $2,480): it waits for a refunds manager.
+4. As Analyst, accept `DSP-20401` (fraud, $2,480): it waits for a manager.
 5. Turning the flag off puts the tile back to Switched off. The pull request's list is the rest
    of the migration, one small request per line.

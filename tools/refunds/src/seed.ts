@@ -32,7 +32,7 @@ interface SeedRefund {
 
 /**
  * Demo refunds covering each branch: straight-through, manager threshold,
- * admin threshold, goodwill, over-refund, open dispute, plus in-flight and
+ * goodwill, over-refund, open dispute, plus in-flight and
  * settled rows.
  */
 const REFUNDS: SeedRefund[] = [

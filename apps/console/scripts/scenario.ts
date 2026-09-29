@@ -1,32 +1,20 @@
-import { and, eq, inArray } from "drizzle-orm";
-import { ulid } from "ulid";
+import { inArray } from "drizzle-orm";
 import { db } from "@console/db";
-import { auditLog } from "@console/db-core/engine-schema";
-import { DEMO_ACTORS } from "@console/engine/actor";
-import { executeIntent } from "@console/engine/execute-intent";
-import { configureEngine } from "@console/engine/registry";
+import { refundTool } from "@console/tool-refunds";
 import { refunds } from "@console/tool-refunds/schema";
-import { toolRegistry } from "@/registry";
 
 /**
- * Demo aid: loads a named operational scenario and drives it through the real
- * engine, so whatever lands in the inbox or the audit log got there the same
- * way a live request would. Nothing here writes an approval or audit row.
+ * Demo aid: inserts a named operational scenario as seed-grade local data.
  *
  *   pnpm db:scenario courier-outage
  *
  * courier-outage — a courier failure at Fernhill Home produces 60 genuine
- * `not_received` refund requests (rfnd_1001–rfnd_1060), which are then
- * submitted one by one as the demo refunds agent. Re-running inserts nothing
- * that already exists and resubmits nothing the engine has already seen: any
- * refund with an `execute` audit row (applied, denied or awaiting approval) is
- * skipped, and a scenario id held by some other merchant's refund is reported
- * as a collision rather than submitted.
+ * `not_received` refund requests (rfnd_1001–rfnd_1060). Re-running inserts
+ * nothing that already exists, and a scenario id held by some other merchant's
+ * refund is reported as a collision.
  *
- * Today every one of these refunds applies: each sits under the manager
- * threshold and no rule looks across requests. Once the clustering hold merges
- * most of them will be sent to the manager inbox instead, and the summary this
- * script prints will show that shift.
+ * The summary reports how many of the inserted rows the live policy places in
+ * the manager's queue; this script does not submit them.
  *
  * Refuses to run under NODE_ENV=production: this is seed-grade data for a
  * local database only.
@@ -104,14 +92,8 @@ function courierOutageRows(now: number) {
 
 export interface ScenarioSummary {
   inserted: number;
-  submitted: number;
-  skipped: number;
-  applied: number;
-  pendingApproval: number;
-  denied: number;
-  errors: number;
+  inManagerQueue: number;
   collisions: string[];
-  firstDenialReason: string | null;
 }
 
 export function courierOutage(now = Date.now()): ScenarioSummary {
@@ -133,69 +115,32 @@ export function courierOutage(now = Date.now()): ScenarioSummary {
     inserted++;
   }
 
-  const alreadySubmitted = new Set(
-    db
-      .select({ recordId: auditLog.recordId })
-      .from(auditLog)
-      .where(
-        and(
-          eq(auditLog.tool, "refunds"),
-          eq(auditLog.action, "execute"),
-          inArray(auditLog.recordId, ids),
-        ),
-      )
-      .all()
-      .map((r) => r.recordId),
-  );
   const collisions: string[] = [];
-  const stillRequested: string[] = [];
   for (const r of db
-    .select({ id: refunds.id, merchant: refunds.merchant, status: refunds.status })
+    .select({ id: refunds.id, merchant: refunds.merchant })
     .from(refunds)
     .where(inArray(refunds.id, ids))
     .all()) {
     if (r.merchant !== COURIER_OUTAGE.merchant) collisions.push(r.id);
-    else if (r.status === "requested" && !alreadySubmitted.has(r.id)) stillRequested.push(r.id);
   }
 
-  const summary: ScenarioSummary = {
+  const managerQueue = refundTool.list({
+    filters: { queue: "manager" },
+    limit: 1000,
+    offset: 0,
+  });
+  return {
     inserted,
-    submitted: 0,
-    skipped: ids.length - stillRequested.length - collisions.length,
-    applied: 0,
-    pendingApproval: 0,
-    denied: 0,
-    errors: 0,
+    inManagerQueue: managerQueue.rows.filter(
+      (record) => ids.includes(record.id) && record.merchant === COURIER_OUTAGE.merchant,
+    ).length,
     collisions,
-    firstDenialReason: null,
   };
-
-  const agent = DEMO_ACTORS.refunds_agent;
-  for (const id of stillRequested) {
-    const { outcome } = executeIntent(agent, {
-      tool: "refunds",
-      action: "execute",
-      recordId: id,
-      input: {},
-      idempotencyKey: ulid(),
-    });
-    summary.submitted++;
-    if (outcome.status === "applied") summary.applied++;
-    else if (outcome.status === "pending_approval") summary.pendingApproval++;
-    else if (outcome.status === "denied") {
-      summary.denied++;
-      summary.firstDenialReason ??= outcome.reason;
-    } else summary.errors++;
-  }
-  return summary;
 }
 
 function printSummary(name: ScenarioName, s: ScenarioSummary): void {
   console.log(`scenario ${name}`);
-  console.log(`  inserted ${s.inserted} refund(s), submitted ${s.submitted}, skipped ${s.skipped} already moved`);
-  console.log(`  applied ${s.applied} / sent to approval ${s.pendingApproval} / denied ${s.denied}`);
-  if (s.errors) console.log(`  errors ${s.errors}`);
-  if (s.firstDenialReason) console.log(`  first denial: ${s.firstDenialReason}`);
+  console.log(`  inserted ${s.inserted} refund(s); ${s.inManagerQueue} are in the manager queue`);
   if (s.collisions.length) {
     console.error(
       `  ${s.collisions.length} id(s) belong to another merchant's refund and were left alone: ${s.collisions.join(", ")}`,
@@ -215,10 +160,9 @@ function main(): void {
     );
     process.exit(1);
   }
-  configureEngine({ tools: toolRegistry });
   const summary = SCENARIOS[requested]();
   printSummary(requested, summary);
-  if (summary.errors || summary.collisions.length) process.exit(1);
+  if (summary.collisions.length) process.exit(1);
 }
 
 if (process.argv[1]?.endsWith("scenario.ts")) main();

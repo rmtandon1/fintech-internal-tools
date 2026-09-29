@@ -10,7 +10,7 @@ import {
 } from "@/lib/customer-profile";
 
 const HOUR = 60 * 60 * 1000;
-const thresholds = { manager: 70, admin: 85 };
+const thresholds = { manager: 70 };
 
 describe("score gauge geometry", () => {
   it("maps the scale onto the horseshoe and clamps outside it", () => {
@@ -42,20 +42,19 @@ describe("risk bands", () => {
     expect(bands.map((b) => [b.from, b.to, b.tone])).toEqual([
       [0, 40, "positive"],
       [40, 70, "caution"],
-      [70, 85, "warning"],
-      [85, 100, "negative"],
+      [70, 100, "warning"],
     ]);
     expect(bandFor(bands, 69)?.tone).toBe("caution");
     expect(bandFor(bands, 70)?.tone).toBe("warning");
-    expect(bandFor(bands, 85)?.tone).toBe("negative");
-    expect(bandFor(bands, 100)?.tone).toBe("negative");
+    expect(bandFor(bands, 85)?.tone).toBe("warning");
+    expect(bandFor(bands, 100)?.tone).toBe("warning");
   });
 
-  it("follows a threshold an admin has moved", () => {
-    const bands = riskBands({ manager: 60, admin: 90 });
+  it("follows the live manager threshold", () => {
+    const bands = riskBands({ manager: 60 });
     expect(bandFor(bands, 65)?.label).toBe("High risk");
     expect(bandFor(bands, 89)?.label).toBe("High risk");
-    expect(riskBands({ manager: 30, admin: 50 })[0]).toMatchObject({ from: 0, to: 30 });
+    expect(riskBands({ manager: 30 })[0]).toMatchObject({ from: 0, to: 30 });
   });
 });
 

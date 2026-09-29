@@ -67,7 +67,7 @@ function contextJson(o: ContextOverrides = {}): string {
       operation: o.operation ?? "change",
       spec: "REFUND_CLUSTERING_HOLD.md",
       intent: "Hold clustered refunds.",
-      requested_by: "refunds_manager",
+      requested_by: "usr_manager",
       base: { branch: BASE_BRANCH, commit: "1a67f60a1a67f60a1a67f60a1a67f60a1a67f60a" },
       allowed_paths: o.allowed_paths ?? DEFAULT_PATHS,
       constants: { "refunds.manager_approval_usd_minor": 50000 },

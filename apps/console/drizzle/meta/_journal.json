@@ -71,6 +71,13 @@
       "when": 1790651547104,
       "tag": "0009_reflective_rawhide_kid",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1790683184471,
+      "tag": "0010_flatten_roles",
+      "breakpoints": true
     }
   ]
 }

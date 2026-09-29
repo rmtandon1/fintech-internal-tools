@@ -24,7 +24,7 @@ import {
 import { listExport } from "@console/tool-automation/context";
 import { kycTool } from "@console/tool-kyc";
 import { refundTool } from "@console/tool-refunds";
-import { admin, kycManager, refundsAgent, refundsManager, setupHarness } from "../helpers/harness";
+import { admin, analyst, manager, setupHarness } from "../helpers/harness";
 
 const engineer: Actor = { id: "usr_engineer", name: "Engineer", role: "engineer" };
 const secondEngineer: Actor = { id: "usr_engineer_2", name: "Engineer 2", role: "engineer" };
@@ -103,40 +103,35 @@ function auditRowsFor(recordId: string): { action: string; event: string; payloa
 }
 
 describe("automation tool", () => {
-  it("is visible to the domain managers, the admin and the engineer, and not to agents", () => {
+  it("is visible to managers, admins and engineers, and not to analysts", () => {
     expect(automationTool.visibleTo).toEqual(
-      expect.arrayContaining(["refunds_manager", "kyc_manager", "admin", "engineer"]),
+      expect.arrayContaining(["manager", "admin", "engineer"]),
     );
-    expect(dispatch(refundsAgent).outcome).toMatchObject({ code: "forbidden_role" });
+    expect(dispatch(analyst).outcome).toMatchObject({ code: "forbidden_role" });
   });
 });
 
 describe("dispatch rules", () => {
-  it("role_may_start_operation: the KYC manager may start a change on a KYC spec", () => {
-    const run = applied(dispatch(kycManager));
+  it("role_may_start_operation: a manager may start a change on a KYC spec", () => {
+    const run = applied(dispatch(manager));
     expect(run).toMatchObject({
       status: "dispatched",
       operation: "change",
       tool: "kyc",
       contextSha256: SHA,
-      requestedBy: kycManager.id,
+      requestedBy: manager.id,
       reverses: null,
     });
     stop(run);
   });
 
-  it("role_may_start_operation: a manager of another domain is denied", () => {
-    deniedBy(dispatch(refundsManager), "role_may_start_operation");
-  });
-
-  it("role_may_start_operation: the refunds manager may ask for a refunds rule from its cluster", () => {
+  it("role_may_start_operation: a manager may ask for a refunds rule from its cluster", () => {
     const kestrel = {
       spec: REFUND_CLUSTERING_HOLD.file,
       intent: REFUND_CLUSTERING_HOLD.intents.change,
       evidenceIds: KESTREL,
     };
-    deniedBy(dispatch(kycManager, kestrel), "role_may_start_operation");
-    const run = applied(dispatch(refundsManager, kestrel));
+    const run = applied(dispatch(manager, kestrel));
     expect(run.tool).toBe("refunds");
     stop(run);
   });
@@ -147,15 +142,14 @@ describe("dispatch rules", () => {
       intent: CHARGEBACKS_FROM_POWER_APPS.intents.change,
       evidenceIds: ["README.md"],
     };
-    deniedBy(dispatch(refundsManager, chargebacks), "role_may_start_operation");
-    deniedBy(dispatch(kycManager, chargebacks), "role_may_start_operation");
+    deniedBy(dispatch(manager, chargebacks), "role_may_start_operation");
     stop(applied(dispatch(admin, chargebacks)));
   });
 
   it("role_may_start_operation: an undo by a manager is denied, only the admin may start one", () => {
     const merged = merge(applied(dispatch(admin)));
     deniedBy(
-      dispatch(kycManager, { operation: "undo", reverses: merged.id, evidenceIds: [] }),
+      dispatch(manager, { operation: "undo", reverses: merged.id, evidenceIds: [] }),
       "role_may_start_operation",
     );
     const undo = applied(
@@ -180,15 +174,14 @@ describe("dispatch rules", () => {
       intent: CHARGEBACKS_FROM_POWER_APPS.intents.change,
       evidenceIds: ["README.md"],
     };
-    deniedBy(dispatch(kycManager, chargebacks), "role_may_start_operation");
-    deniedBy(dispatch(refundsManager, chargebacks), "role_may_start_operation");
+    deniedBy(dispatch(manager, chargebacks), "role_may_start_operation");
     stop(applied(dispatch(admin, chargebacks)));
   });
 
   it("no_run_in_flight_on_tool: a second run against the same tool is denied until the first ends", () => {
-    const first = applied(dispatch(kycManager));
+    const first = applied(dispatch(manager));
     deniedBy(dispatch(admin), "no_run_in_flight_on_tool");
-    applied(act(kycManager, "record_session", first.id, { sessionId: "devin-abc" }));
+    applied(act(manager, "record_session", first.id, { sessionId: "devin-abc" }));
     deniedBy(dispatch(admin), "no_run_in_flight_on_tool");
     stop(first);
     const second = applied(dispatch(admin));
@@ -196,10 +189,10 @@ describe("dispatch rules", () => {
   });
 
   it("no_run_in_flight_on_tool: a failed dispatch does not hold the tool", () => {
-    const failed = applied(dispatch(kycManager));
-    applied(act(kycManager, "record_session", failed.id, { error: "Devin API 503" }));
+    const failed = applied(dispatch(manager));
+    applied(act(manager, "record_session", failed.id, { error: "Devin API 503" }));
     expect(getRun(failed.id)?.status).toBe("dispatch_failed");
-    const next = applied(dispatch(kycManager));
+    const next = applied(dispatch(manager));
     stop(next);
   });
 
@@ -234,19 +227,17 @@ describe("dispatch rules", () => {
   });
 
   it("change_carries_evidence: a change without evidence is denied", () => {
-    deniedBy(dispatch(kycManager, { evidenceIds: [] }), "change_carries_evidence");
+    deniedBy(dispatch(manager, { evidenceIds: [] }), "change_carries_evidence");
   });
 
-  it("actor_owns_run_domain: a manager of another domain cannot record or stop a KYC run", () => {
-    const run = applied(dispatch(kycManager));
-    deniedBy(act(refundsManager, "record_session", run.id, { sessionId: "devin-x" }), "actor_owns_run_domain");
-    deniedBy(act(refundsManager, "stop", run.id, { reason: "not mine" }), "actor_owns_run_domain");
-    expect(getRun(run.id)?.status).toBe("dispatched");
-    stop(run, kycManager);
+  it("lets a manager act on a run for a known application", () => {
+    const run = applied(dispatch(manager));
+    applied(act(manager, "record_session", run.id, { sessionId: "devin-x" }));
+    stop(run, manager);
   });
 
   it("audits the context SHA and spec, never the context body", () => {
-    const run = applied(dispatch(kycManager));
+    const run = applied(dispatch(manager));
     const [row] = auditRowsFor(run.id);
     const payload = JSON.parse(row.payload) as Record<string, unknown>;
     expect(payload).toMatchObject({ spec: COMPANIES_HOUSE_CHECK.file, contextSha256: SHA });
@@ -257,7 +248,7 @@ describe("dispatch rules", () => {
 });
 
 describe("approve_pr", () => {
-  function running(requester: Actor = kycManager): DevinRun {
+  function running(requester: Actor = manager): DevinRun {
     const run = applied(dispatch(requester));
     return applied(act(requester, "record_session", run.id, { sessionId: `devin-${run.id}` }));
   }
@@ -274,7 +265,7 @@ describe("approve_pr", () => {
   it("refuses a non-engineer outright", () => {
     const run = running();
     expect(act(admin, "approve_pr", run.id, green).outcome).toMatchObject({ code: "forbidden_role" });
-    expect(act(kycManager, "approve_pr", run.id, green).outcome).toMatchObject({ code: "forbidden_role" });
+    expect(act(manager, "approve_pr", run.id, green).outcome).toMatchObject({ code: "forbidden_role" });
     stop(run);
   });
 
@@ -294,7 +285,7 @@ describe("approve_pr", () => {
   });
 
   it("is only offered while the run is running", () => {
-    const run = applied(dispatch(kycManager));
+    const run = applied(dispatch(manager));
     expect(act(engineer, "approve_pr", run.id, green).outcome).toMatchObject({ code: "invalid_status" });
     stop(run);
   });
@@ -307,7 +298,7 @@ describe("context.json", () => {
       operation: "change",
       spec: COMPANIES_HOUSE_CHECK,
       intent: COMPANIES_HOUSE_CHECK.intents.change,
-      requestedBy: "kyc_manager",
+      requestedBy: "manager",
       evidenceKey: CASE,
       evidenceIds: EVIDENCE,
       repoRoot: process.cwd(),
@@ -353,7 +344,7 @@ describe("context.json", () => {
       operation: "change",
       spec: REFUND_CLUSTERING_HOLD,
       intent: "x",
-      requestedBy: "refunds_manager",
+      requestedBy: "manager",
       evidenceKey: "Kestrel Outdoors",
       evidenceIds: KESTREL,
     });
@@ -552,8 +543,8 @@ describe("run files", () => {
 
 describe("lifecycle", () => {
   it("dispatch → record_session → approve_pr → record_merge writes exactly four audit rows", () => {
-    const run = applied(dispatch(kycManager));
-    applied(act(kycManager, "record_session", run.id, { sessionId: "devin-life" }));
+    const run = applied(dispatch(manager));
+    applied(act(manager, "record_session", run.id, { sessionId: "devin-life" }));
     expect(getRun(run.id)?.status).toBe("running");
     applied(
       act(secondEngineer, "approve_pr", run.id, { prUrl: PR, checksGreen: true, branchContextSha256: SHA }),
