@@ -179,7 +179,7 @@ Expected (fresh seed):
 flags.permission_flag_needs_admin|true
 flags.production_change_needs_manager|true
 flags.rollout_step_needs_manager_percent|25
-kyc.companies_house_check|0
+kyc.companies_house_monitoring|0
 kyc.manager_review_score|70
 kyc.prohibited_countries|["IR","KP","SY","CU"]
 refunds.goodwill_approval_usd_minor|5000

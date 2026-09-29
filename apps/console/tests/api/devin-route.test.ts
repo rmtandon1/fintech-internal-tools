@@ -126,8 +126,8 @@ describe("GET /api/devin/<runId>", () => {
     const d = deps();
     const out = await dispatchRun(admin, request, d);
     const body = (await handleGet(out.runId, admin, d)).body as RunViewPayload;
-    expect(body.reviewerChecklist).toHaveLength(8);
-    expect(body.reviewerChecklist[0]).toMatch(/^Only UK business cases are checked/);
+    expect(body.reviewerChecklist).toHaveLength(10);
+    expect(body.reviewerChecklist[0]).toMatch(/^Only approved UK business cases are rechecked/);
   });
 
   it("shows the run view the prompt the session was sent", async () => {

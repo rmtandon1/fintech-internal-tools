@@ -52,7 +52,7 @@ Sanctions screening, Wire release and Pricing, spread across four areas:
 Compliance, Money movement, Customers and Platform.  
   
 - **Roles:** four switchable — Analyst, Manager, Admin, Engineer
-- **Devin briefs:** three prepared — refund clustering hold, Companies House  
+- **Devin briefs:** three prepared — refund clustering hold, merchant monitoring  
   check, Chargebacks migration from Power Apps  
   
 Every app, live or not, gets seven controls from the engine the moment it is  
@@ -466,24 +466,29 @@ merged since.
 4. **Verify.** As **Analyst**, send `rfnd_0014`. It settles, and `clustering_hold` no longer
    appears in the rule list. The refund reason dropdown still offers `partial_delivery`.
 
-### 4. Automate a manual check
+### 4. Monitor merchants on Companies House
 
-KYC analysts look up every UK business on Companies House in another tab and type the result in.
+UK rules need ongoing monitoring of approved customers, but merchants are checked by hand once,
+at onboarding. Wilko Limited (00365335), approved in 2021, is in liquidation today under a new
+registered name, and its five "not received" refunds still pay straight through.
 
-1. As **Analyst**, open `/t/kyc/kyc_0104`, Thornbury Couriers Ltd. The Company registry check
-   reads "Checked by hand", and **Approve** passes every rule.
-2. Switch to **Admin** and click **Ask Devin to add a check**.
-3. Read **What Devin will see**: the company name, registration number `09318842` and country.
+1. As **Analyst**, open `/t/kyc/kyc_0104`, Wilko Limited. The Company registry check reads
+   "Checked by hand at onboarding: active".
+2. Switch to **Admin** and click **Ask Devin to monitor merchants**. Type the first words and
+   press Tab to take the suggested sentence, or type your own.
+3. Read **What Devin will see**: the company name, registration number `00365335` and country.
    Nothing about a person.
-4. Click **Send to Devin**. The request asks Devin to read the Companies House API docs on the web
-   itself. *(async)*
-   - Devin plans five files: `tools/kyc/src/companies-house.ts`, recorded responses, a change to
-     `tools/kyc/src/index.ts`, `.env.example` and a test file.
-   - It reuses the existing `declared_vs_found` rule to hold approval, instead of adding a rule.
-   - Without `COMPANIES_HOUSE_API_KEY` the check uses recorded responses and says "test data".
+4. Click **Send to Devin**. The engineering rules — read the API docs, key on the server, fail
+   closed, ship switched off — come from the repo's house rules, not the sentence. *(async)*
+   - Devin has to build three things that don't exist: a link from a refund to the merchant's
+     KYC case, a scheduled entry point with a system actor, and a refund rule that reads KYC.
+   - It reuses the existing `declared_vs_found` rule to flag a case, instead of adding one.
+   - Without `COMPANIES_HOUSE_API_KEY` the recheck uses recorded responses and says "test data".
 5. As **Engineer**, approve the pull request, then click **Pull merged code** once it merges.
-6. **Verify.** As **Analyst**, back on `kyc_0104`, run the Companies House check. Declared vs
-   found gains a material row, "late with its accounts", and **Approve** now needs a Manager.
+6. **Verify.** As **Admin**, set the merchant monitoring setting to 1 in `/admin/policy` and
+   press **Recheck now**. Wilko gains a material Declared vs found row — found "WL REALISATIONS
+   (2023) LIMITED, liquidation" — and its five refunds wait for a Manager. Lakeland, Timpson
+   and Screwfix are unchanged.
 
 ### 5. Start the next app
 
@@ -648,7 +653,7 @@ Full protocol: [`docs/DEVIN_RUN_PROTOCOL.md`](docs/DEVIN_RUN_PROTOCOL.md).
 | Add a rule | Cluster drawer on `/t/refunds` | **Ask Devin for a rule** | Yes | Engineer |
 | Switch a rule off | `/admin/policy` | Setting editor | No | Admin only |
 | Remove a rule | Merged run in `/runs` | **Undo this change** | Yes | Engineer |
-| Automate a check | UK business case on `/t/kyc/<id>` | **Ask Devin to add a check** | Yes | Engineer |
+| Monitor merchants | UK business case on `/t/kyc/<id>` | **Ask Devin to monitor merchants** | Yes | Engineer |
 | Start an app | `/roadmap/<app>` | **Ask Devin to start this app** | Yes | Engineer + engine owner |
 | Switch an app on | `/t/flags` | **Enable** on `app.<name>` | No | Manager |
 
@@ -722,7 +727,7 @@ Find the layer first, then the symptom.
 - Another run on the same app is in flight. Finish or **Stop run** it in `/runs`.
 - On a Coming soon page, the button hides once a merged run exists for that app. If the app was
   removed by hand, reset the database so `devin_runs` forgets the old run.
-- An Analyst never sees **Ask Devin to add a check**; switch to Manager or Admin.
+- An Analyst never sees **Ask Devin to monitor merchants**; switch to Manager or Admin.
 
 ### Run view stuck, checklist not moving
 
@@ -812,7 +817,7 @@ Find the layer first, then the symptom.
 - **Recorded runs.** A run view with no live session replays `runs/<run_id>/replay.json` and labels
   itself **Recorded · replay.json**. Copy a finished run's `apps/console/data/replays/<run_id>.json`
   there and commit it to keep it.
-- **Recorded outside data.** Without `COMPANIES_HOUSE_API_KEY`, the Companies House check answers
+- **Recorded outside data.** Without `COMPANIES_HOUSE_API_KEY`, the merchant recheck answers
   from recorded responses and labels its result test data.
 - **Tests.** `apps/console/tests/helpers/scripted-clients.ts` and `fake-git.ts` stand in for Devin,
   GitHub and git, so `pnpm test` makes no network calls.
@@ -839,7 +844,7 @@ Find the layer first, then the symptom.
 | [`docs/REAL_TIME_PROGRESS_READY.md`](docs/REAL_TIME_PROGRESS_READY.md) | How live run progress is polled and drawn |
 | [`docs/DEVIN-NO-DEVIN.md`](docs/DEVIN-NO-DEVIN.md) | Which changes need Devin and which are settings |
 | [`docs/REFUND_CLUSTERING_HOLD.md`](docs/REFUND_CLUSTERING_HOLD.md) | Brief: the refund clustering hold |
-| [`docs/COMPANIES_HOUSE_CHECK.md`](docs/COMPANIES_HOUSE_CHECK.md) | Brief: the Companies House check |
+| [`docs/COMPANIES_HOUSE_CHECK.md`](docs/COMPANIES_HOUSE_CHECK.md) | Brief: merchant monitoring on Companies House |
 | [`docs/CHARGEBACKS_FROM_POWER_APPS.md`](docs/CHARGEBACKS_FROM_POWER_APPS.md) | Brief: starting the Chargebacks migration |
 | [`docs/KYC_CASE_FILE.md`](docs/KYC_CASE_FILE.md) | The KYC case file: checks, declared vs found, PEP approval |
 | [`docs/CONSOLE_ROLE_VIEWS.md`](docs/CONSOLE_ROLE_VIEWS.md) | Linked activity on a KYC case and the Devin window controls |

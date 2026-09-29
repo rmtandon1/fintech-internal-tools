@@ -330,26 +330,100 @@ const CASES: SeedCase[] = [
       },
     ],
   },
+  // Wilko Limited, approved in 2021, is really in liquidation today under a new
+  // name (WL REALISATIONS (2023) LIMITED); the three controls are really
+  // active. Approved cases are never overdue, so the age only dates the
+  // onboarding. These are the only approved GB business cases the seed may
+  // hold, so a live lookup never hits a made-up number.
   {
     id: "kyc_0104",
-    customerName: "Thornbury Couriers Ltd",
-    email: "compliance@thornburycouriers.example.com",
-    dateOfBirth: "2014-03-11",
+    customerName: "Wilko Limited",
+    email: "payments@wilko.example.com",
+    dateOfBirth: "1941-02-13",
     documentType: "company_registry",
-    documentNumber: "GB09318842",
+    documentNumber: "GB00365335",
     country: "GB",
     segment: "business",
-    riskScore: 34,
+    riskScore: 28,
     sanctionsHit: false,
     documentsComplete: true,
-    status: "pending_review",
-    openedHoursAgo: 5,
-    lastNote: "Applying for a business account to pay drivers. Registry checked by hand at onboarding.",
+    status: "approved",
+    openedHoursAgo: 35_000,
+    lastNote: "Approved merchant since 2021. Registry checked by hand at onboarding.",
     checks: {
       company_registry: {
         result: "clear",
         source: "Companies House",
-        detail: "Checked by hand: active, directors match",
+        detail: "Checked by hand at onboarding: active",
+      },
+    },
+  },
+  {
+    id: "kyc_0105",
+    customerName: "Lakeland Limited",
+    email: "payments@lakeland.example.com",
+    dateOfBirth: "1964-06-19",
+    documentType: "company_registry",
+    documentNumber: "GB00809688",
+    country: "GB",
+    segment: "business",
+    riskScore: 24,
+    sanctionsHit: false,
+    documentsComplete: true,
+    status: "approved",
+    openedHoursAgo: 35_000,
+    lastNote: "Approved merchant since 2021. Registry checked by hand at onboarding.",
+    checks: {
+      company_registry: {
+        result: "clear",
+        source: "Companies House",
+        detail: "Checked by hand at onboarding: active",
+      },
+    },
+  },
+  {
+    id: "kyc_0106",
+    customerName: "Timpson Limited",
+    email: "payments@timpson.example.com",
+    dateOfBirth: "1960-11-16",
+    documentType: "company_registry",
+    documentNumber: "GB00675216",
+    country: "GB",
+    segment: "business",
+    riskScore: 31,
+    sanctionsHit: false,
+    documentsComplete: true,
+    status: "approved",
+    openedHoursAgo: 35_000,
+    lastNote: "Approved merchant since 2021. Registry checked by hand at onboarding.",
+    checks: {
+      company_registry: {
+        result: "clear",
+        source: "Companies House",
+        detail: "Checked by hand at onboarding: active",
+      },
+    },
+  },
+  {
+    id: "kyc_0107",
+    customerName: "Screwfix Direct Limited",
+    email: "payments@screwfix.example.com",
+    dateOfBirth: "1995-01-05",
+    documentType: "company_registry",
+    documentNumber: "GB03006378",
+    country: "GB",
+    segment: "business",
+    riskScore: 27,
+    sanctionsHit: false,
+    documentsComplete: true,
+    status: "approved",
+    openedHoursAgo: 35_000,
+    lastNote: "Approved merchant since 2021. Registry checked by hand at onboarding.",
+    checks: {
+      company_registry: {
+        result: "clear",
+        source: "Companies House",
+        detail: "Checked by hand at onboarding: active",
       },
     },
   },
@@ -402,7 +476,10 @@ function generated(): SeedCase[] {
   for (let i = 0; i < 88; i++) {
     const id = `kyc_${String(i + 14).padStart(4, "0")}`;
     const business = next() < 0.22;
-    const country = pick(COUNTRIES);
+    const picked = pick(COUNTRIES);
+    // Generated business cases are never GB, so a live Companies House lookup
+    // can only ever hit the four hand-written numbers above.
+    const country = business && picked === "GB" ? "IE" : picked;
     const riskScore = between(5, 96);
     const status = pick(STATUSES);
     // An approved case must satisfy the rules that gate approval, or the queue

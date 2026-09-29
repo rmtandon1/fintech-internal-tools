@@ -51,9 +51,9 @@ function kyc(id: string) {
 }
 
 describe("recordTriggers", () => {
-  it("offers the Companies House check on a UK business case to the manager", () => {
+  it("offers merchant monitoring on a UK business case to the manager", () => {
     const [t] = recordTriggers("kyc", kyc("kyc_0003"), manager);
-    expect(t.label).toBe("Ask Devin to add a check");
+    expect(t.label).toBe("Ask Devin to monitor merchants");
     expect(t.blocked).toBeNull();
     expect(t.offer?.evidenceIds).toEqual(["kyc_0003"]);
     expect(t.offer?.intent).toMatch(/Companies House/);
@@ -78,7 +78,7 @@ describe("recordTriggers", () => {
         operation: "change",
         spec: COMPANIES_HOUSE_CHECK.file,
         tool: "kyc",
-        intent: "Add the Companies House check",
+        intent: "Recheck approved UK merchants on Companies House",
         contextSha256: "f".repeat(64),
         sessionId: null,
         sessionUrl: null,

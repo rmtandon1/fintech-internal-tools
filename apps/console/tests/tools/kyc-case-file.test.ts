@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { ulid } from "ulid";
 import { db } from "@console/db";
 import { approve, listApprovals } from "@console/engine/approvals";
@@ -7,7 +7,7 @@ import { executeIntent } from "@console/engine/execute-intent";
 import { registerConstants } from "@console/engine/policy/register";
 import type { Actor, IntentOutcome } from "@console/engine/types";
 import { caseFile, kycTool } from "@console/tool-kyc";
-import { kycDiscrepancies } from "@console/tool-kyc/schema";
+import { kycCases, kycDiscrepancies } from "@console/tool-kyc/schema";
 import { manager, analyst, setupHarness } from "../helpers/harness";
 
 beforeAll(() => {
@@ -103,11 +103,25 @@ describe("kyc case file", () => {
     );
   });
 
-  it("kyc_0104, a low-risk UK business checked by hand, approves straight through for a reviewer", () => {
-    const result = act(analyst, "approve", "kyc_0104");
-    expect(result.outcome.status).toBe("applied");
-    expect(traceOf(result.outcome).every((o) => o.type === "allow")).toBe(true);
+  it("the only approved UK business cases are the four seeded merchants, and kyc_0104 opens clean", () => {
+    const approvedUkBusiness = db
+      .select({ id: kycCases.id })
+      .from(kycCases)
+      .where(
+        and(
+          eq(kycCases.country, "GB"),
+          eq(kycCases.segment, "business"),
+          eq(kycCases.status, "approved"),
+        ),
+      )
+      .all()
+      .map((r) => r.id)
+      .sort();
+    expect(approvedUkBusiness).toEqual(["kyc_0104", "kyc_0105", "kyc_0106", "kyc_0107"]);
     expect(kycTool.get("kyc_0104")?.materialDifferences).toBe(0);
+    const registry = caseFile("kyc_0104").checks.find((c) => c.kind === "company_registry");
+    expect(registry?.result).toBe("clear");
+    expect(registry?.detail).toContain("Checked by hand");
   });
 
   it("kyc_0103 needs a manager by declared_vs_found only", () => {

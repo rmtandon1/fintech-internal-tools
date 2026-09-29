@@ -15,7 +15,7 @@ A run starts from the screen that shows why it is needed, so the request carries
 | Request | Starts from | Button | Role |
 |---|---|---|---|
 | New rule | Cluster drawer on `/t/refunds` | **Ask Devin for a rule** | Manager, admin |
-| New check (`COMPANIES_HOUSE_CHECK.md`) | A UK business case, `/t/kyc/<id>` | **Ask Devin to add a check** | Manager, admin. An Analyst sees no button |
+| Merchant monitoring (`COMPANIES_HOUSE_CHECK.md`) | A UK business case, `/t/kyc/<id>` | **Ask Devin to monitor merchants** | Manager, admin. An Analyst sees no button |
 | New app (`CHARGEBACKS_FROM_POWER_APPS.md`) | Its Coming soon page, `/roadmap/chargebacks`, once its export is committed | **Ask Devin to start this app** | Admin. Managers see it greyed out with who can ask |
 | Rule change or rule removal | A rule's row in the policy trace, or `/admin/policy` | **Ask Devin to change this rule** / **to remove this rule** | Manager of the rule's domain, admin (removal: admin) |
 | Undo a change | A merged change in `/runs` | **Undo this change** | Admin |

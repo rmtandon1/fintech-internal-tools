@@ -63,6 +63,16 @@ describe("refunds clusters", () => {
     }
   });
 
+  it("Wilko's seeded refunds form no cluster and each settles for an analyst today", () => {
+    expect(notReceivedByMerchant().find((g) => g.key === "Wilko")).toBeUndefined();
+    const record = refundTool.get("rfnd_0015");
+    if (!record) throw new Error("missing rfnd_0015");
+    const preview = previewActions(refundTool, record, analyst).find(
+      (p) => p.action === "execute",
+    );
+    expect(preview?.decision?.effect).toBe("allow");
+  });
+
   it("excludes a merchant whose single refund is over the manager line", () => {
     const now = Date.now();
     db.insert(refunds)

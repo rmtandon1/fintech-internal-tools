@@ -1,73 +1,107 @@
-# Companies House Check
+# Merchant monitoring (Companies House)
 
 ## Summary
 
-- KYC analysts check every UK business customer on Companies House by hand, in another tab.
-- A manager asks Devin to add the check from the case that needs it. Devin builds a
-  Companies House client, records what it finds as the case's company registry check, and adds
-  a material row to Declared vs found when the company is dissolved, in liquidation or late
-  with its accounts.
-- The existing `declared_vs_found` rule then holds approval for a manager. No new rule.
-- Allowed paths: `tools/kyc/**`, `.env.example` and tests. Nothing under `packages/`.
+- UK rules require ongoing monitoring of approved customers, not a one-time check at
+  onboarding.
+- Merchants are checked by hand once at onboarding and never again. Wilko Limited
+  (00365335), approved in 2021, is now in liquidation under its new registered name
+  WL REALISATIONS (2023) LIMITED, and its "not received" refunds are still paid
+  straight through.
+- A manager or admin asks Devin to build the monitoring: a daily recheck of approved
+  UK merchants, and a hold on an insolvent merchant's refunds for a Manager.
+- Allowed paths: `tools/kyc/**`, `tools/refunds/**`, `apps/console/src/schema.ts`,
+  `apps/console/drizzle/**`, `apps/console/scripts/**`, `apps/console/package.json`,
+  `.env.example` and tests. Nothing under `packages/`.
 
 ## Today
 
-The analyst opens Companies House in a browser, types the registration number, reads the
-company's status and filing history, and types a note into the case. The console's
-"Company registry" check is filled in by hand.
+The analyst opens Companies House in a browser once, at onboarding, types the
+registration number, reads the company's status and types a note into the case. From
+then on nobody looks again. Wilko's company registry check still reads "Checked by
+hand at onboarding: active" — it was true in 2021, and nothing has looked since.
 
-In Power Apps, a flow that called the Companies House API would need the premium HTTP
-connector, licensed for every user who runs it. In practice nobody builds it, and the lookup
-stays manual.
+In Power Apps, a daily recheck would need a scheduled flow and the premium HTTP
+connector, licensed for every user it runs as. In practice nobody builds it, and the
+monitoring stays a policy on paper.
 
 ## The request
 
 The request box in the handoff panel starts empty, with this sentence from
-`tools/automation/src/specs.ts` as a grey suggestion Tab accepts; the requester may type their
-own:
+`tools/automation/src/specs.ts` as a grey suggestion Tab accepts; the requester may
+type their own:
 
-> Add a Companies House connector to KYC: a check action on UK business cases that feeds
-> Declared vs found, so the existing approval rule holds dissolved, liquidating or overdue
-> companies.
+> Recheck approved UK merchants against Companies House every day; when one enters
+> administration, liquidation or dissolution, send it and its refunds to a Manager
+> for review.
 
-The key handling, the failure behaviour, the recorded responses and the off-by-default setting
-come from `DEVIN_RUN_PROTOCOL.md` › House rules, not the request.
+The key handling, the failure behaviour, the recorded responses and the
+off-by-default setting come from `DEVIN_RUN_PROTOCOL.md` › House rules, not the
+request.
 
 ## Where it starts
 
-`/t/kyc/kyc_0104`, Thornbury Couriers Ltd, registration number 09318842, risk score 34. Its
-company registry check reads "Checked by hand: active, directors match", and a reviewer can
-approve it on the spot today. The **Ask Devin to add a check** button shows on UK business
-cases for a manager or an admin. An Analyst doesn't see it.
+`/t/kyc/kyc_0104`, Wilko Limited, registration number 00365335, risk score 28,
+approved in 2021. Its company registry check reads "Checked by hand at onboarding:
+active". The **Ask Devin to monitor merchants** button shows on UK business cases
+for a KYC manager or an admin. An Analyst doesn't see it.
 
-What Devin gets: the case id, the company's name and registration number, its country and
-status, and today's hand-typed registry check. No contact email, no person's name or document.
+What Devin gets: the case id, the company's name and registration number, its
+country and status, and today's hand-typed registry check. No contact email, no
+person's name or document.
+
+## What Devin must discover
+
+- **Refunds only carry a merchant name.** There is no link from a refund to the
+  merchant's KYC case; the migration that adds it must backfill existing refunds.
+- **Nothing runs on a schedule.** There is no scheduler and no audited system actor;
+  the daily recheck and the admin's "Recheck now" both have to write through
+  `executeIntent`.
+- **Refund rules can't read KYC.** The hold on an insolvent merchant's refunds is a
+  new join between two tools, and it needs the case id, not the merchant name.
 
 ## Reviewer checklist
 
-- **Only UK business cases.** Consumer cases and non-UK businesses are untouched.
-- **Writes go through `executeIntent`.** The lookup runs from a KYC action, and the check and
-  any difference it records are that action's audited effect. Opening a case writes nothing.
-- **The key stays on the server.** `COMPANIES_HOUSE_API_KEY` is read server-side, documented in
-  `.env.example`, and never logged or sent to the browser.
-- **Recorded responses are labelled.** Without the key, results come from committed recorded
-  responses and the check says "test data"; no recording invents a seeded company's result.
-- **Failure holds, never passes.** A timeout, an error or an unknown number shows "couldn't
-  check" and holds approval like a material difference.
-- **It reuses what exists.** The check writes to `kyc_checks` and `kyc_discrepancies`, and
-  `declared_vs_found` does the holding. A second rule that duplicates it is a finding.
-- **Tests cover each outcome:** active, dissolved, in liquidation, accounts overdue, not found,
-  and an API error. No test calls the live API.
-- **A settings switch.** The check sits behind a KYC rule setting, 0 by default: at 0 no case
-  changes, at 1 the check runs. The setting is declared by the KYC tool.
+- **Approved UK merchants only.** One Companies House lookup per merchant per run;
+  consumer and non-UK cases are untouched.
+- **Insolvency is material.** Administration, liquidation or dissolution adds a
+  material Declared vs found row with the registry's status and current name, and
+  flags the case for a Manager; `declared_vs_found` does the holding, with no
+  duplicate rule.
+- **Its refunds wait for a Manager.** Pending refunds and any new ones leave the
+  Analyst's queue, and the trace names the rule, the merchant and its Companies
+  House status.
+- **Refunds link by id.** A migration adds the KYC case link and backfills existing
+  refunds; no name matching when a refund is decided.
+- **Idempotent.** An active company changes nothing, and a rerun adds no duplicate
+  checks, findings or holds.
+- **Failure flags, never passes.** A timeout, an error or an unknown number records
+  "couldn't check" and flags the case for a Manager, without holding its refunds.
+- **Two audited entry points.** A daily scheduled run and an admin "Recheck now"
+  action both write through `executeIntent` as a system actor, and report the
+  result across every merchant checked.
+- **The key stays on the server.** `COMPANIES_HOUSE_API_KEY` is read server-side,
+  documented in `.env.example`, and never logged or sent to the browser.
+- **Recorded responses.** Tests replay recorded responses for active,
+  administration, liquidation, dissolved, not found, an error and a timeout, with
+  no live call; no recording invents a seeded company's result.
+- **Off until an admin turns it on.** The recheck sits behind a KYC rule setting
+  the KYC tool declares, 0 by default; at 0 there are no lookups and no holds.
 
 ## After merge
 
-1. An admin turns the Companies House setting on in `/admin/policy` (rule settings).
-2. As Analyst, open `kyc_0104` and run the Companies House check.
-3. The Company registry check reads "Accounts overdue" from Companies House (test data), and
-   Declared vs found gains a material row.
-4. **Approve** now needs a manager, and the trace names `declared_vs_found`.
+1. An admin sets the merchant monitoring setting to 1 in `/admin/policy` (rule
+   settings) and presses **Recheck now**.
+2. Expected outcome: "4 UK merchants checked · 1 in liquidation · 5 refunds sent to
+   a manager".
+3. Wilko's case shows the live status and a Declared vs found row: declared "Wilko
+   Limited, active", found "WL REALISATIONS (2023) LIMITED, liquidation". Its five
+   refunds are in the Manager queue.
+4. Lakeland, Timpson and Screwfix are unchanged.
 
-Before the merge, the same click approves Thornbury Couriers on the strength of a check typed
-by hand at onboarding, and until the setting is on the merge changes nothing.
+For the live beat, `COMPANIES_HOUSE_API_KEY` must be in the root `.env`; without it
+the recheck replays recorded responses and labels the result "test data".
+
+Before the merge, Wilko's refunds settle straight through on the strength of a
+registry check typed by hand in 2021, and until the setting is on the merge changes
+nothing.
