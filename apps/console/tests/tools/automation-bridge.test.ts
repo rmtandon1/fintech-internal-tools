@@ -1308,6 +1308,30 @@ describe("HTTP clients", () => {
     expect(http.seen).toHaveLength(2);
   });
 
+  it("Devin client resumes message paging from the last full page it read", async () => {
+    let polls = 0;
+    const http = recorder({
+      "GET https://api.devin.ai/v3/organizations/org_1/sessions/devin-2/messages?first=100&after=c1": () => ({
+        items: [
+          { source: "devin", message: "Running the baseline tests" },
+          ...(++polls > 1 ? [{ source: "devin", message: "Editing the rule" }] : []),
+        ],
+        end_cursor: null,
+        has_next_page: false,
+      }),
+      "GET https://api.devin.ai/v3/organizations/org_1/sessions/devin-2/messages?first=100": () => ({
+        items: [{ source: "devin", message: "Starting run" }],
+        end_cursor: "c1",
+        has_next_page: true,
+      }),
+    });
+    const client = httpDevinClient({ apiKey: "k", orgId: "org_1" }, http.fetchImpl);
+    expect(await client.latestMessage?.("devin-2")).toBe("Running the baseline tests");
+    const again = httpDevinClient({ apiKey: "k", orgId: "org_1" }, http.fetchImpl);
+    expect(await again.latestMessage?.("devin-2")).toBe("Editing the rule");
+    expect(http.seen.map((r) => r.url.split("?")[1])).toEqual(["first=100", "first=100&after=c1", "first=100&after=c1"]);
+  });
+
   it("Devin client surfaces API errors with status and path", async () => {
     const fetchImpl: FetchLike = async () => new Response("nope", { status: 403 });
     const client = httpDevinClient({ apiKey: "k", orgId: "org_1" }, fetchImpl);

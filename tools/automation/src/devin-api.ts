@@ -74,6 +74,9 @@ export const DEVIN_API_BASE = "https://api.devin.ai/v3";
 /** Pages of 100 read when looking for Devin's latest message. */
 const MESSAGE_PAGE_LIMIT = 20;
 
+/** Per session: the cursor of the last full page read and the latest Devin message up to it. */
+const messageCursors = new Map<string, { after: string | null; latest: string | null }>();
+
 export class DevinApiError extends Error {
   constructor(
     readonly status: number,
@@ -191,14 +194,11 @@ export function httpDevinClient(creds: DevinCredentials, fetchImpl: FetchLike): 
       };
     },
     async latestMessage(sessionId) {
-      let latest: string | null = null;
-      let after: string | null = null;
+      const path = `${await orgPath()}/sessions/${encodeURIComponent(sessionId)}/messages`;
+      let { after, latest } = messageCursors.get(path) ?? { after: null, latest: null };
       for (let page = 0; page < MESSAGE_PAGE_LIMIT; page++) {
         const query = new URLSearchParams({ first: "100", ...(after ? { after } : {}) });
-        const json = await call(
-          `${await orgPath()}/sessions/${encodeURIComponent(sessionId)}/messages?${query}`,
-          { method: "GET" },
-        );
+        const json = await call(`${path}?${query}`, { method: "GET" });
         const items = field(json, "items");
         for (const item of Array.isArray(items) ? items : []) {
           const text = field(item, "message");
@@ -208,6 +208,7 @@ export function httpDevinClient(creds: DevinCredentials, fetchImpl: FetchLike): 
         if (field(json, "has_next_page") !== true || typeof cursor !== "string") break;
         after = cursor;
       }
+      messageCursors.set(path, { after, latest });
       return latest;
     },
     async sendMessage(sessionId, message) {
