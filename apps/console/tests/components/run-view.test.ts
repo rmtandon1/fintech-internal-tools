@@ -70,7 +70,7 @@ function render(p: RunViewPayload): string {
 describe("runTitle", () => {
   it("names what Devin is doing from the spec's summary for the operation", () => {
     expect(runTitle(payload())).toBe(
-      "Holding the merchant's not-received refunds once together they pass the manager line, and sending those customers' KYC approvals to a manager.",
+      "Devin is holding split refunds that add up past the manager limit.",
     );
   });
 });
