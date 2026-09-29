@@ -215,6 +215,10 @@ describe("dispatchRun", () => {
     expect(req.prompt).not.toContain("COMPANIES_HOUSE_CHECK");
     expect(req.title).not.toContain("COMPANIES_HOUSE_CHECK");
     expect(req.prompt).toContain(".devin/run-protocol.playbook.md");
+    expect(req.prompt).toContain("1. Intake\n2. Baseline\n3. Plan\n4. Edit\n5. Verify\n6. Pull request\n7. Merge");
+    expect(req.prompt).toContain('"Step N of 7 complete: <step>: <one-line result>"');
+    expect(req.title).not.toContain(out.runId);
+    expect(req.title).not.toMatch(/\.$/);
     expect(req.prompt).not.toContain("Repository:");
   });
 

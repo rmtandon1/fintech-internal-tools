@@ -160,6 +160,9 @@ interface SessionPromptInput {
   base: { branch: string; commit: string };
 }
 
+/** The playbook's procedure steps, listed in the prompt so the session shows them up front. */
+const RUN_STEPS = ["Intake", "Baseline", "Plan", "Edit", "Verify", "Pull request", "Merge"] as const;
+
 /**
  * The session's prompt. Only a sendSpec run's prompt names the spec; the
  * others get the sentence and the attachment, and work the rest out from the
@@ -183,6 +186,10 @@ export function sessionPrompt(input: SessionPromptInput): string {
           "The attachment is the whole brief: work out the behaviour the sentence leaves unsaid from the code and its tests. Do not open the feature specs under docs/.",
         ]),
     "Follow .devin/run-protocol.playbook.md and docs/DEVIN_RUN_PROTOCOL.md.",
+    "",
+    "Steps:",
+    ...RUN_STEPS.map((step, i) => `${i + 1}. ${step}`),
+    `After each step, post one chat message: "Step N of ${RUN_STEPS.length} complete: <step>: <one-line result>".`,
   ].join("\n");
 }
 
@@ -285,7 +292,7 @@ export async function dispatchRun(
         deps.playbookId ?? (await deps.resolvePlaybookId?.().catch(() => null)) ?? undefined;
       const created = await deps.devin.createSession({
         prompt,
-        title: `${req.operation} ${spec.tool} (${runId})`,
+        title: spec.summaries[req.operation].replace(/\.$/, ""),
         tags: [`run:${runId}`, `operation:${req.operation}`],
         attachment: { name: "context.json", body: built.json },
         structuredOutputSchema: STRUCTURED_OUTPUT_JSON_SCHEMA,
