@@ -234,7 +234,7 @@ describe("kyc linked refund hold", () => {
   it("a case with no customer in a held cluster approves without linked_refund_hold", () => {
     const record = kycTool.get("kyc_0001");
     if (!record) throw new Error("missing kyc_0001");
-    expect(heldClusterFor(record.email)).toBeNull();
+    expect(heldClusterFor(String(record.email))).toBeNull();
     const result = act(kycReviewer, "kyc", "approve", "kyc_0001");
     expect(result.outcome.status).toBe("applied");
     expect(traceOf(result.outcome)).toContainEqual({ type: "allow", rule: "linked_refund_hold" });
