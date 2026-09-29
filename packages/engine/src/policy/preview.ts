@@ -82,6 +82,36 @@ export function previewActions(
 
     const parsed = action.input.safeParse(inputs[action.name] ?? {});
     if (!parsed.success) {
+      if (action.routeToApprover) {
+        const decision = evaluatePolicy(action.rules, {
+          actor,
+          tool: decl.name,
+          action: action.name,
+          record,
+          input: {},
+          constants,
+        });
+        if (decision.effect === "require_approval") {
+          const reason = decision.reason ?? "Approval required";
+          const tier = decision.tier ?? "manager";
+          const actsAsApprover = decision.allowedRoles?.includes(actor.role) ?? false;
+          if (!actsAsApprover) {
+            return {
+              ...base,
+              offered: false,
+              routedTo: { tier, reason },
+              decision,
+            };
+          }
+          return {
+            ...base,
+            offered: true,
+            needsInput: true,
+            actsAsApprover: true,
+            decision,
+          };
+        }
+      }
       return { ...base, offered: true, needsInput: true, decision: null };
     }
 

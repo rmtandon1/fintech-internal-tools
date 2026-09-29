@@ -174,7 +174,8 @@ export interface ActionDecl<TRecord = unknown, TInput = unknown, TPatch = unknow
   createsRecord?: boolean;
   /**
    * When policy requires approval, only the policy's allowed roles may apply
-   * the action directly; no approval request is raised.
+   * the action directly; no approval request is raised. Routing is decided
+   * before the form is filled, so its rules must not read input.
    */
   routeToApprover?: boolean;
   rules: Rule<TRecord, TInput>[];

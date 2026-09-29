@@ -4,6 +4,7 @@ import { ulid } from "ulid";
 import { db } from "@console/db";
 import { approvalRequests, auditLog } from "@console/db-core/engine-schema";
 import { executeIntent } from "@console/engine/execute-intent";
+import { previewActions } from "@console/engine/policy/preview";
 import { registerConstants } from "@console/engine/policy/register";
 import type { Actor, GovernedRecord, Rule } from "@console/engine/types";
 import { refundTool } from "@console/tool-refunds";
@@ -31,6 +32,12 @@ function act(
     input,
     idempotencyKey: ulid(),
   });
+}
+
+function previewAction(actor: Actor, recordId: string, action: string) {
+  const record = refundTool.get(recordId);
+  if (!record) throw new Error(`missing ${recordId}`);
+  return previewActions(refundTool, record, actor).find((preview) => preview.action === action);
 }
 
 function approvalRows(recordId: string, action: string) {
@@ -91,6 +98,44 @@ describe("refund queues", () => {
     } finally {
       execute.rules.pop();
     }
+  });
+});
+
+describe("refund previews", () => {
+  it("routes a missing-input refund rejection to a manager", () => {
+    const analystReject = previewAction(analyst, "rfnd_0003", "reject");
+    expect(analystReject).toMatchObject({
+      offered: false,
+      routedTo: { tier: "manager", reason: "Amount exceeds manager threshold" },
+      decision: { effect: "require_approval" },
+    });
+
+    const analystExecute = previewAction(analyst, "rfnd_0003", "execute");
+    expect(analystExecute).toMatchObject({
+      offered: false,
+      routedTo: { tier: "manager", reason: "Amount exceeds manager threshold" },
+      decision: { effect: "require_approval" },
+    });
+
+    const managerReject = previewAction(manager, "rfnd_0003", "reject");
+    expect(managerReject).toMatchObject({
+      offered: true,
+      needsInput: true,
+      actsAsApprover: true,
+      decision: { effect: "require_approval" },
+    });
+
+    expect(previewAction(manager, "rfnd_0003", "execute")).toMatchObject({
+      offered: true,
+      actsAsApprover: true,
+    });
+  });
+
+  it("keeps a small refund rejection available while its reason is missing", () => {
+    expect(previewAction(analyst, "rfnd_0001", "reject")).toMatchObject({
+      offered: true,
+      needsInput: true,
+    });
   });
 });
 
