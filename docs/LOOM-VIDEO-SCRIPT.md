@@ -26,13 +26,7 @@
 >
 > "Leaving it means owning all five. Each part of this demo replaces one, in code your team owns."
 
-| Power Apps gives you | In this console | Where you'll see it |
-|---|---|---|
-| App builder | Each app is a declared tool on one shared shell | Part 3, Apps |
-| Dataverse | Tables per app, a role check on every action | Throughout |
-| Connectors (premium ones licensed per user or per app) | Code that calls the service, key kept on the server | Part 2, Connectors |
-| Power Automate | Rules and approvals on one governed write path | Part 1, Rules |
-| Admin plane | Roles, live rule settings, one audit log | Part 1, Rules |
+The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than reading the table here.
 
 **◀ CONSOLE.** [Viewing as Refunds manager, on the home page.]
 
@@ -228,16 +222,9 @@
 
 ## 💷 What It Costs (20 seconds)
 
-**▶ SLIDE 3 · What it costs.** The slide carries the table below.
+**▶ SLIDE 3 · What it costs.** Refer to the comparison table on the slide.
 
 > "There are three ways to run this."
-
-| | Power Apps today | Your engineers | Your engineers + Devin |
-|---|---|---|---|
-| Adding a rule | About 30 minutes, no one checks it | 1–2 weeks | Same day, checked by an engineer |
-| Turning a rule off | Edit it live | Ship a fix | Flip a switch in settings |
-| Removing a rule | Rarely happens | Waits for a ticket | Devin removes it and an engineer checks |
-| Adding an app | More licences | Weeks of work | One pull request to start, security built in |
 
 > "You still need engineers. They check the work instead of writing it."
 
