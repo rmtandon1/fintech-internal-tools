@@ -468,6 +468,11 @@ export function RunView({
             </span>
           ) : null}
         </section>
+        {run.status === "stopped" && run.lastNote ? (
+          <p className="px-5 pt-1 text-xs text-muted-foreground" data-testid="stopped-reason">
+            Stopped: {run.lastNote}
+          </p>
+        ) : null}
 
         {thinking ? (
           <section

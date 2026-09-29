@@ -35,6 +35,7 @@ import {
   isSynced,
   observeGitHubApproval,
   observeMerge,
+  prClosedReason,
   observeRun,
   pollRun,
   readReplay,
@@ -105,6 +106,8 @@ function fakeDevin(script: {
 
 function fakeGitHub(state: {
   merged?: boolean;
+  /** Closed on GitHub; a merged PR is closed too. */
+  closed?: boolean;
   green?: boolean;
   contextSha?: string | null;
   approved?: boolean;
@@ -119,6 +122,7 @@ function fakeGitHub(state: {
       return {
         headSha: HEAD,
         headRef: "devin/run",
+        state: state.merged || state.closed ? "closed" : "open",
         merged: state.merged ?? false,
         mergeCommit: state.merged ? MERGE : null,
       };
@@ -916,6 +920,43 @@ describe("observeMerge and stopRun", () => {
     ]);
   });
 
+  it("stops a run whose PR GitHub reports closed without a merge, once", async () => {
+    const run = await approved();
+    const closed = await observeMerge(admin, run, deps({ github: fakeGitHub({ closed: true }).client }));
+    expect(closed.kind).toBe("closed");
+    if (closed.kind !== "closed") throw new Error(closed.kind);
+    expect(closed).toMatchObject({ prUrl: PR, number: 99 });
+    expect(closed.stop.outcome.status).toBe("applied");
+    const after = getRun(run.id);
+    expect(after?.status).toBe("stopped");
+    expect(after?.mergeCommit).toBeNull();
+    expect(after?.lastNote).toBe(prClosedReason(closed.number));
+    const stops = auditTrailFor("devin_run", run.id).filter((row) => row.action === "stop");
+    expect(stops).toHaveLength(1);
+
+    const again = await observeMerge(admin, run, deps({ github: fakeGitHub({ closed: true }).client }));
+    expect(again.kind).toBe("closed");
+    if (again.kind === "closed") expect(again.stop.replayed).toBe(true);
+    expect(auditTrailFor("devin_run", run.id).filter((row) => row.action === "stop")).toHaveLength(1);
+  });
+
+  it("stops a running run whose PR was closed before any approval", async () => {
+    stopAll();
+    const out = await dispatchRun(admin, request, deps({ devin: fakeDevin({}).client }));
+    const run = getRun(out.runId);
+    if (!run) throw new Error("no run");
+    const closed = await observeMerge(engineer, run, deps({ github: fakeGitHub({ closed: true }).client, devin: reportingPr().client }));
+    expect(closed.kind).toBe("closed");
+    const after = getRun(run.id);
+    expect(after?.status).toBe("stopped");
+    expect(after?.approvedBy).toBeNull();
+    expect(auditTrailFor("devin_run", run.id).map((row) => row.action)).toEqual([
+      "stop",
+      "record_session",
+      "dispatch",
+    ]);
+  });
+
   it("stays unavailable without a PR from either the run or its session", async () => {
     stopAll();
     const out = await dispatchRun(admin, request, deps({ devin: fakeDevin({}).client }));
@@ -1563,6 +1604,7 @@ describe("HTTP clients", () => {
     const http = recorder({
       "GET https://api.github.com/repos/o/r/pulls/7": () => ({
         head: { sha: HEAD, ref: "devin/run" },
+        state: "closed",
         merged: true,
         merge_commit_sha: MERGE,
       }),
@@ -1585,7 +1627,7 @@ describe("HTTP clients", () => {
     expect(ref).toEqual({ owner: "o", repo: "r", number: 7 });
 
     const pull = await client.getPull(ref);
-    expect(pull).toEqual({ headSha: HEAD, headRef: "devin/run", merged: true, mergeCommit: MERGE });
+    expect(pull).toEqual({ headSha: HEAD, headRef: "devin/run", state: "closed", merged: true, mergeCommit: MERGE });
     const checks = await client.getChecks(ref, HEAD);
     expect(checks.green).toBe(false);
     expect(checks.summary).toContain("pending: lint");

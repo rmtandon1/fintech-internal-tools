@@ -68,6 +68,8 @@ Its effect submits an approving review to GitHub as the engineer, then messages 
 
 `record_merge` accepts a run in `approved` or `running`. A merge GitHub reports before the console recorded an approval is still written, with `approvedBy` left null and the run's note set to `Merged on GitHub without a recorded approval`: the audit trail shows the gap rather than hiding it.
 
+A PR GitHub reports closed without a merge lands `stop` instead, from `running` or `approved`, with the reason `PR #N was closed on GitHub without merging`; the run view shows it as `Stopped: PR #N was closed on GitHub without merging`.
+
 Every run therefore appears in the hash chain five times: when it was asked for, when Devin picked it up, when it opened its pull request, when an engineer approved it, and when it merged.
 
 ## What the console hands Devin

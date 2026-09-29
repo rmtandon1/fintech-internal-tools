@@ -19,7 +19,7 @@ import {
   type SessionSnapshot,
 } from "@console/tool-automation";
 import { replayDevinClient, replayGitHubClient, scriptedFrames } from "../helpers/scripted-clients";
-import { approveRun, dispatchRun } from "@console/tool-automation/bridge";
+import { approveRun, dispatchRun, prClosedReason } from "@console/tool-automation/bridge";
 import { devinRuns } from "@console/tool-automation/schema";
 import { kycTool } from "@console/tool-kyc";
 import { refundTool } from "@console/tool-refunds";
@@ -224,6 +224,7 @@ describe("GET /api/devin/<runId>", () => {
         return {
           headSha: "c".repeat(40),
           headRef: "devin/run",
+          state: "closed" as const,
           merged: true,
           mergeCommit: "d".repeat(40),
         };
@@ -256,13 +257,19 @@ describe("GET /api/devin/<runId>", () => {
     expect(listAuditEvents({ recordId: out.runId, action: "stop" }).rows).toHaveLength(0);
   });
 
-  /** A GitHub whose PR carries `reviews` at the head and is merged when `merged`. */
-  function githubWith(state: { reviews?: { login: string; body?: string }[]; merged?: boolean; contextSha: () => string | null }) {
+  /** A GitHub whose PR carries `reviews` at the head and is merged when `merged`, closed unmerged when `closed`. */
+  function githubWith(state: {
+    reviews?: { login: string; body?: string }[];
+    merged?: boolean;
+    closed?: boolean;
+    contextSha: () => string | null;
+  }) {
     const client: GitHubClient = {
       async getPull() {
         return {
           headSha: "c".repeat(40),
           headRef: "devin/run",
+          state: state.merged || state.closed ? "closed" : "open",
           merged: state.merged ?? false,
           mergeCommit: state.merged ? "d".repeat(40) : null,
         };
@@ -347,6 +354,63 @@ describe("GET /api/devin/<runId>", () => {
     expect(merged.githubSyncedAt).toBe(t);
     expect(listAuditEvents({ recordId: out.runId, action: "record_merge" }).rows).toHaveLength(1);
     expect(listAuditEvents({ recordId: out.runId, action: "approve_pr" }).rows).toHaveLength(0);
+  });
+
+  it("stops a running run whose PR was closed on GitHub without a merge, once", async () => {
+    stopAll();
+    const devin = prReported();
+    const github = githubWith({ closed: true, contextSha: () => null });
+    const d = { ...deps(), devin: devin.client, github };
+    const out = await dispatchRun(admin, request, d);
+
+    const body = (await handleGet(out.runId, admin, d)).body as RunViewPayload;
+    expect(body.run.status).toBe("stopped");
+    expect(body.run.prUrl).toMatch(/pull\/990$/);
+    expect(body.run.mergeCommit).toBeNull();
+    expect(body.run.lastNote).toBe(prClosedReason(990));
+    expect(body.githubSyncedAt).toBe(t);
+    const stops = listAuditEvents({ recordId: out.runId, action: "stop" }).rows;
+    expect(stops).toHaveLength(1);
+    expect(JSON.stringify(stops[0])).toContain(prClosedReason(990));
+    expect(listAuditEvents({ recordId: out.runId, action: "record_merge" }).rows).toHaveLength(0);
+
+    const again = (await handleGet(out.runId, admin, d)).body as RunViewPayload;
+    expect(again.run.status).toBe("stopped");
+    expect(listAuditEvents({ recordId: out.runId, action: "stop" }).rows).toHaveLength(1);
+  });
+
+  it("stops a run with a recorded PR closed on GitHub even when the session poll fails", async () => {
+    stopAll();
+    const reporting = prReported();
+    const d = { ...deps(), devin: reporting.client, github: githubWith({ contextSha: () => null }) };
+    const out = await dispatchRun(admin, request, d);
+    const open = (await handleGet(out.runId, admin, d)).body as RunViewPayload;
+    expect(open.run.status).toBe("running");
+    expect(open.run.prUrl).toMatch(/pull\/990$/);
+
+    const unreachable: DevinClient = {
+      ...reporting.client,
+      async getSession() {
+        throw new Error("Devin API 503");
+      },
+    };
+    const closed = { ...d, devin: unreachable, github: githubWith({ closed: true, contextSha: () => null }) };
+    const body = (await handleGet(out.runId, admin, closed)).body as RunViewPayload;
+    expect(body.run.status).toBe("stopped");
+    expect(body.run.lastNote).toBe(prClosedReason(990));
+  });
+
+  it("leaves a running run alone while its PR is open", async () => {
+    stopAll();
+    const devin = prReported();
+    const d = { ...deps(), devin: devin.client, github: githubWith({ contextSha: () => null }) };
+    const out = await dispatchRun(admin, request, d);
+
+    const body = (await handleGet(out.runId, admin, d)).body as RunViewPayload;
+    expect(body.run.status).toBe("running");
+    expect(body.run.prUrl).toMatch(/pull\/990$/);
+    expect(listAuditEvents({ recordId: out.runId, action: "stop" }).rows).toHaveLength(0);
+    expect(listAuditEvents({ recordId: out.runId, action: "record_merge" }).rows).toHaveLength(0);
   });
 
   it("reports no GitHub sync when the server has no GitHub client", async () => {

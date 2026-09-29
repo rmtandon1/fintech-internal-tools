@@ -184,6 +184,14 @@ export async function observeAutomationMerge(runId: string): Promise<BridgeResul
       }
       case "open":
         return { ok: true, title: "Not live yet", detail: outcome.prUrl, retry: true };
+      case "closed": {
+        const stopped = outcome.stop.outcome.status === "applied";
+        return {
+          ok: stopped,
+          title: stopped ? `Stopped: PR #${outcome.number} was closed` : `PR #${outcome.number} was closed, run not stopped`,
+          detail: describeIntent(outcome.stop),
+        };
+      }
       case "unavailable":
         return { ok: false, title: "Can't check", detail: outcome.reason };
     }

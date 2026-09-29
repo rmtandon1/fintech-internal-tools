@@ -147,8 +147,9 @@ export async function handleGet(
       }
     }
   }
-  // A run with a PR may have merged since; observe it as the approver.
-  if (run.status === "approved" || (run.status === "running" && run.prUrl)) {
+  // An in-flight run with a PR may have merged or been closed since; observe
+  // it as the approver.
+  if (IN_FLIGHT_STATUSES.includes(run.status as RunStatus) && (run.status === "approved" || run.prUrl)) {
     const merge = await observeMerge(mergeRecorder(run, actor), run, deps).catch(() => null);
     if (merge) githubRead ||= readGitHub(merge);
     run = getRun(runId) ?? run;
