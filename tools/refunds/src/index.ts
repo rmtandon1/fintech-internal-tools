@@ -210,7 +210,7 @@ export const refundTool = defineTool<Refund>({
       name: "reasonCode",
       label: "Reason",
       type: "enum",
-      enumValues: ["duplicate", "not_received", "faulty", "cancelled", "goodwill", "fraud"],
+      enumValues: ["duplicate", "not_received", "faulty", "cancelled", "goodwill", "fraud", "partial_delivery"],
     },
     { name: "disputed", label: "Dispute open", type: "boolean" },
     { name: "requestedBy", label: "Requested by", type: "string" },
@@ -250,6 +250,7 @@ export const refundTool = defineTool<Refund>({
         { value: "cancelled", label: "Cancelled" },
         { value: "goodwill", label: "Goodwill" },
         { value: "fraud", label: "Fraud" },
+        { value: "partial_delivery", label: "Partially Delivered" 
       ],
     },
     {
