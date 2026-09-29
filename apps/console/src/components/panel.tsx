@@ -8,12 +8,14 @@ export function Panel({
   title,
   actions,
   className,
+  headerClassName,
   bodyClassName,
   children,
 }: {
   title: React.ReactNode;
   actions?: React.ReactNode;
   className?: string;
+  headerClassName?: string;
   bodyClassName?: string;
   children: React.ReactNode;
 }) {
@@ -24,7 +26,12 @@ export function Panel({
         className,
       )}
     >
-      <header className="flex min-h-11 shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2 text-sm font-semibold text-foreground">
+      <header
+        className={cn(
+          "flex min-h-11 shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-2 text-sm font-semibold text-foreground",
+          headerClassName,
+        )}
+      >
         <span className="min-w-0 truncate">{title}</span>
         {actions ? (
           <span className="ml-auto flex flex-wrap items-center gap-2 font-normal">

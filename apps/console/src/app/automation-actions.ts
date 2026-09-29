@@ -34,6 +34,8 @@ export interface BridgeResult {
   href?: string;
   /** The run a dispatch created, so the caller can focus it in place. */
   runId?: string;
+  /** The prompt a dispatch created the session with. */
+  prompt?: string;
   /** The audit row the intent wrote, when the outcome carries one. */
   auditId?: string;
   /** The client should wait and call the action again (merge check retries). */
@@ -79,6 +81,7 @@ export async function dispatchAutomationRun(form: FormData): Promise<BridgeResul
         title: "Devin couldn't start",
         detail: run.lastNote ?? undefined,
         runId: outcome.runId,
+        prompt: outcome.prompt ?? undefined,
       };
     }
     return {
@@ -86,6 +89,7 @@ export async function dispatchAutomationRun(form: FormData): Promise<BridgeResul
       title: "Sent to Devin",
       detail: describeIntent(outcome.session),
       runId: outcome.runId,
+      prompt: outcome.prompt ?? undefined,
     };
   } catch (error) {
     return { ok: false, title: "Request failed", detail: message(error) };

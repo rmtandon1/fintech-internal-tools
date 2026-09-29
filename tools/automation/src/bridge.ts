@@ -18,7 +18,7 @@ import {
   type ReplayFrame,
   StructuredOutput,
 } from "./run-files";
-import { getSpec, type Operation } from "./specs";
+import { getSpec, type Operation, type RunnableSpec } from "./specs";
 
 /**
  * The bridge between the governed `automation` actions and the outside world.
@@ -83,6 +83,8 @@ export interface DispatchOutcome {
   /** The `record_session` result; null when `dispatch` itself did not apply. */
   session: IntentResult | null;
   sessionUrl: string | null;
+  /** The prompt composed for the session; null when `dispatch` itself did not apply. */
+  prompt: string | null;
 }
 
 export function runDir(repoRoot: string, runId: string): string {
@@ -149,6 +151,54 @@ function errorText(error: unknown): string {
   return (error instanceof Error ? error.message : String(error)).slice(0, 1000);
 }
 
+interface SessionPromptInput {
+  runId: string;
+  operation: Operation;
+  intent: string;
+  spec: RunnableSpec;
+  repository?: string;
+  base: { branch: string; commit: string };
+}
+
+/**
+ * The session's prompt. Only a sendSpec run's prompt names the spec; the
+ * others get the sentence and the attachment, and work the rest out from the
+ * code.
+ */
+export function sessionPrompt(input: SessionPromptInput): string {
+  const { runId, spec, base } = input;
+  return [
+    input.intent,
+    `Operation: ${input.operation}. Run: ${runId}.`,
+    ...(spec.sendSpec ? [`Spec: docs/${spec.file}.`] : []),
+    ...(input.repository
+      ? [
+          `Repository: https://github.com/${input.repository}. Branch from ${base.branch} at ${base.commit.slice(0, 7)} and open the pull request against ${base.branch}.`,
+        ]
+      : []),
+    `Work from the attached runs/${runId}/context.json; commit it unchanged on your branch.`,
+    ...(spec.sendSpec
+      ? []
+      : [
+          "The attachment is the whole brief: work out the behaviour the sentence leaves unsaid from the code and its tests. Do not open the feature specs under docs/.",
+        ]),
+    "Follow .devin/run-protocol.playbook.md and docs/DEVIN_RUN_PROTOCOL.md.",
+  ].join("\n");
+}
+
+function promptPath(repoRoot: string, runId: string): string {
+  return join(repoRoot, "apps", "console", "data", "runs", runId, "prompt.txt");
+}
+
+/**
+ * The prompt a run's session was created with, as recorded at dispatch. Null
+ * when no session was created for the run.
+ */
+export function runPrompt(run: Pick<DevinRun, "id">, deps: Pick<BridgeDeps, "repoRoot">): string | null {
+  const path = promptPath(deps.repoRoot, run.id);
+  return existsSync(path) ? readFileSync(path, "utf8") : null;
+}
+
 /**
  * 1. Build and write the immutable context. 2. `dispatch`. 3. Create the Devin
  * session. 4. `record_session` with the id or the failure. A denied dispatch
@@ -206,7 +256,7 @@ export async function dispatchRun(
   });
   if (!applied(dispatch)) {
     rmSync(dir, { recursive: true, force: true });
-    return { runId, dispatch, session: null, sessionUrl: null };
+    return { runId, dispatch, session: null, sessionUrl: null, prompt: null };
   }
 
   // Keep a copy outside `runs/` as well, so an undo can still read the
@@ -215,35 +265,26 @@ export async function dispatchRun(
   mkdirSync(dataDir, { recursive: true });
   writeFileSync(join(dataDir, "context.json"), built.json);
 
+  const prompt = sessionPrompt({
+    runId,
+    operation: req.operation,
+    intent: req.intent,
+    spec,
+    repository: deps.repository,
+    base: built.context.base,
+  });
+
   let sessionInput: { sessionId: string } | { error: string };
   let sessionUrl: string | null = null;
   if (!deps.devin) {
     sessionInput = { error: "Devin API is not configured: set DEVIN_API_KEY and DEVIN_ORG_ID on the server" };
   } else {
     try {
-      // A missing playbook is not fatal: the prompt names the protocol file
-      // too. Only a sendSpec run's prompt names the spec; the others get the
-      // sentence and the attachment, and work the rest out from the code.
+      // A missing playbook is not fatal: the prompt names the protocol file too.
       const playbookId =
         deps.playbookId ?? (await deps.resolvePlaybookId?.().catch(() => null)) ?? undefined;
       const created = await deps.devin.createSession({
-        prompt: [
-          req.intent,
-          `Operation: ${req.operation}. Run: ${runId}.`,
-          ...(spec.sendSpec ? [`Spec: docs/${spec.file}.`] : []),
-          ...(deps.repository
-            ? [
-                `Repository: https://github.com/${deps.repository}. Branch from ${built.context.base.branch} at ${built.context.base.commit.slice(0, 7)} and open the pull request against ${built.context.base.branch}.`,
-              ]
-            : []),
-          `Work from the attached runs/${runId}/context.json; commit it unchanged on your branch.`,
-          ...(spec.sendSpec
-            ? []
-            : [
-                "The attachment is the whole brief: work out the behaviour the sentence leaves unsaid from the code and its tests. Do not open the feature specs under docs/.",
-              ]),
-          "Follow .devin/run-protocol.playbook.md and docs/DEVIN_RUN_PROTOCOL.md.",
-        ].join("\n"),
+        prompt,
         title: `${req.operation} ${spec.tool} (${runId})`,
         tags: [`run:${runId}`, `operation:${req.operation}`],
         attachment: { name: "context.json", body: built.json },
@@ -254,6 +295,7 @@ export async function dispatchRun(
       });
       sessionInput = { sessionId: created.sessionId };
       sessionUrl = created.url;
+      writeFileSync(promptPath(deps.repoRoot, runId), prompt);
     } catch (error) {
       sessionInput = { error: errorText(error) };
     }
@@ -266,7 +308,7 @@ export async function dispatchRun(
     input: sessionInput,
     idempotencyKey: key(runId, "record_session"),
   });
-  return { runId, dispatch, session, sessionUrl };
+  return { runId, dispatch, session, sessionUrl, prompt };
 }
 
 export type PollOutcome =

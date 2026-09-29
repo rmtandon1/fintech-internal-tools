@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@console/ui/dialog";
+import { Icon } from "@console/ui/icon";
 import { Panel } from "@/components/panel";
 import { shouldToggleAgentWindow } from "@/lib/agent-window-shortcut";
 import { HandoffPanel } from "@/components/handoff-panel";
@@ -12,13 +13,19 @@ import { useWorkspace } from "@/components/workspace";
  * What the window shows for the current focus: a handoff, a run, or the
  * server-rendered empty state (`children`, upstream's DevinWindowBody).
  */
-function AgentWindowContent({ children }: { children?: React.ReactNode }) {
+function AgentWindowContent({
+  children,
+  onRunTitle,
+}: {
+  children?: React.ReactNode;
+  onRunTitle: (title: string) => void;
+}) {
   const { agentFocus } = useWorkspace();
   if (agentFocus?.kind === "handoff") {
     return <HandoffPanel offer={agentFocus.offer} />;
   }
   if (agentFocus?.kind === "run") {
-    return <RunView key={agentFocus.runId} runId={agentFocus.runId} />;
+    return <RunView key={agentFocus.runId} runId={agentFocus.runId} onTitle={onRunTitle} />;
   }
   return <>{children}</>;
 }
@@ -39,6 +46,14 @@ export function AgentWindow({
   source?: string;
 }) {
   const { agentOpen, setAgentOpen, toggleAgent, agentFocus } = useWorkspace();
+  const [runTitle, setRunTitle] = useState<{ runId: string; title: string } | null>(null);
+  const focusedRunId = agentFocus?.kind === "run" ? agentFocus.runId : null;
+  const onRunTitle = useCallback(
+    (title: string) => {
+      if (focusedRunId) setRunTitle({ runId: focusedRunId, title });
+    },
+    [focusedRunId],
+  );
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -50,24 +65,35 @@ export function AgentWindow({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [toggleAgent]);
 
-  const label =
+  const label = agentFocus ? "" : source;
+  const title =
     agentFocus?.kind === "handoff"
-      ? "Request"
+      ? agentFocus.offer.title
       : agentFocus?.kind === "run"
-        ? "Live run"
-        : source;
+        ? runTitle?.runId === agentFocus.runId
+          ? runTitle.title
+          : "Loading run…"
+        : "Devin";
 
   return (
     <Dialog open={agentOpen} onOpenChange={setAgentOpen}>
       <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-3xl">
         <DialogTitle className="sr-only">Devin</DialogTitle>
         <Panel
-          title="Devin"
-          actions={<span className="mr-6 text-[10px] text-muted-foreground">{label}</span>}
-          className="h-[80vh] rounded-none border-0"
+          title={
+            <span className="flex min-w-0 items-center gap-2.5 text-base" title={title}>
+              <Icon name="Sparkles" className="size-5 shrink-0 text-info" />
+              <span className="min-w-0 truncate" data-testid="agent-window-title">
+                {title}
+              </span>
+            </span>
+          }
+          headerClassName="min-h-14 border-info/20 bg-info/10 px-5 pr-12"
+          actions={label ? <span className="text-xs text-muted-foreground">{label}</span> : undefined}
+          className="max-h-[85vh] rounded-none border-0"
           bodyClassName="flex flex-col"
         >
-          <AgentWindowContent>{children}</AgentWindowContent>
+          <AgentWindowContent onRunTitle={onRunTitle}>{children}</AgentWindowContent>
         </Panel>
       </DialogContent>
     </Dialog>
