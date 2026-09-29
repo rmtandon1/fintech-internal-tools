@@ -41,6 +41,11 @@ function hold(id: string) {
   return execute(analyst, id).decision.trace.find((o) => o.rule === "clustering_hold");
 }
 
+function holdReason(id: string): string | undefined {
+  const outcome = hold(id);
+  return outcome?.type === "require_approval" ? outcome.reason : undefined;
+}
+
 function queue(name: "analyst" | "manager"): string[] {
   return refundTool
     .list({ filters: { queue: name }, limit: 1000, offset: 0 })
@@ -83,8 +88,8 @@ describe("clustering_hold", () => {
   });
 
   it("every later refund in the cluster needs a manager and leaves the analyst queue", () => {
-    expect(hold("rfnd_0012")?.reason).toBe("Kestrel Outdoors $1,400 over $500 in 14 days");
-    expect(hold("rfnd_0011")?.reason).toBe("Kestrel Outdoors $1,880 over $500 in 14 days");
+    expect(holdReason("rfnd_0012")).toBe("Kestrel Outdoors $1,400 over $500 in 14 days");
+    expect(holdReason("rfnd_0011")).toBe("Kestrel Outdoors $1,880 over $500 in 14 days");
     const analystRows = queue("analyst");
     const managerRows = queue("manager");
     for (const id of ["rfnd_0011", "rfnd_0012", "rfnd_0013"]) {
@@ -131,7 +136,7 @@ describe("clustering_hold", () => {
     try {
       expect(execute(analyst, "rfnd_test_faulty").decision.effect).toBe("allow");
       expect(hold("rfnd_test_faulty")).toEqual({ type: "allow", rule: "clustering_hold" });
-      expect(hold("rfnd_0011")?.reason).toBe("Kestrel Outdoors $1,880 over $500 in 14 days");
+      expect(holdReason("rfnd_0011")).toBe("Kestrel Outdoors $1,880 over $500 in 14 days");
     } finally {
       db.delete(refunds).where(eq(refunds.id, "rfnd_test_faulty")).run();
     }
@@ -142,8 +147,8 @@ describe("clustering_hold", () => {
     try {
       expect(heldRefunds().has("rfnd_0013")).toBe(false);
       expect(hold("rfnd_0014")?.type).toBe("allow");
-      expect(hold("rfnd_0012")?.reason).toBe("Kestrel Outdoors $940 over $500 in 14 days");
-      expect(hold("rfnd_0011")?.reason).toBe("Kestrel Outdoors $1,420 over $500 in 14 days");
+      expect(holdReason("rfnd_0012")).toBe("Kestrel Outdoors $940 over $500 in 14 days");
+      expect(holdReason("rfnd_0011")).toBe("Kestrel Outdoors $1,420 over $500 in 14 days");
     } finally {
       db.update(refunds).set({ status: "requested" }).where(eq(refunds.id, "rfnd_0013")).run();
     }
@@ -153,8 +158,8 @@ describe("clustering_hold", () => {
     expect(setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "3").ok).toBe(true);
     expect(hold("rfnd_0014")?.type).toBe("allow");
     expect(hold("rfnd_0013")?.type).toBe("allow");
-    expect(hold("rfnd_0012")?.reason).toBe("Kestrel Outdoors $935 over $500 in 3 days");
-    expect(hold("rfnd_0011")?.reason).toBe("Kestrel Outdoors $1,415 over $500 in 3 days");
+    expect(holdReason("rfnd_0012")).toBe("Kestrel Outdoors $935 over $500 in 3 days");
+    expect(holdReason("rfnd_0011")).toBe("Kestrel Outdoors $1,415 over $500 in 3 days");
   });
 
   it("with refunds.clustering_window_days at 0 clustering_hold reads allow and no refund is routed by it", () => {
