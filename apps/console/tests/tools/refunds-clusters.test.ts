@@ -60,14 +60,14 @@ describe("refunds clusters", () => {
       );
       expect(preview?.decision?.trace).toContainEqual({ type: "allow", rule: "amount_approval" });
     }
-    const effects = [...kestrel.recordIds]
-      .sort((a, b) => (refundTool.get(a)?.requestedAt ?? 0) - (refundTool.get(b)?.requestedAt ?? 0))
-      .map((id) => {
-        const record = refundTool.get(id);
-        if (!record) throw new Error(`missing ${id}`);
-        return previewActions(refundTool, record, refundsAgent).find((p) => p.action === "execute")
-          ?.decision?.effect;
-      });
+    const oldestFirst = ["rfnd_0014", "rfnd_0013", "rfnd_0012", "rfnd_0011"];
+    expect([...kestrel.recordIds].sort()).toEqual([...oldestFirst].sort());
+    const effects = oldestFirst.map((id) => {
+      const record = refundTool.get(id);
+      if (!record) throw new Error(`missing ${id}`);
+      return previewActions(refundTool, record, refundsAgent).find((p) => p.action === "execute")
+        ?.decision?.effect;
+    });
     expect(effects).toEqual(["allow", "require_approval", "require_approval", "require_approval"]);
   });
 
