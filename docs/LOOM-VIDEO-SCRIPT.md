@@ -90,6 +90,8 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Switch role: Engineer.]
 
+[On **Rule changes**, click the top row, the one with the PR number, to open its run in the Devin panel.]
+
 [Click **Review and approve**.]
 
 [Point at "The approver cannot be the requester".]
