@@ -94,9 +94,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Point at "The approver cannot be the requester".]
 
-> "Now I'm the engineer. Watch what happens next, because this is the point of the demo."
->
-> "The person who asked can't approve. That's checked in code every time someone approves, not in a wiki."
+> "Now I'm the engineer. The person who asked can't approve. That's checked in code every time someone approves, not in a wiki."
 
 [Click **Approve as engineer**.]
 
@@ -146,7 +144,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Save; point at the audit row.]
 
-> "Switching it off is a business call, so an admin makes it, not an engineer. Zero means off, and a test proves it. One setting, one audit row, no deploy."
+> "Zero means off, and a test proves it. One setting, one audit row, no deploy."
 
 ### Remove it
 
@@ -170,7 +168,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [As Engineer: approve, merge, **Pull merged code**.]
 
-> "Taking a rule out is the same risk as putting one in, so it gets the same review."
+> "The undo gets the same review the rule did."
 
 ### Outcome
 
@@ -234,9 +232,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [In **Rule settings**, set `kyc.companies_house_check` to 1.]
 
-> "It merged switched off. Merged isn't live: the check shipped dormant."
->
-> "Turning it on is a separate decision, made by an admin and audited on its own, not part of the merge."
+> "It merged switched off. Turning it on is a separate change, with its own audit row."
 
 ### Outcome
 
@@ -294,7 +290,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [In **Feature flags**, enable `app.chargebacks`.]
 
-> "The whole app lands dark behind one flag. Turning it on is a business decision, and if it doesn't match the Power App, it flips back off."
+> "The whole app merged behind one flag, switched off. If it doesn't match the Power App, the flag goes back off."
 
 ### Outcome
 
