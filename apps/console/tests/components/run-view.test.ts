@@ -11,6 +11,7 @@ vi.mock("@/app/automation-actions", () => ({
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }));
 
+import { requesterLabel } from "@/components/run-summary";
 import { RunView } from "@/components/run-view";
 import type { RunViewPayload } from "@/lib/devin-route";
 import { phaseLine } from "@/lib/run-checklist";
@@ -20,6 +21,8 @@ const RUN_ID = "01KRUNVIEWTEST000000000000";
 const PROMPT = `${REFUND_CLUSTERING_HOLD.intents.change}\nOperation: change. Run: ${RUN_ID}.`;
 const frames = scriptedFrames("change", RUN_ID, "a".repeat(64), "b".repeat(40));
 const editing = frames.slice(0, 4);
+const phaseLines = (html: string) =>
+  [...html.matchAll(/<ul[^>]*data-testid="phase-lines"[^>]*>(.*?)<\/ul>/g)].map((match) => match[1] ?? "");
 
 function payload(overrides: Partial<RunViewPayload> = {}): RunViewPayload {
   return {
@@ -35,8 +38,8 @@ function payload(overrides: Partial<RunViewPayload> = {}): RunViewPayload {
       prUrl: null,
       mergeCommit: null,
       reverses: null,
-      requestedBy: "usr_refunds_manager",
-      requestedByRole: "refunds_manager",
+      requestedBy: "usr_manager",
+      requestedByRole: "manager",
       approvedBy: null,
       lastNote: null,
       requestedAt: 0,
@@ -46,6 +49,7 @@ function payload(overrides: Partial<RunViewPayload> = {}): RunViewPayload {
     latest: editing.at(-1) ?? null,
     sessionUrl: null,
     devinMessage: null,
+    sessionStatusDetail: null,
     summary: REFUND_CLUSTERING_HOLD.summaries.change,
     outcome: REFUND_CLUSTERING_HOLD.outcomes.change,
     operationLabel: "Change",
@@ -70,8 +74,18 @@ function render(p: RunViewPayload): string {
 describe("runTitle", () => {
   it("names what Devin is doing from the spec's summary for the operation", () => {
     expect(runTitle(payload())).toBe(
-      "Holding the merchant's not-received refunds once together they pass the manager line, and sending those customers' KYC approvals to a manager.",
+      "Devin is routing split refunds that add up past the manager limit to the manager's queue.",
     );
+  });
+});
+
+describe("requesterLabel", () => {
+  it("shows a legacy role string from a stored run row", () => {
+    const legacyRunRow = {
+      requestedBy: "usr_refunds_agent",
+      requestedByRole: "refunds_agent",
+    };
+    expect(requesterLabel(legacyRunRow)).toBe("refunds_agent · usr_refunds_agent");
   });
 });
 
@@ -119,9 +133,7 @@ describe("RunView", () => {
   });
 
   it("leaves reported files waiting until the edit phase finishes", () => {
-    const fileLines = (html: string) => [...html.matchAll(/<ul class="ml-2 mt-1 w-full border-l border-border\/60 pl-3">(.*?)<\/ul>/g)]
-      .map((match) => match[1])
-      .find((list) => list?.includes("Adding "));
+    const fileLines = (html: string) => phaseLines(html).find((list) => list.includes("Adding "));
     const editingFiles = fileLines(render(payload()));
     expect(editingFiles).toBeDefined();
     expect(editingFiles?.match(/data-state="waiting"/g)).toHaveLength(editing[3]?.structured_output.files.length);
@@ -137,11 +149,10 @@ describe("RunView", () => {
     const verifying = frames.find((frame) => frame.structured_output.phase === "verify");
     if (!verifying) throw new Error("no verification frame");
     const html = render(payload({ frames: [verifying], latest: verifying }));
-    const verifyLines = [...html.matchAll(/<ul class="ml-2 mt-1 w-full border-l border-border\/60 pl-3">(.*?)<\/ul>/g)]
-      .map((match) => match[1])
-      .find((list) => list?.includes("Lint"));
+    const verifyLines = phaseLines(html).find((list) => list.includes("Lint"));
     expect(verifyLines?.match(/data-state="active"/g)).toHaveLength(1);
     expect(verifyLines?.match(/data-state="waiting"/g)).toHaveLength(3);
+    expect(verifyLines).toMatch(/>running<\/span>/);
 
     const failed = {
       ...verifying,
@@ -152,15 +163,110 @@ describe("RunView", () => {
       },
     };
     const failedHtml = render(payload({ frames: [failed], latest: failed }));
-    expect(failedHtml).toMatch(/data-state="failed"><span[^>]*><svg[^>]*aria-label="Failed"/);
-    expect(failedHtml).toContain("Lint ✗");
+    const failedVerifyLines = phaseLines(failedHtml).find((list) => list.includes("Lint"));
+    expect(failedVerifyLines).toMatch(/<li class="[^"]*text-destructive[^"]*" data-state="failed"[^>]*>.*?Lint.*?failed.*?<\/li>/);
+    expect(failedVerifyLines).not.toContain('aria-label="Failed"');
+  });
+
+  it("shows paused for the pending verification step when the phase is stopped", () => {
+    const verifying = frames.find((frame) => frame.structured_output.phase === "verify");
+    if (!verifying) throw new Error("no verification frame");
+    const stopped = {
+      ...verifying,
+      structured_output: { ...verifying.structured_output, phase_status: "stopped" as const },
+    };
+    const verifyLines = phaseLines(render(payload({ frames: [stopped], latest: stopped })))
+      .find((list) => list.includes("Lint"));
+    const activeLine = [...(verifyLines ?? "").matchAll(/<li\b[^>]*>.*?<\/li>/g)]
+      .map((match) => match[0])
+      .find((line) => line.includes("Lint"));
+
+    expect(activeLine).toContain('data-state="active"');
+    expect(activeLine).toMatch(/>paused<\/span>/);
+    expect(activeLine).not.toMatch(/>running<\/span>/);
+  });
+
+  it("renders nested lines without status glyphs while preserving top-level phase ticks", () => {
+    const verifying = frames.find((frame) => frame.structured_output.phase === "verify");
+    if (!verifying) throw new Error("no verification frame");
+    const html = render(payload({ frames: [verifying], latest: verifying }));
+    const nested = phaseLines(html).join("");
+
+    expect(nested).not.toMatch(/aria-label="Done"|aria-label="Failed"|animate-spin|bg-success/);
+    expect(html).toMatch(/<li class="[^"]*" data-state="done"><span class="[^"]*bg-success[^"]*"><svg[^>]*aria-label="Done"/);
+  });
+
+  it("uses tree connectors with exactly one last-line connector per nested list", () => {
+    const verifying = frames.find((frame) => frame.structured_output.phase === "verify");
+    if (!verifying) throw new Error("no verification frame");
+    const verifyLines = phaseLines(render(payload({ frames: [verifying], latest: verifying })))
+      .find((list) => list.includes("Lint"));
+    if (!verifyLines) throw new Error("no verify phase lines");
+    const lines = [...verifyLines.matchAll(/<li\b[^>]*>.*?<\/li>/g)].map((match) => match[0]);
+
+    expect(verifyLines.match(/├─/g)).toHaveLength(lines.length - 1);
+    expect(verifyLines.match(/└─/g)).toHaveLength(1);
+    expect(lines.at(-1)).toContain("└─");
+  });
+
+  it("announces artifact status to screen readers without labelling notes", () => {
+    const verifying = frames.find((frame) => frame.structured_output.phase === "verify");
+    if (!verifying) throw new Error("no verification frame");
+    const html = render(payload({ frames: [verifying], latest: verifying }));
+    const fileLines = phaseLines(html).find((list) => list.includes("Adding "));
+    const doneFileLine = [...(fileLines ?? "").matchAll(/<li\b[^>]*>.*?<\/li>/g)]
+      .map((match) => match[0])
+      .find((line) => line.includes("Adding "));
+    expect(doneFileLine).toContain('<span class="sr-only">Done</span>');
+
+    const note = "Ran pnpm verify at the base: all 68 tests pass";
+    const noteLines = phaseLines(html).find((list) => list.includes(note));
+    expect(noteLines).toContain(note);
+    expect(noteLines).not.toContain("sr-only");
+  });
+
+  it("renders notes under their phase before artifacts and tolerates output without notes", () => {
+    const baseline = frames.find((frame) => frame.structured_output.phase === "baseline");
+    const pullRequest = frames.find((frame) => frame.structured_output.phase === "pull_request");
+    if (!baseline || !pullRequest) throw new Error("missing scripted note frames");
+    const baselineNote = "Ran pnpm verify at the base: all 68 tests pass";
+    const verifyNote = "Opened localhost:3001/t/refunds and saw the held refunds with a Held chip";
+    const baselineHtml = render(payload({ frames: [baseline], latest: baseline }));
+    const baselineLines = phaseLines(baselineHtml).find((list) => list.includes(baselineNote));
+    expect(baselineLines).toContain(baselineNote);
+    const baselineListStart = baselineHtml.indexOf('data-testid="phase-lines"');
+    const baselinePhaseStart = baselineHtml.lastIndexOf("<li ", baselineListStart);
+    expect(baselineHtml.slice(baselinePhaseStart, baselineListStart)).toContain("Confirmed the base");
+
+    const verifyHtml = render(payload({ frames: [pullRequest], latest: pullRequest }));
+    const verifyLines = phaseLines(verifyHtml).find((list) => list.includes(verifyNote));
+    expect(verifyLines).toContain(verifyNote);
+    expect(verifyLines?.indexOf(verifyNote)).toBeLessThan(verifyLines?.indexOf("Lint") ?? -1);
+    const verifyNoteIndex = verifyHtml.indexOf(verifyNote);
+    const verifyListStart = verifyHtml.lastIndexOf("<ul ", verifyNoteIndex);
+    const verifyPhaseStart = verifyHtml.lastIndexOf("<li ", verifyListStart);
+    expect(verifyHtml.slice(verifyPhaseStart, verifyListStart)).toContain("Verified");
+
+    const withoutNotes = {
+      ...frames[0]!,
+      structured_output: { ...frames[0]!.structured_output, notes: undefined },
+    };
+    const noNotesHtml = render(payload({ frames: [withoutNotes], latest: withoutNotes }));
+    expect(phaseLines(noNotesHtml).join("")).not.toContain(baselineNote);
+    expect(phaseLines(noNotesHtml).join("")).not.toContain(verifyNote);
   });
 
   it("spins on the first step while a running session has reported no phase", () => {
-    const html = render(payload({ frames: [], latest: null, devinMessage: "Starting run" }));
+    const html = render(payload({ frames: [], latest: null, devinMessage: "Starting run", sessionStatusDetail: "working" }));
     expect(html.match(/data-state="active"/g)).toHaveLength(1);
     expect(html).toMatch(/data-state="active"><span role="status" aria-label="In progress" class="[^"]*animate-spin[^"]*"><\/span><span[^>]*>Read the evidence/);
     expect(html).toContain("Starting run");
+  });
+
+  it("does not spin on the first step while a phaseless session waits for a reply", () => {
+    const html = render(payload({ frames: [], latest: null, sessionStatusDetail: "waiting_for_user" }));
+    expect(html).not.toContain("animate-spin");
+    expect(html).not.toContain('data-state="active"');
   });
 
   it("does not spin while Devin waits for a reply", () => {

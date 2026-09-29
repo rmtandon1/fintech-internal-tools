@@ -38,7 +38,12 @@ const PHASE_LABELS: Record<(typeof PHASE_ORDER)[number], string> = {
   merged: "Merged",
 };
 
-type CheckLine = { state: "done" | "active" | "waiting" | "failed"; label: string; detail?: string };
+type CheckLine = {
+  state: "done" | "active" | "waiting" | "failed";
+  label: string;
+  detail?: string;
+  kind?: "note" | "artifact";
+};
 type CheckPhase = CheckLine & { children?: CheckLine[] };
 
 function CheckRow({
@@ -46,10 +51,13 @@ function CheckRow({
   label,
   detail,
   children,
+  kind,
   nested = false,
+  last = false,
   still = false,
 }: CheckPhase & {
   nested?: boolean;
+  last?: boolean;
   /** Devin isn't working on the active step (the run ended, or it waits for a reply): no spinner. */
   still?: boolean;
 }) {
@@ -57,44 +65,85 @@ function CheckRow({
     <li
       className={cn(
         "flex flex-wrap items-center gap-x-3 py-1.5 text-sm",
-        nested && "gap-x-2 py-0.5 text-[10px] text-muted-foreground",
-        state === "active" && "font-medium text-info",
-        state === "failed" && "text-destructive",
-        state === "waiting" && "text-muted-foreground",
+        nested && "gap-x-2 py-0.5 text-xs",
+        !nested && state === "active" && "font-medium text-info",
+        !nested && state === "failed" && "text-destructive",
+        !nested && state === "waiting" && "text-muted-foreground",
+        nested && state === "done" && (kind === "note" ? "text-foreground/80" : "text-muted-foreground"),
+        nested && state === "active" && "text-info",
+        nested && state === "failed" && "text-destructive",
+        nested && state === "waiting" && "text-muted-foreground/50",
       )}
       data-state={state}
     >
-      {state === "done" ? (
-        <span className={cn("flex size-5 shrink-0 items-center justify-center rounded-full bg-success text-white", nested && "size-3.5")}>
-          <Icon name="Check" className={nested ? "size-2.5" : "size-3"} strokeWidth={3} aria-label="Done" />
+      {nested ? (
+        <>
+          <span aria-hidden="true" className="font-mono text-muted-foreground/50">
+            {last ? "└─" : "├─"}
+          </span>
+          {kind !== "note" ? (
+            <span className="sr-only">
+              {state === "done"
+                ? "Done"
+                : state === "failed"
+                  ? "Failed"
+                  : state === "active"
+                    ? still
+                      ? "Paused"
+                      : "In progress"
+                    : "Waiting"}
+            </span>
+          ) : null}
+        </>
+      ) : state === "done" ? (
+        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-success text-white">
+          <Icon name="Check" className="size-3" strokeWidth={3} aria-label="Done" />
         </span>
       ) : state === "failed" ? (
-        <span className={cn("flex size-5 shrink-0 items-center justify-center", nested && "size-3.5")}>
-          <Icon name="CircleX" className={nested ? "size-3.5" : "size-5"} aria-label="Failed" />
+        <span className="flex size-5 shrink-0 items-center justify-center">
+          <Icon name="CircleX" className="size-5" aria-label="Failed" />
         </span>
       ) : state === "active" && still ? (
-        <span className={cn("flex size-5 shrink-0 items-center justify-center", nested && "size-3.5")}>
-          <span className={cn("size-2.5 rounded-full bg-warning", nested && "size-2")} aria-label="Paused" />
+        <span className="flex size-5 shrink-0 items-center justify-center">
+          <span className="size-2.5 rounded-full bg-warning" aria-label="Paused" />
         </span>
       ) : state === "active" ? (
         <span
           role="status"
           aria-label="In progress"
-          className={cn("inline-block size-5 shrink-0 animate-spin rounded-full border-2 border-info border-t-transparent", nested && "size-3.5")}
+          className="inline-block size-5 shrink-0 animate-spin rounded-full border-2 border-info border-t-transparent"
         />
       ) : (
-        <span className={cn("flex size-5 shrink-0 items-center justify-center", nested && "size-3.5")}>
-          <span className={cn("size-2.5 rounded-full border border-muted-foreground/40", nested && "size-2")} />
+        <span className="flex size-5 shrink-0 items-center justify-center">
+          <span className="size-2.5 rounded-full border border-muted-foreground/40" />
         </span>
       )}
-      <span className="min-w-0 flex-1 truncate" title={nested ? label : undefined}>{label}</span>
+      <span
+        className={cn(
+          "min-w-0 flex-1",
+          !nested && "truncate",
+          nested && kind === "note" && "whitespace-normal line-clamp-2",
+          nested && kind !== "note" && "truncate",
+        )}
+        title={nested ? label : undefined}
+      >
+        {label}
+      </span>
       {detail ? (
-        <span className={cn("shrink-0 font-mono text-xs text-muted-foreground tabular-nums", nested && "max-w-[50%] truncate text-[10px]")} title={nested ? detail : undefined}>{detail}</span>
+        <span
+          className={cn(
+            "shrink-0 font-mono text-xs tabular-nums",
+            nested ? "max-w-[50%] truncate" : "text-muted-foreground",
+          )}
+          title={nested ? detail : undefined}
+        >
+          {detail}
+        </span>
       ) : null}
       {children && children.length > 0 ? (
-        <ul className="ml-2 mt-1 w-full border-l border-border/60 pl-3">
+        <ul className="ml-2.5 mt-0.5 w-full pl-5" data-testid="phase-lines">
           {children.map((child, i) => (
-            <CheckRow key={i} {...child} nested still={still} />
+            <CheckRow key={i} {...child} nested last={i === children.length - 1} still={still} />
           ))}
         </ul>
       ) : null}
@@ -102,11 +151,20 @@ function CheckRow({
   );
 }
 
-function Checklist({ out, run }: { out: StructuredOutput | null; run: RunViewPayload["run"] }) {
+function Checklist({
+  out,
+  run,
+  sessionStatusDetail,
+}: {
+  out: StructuredOutput | null;
+  run: RunViewPayload["run"];
+  sessionStatusDetail: string | null;
+}) {
   const durations = out?.phase_durations_s ?? {};
   const current = out?.phase ?? null;
-  // A running session that has not reported a phase yet is reading the evidence.
-  const reached = current ? PHASE_ORDER.indexOf(current === "merge" ? "merged" : current) : run.status === "running" ? 0 : -1;
+  // A running session that is working but has not reported a phase yet is reading the evidence.
+  const working = run.status === "running" && (sessionStatusDetail ?? "working") === "working";
+  const reached = current ? PHASE_ORDER.indexOf(current === "merge" ? "merged" : current) : working ? 0 : -1;
   const stateOf = (phase: (typeof PHASE_ORDER)[number]): CheckLine["state"] => {
     if (phase === "approved") return run.approvedBy ? "done" : run.status === "approved" ? "active" : "waiting";
     if (phase === "merged") return run.status === "merged" ? "done" : "waiting";
@@ -120,8 +178,16 @@ function Checklist({ out, run }: { out: StructuredOutput | null; run: RunViewPay
   const testStep = out?.verify_steps.find((s) => s.name === "Test");
   const pr = run.prUrl ?? out?.pr_url ?? null;
   const prNumber = pr?.match(/pull\/(\d+)/)?.[1];
+  const still =
+    TERMINAL.has(run.status) ||
+    out?.phase_status === "waiting_for_user" ||
+    out?.phase_status === "stopped";
   const rows: CheckPhase[] = PHASE_ORDER.map((phase) => {
     const row: CheckPhase = { state: stateOf(phase), label: PHASE_LABELS[phase] };
+    const notes = (out?.notes ?? [])
+      .filter((note) => (note.phase === "merge" ? "merged" : note.phase) === phase)
+      .map((note) => ({ state: "done" as const, label: note.text, kind: "note" as const }));
+    if (notes.length > 0) row.children = notes;
     switch (phase) {
       case "intake":
         row.detail = out?.base_commit ? `base ${out.base_commit.slice(0, 7)}` : undefined;
@@ -132,30 +198,46 @@ function Checklist({ out, run }: { out: StructuredOutput | null; run: RunViewPay
         break;
       case "plan":
         row.detail = durations.plan !== undefined ? `${durations.plan}s` : undefined;
-        row.children = out?.reuses.map((reuse) => ({
-          state: "done", label: `Reused ${reuse.module.split("/").pop()}`, detail: reuse.reason,
-        }));
+        row.children = [
+          ...notes,
+          ...(out?.reuses.map((reuse) => ({
+            state: "done" as const,
+            label: `Reused ${reuse.module.split("/").pop()}`,
+            detail: reuse.reason,
+            kind: "artifact" as const,
+          })) ?? []),
+        ];
         break;
       case "edit": {
         const editDone = stateOf("edit") === "done";
         row.detail = out && out.files.length > 0 && reached >= PHASE_ORDER.indexOf("edit")
           ? `+${out.files.reduce((n, f) => n + f.additions, 0)} −${out.files.reduce((n, f) => n + f.deletions, 0)}`
           : undefined;
-        row.children = out?.files.map((file) => ({
-          state: editDone ? "done" : "waiting",
-          label: `${file.op === "create" ? "Adding" : file.op === "delete" ? "Removing" : "Editing"} ${file.path}`,
-          detail: `+${file.additions} −${file.deletions}`,
-        }));
+        row.children = [
+          ...notes,
+          ...(out?.files.map((file) => ({
+            state: editDone ? "done" as const : "waiting" as const,
+            label: `${file.op === "create" ? "Adding" : file.op === "delete" ? "Removing" : "Editing"} ${file.path}`,
+            detail: `+${file.additions} −${file.deletions}`,
+            kind: "artifact" as const,
+          })) ?? []),
+        ];
         break;
       }
       case "verify": {
         const activeStep = out?.verify_steps.findIndex((step) => step.pass === null);
         row.detail = testStep?.after != null ? `${testStep.before ?? "?"} → ${testStep.after}` : undefined;
-        row.children = out?.verify_steps.map((step, i) => ({
-          state: step.pass === false ? "failed" : step.pass === true ? "done"
-            : stateOf("verify") === "active" && i === activeStep ? "active" : "waiting",
-          label: `${step.name} ${step.pass === true ? "✓" : step.pass === false ? "✗" : "…"}`,
-        }));
+        row.children = [
+          ...notes,
+          ...(out?.verify_steps.map((step, i) => ({
+            state: step.pass === false ? "failed" as const : step.pass === true ? "done" as const
+              : stateOf("verify") === "active" && i === activeStep ? "active" as const : "waiting" as const,
+            label: step.name,
+            detail: step.pass === true ? "passed" : step.pass === false ? "failed"
+              : stateOf("verify") === "active" && i === activeStep ? still ? "paused" : "running" : undefined,
+            kind: "artifact" as const,
+          })) ?? []),
+        ];
         break;
       }
       case "pull_request":
@@ -169,10 +251,6 @@ function Checklist({ out, run }: { out: StructuredOutput | null; run: RunViewPay
     }
     return row;
   });
-  const still =
-    TERMINAL.has(run.status) ||
-    out?.phase_status === "waiting_for_user" ||
-    out?.phase_status === "stopped";
   return (
     <ul className="px-5 py-3">
       {rows.map((row, i) => (
@@ -377,7 +455,7 @@ export function RunView({
           </section>
         ) : null}
 
-        <Checklist out={out} run={run} />
+        <Checklist out={out} run={run} sessionStatusDetail={payload.sessionStatusDetail} />
 
         {payload.prompt ? (
           <section className="px-5 pb-3" data-testid="devin-message">

@@ -5,7 +5,7 @@ import { auditTrailFor } from "@console/engine/audit/query";
 import { executeIntent } from "@console/engine/execute-intent";
 import type { Intent } from "@console/engine/types";
 import { readOutcomeAudit } from "@/lib/outcome-audit";
-import { kycManager, kycReviewer, makeWidget, setupHarness } from "../helpers/harness";
+import { manager, analyst, makeWidget, setupHarness } from "../helpers/harness";
 
 beforeAll(() => setupHarness());
 
@@ -27,15 +27,15 @@ function approvalIdOf(result: ReturnType<typeof executeIntent>): string {
 describe("readOutcomeAudit", () => {
   it("applied: reports the row's seq, actor and masked snapshots", () => {
     makeWidget("w_oa_applied", 100);
-    const result = executeIntent(kycReviewer, spend("w_oa_applied", 10));
-    const audit = readOutcomeAudit(result, kycReviewer);
+    const result = executeIntent(analyst, spend("w_oa_applied", 10));
+    const audit = readOutcomeAudit(result, analyst);
     const [row] = auditTrailFor("widget", "w_oa_applied");
 
     expect(audit).toMatchObject({
       seq: row.seq,
       ts: row.ts,
-      actorId: kycReviewer.id,
-      actorRole: kycReviewer.role,
+      actorId: analyst.id,
+      actorRole: analyst.role,
       event: "applied",
       statusField: "status",
       frozenVersion: null,
@@ -48,8 +48,8 @@ describe("readOutcomeAudit", () => {
 
   it("pending_approval: reports the record as it stands and the frozen version", () => {
     makeWidget("w_oa_pending", 1000);
-    const result = executeIntent(kycReviewer, spend("w_oa_pending", 500));
-    const audit = readOutcomeAudit(result, kycReviewer);
+    const result = executeIntent(analyst, spend("w_oa_pending", 500));
+    const audit = readOutcomeAudit(result, analyst);
 
     expect(audit).toMatchObject({ event: "approval_requested", frozenVersion: 1, after: null });
     expect(audit?.before).toMatchObject({ status: "open", version: 1 });
@@ -57,8 +57,8 @@ describe("readOutcomeAudit", () => {
 
   it("denied: reports the record as it stands with no after snapshot", () => {
     makeWidget("w_oa_denied", 5);
-    const result = executeIntent(kycReviewer, spend("w_oa_denied", 10));
-    const audit = readOutcomeAudit(result, kycReviewer);
+    const result = executeIntent(analyst, spend("w_oa_denied", 10));
+    const audit = readOutcomeAudit(result, analyst);
 
     expect(audit).toMatchObject({ event: "denied", after: null });
     expect(audit?.before).toMatchObject({ balance: 5, version: 1 });
@@ -67,16 +67,16 @@ describe("readOutcomeAudit", () => {
   it("replayed approval: keeps the frozen version and claims nothing about current state", () => {
     makeWidget("w_oa_replay", 1000);
     const intent = spend("w_oa_replay", 500);
-    const first = executeIntent(kycReviewer, intent);
-    const approved = approve(kycManager, approvalIdOf(first));
+    const first = executeIntent(analyst, intent);
+    const approved = approve(manager, approvalIdOf(first));
     expect(approved.outcome.status).toBe("applied");
 
-    const second = executeIntent(kycReviewer, intent);
-    const audit = readOutcomeAudit(second, kycReviewer);
+    const second = executeIntent(analyst, intent);
+    const audit = readOutcomeAudit(second, analyst);
 
     expect(second.replayed).toBe(true);
     expect(audit).toMatchObject({
-      seq: readOutcomeAudit(first, kycReviewer)?.seq,
+      seq: readOutcomeAudit(first, analyst)?.seq,
       event: "approval_requested",
       frozenVersion: 1,
       before: null,
@@ -85,8 +85,8 @@ describe("readOutcomeAudit", () => {
   });
 
   it("error: has no audit row", () => {
-    const result = executeIntent(kycReviewer, spend("w_oa_missing", 10));
+    const result = executeIntent(analyst, spend("w_oa_missing", 10));
     expect(result.outcome.status).toBe("error");
-    expect(readOutcomeAudit(result, kycReviewer)).toBeNull();
+    expect(readOutcomeAudit(result, analyst)).toBeNull();
   });
 });

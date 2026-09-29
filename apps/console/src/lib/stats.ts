@@ -19,7 +19,11 @@ export function resolveStat(
   switch (source.kind) {
     case "records": {
       const { total } = decl.list({ filters: source.filters, limit: 0, offset: 0 });
-      return { value: total, href: `/t/${decl.name}?${new URLSearchParams(source.filters)}` };
+      const filters = { ...source.filters };
+      for (const field of Object.keys(decl.defaultFilters?.(actor) ?? {})) {
+        if (!(field in filters)) filters[field] = "all";
+      }
+      return { value: total, href: `/t/${decl.name}?${new URLSearchParams(filters)}` };
     }
     case "approvals": {
       const value =

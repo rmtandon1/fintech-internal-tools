@@ -4,7 +4,7 @@
 
 - The refunds queue gains a strip that shows patterns across rows: `Kestrel Outdoors · 4 not_received · $1,880 · 14d`.
 - Clicking it opens a drawer over the queue with the refunds behind the total and the rules that allowed each one.
-- The drawer offers one action to refunds managers and admins: **Ask Devin for a rule**, which opens the handoff panel in `AGENT_TRIGGER_SURFACE.md`.
+- The drawer offers one action to Managers and admins: **Ask Devin for a rule**, which opens the handoff panel in `AGENT_TRIGGER_SURFACE.md`.
 - It replaces the analyst's Excel pivot and one-at-a-time email lookups, and it is where the demo's first scenario starts.
 - Clusters are declared on the tool, so a new cluster type is a declaration. Normal feature work by a build agent.
 
@@ -33,7 +33,7 @@ The inspection exists to act on the queue beside it. A drawer keeps the list vis
 
 This is the gap in scenario 1 (`../CUSTOMER_FRAMING.md` › Scenarios › "1. A rule, from added to removed"), and it replaces the analyst's Excel pivot and one-at-a-time email lookups. The shot that matters is the drawer open over the dimmed queue: four rows, each with a green `amount_approval` trace, and a $1,880 total above them. Each refund is clean. Together they aren't. The viewer should read that from the screen before the presenter says it.
 
-RBAC: every role can open clusters, because aggregates carry no PII. Row emails and card numbers go through `maskRecord`. **Ask Devin for a rule** renders for `refunds_manager` and `admin`. A `refunds_agent` sees the cluster and a note that a refunds manager can request a rule. KYC roles can't open `/t/refunds` at all (`visibleTo` is `rolesFor("refunds", "agent")`).
+RBAC: every role can open clusters, because aggregates carry no PII. Row emails and card numbers go through `maskRecord`. **Ask Devin for a rule** renders for `manager` and `admin`. An `analyst` sees the cluster and a note that a manager can request a rule. The same flat roles work both KYC and refunds queues.
 
 ## Changes by file
 
@@ -121,6 +121,6 @@ pnpm db:setup && pnpm dev   # open /t/refunds; the chip is visible; the drawer o
 ```
 
 - The cluster appears on a fresh `pnpm db:setup`.
-- As `refunds_agent`, drawer rows show masked email and card, and there is no handoff button.
-- As `refunds_manager`, the handoff button opens the panel.
+- As `analyst`, drawer rows show masked email and card, and there is no handoff button.
+- As `manager`, the handoff button opens the panel.
 - `/t/kyc` and `/t/flags` render unchanged.

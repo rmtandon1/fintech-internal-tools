@@ -28,10 +28,13 @@ The run view polls the run's Devin session every 2 seconds and renders a live ch
    ●  Editing tools/kyc/src/index.ts                               +96 −1
    ```
 
-4. **Verify line** — one mark per `verify_steps` entry: `✓` for `pass: true`, `✗` for `pass: false`, `…` for `pass: null`; the `Test` step's `before → after` counts go in the detail column once `after` is non-zero (`run-view.tsx:117-129`; `after: 0` is falsy at line 126, so no detail is shown):
+4. **Verify lines** — one sub-line per `verify_steps` entry, showing the check name and `passed`, `failed` or `running`; the `Test` step's `before → after` counts go in the detail column once `after` is non-zero:
 
    ```
-   ●  Verified: Lint ✓ Typecheck ✓ Boundaries … Test …
+   ├─ Lint · passed
+   ├─ Typecheck · passed
+   ├─ Boundaries · passed
+   └─ Test · running
    ```
 
 5. **Controls**
@@ -93,9 +96,9 @@ After the poll, `handleGet` also runs `observeMerge` for approved runs and `obse
 | Incoming field | UI effect | Code |
 | --- | --- | --- |
 | `phase` / `phase_status` | Row state: rows before `phase` are `✓`, the `phase` row is `●` (or `✓` when `phase_status` is `done`), later rows are `○` | `run-view.tsx:76-84` |
-| `reuses` | One `✓ Reusing <module basename>` row per entry | `run-view.tsx:105-107` |
+| `reuses` | One `Reused <module basename>` sub-line under Planned per entry | `run-view.tsx:201-209` |
 | `files` (last entry) | `Editing <path>` label during `edit`; `+N −M` totals across all files | `run-view.tsx:108-116` |
-| `verify_steps` | `Verified: …` marks; `Test` step drives `<n> tests` on the baseline row and `before → after` on the verify row | `run-view.tsx:91-99`, `117-129` |
+| `verify_steps` | Name · passed/failed/running/paused sub-lines; `Test` step drives `<n> tests` on the baseline row and `before → after` on the verify row | `run-view.tsx:227-239` |
 | `pr_url` | `✓ PR open #<n>` row, `PR #<n>` link, and a one-time `record_pr` intent on the run | `run-view.tsx:130-134`, `bridge.ts:369-385` |
 | `phase_status = waiting_for_user` | Reply box offered | `run-surface.ts:76` |
 | session `stopped` / `expired`, or `phase_status = stopped` | `observeSessionEnd` lands a governed `stop` with reason `Devin session <status>[: <detail>]` | `bridge.ts:324-352` |
@@ -106,7 +109,7 @@ After the poll, `handleGet` also runs `observeMerge` for approved runs and `obse
 ✓  Read the evidence                                     base 1a67f60
 ✓  Confirmed the base                                        68 tests
 ✓  Planned 2 files                                                96s
-✓  Reusing execute-intent.ts            packages/engine/src/execute-intent.ts
+   └─ Reused execute-intent.ts  hold is registered as an intent, not a side path
 ●  Editing tools/kyc/src/index.ts                             +96 −1
 ○  Verified
 ○  PR open
@@ -191,11 +194,11 @@ The session updates `structured_output` at each phase boundary and as sub-events
 ```
 +00:00  intake     ● Read the evidence
 +00:03  baseline   ✓ Read the evidence · ● Confirmed the base
-+01:39  plan       ● Planned 2 files · ✓ Reusing … rows appear
++01:39  plan       ● Planned 2 files · ├─ Reused … lines appear
 +02:10  edit       ● Editing tools/refunds/src/clustering-hold.ts  +84 −0
 +05:20  edit       ● Editing tools/kyc/src/index.ts                +96 −1
-+06:05  verify     ● Verified: Lint ✓ Typecheck ✓ Boundaries ✓ Test …
-+07:40  verify     ✓ Verified: Lint ✓ Typecheck ✓ Boundaries ✓ Test ✓   68 → 76
++06:05  verify     ● Verified: Lint passed · Typecheck passed · Boundaries passed · Test running
++07:40  verify     ✓ Verified: Lint passed · Typecheck passed · Boundaries passed · Test passed   68 → 76
 +07:55  pull_request  ✓ PR open #64
 ```
 

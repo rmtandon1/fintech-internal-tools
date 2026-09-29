@@ -2,11 +2,17 @@ import { and, asc, desc, eq, inArray, like, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@console/db";
 import { defineAction, defineTool } from "@console/engine/declare";
+import { DEMO_ACTORS } from "@console/engine/actor";
+import { loadConstants } from "@console/engine/policy/constants";
+import { evaluatePolicy } from "@console/engine/policy/evaluate";
 import type {
+  Actor,
   ApplyContext,
   ApplyResult,
   GovernedRecord,
   Rule,
+  RuleContext,
+  RuleOutcome,
   SortOption,
 } from "@console/engine/types";
 import { rolesFor } from "@console/permissions";
@@ -45,7 +51,6 @@ export interface Refund extends GovernedRecord {
   version: number;
 }
 
-export const ADMIN_APPROVAL_USD_KEY = "refunds.admin_approval_usd_minor";
 export const GOODWILL_APPROVAL_USD_KEY = "refunds.goodwill_approval_usd_minor";
 
 type RefundRule = Rule<Refund, unknown>;
@@ -72,17 +77,7 @@ const notDisputed: RefundRule = ({ record }) =>
 
 const amountApproval: RefundRule = ({ record, constants }) => {
   const managerUsd = constants.number(MANAGER_APPROVAL_USD_KEY, 50_000);
-  const adminUsd = constants.number(ADMIN_APPROVAL_USD_KEY, 500_000);
   const usd = record?.usdMinor ?? 0;
-  if (usd >= adminUsd) {
-    return {
-      type: "require_approval",
-      rule: "amount_approval",
-      tier: "admin",
-      allowedRoles: ["admin"],
-      reason: "Amount exceeds admin threshold",
-    };
-  }
   if (usd >= managerUsd) {
     return {
       type: "require_approval",
@@ -113,6 +108,45 @@ const allow =
   (rule: string): RefundRule =>
   () => ({ type: "allow", rule });
 
+type ApprovalOutcome = Extract<RuleOutcome, { type: "require_approval" }>;
+
+function managerRoute(ctx: RuleContext<Refund, unknown>): ApprovalOutcome | null {
+  const execute = refundTool.actions.find((action) => action.name === "execute");
+  if (!execute) throw new Error("refunds.execute is not declared");
+  const decision = evaluatePolicy(execute.rules, {
+    ...ctx,
+    actor: DEMO_ACTORS.analyst,
+    tool: "refunds",
+    action: "execute",
+    input: {},
+    constants: loadConstants(),
+  });
+  if (decision.effect === "deny") return null;
+  return (
+    decision.trace.find(
+      (outcome): outcome is ApprovalOutcome => outcome.type === "require_approval",
+    ) ?? null
+  );
+}
+
+function managerRouteFor(record: Refund): ApprovalOutcome | null {
+  return managerRoute({
+    actor: DEMO_ACTORS.analyst,
+    tool: "refunds",
+    action: "execute",
+    record,
+    input: {},
+    constants: loadConstants(),
+  });
+}
+
+const paymentApprover: RefundRule = (ctx) => {
+  const route = managerRoute(ctx);
+  return route
+    ? { ...route, rule: "payment_approver" }
+    : { type: "allow", rule: "payment_approver" };
+};
+
 const SORTABLE = {
   id: refunds.id,
   paymentId: refunds.paymentId,
@@ -135,7 +169,13 @@ export const refundTool = defineTool<Refund>({
   icon: "Undo2",
   group: "Money Movement",
   recordType: "refund",
-  visibleTo: rolesFor("refunds", "agent"),
+  visibleTo: [...rolesFor("refunds", "agent"), "admin"],
+  defaultFilters: (actor: Actor): Record<string, string> =>
+    actor.role === "analyst"
+      ? { queue: "analyst" }
+      : actor.role === "manager"
+        ? { queue: "manager" }
+        : {},
   fields: [
     { name: "paymentId", label: "Payment", type: "string" },
     { name: "merchant", label: "Merchant", type: "string" },
@@ -214,32 +254,54 @@ export const refundTool = defineTool<Refund>({
         { value: "fraud", label: "Fraud" },
       ],
     },
+    {
+      field: "queue",
+      label: "Queue",
+      type: "enum",
+      options: [
+        { value: "analyst", label: "Analyst" },
+        { value: "manager", label: "Manager" },
+      ],
+    },
   ],
   stats: [
     {
       key: "requested",
       label: "Ready to send",
-      roles: ["refunds_agent", "refunds_manager"],
-      source: { kind: "records", filters: { status: "requested" } },
+      roles: ["analyst"],
+      source: { kind: "records", filters: { status: "requested", queue: "analyst" } },
     },
     {
-      key: "my_requests_awaiting",
-      label: "Waiting on approval",
-      roles: ["refunds_agent"],
-      source: { kind: "approvals", scope: "requested_by_me" },
+      key: "with_manager",
+      label: "With a manager",
+      roles: ["analyst", "admin"],
+      source: { kind: "records", filters: { queue: "manager" } },
     },
     {
-      key: "awaiting_approval",
+      key: "manager_requested",
       label: "Need your approval",
-      roles: ["refunds_manager", "admin"],
-      source: { kind: "approvals", scope: "decidable" },
+      roles: ["manager"],
+      source: { kind: "records", filters: { queue: "manager" } },
     },
     {
       key: "failed",
       label: "Failed",
-      roles: ["refunds_agent", "refunds_manager"],
+      roles: ["analyst"],
       tone: "warning",
-      source: { kind: "records", filters: { status: "failed" } },
+      source: { kind: "records", filters: { status: "failed", queue: "analyst" } },
+    },
+    {
+      key: "manager_failed",
+      label: "Failed",
+      roles: ["manager"],
+      tone: "warning",
+      source: { kind: "records", filters: { status: "failed", queue: "manager" } },
+    },
+    {
+      key: "executing",
+      label: "With processor",
+      roles: ["manager"],
+      source: { kind: "records", filters: { status: "executing" } },
     },
     {
       key: "denied_24h",
@@ -282,13 +344,6 @@ export const refundTool = defineTool<Refund>({
       tool: "refunds",
     },
     {
-      key: ADMIN_APPROVAL_USD_KEY,
-      value: 500_000,
-      type: "number",
-      description: "Refunds at or above this amount need an admin. In cents, USD.",
-      tool: "refunds",
-    },
-    {
       key: GOODWILL_APPROVAL_USD_KEY,
       value: 5_000,
       type: "number",
@@ -305,6 +360,7 @@ export const refundTool = defineTool<Refund>({
       input: z.object({ note: z.string().max(500).optional() }),
       fromStatus: ["requested", "failed"],
       tone: "primary",
+      routeToApprover: true,
       rules: [withinCapturedAmount, notDisputed, amountApproval, goodwillApproval, clusteringHold],
       suggest: () => ({ note: "Checks passed; sending to the processor." }),
       decide: ({ record, input }) => ({
@@ -321,7 +377,8 @@ export const refundTool = defineTool<Refund>({
       input: z.object({ reason: z.string().min(5).max(500) }),
       fromStatus: ["requested", "failed"],
       tone: "destructive",
-      rules: [allow("reject_always_permitted")],
+      routeToApprover: true,
+      rules: [paymentApprover],
       suggest: (record) => ({
         reason:
           record?.disputed === 1
@@ -374,7 +431,7 @@ export const refundTool = defineTool<Refund>({
     amount_approval: "Approval limit",
     goodwill_approval: "Goodwill limit",
     clustering_hold: "Refunds that add up past the manager limit",
-    reject_always_permitted: "Rejecting is always allowed",
+    payment_approver: "Manager approval",
     settlement_is_a_record_keeping_step: "Record-keeping step",
     failure_is_a_record_keeping_step: "Record-keeping step",
   },
@@ -409,16 +466,27 @@ export const refundTool = defineTool<Refund>({
       );
     }
     const where = clauses.length ? and(...clauses) : undefined;
-    const rows = db
+    const matchingRows = db
       .select()
       .from(refunds)
       .where(where)
       .orderBy(order(sort))
-      .limit(limit)
-      .offset(offset)
       .all();
-    const total = db.select({ id: refunds.id }).from(refunds).where(where).all().length;
-    return { rows, total };
+    const queueRows =
+      filters.queue === "analyst" || filters.queue === "manager"
+        ? matchingRows.filter((record) => {
+            const routed =
+              (record.status === "requested" || record.status === "failed") &&
+              managerRouteFor(record) !== null;
+            return filters.queue === "manager"
+              ? routed
+              : record.status !== "rejected" && !routed;
+          })
+        : matchingRows;
+    return {
+      rows: queueRows.slice(offset, offset + limit),
+      total: queueRows.length,
+    };
   },
   get: getRefund,
   seed: seedRefunds,

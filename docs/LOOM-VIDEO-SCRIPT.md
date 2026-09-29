@@ -30,7 +30,7 @@
 
 The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than reading the table here.
 
-**◀ CONSOLE.** [Viewing as Refunds manager, on Home.]
+**◀ CONSOLE.** [Viewing as Manager, on Home.]
 
 ---
 
@@ -52,17 +52,17 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 > "Four 'not received' refunds from Kestrel Outdoors, each just under the $500 manager line. Together, $1,880."
 
-[Switch role: Refunds agent.]
+[Switch role: Analyst.]
 
 [On `rfnd_0013`, click **Send to processor**.]
 
 [It goes straight to **With processor**.]
 
-> "An agent pays one. That takes Kestrel to $925, and it went straight through."
+> "An analyst pays one. $460, under the line, straight through. Nothing stopped it."
 
 ### Ask, build, approve
 
-[Switch role: Refunds manager.]
+[Switch role: Manager.]
 
 [Click **Ask Devin for a rule**.]
 
@@ -84,19 +84,19 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Point at the changed assertion in `refunds-clusters.test.ts`.]
 
-> "An existing test said all four refunds pass. Devin changed it to three held, in the open."
+> "An existing test said all four refunds pass. Devin changed it to three held."
 >
 > "*(328)* tests before, *(new total)* after."
 
 [Switch role: Engineer.]
 
+[On **Rule changes**, click the top row, the one with the PR number, to open its run in the Devin panel.]
+
 [Click **Review and approve**.]
 
 [Point at "The approver cannot be the requester".]
 
-> "Now I'm the engineer. Watch what happens next, because this is the point of the demo."
->
-> "The person who asked can't approve. That's checked in code every time someone approves, not in a wiki."
+> "Now I'm the engineer. The person who asked can't approve. That's checked in code every time someone approves."
 
 [Click **Approve as engineer**.]
 
@@ -108,21 +108,21 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Close the dialog; click **Pull merged code**.]
 
-> "Merged isn't live yet. An engineer pulls it into the running console."
+> "It's merged. An engineer pulls it into the running console."
 
 ### Held
 
-[Switch role: Refunds agent.]
+[Switch role: Analyst.]
 
-[On `rfnd_0011`, click **Send to processor**.]
+[`rfnd_0011` is no longer in the refunds queue; **With a manager** counts it.]
 
-[The banner reads **Sent to manager for approval**.]
+> "Back to the analyst. The next Kestrel refund has left their queue, and nobody clicked anything."
 
-> "Back to the agent, and the next Kestrel refund. The same click now waits for a manager."
+[Switch role: Manager. Open `rfnd_0011` in the manager's queue, then the trace: `clustering_hold` and the running total.]
 
-[Open the trace: `clustering_hold` and the running total.]
+> "It's in the manager's queue, and the trace says why: the new rule, and how much Kestrel has added up to."
 
-> "The trace names the new rule and how much Kestrel has added up to."
+> "The rule itself is a sum. The work is everything around it: the KYC side, a switch to turn it off, tests, review, and later an undo that keeps what came after."
 
 ### Switch it off
 
@@ -130,15 +130,11 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Off camera: `pnpm db:scenario courier-outage`.]
 
-[Switch role: Refunds manager.]
+[Switch role: Manager.]
 
-[Open **Approvals** in the sidebar: 60 Fernhill refunds.]
+[Open **Refunds**: 60 Fernhill refunds need your approval.]
 
-> "A courier outage. Sixty genuine refunds from a trusted merchant, all held."
-
-[Open **Audit log** in the sidebar: one row per held Fernhill refund.]
-
-> "They came in overnight as ordinary refund requests. The live rule held each one, and each hold wrote its own audit row."
+> "A courier outage. Sixty genuine refunds from a trusted merchant, all in the manager's queue."
 
 [Switch role: Admin.]
 
@@ -146,7 +142,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Save; point at the audit row.]
 
-> "Switching it off is a business call, so an admin makes it, not an engineer. Zero means off, and a test proves it. One setting, one audit row, no deploy."
+> "Zero means off, and a test proves it. One setting, one audit row, no deploy."
 
 ### Remove it
 
@@ -158,29 +154,29 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Cut to the finished undo.]
 
-> "Undoing it is the hard part. A plain git revert conflicts: a partial-delivery reason code landed in the same file since."
+> "Undoing it is the hard part. A plain git revert conflicts, because a partial-delivery reason code has since gone into the same file."
 
 [Point at the conflict: kept `partial_delivery`, removed `clustering_hold`.]
 
 > "Devin kept the later work and took the rule out."
 
-[Point at the removed tests, then the sixty held refunds.]
+[Point at the removed tests, then the sixty routed refunds.]
 
-> "Its tests are named as removed, and the sixty held refunds are listed for a person to release. Nothing else touched."
+> "Devin lists the tests it removed, and the sixty routed refunds still in the manager's queue for someone to pay or reject. Nothing else was touched."
 
 [As Engineer: approve, merge, **Pull merged code**.]
 
-> "Taking a rule out is the same risk as putting one in, so it gets the same review."
+> "The undo gets the same review the rule did."
 
 ### Outcome
 
-[Switch role: Refunds agent.]
+[Switch role: Analyst.]
 
-[On `rfnd_0014`, click **Send to processor**.]
+[`rfnd_0014` is back in the analyst's queue; click **Send to processor**.]
 
 [It goes straight to **With processor**.]
 
-> "The agent's click goes straight through again."
+> "The analyst's click goes straight through again."
 
 [Open the trace, then the reason-code dropdown.]
 
@@ -192,7 +188,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 ### Before
 
-[Switch role: KYC reviewer.]
+[Switch role: Analyst.]
 
 [Open `kyc_0104`, Thornbury Couriers Ltd.]
 
@@ -210,7 +206,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [Click **Ask Devin to add a check**.]
 
-> "Adding a check to onboarding is an admin's request, not the reviewer's."
+> "Adding a check to onboarding is an admin's request, not the analyst's."
 
 [Point at **What Devin will see**: name, number, country.]
 
@@ -234,13 +230,11 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [In **Rule settings**, set `kyc.companies_house_check` to 1.]
 
-> "It merged switched off. Merged isn't live: the check shipped dormant."
->
-> "Turning it on is a separate decision, made by an admin and audited on its own, not part of the merge."
+> "It merged switched off. Turning it on is a separate change, with its own audit row."
 
 ### Outcome
 
-[Switch role: KYC reviewer.]
+[Switch role: Analyst.]
 
 [On `kyc_0104`, run the Companies House check.]
 
@@ -294,11 +288,11 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [In **Feature flags**, enable `app.chargebacks`.]
 
-> "The whole app lands dark behind one flag. Turning it on is a business decision, and if it doesn't match the Power App, it flips back off."
+> "The whole app merged behind one flag, switched off. If it doesn't match the Power App, the flag goes back off."
 
 ### Outcome
 
-[Switch role: Refunds agent.]
+[Switch role: Analyst.]
 
 [Open the **Chargebacks** tile on Home.]
 
@@ -310,7 +304,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [It waits for a manager.]
 
-> "A $2,480 fraud accept waits for a manager, as it did in Power Apps. The rest of the move is that list."
+> "A $2,480 fraud accept waits for a manager, as it did in Power Apps. Everything still to move is listed in the pull request."
 
 ---
 
@@ -322,15 +316,13 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 > "One challenge from the build: post-merge deployment drift."
 >
-> "GitHub said merged, and the screen didn't change."
->
-> "I walked it down layer by layer. The merge commit wasn't in the console's checkout."
+> "GitHub said merged, and the screen didn't change. The merge commit wasn't in the console's checkout."
 >
 > "Pulling wasn't enough either. The new Chargebacks package didn't resolve."
 >
-> "So the fix works in four layers: confirm the merge actually happened, pull only into a clean checkout, install packages when the lockfile changes, then migrate and register the new settings and flags."
+> "The fix has four steps: confirm the merge actually happened, pull only into a clean checkout, install packages when the lockfile changes, then migrate and register the new settings and flags."
 >
-> "That toast is all four — no restart, no re-seed."
+> "Now Pull merged code handles it, with no restart and no re-seed."
 
 ---
 

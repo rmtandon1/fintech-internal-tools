@@ -89,7 +89,7 @@ Home → Refunds → cluster strip "Kestrel Outdoors · 4 refunds"
 
 - ✅ Pattern visible to every refunds role
 - ❌ No rule holds these refunds
-- ⚠ A `refunds_agent` sees the drawer but not the button; only a refunds manager or admin can ask
+- ⚠ An `analyst` sees the drawer but not the button; only a manager or admin can ask
 
 #### Step 2: Ask Devin in one sentence
 
@@ -115,7 +115,7 @@ Refunds → cluster drawer → Ask Devin for a rule → Send to Devin
 │                                                    │
 │ CONTEXT                                            │
 │ Kestrel Outdoors · 4 refunds · $1,880              │
-│ Manager limit $500 · KYC manager score 70 · no PII │
+│ Manager limit $500 · Manager threshold 70 · no PII │
 │                                                    │
 │ GUARDRAILS                                         │
 │ tools/refunds · tools/kyc · tests                  │
@@ -215,7 +215,7 @@ Approval dialog → Devin merged → Pulled into the console → Close
 #### Step 6: The same click, a different result
 
 ```
-Viewing as → refunds_agent → Refunds → rfnd_0013 → Send to processor
+Viewing as → analyst → Refunds → rfnd_0013 → Send to processor
 ```
 
 **What happens**
@@ -232,13 +232,13 @@ Viewing as → refunds_agent → Refunds → rfnd_0013 → Send to processor
 └────────────────────────────────────┘    └────────────────────────────────────┘
 ```
 
-Open `kyc_0013` as `kyc_reviewer`: **Approve** now routes to a KYC manager, and the trace
+Open `kyc_0013` as `analyst`: **Approve** now routes to a manager, and the trace
 names `linked_refund_hold`.
 
 **Current state**
 
 - ✅ Rule live on refunds and KYC
-- ✅ Every hold writes its own audit row
+- ✅ The Manager pays or rejects each routed refund directly; the action is audited
 
 ### Scenario B: Switch the rule off
 
@@ -284,7 +284,7 @@ Viewing as → admin → /runs → the merged rule → Undo this change → Ask 
 - Devin starts from a revert, resolves conflicts so later work survives (for example a
   `partial_delivery` reason code added since), and removes the rule, its KYC check, its
   setting and its tests.
-- The pull request lists what code can't undo: refunds still held, and the setting row left in
+- The pull request lists what code can't undo: refunds still in the Manager queue, and the setting row left in
   the database.
 
 #### Step 2: Approve and merge
@@ -297,7 +297,7 @@ Viewing as → engineer → the undo run → Review and approve → Approve as e
 
 - ✅ Rule gone from the code and the policy trace
 - ✅ Later changes kept
-- ⚠ Held refunds need a person to approve or reject them
+- ⚠ Routed refunds need a Manager to pay or reject them
 - ⚠ The `refunds.clustering_window_days` row stays on `/admin/policy` until someone removes it
 
 ---
@@ -332,7 +332,7 @@ moment it is saved.**
  Before             │ Kestrel refund → With         │   runtime_constants: no window row
                     │ processor. 4 rules, all allow │   git HEAD: a54fd58
                     └───────────────┬───────────────┘
-                                    ↓  refunds manager: Ask Devin for a rule → Send to Devin
+                                    ↓  Manager: Ask Devin for a rule → Send to Devin
  T0 + 1 min         ┌───────────────────────────────┐   devin_runs.status = dispatched → running
  Requested          │ /runs: Sent to Devin          │   runs/<id>/context.json written
                     │ Refunds unchanged             │   audit: dispatch, record_session
@@ -345,8 +345,8 @@ moment it is saved.**
                                     ↓  engineer: Review and approve → Approve as engineer
  T0 + run + review  ┌───────────────────────────────┐   devin_runs.status = approved → merged
  Live               │ /runs: Live                   │   git HEAD: <merge commit>
-                    │ Kestrel refund → Waiting for  │   runtime_constants: window = 14
-                    │ manager (clustering_hold)     │   audit: approve_pr, record_merge
+                    │ Manager queue; direct action │   runtime_constants: window = 14
+                    │ (clustering_hold)             │   audit: approve_pr, record_merge
                     └───────────────┬───────────────┘
                                     ↓  admin: Rule settings → window 0 → Save
  Later              ┌───────────────────────────────┐   runtime_constants: window = 0
@@ -458,15 +458,15 @@ Full setup: [SETUP.md](SETUP.md), [DEVIN_SETUP_GUIDE.md](DEVIN_SETUP_GUIDE.md),
 
 ## Next Steps
 
-1. As `refunds_agent`, send `rfnd_0013` to the processor. It goes straight through (**With processor**). That is the before.
+1. As `analyst`, send `rfnd_0013` to the processor. It goes straight through (**With processor**). That is the before.
 2. Reset: `rm -rf apps/console/data && pnpm db:setup`.
-3. As `refunds_manager`, open the Kestrel cluster and press **Ask Devin for a rule**, then
+3. As `manager`, open the Kestrel cluster and press **Ask Devin for a rule**, then
    **Send to Devin**.
 4. Watch `/runs` move from **Sent to Devin** to **Devin working** with a pull request.
 5. Switch to `engineer`, open the run, **Review and approve**, then **Approve as engineer**.
 6. Confirm the run reads **Live** and `git log -1` shows the merge.
-7. As `refunds_agent`, send `rfnd_0013` again. It waits for a manager, and the trace names
-   `clustering_hold`.
+7. As `analyst`, find `rfnd_0011` absent from the refunds queue. As `manager`, open it from the
+   manager queue and pay or reject it directly; the trace names `clustering_hold`.
 8. As `admin`, set `refunds.clustering_window_days` to 0. Send `rfnd_0014`. It goes straight through.
 9. As `admin`, press **Undo this change** on the run, and approve the undo as `engineer`.
 10. Check `/audit` shows every step, from the request to the removal.

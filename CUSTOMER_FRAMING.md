@@ -8,7 +8,7 @@ Why this console exists, who it serves and what the demo proves, written for sta
 
 ### What happens today
 
-A request starts when risk or operations see something in a queue that the current rules don't cover, for example: "hold a merchant's refunds once together they pass the manager line, and send those customers' KYC approvals to a manager". Each Power App holds only its own data, so the case for the rule is built by hand. The reviewed path through engineering then runs in eight steps:
+A request starts when risk or operations see something in a queue that the current rules don't cover, for example: "route a merchant's refunds to a manager once together they pass the manager line, and send those customers' KYC approvals to a manager". Each Power App holds only its own data, so the case for the rule is built by hand. The reviewed path through engineering then runs in eight steps:
 
 1. **Spot.** An analyst notices an emerging pattern in one app's queue, such as refunds.
 2. **Export and join.** They export the queue to Excel, build a Pivot Table, and look up the same customers in other apps, such as KYC and payments, one at a time.
@@ -51,7 +51,7 @@ The fast path skips steps 3–8: a business user edits the Power Automate flow i
 
 - **Business edits skip review.** A Power Apps edit goes live with no diff, no second approver, no test and no recorded reason. The save history says who changed a flow, not why, so when a rule that releases money misbehaves the team rebuilds the story from memory and Slack.
 - **Each app sees only itself.** Rules worth adding span apps: the refund hold above reads refunds and KYC, and KYC decisions rest on the same kind of join, such as the delivery address on a refund or a directorship on Companies House. A rule that reads both needs a shared data model and a test that covers both. A Power Apps formula has neither, so today the join is a person with a spreadsheet.
-- **No-code rules miss edge cases the code already handles.** "Sum a merchant's refunds" sounds like a one-line flow, but rejected refunds must be excluded, goodwill refunds already have their own $50 approval line, and the sum must be in USD at the exchange rate booked when each refund was requested. The console's code handles all three. A flow edited under pressure drops one without anyone noticing.
+- **No-code rules miss edge cases the code already handles.** "Sum a merchant's refunds" sounds like a one-line flow, but rejected refunds must be excluded, goodwill refunds already have their own $50 manager line, and the sum must be in USD at the exchange rate booked when each refund was requested. The console's code handles all three. A flow edited under pressure drops one without anyone noticing.
 - **Feature flags only cover changes someone predicted.** A flag such as `if (flags.isEnabled("refund_clustering_v1"))` lets the business flip behaviour from a dashboard, but only if an engineer wrote the rule in advance. A rule that comes out of the queue is one nobody predicted, and every flag leaves a permanent branch that nobody schedules to delete.
 
 ### The tax
@@ -86,17 +86,17 @@ Moving off Power Apps means owning the software. Each row is a question to put t
 
 Turn a pattern you spot in the queue into a live rule the same day. Ask for it in one sentence, from the screen that shows it, and the evidence travels with the request.
 
-**Example:** four `not_received` refunds from Kestrel Outdoors sit just under the $500 manager line, but sum $1,880 together. The refunds manager clicks **Ask Devin for a rule** and in a few hours the next Kestrel refund goes to the manager inbox instead of going through automatically.
+**Example:** four `not_received` refunds from Kestrel Outdoors sit just under the $500 manager line, but sum $1,880 together. The Manager clicks **Ask Devin for a rule** and in a few hours the next Kestrel refund leaves the Analyst queue for the Manager queue, where the manager pays or rejects it directly.
 
-**Example:** the same intervention can reach across apps. Even if the original domain was querying a refund, approving the change leads to the case being referred to a kyc manager.
+**Example:** the same intervention can reach across apps. Even if the original domain was querying a refund, approving the change leads to the case being referred to a Manager.
 
 ### For Console Admins
 
 Stop a rule the moment it misfires, without waiting on engineering. Then have it taken out of the code cleanly the same day.
 
-**Example:** a courier outage sends a set of genuine refunds to the manager inbox. Every rule Devin adds comes with a setting that switches it off, editable on the admin policy page. The admin turns the rule off there in seconds, with no code change and no engineer, and one audit row records who did it.
+**Example:** a courier outage sends a set of genuine refunds to the manager's queue. Every rule Devin adds comes with a setting that switches it off, editable on the admin policy page. The admin turns the rule off there in seconds, with no code change and no engineer, and one audit row records who did it.
 
-**Example:** the admin clicks **Undo this change** on the merged run. The codebase has moved on since the rule was added, so a plain `git revert` breaks: Devin has to understand which later behaviour, a `partial_delivery` change to the same file, must survive while it semantically undoes the earlier feature. The PR lists the 60 held refunds for a person to release.
+**Example:** the admin clicks **Undo this change** on the merged run. The codebase has moved on since the rule was added, so a plain `git revert` breaks: Devin has to understand which later behaviour, a `partial_delivery` change to the same file, must survive while it semantically undoes the earlier feature. The PR lists the 60 refunds still in the Manager queue for a person to pay or reject.
 
 ### For Core Engineering
 
@@ -124,18 +124,18 @@ Three parts of one demo in [`docs/LOOM-VIDEO-SCRIPT.md`](docs/LOOM-VIDEO-SCRIPT.
 
 ### 1. A rule, from added to removed
 
-**Scenario.** Four `not_received` refunds from one merchant each sit just under the $500 manager line, and total $1,880 together. Later, a courier outage sends a long-standing merchant's genuine refunds to the manager inbox, and the refunds ops lead, support and the merchant's account manager all want the rule off. Question it answers: what happens when requirements change, and what if we want it gone?
+**Scenario.** Four `not_received` refunds from one merchant each sit just under the $500 manager line, and total $1,880 together. Later, a courier outage sends a long-standing merchant's genuine refunds to the manager's queue, and the refunds ops lead, support and the merchant's account manager all want the rule off. Question it answers: what happens when requirements change, and what if we want it gone?
 
 **Traditional cost.** An analyst joins two apps in Excel, then waits 1–2 weeks for an engineer and 4–6 engineer-hours of work. The rule then stays in the code behind a switch nobody removes.
 
 **Automated path.**
 
-- The refunds manager asks Devin for a hold in one sentence, from the screen that shows the pattern. Devin gets the sentence, the evidence and the files it may touch, and nothing else
+- The Manager asks Devin for a hold in one sentence, from the screen that shows the pattern. Devin gets the sentence, the evidence and the files it may touch, and nothing else
 - Devin writes the rule, a matching KYC check, a switch-off setting and tests, and changes the one existing test that said these refunds pass
-- An engineer approves the pull request, and the next refund from that merchant waits for a manager
+- An engineer approves the pull request, and the next refund from that merchant leaves the Analyst queue for the Manager queue, where the Manager pays or rejects it directly
 - When it misfires, the admin sets the rule's window to 0 on the policy page. Refunds flow again, and one audit row records who did it. Setting it back to 14 turns it on again
 - Risk replaces it with a narrower rule, so the admin asks Devin to undo it. A plain `git revert` conflicts with a later `partial_delivery` change to the same file, so Devin removes the rule, its KYC check and its setting, and keeps the later work
-- The pull request lists what code can't undo: held refunds for a person to release, and the setting left in the database
+- The pull request lists what code can't undo: routed refunds for a person to pay or reject, and the setting left in the database
 
 **Business value.** A pattern spotted in the queue becomes a reviewed rule the same day, can be stopped in seconds without an engineer, and leaves no dead code behind when it goes.
 
@@ -230,7 +230,7 @@ Line counts for the check and the app are the file sizes at merge (#61, #62). Co
 **Scenario.** Risk analysts find merchants splitting "not received" refunds just under the $500 manager line costly, because each one passes on its own.
 
 - **Traditional.** An analyst exports the refunds queue to Excel, pivots it by merchant, looks each customer up in KYC by hand, and files a ticket. It waits 1–2 weeks for a sprint, then 4–6 engineer-hours to trace and test.
-- **Automated.** The refunds manager clicks **Ask Devin for a rule** on the Kestrel Outdoors cluster and sends one sentence. An engineer reviews for ~5 minutes the same day.
+- **Automated.** The Manager clicks **Ask Devin for a rule** on the Kestrel Outdoors cluster and sends one sentence. An engineer reviews for ~5 minutes the same day.
 
 What the automation does:
 
@@ -247,7 +247,7 @@ What the automation does:
 
 ### Switch a rule off
 
-**Scenario.** Refunds ops find a courier outage sending sixty genuine Fernhill Home refunds to the manager inbox disruptive, and support fields the customers whose money is stuck.
+**Scenario.** Refunds ops find a courier outage sending sixty genuine Fernhill Home refunds to the manager's queue disruptive, and support fields the customers whose money is stuck.
 
 - **Traditional.** A hotfix ticket, or another unreviewed live edit to a flow.
 - **Automated.** An admin sets `refunds.clustering_window_days` to 0 on `/admin/policy`. Seconds, no engineer.
@@ -275,14 +275,14 @@ What the automation does:
 5. Resolves the conflict in `tools/refunds/src/index.ts`: keeps `partial_delivery`, removes `clustering_hold`.
 6. Deletes `clustering-hold.ts`, removes `linked_refund_hold` from `tools/kyc/src/index.ts`.
 7. Checks every other file is back to its pre-merge content, except later merged work.
-8. Opens the PR with the conflict record and what code can't undo: held refunds and the setting row.
+8. Opens the PR with the conflict record and what code can't undo: refunds still in the Manager queue for direct action and the setting row.
 
 ### Automate a check
 
 **Scenario.** KYC analysts find checking every UK business on Companies House by hand slow and error-prone. They open another tab, read the filings and type a note.
 
 - **Traditional.** A premium Power Automate connector licensed per user, or a ticket that waits for a sprint.
-- **Automated.** A KYC manager or admin clicks **Ask Devin to add a check** on Thornbury Couriers (`kyc_0104`).
+- **Automated.** A Manager or admin clicks **Ask Devin to add a check** on Thornbury Couriers (`kyc_0104`).
 
 What the automation does:
 
@@ -294,7 +294,7 @@ What the automation does:
 6. Adds a `check_companies_house` action to `tools/kyc/src/index.ts`, through `executeIntent`, UK business cases only.
 7. Documents the key in `.env.example`.
 8. Writes `apps/console/tests/tools/kyc-companies-house.test.ts` (362 lines, 14 behaviours, no live call).
-9. Adds no new rule: the existing `declared_vs_found` holds approval for a KYC manager.
+9. Adds no new rule: the existing `declared_vs_found` holds approval for a Manager.
 
 ### Start an app
 
@@ -310,7 +310,7 @@ What the automation does:
 3. Creates `tools/chargebacks/package.json` (20) and `tsconfig.json` (7).
 4. Creates `tools/chargebacks/src/schema.ts` (28): `chargeback_disputes` with the export's columns.
 5. Creates `tools/chargebacks/src/seed.ts` (105): the 50 disputes, dates kept as offsets from the export time.
-6. Creates `tools/chargebacks/src/index.ts` (325): queue, the 48-hour count, fraud accepts over $500 and fights over $2,500 to a refunds manager.
+6. Creates `tools/chargebacks/src/index.ts` (325): queue, the 48-hour count, fraud accepts over $500 and fights over $2,500 to a manager.
 7. Adds one line to `apps/console/src/registry.ts` and one re-export to `apps/console/src/schema.ts`.
 8. Generates migration `0009` and its journal entry; updates `pnpm-lock.yaml` (+21).
 9. Seeds `app.chargebacks` off in `tools/flags/src/seed.ts` and sets the mode's `flag` in `modes.ts`.

@@ -223,7 +223,12 @@ export function scriptedFrames(
       2_000,
       "running",
       "Baseline verify at the base commit",
-      out({ ...base, phase: "baseline", phase_durations_s: d("intake") }),
+      out({
+        ...base,
+        phase: "baseline",
+        phase_durations_s: d("intake"),
+        notes: [{ phase: "baseline", text: "Ran pnpm verify at the base: all 68 tests pass" }],
+      }),
     ),
     frame(
       6_000,
@@ -233,6 +238,7 @@ export function scriptedFrames(
         ...base,
         phase: "plan",
         phase_durations_s: d("baseline"),
+        notes: [{ phase: "baseline", text: "Ran pnpm verify at the base: all 68 tests pass" }],
       }),
     ),
     frame(
@@ -246,6 +252,7 @@ export function scriptedFrames(
         plan_commit: planCommit,
         reuses: operation === "undo" ? [] : REUSES,
         files: files.map((f) => ({ ...f, additions: 0, deletions: 0 })),
+        notes: [{ phase: "baseline", text: "Ran pnpm verify at the base: all 68 tests pass" }],
       }),
     ),
     frame(
@@ -261,6 +268,7 @@ export function scriptedFrames(
         files,
         conflicts,
         verify_steps: verify(0),
+        notes: [{ phase: "baseline", text: "Ran pnpm verify at the base: all 68 tests pass" }],
       }),
     ),
     ...[0, 1, 2].map((i) =>
@@ -277,6 +285,7 @@ export function scriptedFrames(
           files,
           conflicts,
           verify_steps: verify(i + 1),
+          notes: [{ phase: "baseline", text: "Ran pnpm verify at the base: all 68 tests pass" }],
         }),
       ),
     ),
@@ -293,6 +302,10 @@ export function scriptedFrames(
         files,
         conflicts,
         verify_steps: verify(CI_CHECKS.length),
+        notes: [
+          { phase: "baseline", text: "Ran pnpm verify at the base: all 68 tests pass" },
+          { phase: "verify", text: "Opened localhost:3001/t/refunds and saw the held refunds with a Held chip" },
+        ],
       }),
     ),
     frame(
@@ -310,6 +323,10 @@ export function scriptedFrames(
         conflicts,
         verify_steps: verify(CI_CHECKS.length),
         pr_url: prUrl,
+        notes: [
+          { phase: "baseline", text: "Ran pnpm verify at the base: all 68 tests pass" },
+          { phase: "verify", text: "Opened localhost:3001/t/refunds and saw the held refunds with a Held chip" },
+        ],
       }),
     ),
   ];

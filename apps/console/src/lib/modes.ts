@@ -40,7 +40,7 @@ export const OPS_MODES: OpsMode[] = [
     actions: ["approve", "reject", "request_info"],
     segment: "both",
     area: "Compliance",
-    launchRole: "kyc_reviewer",
+    launchRole: "analyst",
   },
   {
     id: "refunds",
@@ -51,7 +51,7 @@ export const OPS_MODES: OpsMode[] = [
     actions: ["request_refund", "approve", "reject", "execute"],
     segment: "both",
     area: "Money movement",
-    launchRole: "refunds_manager",
+    launchRole: "manager",
   },
   {
     id: "flags",

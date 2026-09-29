@@ -11,7 +11,7 @@ import {
   refundTool,
 } from "@console/tool-refunds";
 import { refunds } from "@console/tool-refunds/schema";
-import { admin, refundsAgent, setupHarness } from "../helpers/harness";
+import { admin, analyst, setupHarness } from "../helpers/harness";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -55,7 +55,7 @@ describe("refunds clusters", () => {
     for (const id of kestrel.recordIds) {
       const record = refundTool.get(id);
       if (!record) throw new Error(`missing ${id}`);
-      const preview = previewActions(refundTool, record, refundsAgent).find(
+      const preview = previewActions(refundTool, record, analyst).find(
         (p) => p.action === "execute",
       );
       expect(preview?.decision?.effect).toBe("require_approval");

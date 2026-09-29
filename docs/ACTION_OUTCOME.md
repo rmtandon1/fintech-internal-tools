@@ -5,7 +5,7 @@
 - After an operator clicks an action on a record, a panel replaces today's toast. It shows what the engine did: the permission check, the policy rules, who decided and when, and the audit row written.
 - Every line is read from the result and the audit row. A line with no value isn't shown.
 - The panel renders from `IntentOutcome`, so every tool gets it, `flags` included, with no tool code.
-- It is the demo's proof shot: after the clustering hold merges, the panel names the rule that sent `rfnd_0013` to a manager, in one frame.
+- It is the demo's proof shot: after the clustering hold merges, the panel names the rule that routes `rfnd_0013` to the manager, in one frame.
 - Two pull requests: a small engine change that returns the audit row id, then the component. Normal feature work.
 - The panel shows only what the engine did. Nothing downstream exists yet, so no line claims it.
 
@@ -21,13 +21,13 @@ One panel per outcome, docked at the foot of the record panel where the action b
 
 ### Action applied
 
-A `kyc_reviewer` approves a low-risk case:
+A `analyst` approves a low-risk case:
 
 ```
 APPROVED · kyc_0014 · pending_review → approved
-✓ Permission   kyc_reviewer is allowed to approve in kyc
+✓ Permission   analyst is allowed to approve in kyc
 ✓ Policy       5 rules checked, all passed             [trace]
-✓ Recorded     by usr_kyc_reviewer at 2026-09-25 14:02:11 UTC
+✓ Recorded     by usr_analyst at 2026-09-25 14:02:11 UTC
 ✓ Audit        recorded in the audit log                [open]
 ```
 
@@ -41,18 +41,32 @@ APPROVED · kyc_0014 · pending_review → approved
 
 ### Action sent for approval
 
-The outcome the demo depends on. After `REFUND_CLUSTERING_HOLD.md` merges, the refunds agent approves `rfnd_0013`:
+After `REFUND_CLUSTERING_HOLD.md` merges, the linked KYC case still uses the existing approval-request flow:
 
 ```
-WAITING FOR MANAGER · rfnd_0013 · requested unchanged
-✓ Permission   refunds_agent is allowed to approve in refunds
-→ Policy       clustering_hold: Kestrel Outdoors not-received refunds
-               total 1880.00 USD over 14 days          [trace]
-✓ Held         request 01K5… keeps the input until a decision
+WAITING FOR MANAGER · kyc_0013 · pending_review unchanged
+✓ Permission   analyst is allowed to approve in kyc
+→ Policy       linked_refund_hold: customer's refunds are held in a merchant cluster [trace]
+✓ Held         approval request keeps the input until a decision
 ✓ Audit        approval_requested                    [open]
 ```
 
-The record didn't change, and the header says so. The policy line names the rule that routed it, with the engine's own reason string. This is the proof shot in `../CUSTOMER_FRAMING.md` › Demo pitch › "Approve, then show the proof".
+The policy line names the rule that routed it, with the engine's own reason string. The request can be approved from `/inbox` by a Manager.
+
+### Routed action applied directly
+
+After the clustering hold merges, `rfnd_0011` leaves the Analyst queue and the Manager pays it directly:
+
+```
+APPLIED · rfnd_0011 · requested → executing
+✓ Permission   manager is allowed to execute in refunds
+✓ Policy       clustering_hold: Kestrel Outdoors not-received refunds
+               total 1880.00 USD over 14 days          [trace]
+✓ Recorded     by usr_manager at 2026-09-25 14:02:11 UTC
+✓ Audit        applied                                 [open]
+```
+
+The policy line names the rule that routed it, with the engine's own reason string. No approval request is created.
 
 ### Action denied
 
@@ -91,7 +105,7 @@ pnpm verify
 pnpm db:setup && pnpm dev
 ```
 
-- As `kyc_reviewer`, approve a case under the manager line. The panel shows the status change, and `[open]` lands on the row at `/audit`.
+- As `analyst`, approve a case under the manager line. The panel shows the status change, and `[open]` lands on the row at `/audit`.
 - Approve a case at or above 70. The panel reads "WAITING FOR MANAGER", names `risk_tier_approval`, and the audit line shows `approval_requested`.
 - Run the same approvals in refunds and flags. The panel has the same shape, and no file under `tools/` changed.
 - Submit twice with the same key. The panel shows the replay line and `/audit` gains no row.

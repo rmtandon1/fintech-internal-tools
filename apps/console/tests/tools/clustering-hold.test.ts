@@ -2,7 +2,6 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { ulid } from "ulid";
 import { db } from "@console/db";
-import { approve } from "@console/engine/approvals";
 import { executeIntent } from "@console/engine/execute-intent";
 import { previewActions } from "@console/engine/policy/preview";
 import { registerConstants } from "@console/engine/policy/register";
@@ -13,13 +12,7 @@ import { kycCases } from "@console/tool-kyc/schema";
 import { kycTool } from "@console/tool-kyc";
 import { CLUSTERING_WINDOW_DAYS_KEY, refundTool } from "@console/tool-refunds";
 import { refunds } from "@console/tool-refunds/schema";
-import {
-  admin,
-  kycReviewer,
-  refundsAgent,
-  refundsManager,
-  setupHarness,
-} from "../helpers/harness";
+import { admin, analyst, manager, setupHarness } from "../helpers/harness";
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -86,8 +79,8 @@ function preview(
   return decision;
 }
 
-const refundDecision = (id: string) => preview(refundTool, "execute", id, refundsAgent);
-const kycDecision = (id: string) => preview(kycTool, "approve", id, kycReviewer);
+const refundDecision = (id: string) => preview(refundTool, "execute", id, analyst);
+const kycDecision = (id: string) => preview(kycTool, "approve", id, analyst);
 
 function ruleOf(trace: RuleOutcome[], rule: string): RuleOutcome {
   const outcome = trace.find((o) => o.rule === rule);
@@ -96,27 +89,28 @@ function ruleOf(trace: RuleOutcome[], rule: string): RuleOutcome {
 }
 
 describe("not_received clustering hold", () => {
-  const approvalIds: string[] = [];
-
   it("holds every Kestrel not_received refund for a refunds manager once the merchant total passes the limit", () => {
     for (const id of KESTREL) {
-      const result = executeIntent(refundsAgent, {
+      const record = refundTool.get(id);
+      if (!record) throw new Error(`missing ${id}`);
+      const routed = previewActions(refundTool, record, analyst).find((p) => p.action === "execute");
+      expect(routed?.offered).toBe(false);
+      expect(routed?.routedTo?.tier).toBe("manager");
+      expect(routed?.decision?.trace).toContainEqual({ type: "allow", rule: "amount_approval" });
+      expect(ruleOf(routed?.decision?.trace ?? [], "clustering_hold")).toMatchObject({
+        type: "require_approval",
+        tier: "manager",
+        allowedRoles: rolesFor("refunds", "manager"),
+      });
+
+      const result = executeIntent(analyst, {
         tool: "refunds",
         action: "execute",
         recordId: id,
         input: {},
         idempotencyKey: ulid(),
       });
-      if (result.outcome.status !== "pending_approval") {
-        throw new Error(`expected ${id} to wait for approval, got ${result.outcome.status}`);
-      }
-      approvalIds.push(result.outcome.approvalId);
-      expect(result.outcome.trace).toContainEqual({ type: "allow", rule: "amount_approval" });
-      expect(ruleOf(result.outcome.trace, "clustering_hold")).toMatchObject({
-        type: "require_approval",
-        tier: "manager",
-        allowedRoles: rolesFor("refunds", "manager"),
-      });
+      expect(result.outcome).toMatchObject({ status: "error", code: "forbidden_role" });
       expect(refundTool.get(id)?.status).toBe("requested");
     }
   });
@@ -192,16 +186,29 @@ describe("not_received clustering hold", () => {
   });
 
   it("lets a refunds manager approve a held refund through the existing approval path", () => {
-    const [first] = approvalIds;
-    const result = approve(refundsManager, first, "Checked the Kestrel pattern.");
-    expect(result.outcome.status).toBe("applied");
+    const record = refundTool.get(KESTREL[0]);
+    if (!record) throw new Error(`missing ${KESTREL[0]}`);
+    const offered = previewActions(refundTool, record, manager).find((p) => p.action === "execute");
+    expect(offered).toMatchObject({ offered: true, actsAsApprover: true });
+
+    const result = executeIntent(manager, {
+      tool: "refunds",
+      action: "execute",
+      recordId: KESTREL[0],
+      input: { note: "Checked the Kestrel pattern." },
+      idempotencyKey: ulid(),
+    });
+    if (result.outcome.status !== "applied") {
+      throw new Error(`expected ${KESTREL[0]} to apply, got ${result.outcome.status}`);
+    }
+    expect(ruleOf(result.outcome.trace, "clustering_hold").type).toBe("require_approval");
     expect(refundTool.get(KESTREL[0])?.status).toBe("executing");
   });
 
   it("sends a held customer's KYC approval to a KYC manager even below the risk score", () => {
     const record = kycTool.get("kyc_0013");
     expect(record?.riskScore).toBeLessThan(70);
-    const result = executeIntent(kycReviewer, {
+    const result = executeIntent(analyst, {
       tool: "kyc",
       action: "approve",
       recordId: "kyc_0013",
@@ -220,20 +227,21 @@ describe("not_received clustering hold", () => {
     expect(kycTool.get("kyc_0013")?.status).toBe("pending_review");
   });
 
-  it("keeps the admin tier when a held customer's risk score is over the admin line", () => {
+  it("keeps the risk-score reason first when a held customer is also over the manager line", () => {
     const record = kycTool.get("kyc_0004");
     if (!record) throw new Error("missing kyc_0004");
     insertRefund("rfnd_hold_admin_case", "Kestrel Outdoors", 1_000, { email: String(record.email) });
     const decision = kycDecision("kyc_0004");
     expect(decision.effect).toBe("require_approval");
-    expect(decision.tier).toBe("admin");
-    expect(decision.allowedRoles).toEqual(["admin"]);
+    expect(decision.tier).toBe("manager");
+    expect(decision.allowedRoles).toEqual(rolesFor("kyc", "manager"));
+    expect(decision.reason).toBe("Risk score exceeds manager threshold");
     expect(ruleOf(decision.trace, "linked_refund_hold").type).toBe("require_approval");
   });
 
   it("keeps KYC approvals for customers without held refunds on the existing rules", () => {
     expect(ruleOf(kycDecision("kyc_0002").trace, "linked_refund_hold").type).toBe("allow");
-    const result = executeIntent(kycReviewer, {
+    const result = executeIntent(analyst, {
       tool: "kyc",
       action: "approve",
       recordId: "kyc_0001",
