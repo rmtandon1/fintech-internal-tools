@@ -142,7 +142,7 @@ The plan is Devin's own, committed before any edit. The spec's allowed paths bou
 
 ## Progress
 
-The Devin API doesn't stream sub-steps. The session's `structured_output` is the channel. The playbook tells Devin to update it at each phase boundary, and to append sub-events as each one completes, so the run view (`AGENT_TRIGGER_SURFACE.md` § The run view) shows artifacts rather than counts:
+The Devin API doesn't stream sub-steps. The session's `structured_output` is the channel. The playbook tells Devin to update it at each phase boundary, and to append sub-events as each one completes (each `verify_steps` gate is one entry, updated in place to its final result after a rerun), so the run view (`AGENT_TRIGGER_SURFACE.md` § The run view) shows artifacts rather than counts:
 
 ```json
 {
