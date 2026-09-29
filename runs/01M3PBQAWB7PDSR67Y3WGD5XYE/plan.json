@@ -1,0 +1,75 @@
+{
+  "files": [
+    {
+      "path": "tools/refunds/src/clustering-hold.ts",
+      "op": "create",
+      "reason": "clustering_hold rule: per-merchant running total of not_received refunds (not rejected, inside refunds.clustering_window_days, each under the manager line) in request order; the refund that reaches the manager line and every later one needs a refunds manager; 0 window = off. Also heldClusterRefunds(email) for the KYC rule"
+    },
+    {
+      "path": "tools/refunds/src/index.ts",
+      "op": "modify",
+      "reason": "register clustering_hold last on execute, declare refunds.clustering_window_days (14, 0 = off), rule label and fields, re-export the hold helpers"
+    },
+    {
+      "path": "tools/kyc/src/index.ts",
+      "op": "modify",
+      "reason": "linked_refund_hold on approve (after declared_vs_found, before escalated_needs_manager): a customer with a refund held by clustering_hold needs a KYC manager whatever the risk score"
+    },
+    {
+      "path": "apps/console/tests/tools/refunds-clustering-hold.test.ts",
+      "op": "create",
+      "reason": "tests for each inferred refund hold behaviour"
+    },
+    {
+      "path": "apps/console/tests/tools/kyc-linked-refund-hold.test.ts",
+      "op": "create",
+      "reason": "tests for linked_refund_hold on KYC approve"
+    },
+    {
+      "path": "apps/console/tests/tools/refunds-clusters.test.ts",
+      "op": "modify",
+      "reason": "'every row in the group is allowed on its own by amount_approval' asserts execute's effect is allow for all four Kestrel rows; with clustering_hold only the first is allowed, the rest are held (amount_approval still allows each)"
+    },
+    {
+      "path": "apps/console/tests/tools/kyc-case-file.test.ts",
+      "op": "modify",
+      "reason": "'approve's rules run in order with the new rules before escalation' pins the approve rule list; linked_refund_hold is inserted before escalated_needs_manager"
+    }
+  ],
+  "reuses": [
+    {
+      "module": "tools/refunds/src/clusters.ts",
+      "reason": "MANAGER_APPROVAL_USD_KEY, CLUSTERING_WINDOW_DAYS_KEY, defaults and clusteringWindowDays() (0 = off, negative = 14) so the hold and the cluster strip read the same settings"
+    },
+    {
+      "module": "packages/engine/src/policy/evaluate.ts",
+      "reason": "rules return require_approval and the existing evaluator, executeIntent and approval inbox route the held refund or KYC approval to a manager; no new write path"
+    },
+    {
+      "module": "packages/permissions",
+      "reason": "rolesFor(\"refunds\", \"manager\") and rolesFor(\"kyc\", \"manager\") as approvers, as amount_approval and pep_approval do"
+    },
+    {
+      "module": "tools/refunds/src/schema.ts",
+      "reason": "refunds table for the running-total and customer-email queries"
+    }
+  ],
+  "acceptance": [
+    "applies the first Kestrel not_received refund while the running total is under the manager line",
+    "sends the refund that takes Kestrel's not_received total over the manager line to a refunds manager, naming the merchant and running total",
+    "holds every later Kestrel not_received refund in the window too",
+    "leaves a faulty refund from the same merchant alone",
+    "does not count rejected refunds toward the running total",
+    "holds nothing when refunds.clustering_window_days is 0",
+    "only counts refunds inside the window",
+    "leaves a refund over the manager line on its own to amount_approval and out of the running total",
+    "runs clustering_hold last on execute and declares the 14-day window constant",
+    "sends approval of a case whose customer has a held refund to a KYC manager, whatever the risk score",
+    "names no merchant, refund or customer detail in the linked_refund_hold reason",
+    "leaves a case whose customer has no held refunds unchanged: score 68 still clears",
+    "releases the KYC hold when the customer's held refund is rejected",
+    "lets a KYC manager approve the held case and not a refunds manager",
+    "every row in the group is allowed on its own by amount_approval",
+    "approve's rules run in order with the new rules before escalation"
+  ]
+}
