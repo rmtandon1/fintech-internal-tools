@@ -279,68 +279,40 @@
 
 ---
 
-## Before Recording
+## 📝 Demo Checklist
 
-The recording runs just under eight minutes; ▶ SLIDE and ◀ CONSOLE cues mark switches between the deck and the app and are never said.
+**Before recording:**
 
-**A day ahead, before the runs:**
+- [ ] A day ahead, do the Devin runs in order:
+  - [ ] Kestrel rule
+  - [ ] `partial_delivery` pull request, after the rule
+  - [ ] Undo conflicts on `git revert --no-commit`
+  - [ ] Courier outage scenario, then switch the rule off
+  - [ ] Undo the Kestrel rule
+  - [ ] Companies House check
+  - [ ] Chargebacks app
+- [ ] Note each run's time, ACUs and test total
+- [ ] Check out the demo tag on the branch
+- [ ] `pnpm db:reset` within the hour
+- [ ] `/api/devin/status` reads `live`
+- [ ] `pnpm verify` green
+- [ ] Browser at 1440×900
+- [ ] Slide deck open in a second window
 
-- [ ] `pnpm devin:playbook` if `.devin/run-protocol.playbook.md` changed
-- [ ] For every run: watch until it opens its pull request, answer at once if it asks
-- [ ] For every run: note its time, files, lines, test total and ACUs
+**During recording:**
 
-**The runs, in this order:**
+- [ ] Follow the ▶ SLIDE and ◀ CONSOLE cues
+- [ ] Show each run's real "Took …" time
+- [ ] Click `rfnd_0013`, `rfnd_0014`, `DSP-20401` only once
+- [ ] Screenshot the **Pull merged code** toast
+- [ ] Keep it under eight minutes
 
-- [ ] Kestrel rule: add it, approve, merge
-- [ ] Check the Kestrel session never opened the spec
-- [ ] Merge the `partial_delivery` reason code in `tools/refunds/src/index.ts` (must land after the rule, or the undo won't conflict)
-- [ ] Confirm the conflict with `git revert --no-commit` in a scratch worktree
-- [ ] `pnpm db:scenario courier-outage`, then switch the rule off
-- [ ] Undo the Kestrel rule, approve, merge
-- [ ] Companies House check, then the Chargebacks first pull request
+**After recording:**
 
-**On the day:**
-
-- [ ] `git fetch --tags`, then `git checkout -B cognition-dashboard-devin-integration <demo-tag>` (stay on the branch; a detached HEAD breaks **Pull merged code**)
-- [ ] `pnpm install`
-- [ ] `git status` clean (delete stray `runs/` folders)
-- [ ] Within the hour: stop `pnpm dev`, `pnpm db:reset`, `pnpm dev` (rebuilds demo data but keeps the recorded runs, their audit rows and replays)
-- [ ] Pick a role again only after `rm -rf apps/console/data` — `pnpm db:reset` keeps the role cookie
-- [ ] `.env` has `DEVIN_API_KEY` and `GITHUB_TOKEN`
-- [ ] `/api/devin/status` reports `live` (if not, stop)
-- [ ] `pnpm verify` green (328 tests)
-- [ ] Fresh browser window, 1440×900, notifications off
-- [ ] `docs/DEMO-SLIDES.html` open in a second window, same size, on slide 1
-
----
-
-## Shot List
-
-Clicks marked **once** change data; retake with `pnpm db:seed` (it won't undo `pnpm db:scenario courier-outage`).
-
-| # | Shot | Viewing as | State it needs |
-|---|---|---|---|
-| 0 | Slide 1 for the opening; then slide 2, Power Apps is five products in one | — | Deck open on slide 1 |
-| 1 | Home; Transaction monitoring Coming soon | Refunds manager | Fresh seed at the tagged demo commit |
-| 2 | Kestrel drawer; `rfnd_0013` send (**once**) | Refunds manager, Refunds agent | Before the Kestrel merge |
-| 3 | Handoff, finished run, approval dialog and its trace | Refunds manager, Engineer | Recorded run |
-| 4 | Approvals list of sixty; switch-off in Rule settings | Refunds manager, Admin | Courier scenario run |
-| 5 | Undo, finished undo; `rfnd_0014` send (**once**), trace, reason dropdown | Admin, Engineer, Refunds agent | `partial_delivery` merged before the undo |
-| 6 | Thornbury before, handoff, finished run, setting on, **Approve** | KYC reviewer, Admin, Engineer | Companies House run recorded |
-| 7 | Chargebacks Coming soon, handoff, pull request, flag on, queue, `DSP-20401` **Accept** (**once**) | Admin, Engineer, Refunds agent | Chargebacks run recorded; screenshot the **Pull merged code** toast |
-| 8 | Toast screenshot, then the four-layer table in `docs/POST_MERGE_DEPLOYMENT_DRIFT.md` | — | Screenshot from shot 7 |
-| 9 | Slide 3, what it costs; then slide 4, build or buy | — | Deck on slide 3 |
-
-Show every sped-up run with its real "Took …" time.
-
----
-
-## After Recording
-
-- [ ] Chapters: Opening, Power Apps today, The console, Rules, Connectors, Apps, Deployment drift, Cost, Build or buy
-- [ ] Description, with the one message ("your team asks, Devin builds, an engineer approves"), `docs/DEMO-SLIDES.pdf`, the repo link, the five pull requests, and each run's time, ACUs and test total
-- [ ] Copy each `apps/console/data/replays/<run_id>.json` to `runs/<run_id>/replay.json` and commit
-- [ ] Stop running Devin sessions
-- [ ] Delete stray `runs/` folders
-- [ ] Reset the database
-- [ ] Tag the recorded commit (e.g. `loom-2026-09-28`)
+- [ ] Add chapter timestamps in comments
+- [ ] Link the GitHub repo in the description
+- [ ] List the five pull requests with time and ACUs
+- [ ] Attach `docs/DEMO-SLIDES.pdf`
+- [ ] Tag: #devin #ai-automation
+- [ ] Stop Devin sessions and reset the database
+- [ ] Tag the recorded commit
