@@ -58,7 +58,7 @@ The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than
 
 [It goes straight to **With processor**.]
 
-> "An agent pays one. That takes Kestrel to $925, and it went straight through."
+> "An agent pays one. $460, under the line, straight through. Nothing stopped it."
 
 ### Ask, build, approve
 
