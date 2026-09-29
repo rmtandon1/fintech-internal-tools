@@ -1,0 +1,76 @@
+{
+  "files": [
+    {
+      "path": "tools/refunds/src/clustering-hold.ts",
+      "op": "create",
+      "reason": "clustering_hold rule for execute (running not_received total per merchant over refunds.clustering_window_days, manager tier) and heldClusterFor(email) for the linked KYC rule"
+    },
+    {
+      "path": "tools/refunds/src/index.ts",
+      "op": "modify",
+      "reason": "register clustering_hold last on execute, declare refunds.clustering_window_days (default 14, 0 switches the hold off), label and fields for the rule, export the hold helpers"
+    },
+    {
+      "path": "tools/kyc/src/index.ts",
+      "op": "modify",
+      "reason": "linked_refund_hold on approve: a case whose email matches a customer in a held not_received cluster needs a KYC manager whatever the risk score"
+    },
+    {
+      "path": "apps/console/tests/tools/refunds-clustering-hold.test.ts",
+      "op": "create",
+      "reason": "clustering_hold and linked_refund_hold cases, one test per acceptance behaviour"
+    },
+    {
+      "path": "apps/console/tests/tools/refunds-clusters.test.ts",
+      "op": "modify",
+      "reason": "'every row in the group is allowed on its own by amount_approval' asserts preview effect allow for every Kestrel row; rows after the running total crosses the manager line now preview require_approval via clustering_hold while amount_approval still allows"
+    },
+    {
+      "path": "apps/console/tests/tools/kyc-case-file.test.ts",
+      "op": "modify",
+      "reason": "'kyc_0013 approves straight through and the trace holds nothing' covers Noor El-Amin, the customer on Kestrel rfnd_0012; the approve trace gains linked_refund_hold (allow while no refunds are seeded in this file)"
+    },
+    {
+      "path": "apps/console/tests/tools/kyc.test.ts",
+      "op": "modify",
+      "reason": "approve decision assertions (risk_tier_approval, escalated_needs_manager) run over the approve rule list that gains linked_refund_hold"
+    },
+    {
+      "path": "apps/console/tests/tools/kyc-linked-activity.test.ts",
+      "op": "modify",
+      "reason": "seeds KYC cases with Kestrel refunds and asserts held linked activity; held counts may move once Kestrel refunds are held by clustering_hold"
+    },
+    {
+      "path": "apps/console/tests/tools/refunds.test.ts",
+      "op": "modify",
+      "reason": "execute decision assertions over the seeded refunds (Kestrel rfnd_0005, rfnd_0009) run over the execute rule list that gains clustering_hold"
+    }
+  ],
+  "reuses": [
+    {
+      "module": "tools/refunds/src/clusters.ts",
+      "reason": "clusteringWindowDays() (0 = off, negative = default) and MANAGER_APPROVAL_USD_KEY / defaults, the same window and line the merchant_not_received cluster shows"
+    },
+    {
+      "module": "packages/engine/src/execute-intent.ts",
+      "reason": "holds go through the existing require_approval outcome, approval request, maker-checker and audit path"
+    },
+    {
+      "module": "packages/permissions",
+      "reason": "rolesFor(\"refunds\", \"manager\") and rolesFor(\"kyc\", \"manager\") as the approvers, matching amount_approval and risk_tier_approval"
+    }
+  ],
+  "acceptance": [
+    "the refund that takes a merchant's not_received total over the manager line goes to a refunds manager",
+    "the trace names clustering_hold, the merchant and the running total",
+    "refunds before the running total reaches the line are paid automatically",
+    "refunds outside the window do not count toward the running total",
+    "rejected refunds and other reason codes do not count toward the running total",
+    "the running total is per merchant",
+    "a refunds manager approves a held refund and the requesting agent cannot",
+    "a window of 0 turns the refund hold off",
+    "approving a case whose email matches a customer in a held cluster needs a KYC manager whatever the risk score",
+    "a case with no customer in a held cluster approves without linked_refund_hold",
+    "a window of 0 turns the linked KYC hold off"
+  ]
+}
