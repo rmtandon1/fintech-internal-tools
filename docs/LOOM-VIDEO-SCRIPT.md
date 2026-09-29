@@ -286,17 +286,12 @@
 - [ ] `pnpm db:reset` within the hour
 - [ ] `/api/devin/status` reads `live`
 - [ ] `pnpm verify` green
-- [ ] Close other apps and tabs
-- [ ] Turn on Do Not Disturb
-- [ ] Browser at 1440×900, zoom 100%, bookmarks bar hidden
+- [ ] Browser at 1440×900
 - [ ] Slide deck open in a second window
-- [ ] Test mic and camera in a 10-second Loom
 
 **During recording:**
 
 - [ ] Follow the ▶ SLIDE and ◀ CONSOLE cues
-- [ ] Move the cursor slowly; point before clicking
-- [ ] Pause a beat between sections
 - [ ] Show each run's real "Took …" time
 - [ ] Click `rfnd_0013`, `rfnd_0014`, `DSP-20401` only once
 - [ ] Screenshot the **Pull merged code** toast
@@ -304,15 +299,10 @@
 
 **After recording:**
 
-- [ ] Watch it through once
-- [ ] Trim dead air and false starts
-- [ ] Add a title and thumbnail
-- [ ] Add chapters
-- [ ] Add timestamps in comments
+- [ ] Add chapter timestamps in comments
 - [ ] Link the GitHub repo in the description
 - [ ] List the five pull requests with time and ACUs
 - [ ] Attach `docs/DEMO-SLIDES.pdf`
 - [ ] Tag: #devin #ai-automation
-- [ ] Set sharing to anyone with the link
 - [ ] Stop Devin sessions and reset the database
 - [ ] Tag the recorded commit
