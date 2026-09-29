@@ -1,0 +1,92 @@
+{
+  "files": [
+    {
+      "path": "tools/refunds/src/clustering-hold.ts",
+      "op": "create",
+      "reason": "clustering_hold rule: a not_received refund under the manager line is held for a manager once the merchant's running not_received total inside refunds.clustering_window_days reaches refunds.manager_approval_usd_minor (rejected refunds excluded, window 0 = off); plus the held-cluster lookup the KYC rule reads by customer email"
+    },
+    {
+      "path": "tools/refunds/src/index.ts",
+      "op": "modify",
+      "reason": "register clustering_hold last on execute, declare refunds.clustering_window_days (default 14, 0 = off), add its rule label and fields, and export the held-cluster lookup and the manager default for KYC"
+    },
+    {
+      "path": "tools/kyc/src/index.ts",
+      "op": "modify",
+      "reason": "linked_refund_hold on approve, before escalated_needs_manager: a case whose email matches a customer in a held refund cluster needs a KYC manager whatever the risk score"
+    },
+    {
+      "path": "apps/console/tests/tools/refunds-clustering-hold.test.ts",
+      "op": "create",
+      "reason": "refund acceptance tests for clustering_hold: first refund applies, crossing and later refunds held at manager tier with merchant and running total, other reasons, rejected, out-of-window and over-the-line refunds unaffected, window 0 switch, rule order, declared constant, manager approval"
+    },
+    {
+      "path": "apps/console/tests/tools/refunds-clusters.test.ts",
+      "op": "modify",
+      "reason": "'every row in the group is allowed on its own by amount_approval' asserts each Kestrel row's execute preview effect is allow; with clustering_hold only the oldest row (rfnd_0014) is allowed and the other three are held, so the effect assertion moves while the amount_approval allow assertion stays"
+    },
+    {
+      "path": "apps/console/tests/tools/kyc-case-file.test.ts",
+      "op": "modify",
+      "reason": "'approve's rules run in order with the new rules before escalation' asserts the exact approve rule list; linked_refund_hold is inserted between declared_vs_found and escalated_needs_manager"
+    },
+    {
+      "path": "apps/console/tests/tools/kyc.test.ts",
+      "op": "modify",
+      "reason": "linked_refund_hold cases: a case whose customer is in a held cluster goes to a manager whatever the score, a score-68 case with no held refunds still clears, and window 0 stops the linked hold"
+    },
+    {
+      "path": "apps/console/tests/tools/refunds.test.ts",
+      "op": "modify",
+      "reason": "contingency: asserts execute decisions on seeded refunds (rfnd_0001 not_received applies straight through); modified only if the clustering_hold trace entry moves one of these assertions"
+    },
+    {
+      "path": "apps/console/tests/tools/kyc-linked-activity.test.ts",
+      "op": "modify",
+      "reason": "contingency: executes Kestrel refunds and counts held refunds per case; modified only if clustering_hold changes a held count it asserts"
+    },
+    {
+      "path": "apps/console/tests/scripts/scenario.test.ts",
+      "op": "modify",
+      "reason": "contingency: submits 60 Fernhill Home not_received refunds through execute, most of which clustering_hold now sends to pending_approval; modified only if an applied/pending/audit assertion moves"
+    }
+  ],
+  "reuses": [
+    {
+      "module": "packages/engine/src/execute-intent.ts",
+      "reason": "clustering_hold and linked_refund_hold are declared policy rules evaluated by executeIntent, not a side path"
+    },
+    {
+      "module": "packages/engine/src/approvals.ts",
+      "reason": "held refunds and KYC cases go to the existing manager tier via require_approval and rolesFor(tool, 'manager')"
+    },
+    {
+      "module": "packages/engine/src/audit",
+      "reason": "every hold decision is written as the existing audit row for the intent"
+    },
+    {
+      "module": "tools/refunds/src/clusters.ts",
+      "reason": "clusteringWindowDays() for the 0 = off switch and negative fallback, and the existing manager/window constant keys and defaults"
+    },
+    {
+      "module": "packages/engine/src/policy/constants.ts",
+      "reason": "the manager limit and window are read through the rule's constants reader at evaluation time, so an admin change applies without a deploy"
+    }
+  ],
+  "acceptance": [
+    "applies the first not_received refund while the merchant's running total is under the manager line",
+    "holds the refund that takes the merchant's not_received total over the manager line at the manager tier, naming clustering_hold, the merchant and the running total",
+    "holds every later refund in the same cluster",
+    "leaves refunds with another reason code alone",
+    "does not count rejected refunds toward the running total",
+    "does not count refunds requested before the window",
+    "leaves a refund at or over the manager line to amount_approval",
+    "holds nothing with refunds.clustering_window_days at 0 and keeps clustering_hold in the trace as allow",
+    "runs clustering_hold last on execute",
+    "declares refunds.clustering_window_days with a 14-day default",
+    "a refunds manager can approve a held refund",
+    "sends a case whose customer is in a held refund cluster to a manager whatever the risk score",
+    "leaves a case whose customer has no held refunds unchanged: score 68 still clears",
+    "stops holding linked cases with refunds.clustering_window_days at 0"
+  ]
+}
