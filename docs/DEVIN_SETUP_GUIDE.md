@@ -112,7 +112,7 @@ organisation's own limits.
 
 ## 6. First end-to-end run
 
-1. As `refunds_manager`, open `/t/refunds`, click the Kestrel Outdoors strip, then
+1. As `manager`, open `/t/refunds`, click the Kestrel Outdoors strip, then
    **Ask Devin for a rule** → **Send to Devin**.
 2. `/runs` shows **Sent to Devin**, then **Devin working**. **Open in Devin** opens the session.
 3. The session's first commit on `devin/<run_id>-…` holds only `runs/<run_id>/context.json` and

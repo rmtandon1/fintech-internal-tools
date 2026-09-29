@@ -39,9 +39,9 @@
 
 | Operation | Starts from | Example | Approval |
 |---|---|---|---|
-| **Add** a rule | **Ask Devin for a rule** in the refunds cluster drawer | Hold a merchant's refunds once together they pass the manager limit | Engineer |
+| **Add** a rule | **Ask Devin for a rule** in the refunds cluster drawer | Route clustered refunds to the Manager queue for direct action | Engineer |
 | **Switch off** a rule | The rule's setting on `/admin/policy` | Set `refunds.clustering_window_days` to 0 during a courier outage | Admin only |
-| **Remove** a rule | **Undo this change** on a merged run in `/runs` | Take the refund hold out of the code, keeping later work | Engineer |
+| **Remove** a rule | **Undo this change** on a merged run in `/runs` | Remove the refund routing rule, keeping later work | Engineer |
 | **Automate** a check | **Ask Devin to add a check** on a KYC case | Look up UK businesses on Companies House from the case | Engineer |
 | **Migrate** an app | **Ask Devin to start this app** on its Coming soon page | Move Chargebacks from Power Apps into the console | Engineer and engine owner |
 
@@ -108,7 +108,8 @@ the whole request.
 
 Every app inherits seven controls from this path: role access, a policy check on every action,
 approvals, live settings, idempotency, masked personal data and the audit log. The approval
-query excludes the requester, so nobody can approve their own request.
+query excludes the requester, so nobody can approve their own request. Refund routing is the
+exception: a Manager applies a routed refund directly, without an approval request.
 
 ### Roles and responsibilities
 
@@ -119,7 +120,7 @@ query excludes the requester, so nobody can approve their own request.
 | **Devin** | Planning, writing and testing each change, opening the pull request, and merging once approved | Read the live database, or merge without approval |
 | **GitHub** | Running CI on every pull request and enforcing branch protection | Let Devin bypass review |
 | **Engineer** | Reviewing each pull request against its plan and acceptance checklist | Approve a change they requested |
-| **Managers and admins** | Requesting changes, approving operational decisions and switching rules off | Approve their own requests |
+| **Managers and admins** | Managers approve KYC decisions and act on routed refunds; admins manage settings, undo, app switches and flag permissions | Approve their own requests |
 
 ## Tech stack
 
@@ -173,8 +174,8 @@ edge says what Devin (or, for settings, the admin) does to get from one side to 
 ```text
 ON SCREEN                         IN CODE
 Kestrel: Ask for a rule        --> tools/refunds/src/clustering-hold.ts + tests
-Refund held: clustering_hold   --> tools/refunds/src/index.ts (execute action rules)
-KYC approval needs KYC manager --> tools/kyc/src/index.ts: linked_refund_hold
+Refund routed: clustering_hold --> tools/refunds/src/index.ts (execute action rules)
+KYC approval needs a manager --> tools/kyc/src/index.ts: linked_refund_hold
 Window 14 days, /admin/policy  --> setting refunds.clustering_window_days (0 = off)
 Thornbury: Add a check         --> tools/kyc/src/companies-house.ts + recorded responses
 Chargebacks: Start this app    --> tools/chargebacks/**, registry.ts, migration 0009
@@ -297,20 +298,20 @@ each screen and the action that moves to the next:
 | **Request** | Exactly what Devin receives. Request: "Once a merchant's 'not received' refunds add up past the manager limit, send them to a manager." Context: Kestrel Outdoors · 4 refunds · manager limit $500 · no PII. Scope: `tools/refunds` · `tools/kyc` · tests | **Start run** | Console → Devin |
 | **Run progress** | The same panel, now showing progress: ✓ Intake (base `1a67f60`), ✓ Baseline (288 tests), ✓ Plan committed (5 files), ✓ Edit (+146 −3), ● Verify (Lint ✓ Typecheck ✓ Boundaries ✓ Test …), ○ Pull request. Plan: create `refunds/clustering-hold.ts`, modify `refunds/index.ts` and `kyc/index.ts` | Pull request opened | Devin → GitHub |
 | **Approve pull request** | 5 files · +146 −3, CI checks 4 of 4 passed ✓, context unchanged ✓, checklist 8 of 8 ticked ✓. After **Approve**: review posted to GitHub, Devin merged the PR, merged code pulled, audit entry written | Merged, synced | Code → Engine |
-| **Refund** | Pending manager approval, with `clustering_hold` → hold in the policy trace | | |
+| **Refund** | Routed to the Manager queue; direct payment or rejection, with `clustering_hold` in the policy trace | | |
 
 Only an engineer who did not request the change can approve it.
 
 ### The same action, before and after
 
-A refunds agent sends the same kind of refund to the processor. After the rule merges, the
-policy trace shows the new rule and the refund waits for a manager.
+An Analyst sends the same kind of refund to the processor. After the rule merges, the refund
+leaves the Analyst queue for the Manager queue, where the Manager pays or rejects it directly.
 
 ```text
 ┌── Before ─────────────────────────────┐    ┌── After ──────────────────────────────┐
 │ Refund · Send to processor            │    │ Refund · Send to processor            │
 ├───────────────────────────────────────┤    ├───────────────────────────────────────┤
-│ Settled                               │    │ Pending manager approval              │
+│ Settled                               │    │ Manager queue · direct pay or reject  │
 │                                       │    │                                       │
 │ within_captured_amount   allow        │    │ within_captured_amount   allow        │
 │ not_disputed             allow        │    │ not_disputed             allow        │
@@ -346,10 +347,10 @@ Example: a rule that holds a merchant's refunds once together they pass the $500
  ───────────── ────────────────────────────  ───────────────────────  ───────────────────────
  Before        No clustering rule            No window setting        Settles
 
- Live          clustering_hold on refunds    Window: 14 days          Held for a manager
+ Live          clustering_hold on refunds    Window: 14 days          Manager queue; direct action
                linked_refund_hold on KYC                              KYC approval of the
                Tests for both                                         customer needs a
-                                                                      KYC manager
+                                                                      Manager
 
  Off           Unchanged                     Window: 0 days           Settles. The rule
                                                                       still runs, and allows
@@ -375,12 +376,12 @@ The audit log records every step in a rule's life.
 
 | Event | By | Audit entry |
 |---|---|---|
-| **Rule requested** | Refunds manager | `dispatch` |
+| **Rule requested** | Manager | `dispatch` |
 | Devin session started | Console | `record_session` |
 | Pull request opened | Devin | `record_pr` |
 | Pull request approved | Engineer | `approve_pr` |
 | **Merged. Rule live** | Devin | `record_merge` |
-| Refunds held by the rule | Refunds agent | One per refund |
+| Routed refund decided | Manager | `applied`, no approval request |
 | **Rule switched off** | Admin | Setting changed |
 | **Undo requested** | Admin | `dispatch` |
 | Pull request opened | Devin | `record_pr` |

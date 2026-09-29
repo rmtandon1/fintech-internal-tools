@@ -1,10 +1,12 @@
 import type { Actor } from "@console/engine/types";
-import { ROLE_META } from "@console/permissions";
 import {
   CHARGEBACKS_FROM_POWER_APPS,
   COMPANIES_HOUSE_CHECK,
+  automationTool,
+  isInFlight,
   listRuns,
   roleMayStart,
+  type DevinRun,
   type RunnableSpec,
 } from "@console/tool-automation";
 import { listExport } from "@console/tool-automation/context";
@@ -20,6 +22,8 @@ export interface Trigger {
   label: string;
   offer: HandoffOffer | null;
   blocked: string | null;
+  /** Set when a run for this spec is in flight; the button opens it instead of a new handoff. `status` is the display label. */
+  run: { id: string; status: string } | null;
 }
 
 const CHANGE = "change";
@@ -35,6 +39,12 @@ function isLive(spec: RunnableSpec): boolean {
   return merged !== undefined && merged.operation === "change";
 }
 
+function inFlightRun(spec: RunnableSpec): DevinRun | undefined {
+  return listRuns({ limit: 200 }).find(
+    (run) => run.spec === spec.file && isInFlight(run.status),
+  );
+}
+
 function trigger(
   spec: RunnableSpec,
   actor: Actor,
@@ -42,15 +52,26 @@ function trigger(
 ): Trigger | null {
   if (isLive(spec)) return null;
   if (!roleMayStart(actor.role, spec, CHANGE)) {
-    const meta = ROLE_META[actor.role];
     // Only the people one step away from asking see the button, greyed out.
-    const nearly = meta.level === "manager" && (spec.domain === null || meta.domain === spec.domain);
+    const nearly = actor.role === "manager" && spec.domain === null;
     return nearly
-      ? { label: spec.title, offer: null, blocked: "Only an admin can ask for this" }
+      ? { label: spec.title, offer: null, blocked: "Only an admin can ask for this", run: null }
       : null;
   }
+  const run = inFlightRun(spec);
+  if (run) {
+    return {
+      label: "See Devin's progress",
+      offer: null,
+      blocked: null,
+      run: {
+        id: run.id,
+        status: automationTool.statuses.find((s) => s.value === run.status)?.label ?? run.status,
+      },
+    };
+  }
   const offer = buildHandoffOffer(spec, CHANGE, actor, evidence, bridgeDeps());
-  return offer ? { label: spec.title, offer, blocked: null } : null;
+  return offer ? { label: spec.title, offer, blocked: null, run: null } : null;
 }
 
 /** The buttons a record page shows for `record` of `tool`. */

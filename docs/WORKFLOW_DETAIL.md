@@ -20,8 +20,8 @@ needs to work the queue safely, and lists everything else.
 |---|---|---|
 | Queue of open disputes, soonest deadline first | `Src/DisputesScreen.pa.yaml` | ✅ Moved: the queue with its fields, seeded from the 50 disputes |
 | Red banner: disputes over $1,000 due within 48 hours | `Src/DisputesScreen.pa.yaml` | ✅ Moved: a count on the queue |
-| Accepting a fraud dispute over $500 needs a team lead | `Src/DisputeDetailScreen.pa.yaml` | ✅ Moved: needs a refunds manager |
-| Fighting a dispute over $2,500 needs a team lead's approval | `Workflows/FightApproval.json` | ✅ Moved: needs a refunds manager |
+| Accepting a fraud dispute over $500 needs a team lead | `Src/DisputeDetailScreen.pa.yaml` | ✅ Moved: needs a manager |
+| Fighting a dispute over $2,500 needs a team lead's approval | `Workflows/FightApproval.json` | ✅ Moved: needs a manager |
 | Every decision needs a note | `Src/DisputeDetailScreen.pa.yaml` | ⚠ Listed as still to do, unless Devin moves it |
 | Fighting needs evidence uploaded | `Src/DisputeDetailScreen.pa.yaml` | ❌ Listed as still to do |
 | Hourly: close missed disputes as lost | `Workflows/DeadlineAlert.json` | ❌ Listed as still to do |
@@ -68,7 +68,7 @@ Home → Money movement → Chargebacks (Coming soon) → /roadmap/chargebacks
 ```
 ┌─ Chargebacks ─────────────────────────── COMING SOON ─┐
 │ Accept or fight card disputes before the deadline.    │
-│ Refunds agent · Refunds manager                       │
+│ Analyst · Manager                                     │
 │                          [ Ask Devin to start this app ]│
 ├───────────────────────────────────────────────────────┤
 │ Queue                          Sample layout, no data │
@@ -193,7 +193,7 @@ Viewing as → admin (or a manager) → Feature flags → app.chargebacks → En
 #### Step 6: Work the queue
 
 ```
-Viewing as → refunds_agent → Chargebacks → DSP-20401 → Accept
+Viewing as → analyst → Chargebacks → DSP-20401 → Accept
 ```
 
 **What happens**
@@ -206,8 +206,8 @@ Viewing as → refunds_agent → Chargebacks → DSP-20401 → Accept
 │ …                                                       │
 └─────────────────────────────────────────────────────────┘
 
- Accept DSP-20401 → Waiting for refunds manager
- ⚠ fraud accept over $500 needs a refunds manager
+ Accept DSP-20401 → Waiting for manager
+ ⚠ fraud accept over $500 needs a manager
 ```
 
 **Current state**
@@ -371,7 +371,7 @@ The export must be committed under `fixtures/power-apps/chargebacks/` for the bu
 6. On home, the tile reads **Switched off**. `/t/chargebacks` redirects to `/roadmap/chargebacks`.
 7. As `admin`, enable `app.chargebacks` on `/t/flags`. The tile goes live.
 8. The queue count reads 3.
-9. As `refunds_agent`, accept `DSP-20401`. It waits for a refunds manager.
+9. As `analyst`, accept `DSP-20401`. It waits for a manager.
 10. Disable `app.chargebacks`. The tile reads **Switched off** again.
 
 Want the first item on Devin's still-to-do list next? Asking for the hourly auto-close as a

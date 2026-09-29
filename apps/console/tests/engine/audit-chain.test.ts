@@ -3,13 +3,13 @@ import { ulid } from "ulid";
 import { sqlite } from "@console/db-core";
 import { executeIntent } from "@console/engine/execute-intent";
 import { verifyChain } from "@console/engine/audit/verify";
-import { kycReviewer, makeWidget, setupHarness } from "../helpers/harness";
+import { analyst, makeWidget, setupHarness } from "../helpers/harness";
 
 beforeAll(() => {
   setupHarness();
   makeWidget("w_audit", 1000);
   for (const amount of [1, 2, 3]) {
-    executeIntent(kycReviewer, {
+    executeIntent(analyst, {
       tool: "widgets",
       action: "spend",
       recordId: "w_audit",

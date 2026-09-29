@@ -3,11 +3,11 @@
 ## Summary
 
 - KYC analysts check every UK business customer on Companies House by hand, in another tab.
-- A KYC manager asks Devin to add the check from the case that needs it. Devin builds a
+- A manager asks Devin to add the check from the case that needs it. Devin builds a
   Companies House client, records what it finds as the case's company registry check, and adds
   a material row to Declared vs found when the company is dissolved, in liquidation or late
   with its accounts.
-- The existing `declared_vs_found` rule then holds approval for a KYC manager. No new rule.
+- The existing `declared_vs_found` rule then holds approval for a manager. No new rule.
 - Allowed paths: `tools/kyc/**`, `.env.example` and tests. Nothing under `packages/`.
 
 ## Today
@@ -38,7 +38,7 @@ come from `DEVIN_RUN_PROTOCOL.md` › House rules, not the request.
 `/t/kyc/kyc_0104`, Thornbury Couriers Ltd, registration number 09318842, risk score 34. Its
 company registry check reads "Checked by hand: active, directors match", and a reviewer can
 approve it on the spot today. The **Ask Devin to add a check** button shows on UK business
-cases for a KYC manager or an admin. A KYC reviewer doesn't see it.
+cases for a manager or an admin. An Analyst doesn't see it.
 
 What Devin gets: the case id, the company's name and registration number, its country and
 status, and today's hand-typed registry check. No contact email, no person's name or document.
@@ -64,10 +64,10 @@ status, and today's hand-typed registry check. No contact email, no person's nam
 ## After merge
 
 1. An admin turns the Companies House setting on in `/admin/policy` (rule settings).
-2. As KYC reviewer, open `kyc_0104` and run the Companies House check.
+2. As Analyst, open `kyc_0104` and run the Companies House check.
 3. The Company registry check reads "Accounts overdue" from Companies House (test data), and
    Declared vs found gains a material row.
-4. **Approve** now needs a KYC manager, and the trace names `declared_vs_found`.
+4. **Approve** now needs a manager, and the trace names `declared_vs_found`.
 
 Before the merge, the same click approves Thornbury Couriers on the strength of a check typed
 by hand at onboarding, and until the setting is on the merge changes nothing.

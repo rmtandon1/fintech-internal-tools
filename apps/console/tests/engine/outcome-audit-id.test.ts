@@ -3,7 +3,7 @@ import { ulid } from "ulid";
 import { auditTrailFor, auditStats } from "@console/engine/audit/query";
 import { executeIntent } from "@console/engine/execute-intent";
 import type { Intent, IntentOutcome } from "@console/engine/types";
-import { kycReviewer, makeWidget, setupHarness } from "../helpers/harness";
+import { analyst, makeWidget, setupHarness } from "../helpers/harness";
 
 beforeAll(() => setupHarness());
 
@@ -25,7 +25,7 @@ function auditIdOf(outcome: IntentOutcome): string {
 describe("outcome auditId", () => {
   it("applied: matches the row appended in the same transaction", () => {
     makeWidget("w_oid_applied", 100);
-    const result = executeIntent(kycReviewer, spend("w_oid_applied", 10));
+    const result = executeIntent(analyst, spend("w_oid_applied", 10));
 
     expect(result.outcome.status).toBe("applied");
     const [row] = auditTrailFor("widget", "w_oid_applied");
@@ -35,7 +35,7 @@ describe("outcome auditId", () => {
 
   it("pending_approval: matches the approval_requested row", () => {
     makeWidget("w_oid_pending", 1000);
-    const result = executeIntent(kycReviewer, spend("w_oid_pending", 500));
+    const result = executeIntent(analyst, spend("w_oid_pending", 500));
 
     expect(result.outcome.status).toBe("pending_approval");
     const [row] = auditTrailFor("widget", "w_oid_pending");
@@ -50,7 +50,7 @@ describe("outcome auditId", () => {
 
   it("denied: matches the denied row", () => {
     makeWidget("w_oid_denied", 5);
-    const result = executeIntent(kycReviewer, spend("w_oid_denied", 10));
+    const result = executeIntent(analyst, spend("w_oid_denied", 10));
 
     expect(result.outcome.status).toBe("denied");
     const [row] = auditTrailFor("widget", "w_oid_denied");
@@ -62,9 +62,9 @@ describe("outcome auditId", () => {
     makeWidget("w_oid_replay", 100);
     const intent = spend("w_oid_replay", 10);
 
-    const first = executeIntent(kycReviewer, intent);
+    const first = executeIntent(analyst, intent);
     const rowsAfterFirst = auditStats().total;
-    const second = executeIntent(kycReviewer, intent);
+    const second = executeIntent(analyst, intent);
 
     expect(second.replayed).toBe(true);
     expect(auditIdOf(second.outcome)).toBe(auditIdOf(first.outcome));
@@ -76,8 +76,8 @@ describe("outcome auditId", () => {
     makeWidget("w_oid_replay_pending", 1000);
     const intent = spend("w_oid_replay_pending", 500);
 
-    const first = executeIntent(kycReviewer, intent);
-    const second = executeIntent(kycReviewer, intent);
+    const first = executeIntent(analyst, intent);
+    const second = executeIntent(analyst, intent);
 
     expect(first.outcome.status).toBe("pending_approval");
     expect(second.replayed).toBe(true);
