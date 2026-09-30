@@ -1,7 +1,6 @@
 import type { Actor } from "@console/engine/types";
 import {
   CHARGEBACKS_FROM_POWER_APPS,
-  COMPANIES_HOUSE_CHECK,
   automationTool,
   isInFlight,
   listRuns,
@@ -72,25 +71,6 @@ function trigger(
   }
   const offer = buildHandoffOffer(spec, CHANGE, actor, evidence, bridgeDeps());
   return offer ? { label: spec.title, offer, blocked: null, run: null } : null;
-}
-
-/** The buttons a record page shows for `record` of `tool`. */
-export function recordTriggers(
-  tool: string,
-  record: Record<string, unknown>,
-  actor: Actor,
-): Trigger[] {
-  const id = String(record.id);
-  const out: (Trigger | null)[] = [];
-  if (
-    tool === COMPANIES_HOUSE_CHECK.evidence.tool &&
-    record.segment === "business" &&
-    record.country === "GB" &&
-    record.documentType === "company_registry"
-  ) {
-    out.push(trigger(COMPANIES_HOUSE_CHECK, actor, { evidenceKey: id, evidenceIds: [id] }));
-  }
-  return out.filter((t): t is Trigger => t !== null);
 }
 
 /** The buttons a Coming soon page shows for app `modeId`: only when its export is committed. */

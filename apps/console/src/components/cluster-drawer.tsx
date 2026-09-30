@@ -33,6 +33,8 @@ export interface ClusterRow {
   /** The policy outcome of the cluster's trace action for the current actor. */
   trace: RuleOutcome[] | null;
   pendingApproval: boolean;
+  /** Short facts shown in place of the amount and checks, e.g. a company number. */
+  facts?: { label: string; value: string }[];
 }
 
 /** `$1,880`, or `$1,880.50` when there are cents. */
@@ -137,6 +139,7 @@ export function ClusterDrawer({
   statuses,
   ruleLabels,
   rows,
+  noun = "refunds",
   canRequestRule,
   devinConnected,
   dispatch,
@@ -151,6 +154,8 @@ export function ClusterDrawer({
   statuses: StatusDecl[];
   ruleLabels?: Record<string, string>;
   rows: ClusterRow[];
+  /** What the rows are, for the heading: "The 4 refunds". */
+  noun?: string;
   canRequestRule: boolean;
   /** Whether a handoff can be sent right now (`DEVIN_API_KEY` set). */
   devinConnected: boolean;
@@ -170,6 +175,7 @@ export function ClusterDrawer({
   };
 
   const uncovered = !rows.some((row) => row.pendingApproval);
+  const offer = dispatch?.[0];
 
   return (
     <Sheet open onOpenChange={(open) => (open ? undefined : close())}>
@@ -190,10 +196,30 @@ export function ClusterDrawer({
           {limit ? <LimitChart rows={rows} totalUsdMinor={totalUsdMinor} sentUsdMinor={sentUsdMinor} limit={limit} /> : null}
 
           <h3 className="px-4 pt-4 pb-1 text-sm font-semibold text-foreground">
-            The {rows.length} refunds
+            The {rows.length} {noun}
           </h3>
           <ol className="divide-y divide-border">
             {rows.map((row) => {
+              if (row.facts) {
+                return (
+                  <li key={row.id} className="px-4 py-2.5" data-testid="cluster-row">
+                    <div className="flex items-center gap-3">
+                      <Link href={row.href} className="text-sm font-medium text-foreground hover:underline">
+                        {row.title}
+                      </Link>
+                      <StatusChip value={row.status} statuses={statuses} />
+                    </div>
+                    <dl className="mt-1 flex flex-wrap gap-x-5 gap-y-0.5 text-xs">
+                      {row.facts.map((fact) => (
+                        <div key={fact.label} className="flex gap-1.5">
+                          <dt className="text-muted-foreground">{fact.label}</dt>
+                          <dd className="font-medium tabular-nums text-foreground">{fact.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </li>
+                );
+              }
               const checks = row.trace?.length ?? 0;
               const passed = row.trace?.every((r) => r.type === "allow") ?? false;
               return (
@@ -253,7 +279,7 @@ export function ClusterDrawer({
         <SheetFooter className="mt-0 flex-row items-center gap-3 border-t border-border text-xs text-muted-foreground">
           {uncovered ? <p>No rule catches this today.</p> : null}
           {!canRequestRule ? <p>A manager can ask for one.</p> : null}
-          {dispatch && dispatch.length > 0 ? (
+          {offer ? (
             <div className="ml-auto">
               <Button
                 size="sm"
@@ -262,11 +288,11 @@ export function ClusterDrawer({
                 disabled={!devinConnected}
                 title={devinConnected ? undefined : "Set DEVIN_API_KEY to connect Devin"}
                 onClick={() => {
-                  setAgentFocus({ kind: "handoff", offer: dispatch[0] });
+                  setAgentFocus({ kind: "handoff", offer });
                   close();
                 }}
               >
-                {devinConnected ? "Ask Devin for a rule" : "Devin not connected"}
+                {devinConnected ? offer.title : "Devin not connected"}
               </Button>
             </div>
           ) : null}

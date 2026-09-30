@@ -368,16 +368,20 @@ export const refundTool = defineTool<Refund>({
   constants: [
     {
       key: MANAGER_APPROVAL_USD_KEY,
+      label: "Manager approval limit",
+      unit: "usd_minor",
       value: 50_000,
       type: "number",
-      description: "Refunds at or above this amount need a manager. In cents, USD.",
+      description: "Refunds of this amount or more need a manager's approval.",
       tool: "refunds",
     },
     {
       key: GOODWILL_APPROVAL_USD_KEY,
+      label: "Goodwill approval limit",
+      unit: "usd_minor",
       value: 5_000,
       type: "number",
-      description: "Goodwill refunds at or above this amount need a manager. In cents, USD.",
+      description: "Goodwill refunds of this amount or more need a manager's approval.",
       tool: "refunds",
     },
   ],

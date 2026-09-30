@@ -7,6 +7,7 @@ import { auditHead } from "@console/db-core/engine-schema";
 import { canonicalJson, sha256 } from "@console/engine/audit/canonical";
 import { loadConstants } from "@console/engine/policy/constants";
 import type { Role } from "@console/permissions";
+import { kycTool } from "@console/tool-kyc";
 import { kycCases, kycChecks } from "@console/tool-kyc/schema";
 import { refundTool } from "@console/tool-refunds";
 import { refunds } from "@console/tool-refunds/schema";
@@ -86,7 +87,7 @@ function readEvidence(
   if (ids.length === 0) return { source, rows: [] };
   switch (spec.evidence.tool) {
     case "kyc":
-      return { source, rows: [businessCase(key, ids)] };
+      return { source, rows: kycRows(key, ids) };
     case "refunds":
       return { source, rows: clusterRows(spec, key, ids) };
     case "roadmap":
@@ -106,6 +107,23 @@ function onlyKey(key: string, ids: readonly string[]): void {
  * A UK business case. A company's name and registration number are public
  * record; the contact email and any person's details are not read.
  */
+/**
+ * Either one UK business case (`key` is its id) or every case in one group of
+ * a KYC cluster (`key` is the group's key), each read as a business case, so
+ * a selection can't carry rows the finding wouldn't show.
+ */
+function kycRows(key: string, ids: readonly string[]): EvidenceRow[] {
+  const group = (kycTool.clusters ?? [])
+    .flatMap((cluster) => cluster.groups())
+    .find((g) => g.key === key);
+  if (!group) return [businessCase(key, ids)];
+  const members = new Set(group.recordIds);
+  const strays = ids.filter((id) => !members.has(id));
+  if (strays.length > 0) throw new Error(`evidence rows are not in ${key}: ${strays.join(", ")}`);
+  if (ids.length === 0) throw new Error(`evidence for ${key} needs at least one case`);
+  return ids.map((id) => businessCase(id, [id]));
+}
+
 function businessCase(key: string, ids: readonly string[]): EvidenceRow {
   onlyKey(key, ids);
   const row = db

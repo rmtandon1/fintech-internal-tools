@@ -17,55 +17,44 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@console/ui/dialog";
-import { GitHubMark } from "@console/ui/github-mark";
-import { formatTimestamp } from "@console/ui/format";
 import type { RemovalPreview } from "@console/tool-automation/removal-preview";
+import { PrButton } from "@/components/pr-button";
 import { useWorkspace } from "@/components/workspace";
+import { formatDay } from "@/lib/rules-panel";
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="space-y-1.5">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
-      {children}
-    </section>
-  );
+/** What the rule's card knows about it; the dialog shows this while the merge is read. */
+export interface RemovableRule {
+  name: string;
+  prNumber: number | null;
+  prUrl: string | null;
+  /** When it was asked for. */
+  askedAt: number;
+  /** Whether its switch is on right now; null when the rule has no switch. */
+  on: boolean | null;
 }
 
-function PrLink({ number, url }: { number: number | null; url: string | null }) {
-  if (!number) return <span>no PR</span>;
-  const label = `PR #${number}`;
-  return url ? (
-    <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-mono hover:underline">
-      <GitHubMark className="size-3.5" />
-      {label}
-    </a>
-  ) : (
-    <span className="font-mono">{label}</span>
-  );
-}
+export const WHAT_HAPPENS = [
+  "Devin opens a pull request that takes the rule out of the code.",
+  "An engineer reviews it and merges it on GitHub.",
+  "Once merged, requests this rule holds go back to the analyst.",
+];
 
-/** The preview's four sections; the dialog wraps them with its buttons. */
-export function RemovalPreviewBody({ preview }: { preview: RemovalPreview }) {
+/** The files and tests the merge touched, folded away for engineers. */
+export function EngineeringDetail({ preview }: { preview: RemovalPreview }) {
   return (
-    <div className="space-y-4 text-sm" data-testid="removal-preview">
-      <Section title="What it is">
-        <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 italic">“{preview.request}”</p>
-        <p className="text-xs text-muted-foreground">
-          Asked by {preview.askedBy} · <PrLink number={preview.prNumber} url={preview.prUrl} /> · merged{" "}
-          {preview.mergedAt ? formatTimestamp(preview.mergedAt) : "(not in this checkout yet)"}
-        </p>
-      </Section>
-
-      <Section title="What it touched">
+    <details className="group rounded-md border border-border text-sm" data-testid="engineering-detail">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground">
+        <span className="transition-transform group-open:rotate-90">▸</span>
+        Engineering detail
+      </summary>
+      <div className="space-y-2 border-t border-border px-3 py-2">
         {preview.files.length === 0 ? (
           <p className="text-xs text-muted-foreground">The merge commit is not in this checkout yet.</p>
         ) : (
           <ul className="space-y-0.5 text-xs" data-testid="removal-files">
             {preview.files.map((file) => (
               <li key={file.path} className="flex items-baseline gap-2">
-                <span className="min-w-0 flex-1 truncate font-mono" title={file.path}>
-                  {file.path}
-                </span>
+                <span className="min-w-0 flex-1 break-all font-mono">{file.path}</span>
                 <span className="shrink-0 font-mono tabular-nums">
                   <span className="text-emerald-500">+{file.additions}</span>{" "}
                   <span className="text-red-500">−{file.deletions}</span>
@@ -78,63 +67,101 @@ export function RemovalPreviewBody({ preview }: { preview: RemovalPreview }) {
           {preview.tests.length === 0
             ? "No tests added or changed"
             : `${preview.tests.length} test file${preview.tests.length === 1 ? "" : "s"} added or changed`}
-          {" · "}
-          {preview.settings.length === 0 ? (
-            "no settings declared"
-          ) : (
-            <>
-              settings declared:{" "}
-              {preview.settings.map((key, i) => (
-                <span key={key}>
-                  {i > 0 ? ", " : null}
-                  <code className="font-mono">{key}</code>
-                </span>
-              ))}
-            </>
-          )}
+          {" · merge "}
+          <code className="font-mono">{preview.mergeCommit.slice(0, 7)}</code>
+          {" · run "}
+          <code className="font-mono">{preview.runId}</code>
         </p>
-      </Section>
+      </div>
+    </details>
+  );
+}
 
-      <Section title="Changed since">
-        {preview.changedSince.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Nothing else has touched these files since.</p>
-        ) : (
-          <ul className="space-y-0.5 text-xs" data-testid="removal-later">
-            {preview.changedSince.map((commit) => (
-              <li key={commit.sha} className="flex items-baseline gap-2">
-                <span className="shrink-0 font-mono text-muted-foreground">{commit.sha.slice(0, 7)}</span>
-                <span className="min-w-0 flex-1 truncate" title={commit.subject}>
-                  {commit.subject}
-                </span>
-                <span className="shrink-0 font-mono text-muted-foreground">
-                  {commit.prNumber ? `PR #${commit.prNumber}` : ""}
-                </span>
-                <span className="shrink-0 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[11px] text-success">
-                  Devin keeps these
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
-
-      <p data-testid="removal-next">{preview.nextStep}</p>
+/** The request as it was asked, then what happens; the detail folded. */
+export function RemovalPreviewBody({
+  preview,
+  rule,
+}: {
+  preview: RemovalPreview;
+  rule?: RemovableRule | null;
+}) {
+  return (
+    <div className="space-y-4 text-sm" data-testid="removal-preview">
+      <Provenance
+        rule={
+          rule ?? {
+            name: "",
+            prNumber: preview.prNumber,
+            prUrl: preview.prUrl,
+            askedAt: preview.mergedAt ?? 0,
+            on: null,
+          }
+        }
+        askedBy={preview.askedBy}
+      />
+      <Request text={preview.request} />
+      <WhatHappens />
+      <EngineeringDetail preview={preview} />
     </div>
   );
 }
 
+function Provenance({ rule, askedBy }: { rule: RemovableRule; askedBy?: string }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground" data-testid="removal-provenance">
+      <span>Added by Devin{askedBy ? ` · asked by ${askedBy}` : ""} ·</span>
+      <PrButton number={rule.prNumber} url={rule.prUrl} />
+      {rule.askedAt > 0 ? <span>· {formatDay(rule.askedAt)}</span> : null}
+      {rule.on !== null ? (
+        <span
+          className="ml-auto inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground"
+          data-testid="removal-current-state"
+        >
+          {rule.on ? "On" : "Off"}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+function Request({ text }: { text: string }) {
+  return (
+    <blockquote className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm italic leading-relaxed break-words">
+      “{text}”
+    </blockquote>
+  );
+}
+
+function WhatHappens() {
+  return (
+    <section className="space-y-1.5" data-testid="removal-what-happens">
+      <h3 className="text-sm font-semibold">What happens</h3>
+      <ul className="space-y-1 pl-4 text-sm text-muted-foreground">
+        {WHAT_HAPPENS.map((line) => (
+          <li key={line} className="list-disc break-words">
+            {line}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /**
- * "Remove this rule": what the merged change is, what it touched, what has
- * changed on those files since, then one button that dispatches the undo.
+ * "Remove <rule>?": what the rule is, in the requester's words, what happens
+ * when Devin takes it out, and one red button that starts the undo run.
  * Nothing is typed; the undo carries the spec's own sentence.
  */
 export function RemoveRuleDialog({
   runId,
+  rule,
   open,
   onOpenChange,
   initial,
 }: {
   runId: string;
+  /** The rule's card details; the run page passes none and the dialog reads the merge. */
+  rule?: RemovableRule | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** A preview already in hand (tests); otherwise read when the dialog opens. */
@@ -178,28 +205,46 @@ export function RemoveRuleDialog({
     });
   }
 
+  const name = rule?.name ?? "this rule";
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl" data-testid="remove-rule-dialog">
-        <DialogHeader>
-          <DialogTitle>Remove this rule</DialogTitle>
-          <DialogDescription>
-            Devin takes the change back out of the code and keeps everything built since.
+      <DialogContent
+        className="max-h-[85vh] overflow-y-auto overflow-x-hidden sm:max-w-[520px]"
+        data-testid="remove-rule-dialog"
+      >
+        <DialogHeader className="pr-6">
+          <DialogTitle className="text-base break-words">Remove {name}?</DialogTitle>
+          <DialogDescription className="sr-only">
+            Ask Devin to take {name} out of the code.
           </DialogDescription>
         </DialogHeader>
         {result === null ? (
-          <p className="py-6 text-center text-xs text-muted-foreground">Reading the merge…</p>
+          <div className="space-y-4 text-sm">
+            {rule ? <Provenance rule={rule} /> : null}
+            <p className="py-4 text-center text-xs text-muted-foreground">Reading the merge…</p>
+          </div>
         ) : result.ok ? (
-          <RemovalPreviewBody preview={result.preview} />
+          <RemovalPreviewBody preview={result.preview} rule={rule} />
         ) : (
-          <p className="text-sm text-destructive">{result.detail}</p>
+          <div className="space-y-4 text-sm">
+            {rule ? <Provenance rule={rule} /> : null}
+            <WhatHappens />
+            <p className="text-xs text-destructive break-words" data-testid="removal-error">
+              {result.detail}
+            </p>
+          </div>
         )}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={pending}>
             Cancel
           </Button>
-          <Button onClick={send} disabled={pending || !result?.ok} data-testid="ask-devin-to-remove">
-            {pending ? "Sending…" : "Ask Devin to remove it"}
+          <Button
+            variant="destructive"
+            onClick={send}
+            disabled={pending || !result?.ok}
+            data-testid="ask-devin-to-remove"
+          >
+            {pending ? "Sending…" : "Remove rule"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -210,9 +255,10 @@ export function RemoveRuleDialog({
 /** A button that opens the removal dialog for a merged change run. */
 export function RemoveRuleButton({
   runId,
+  rule,
   children = "Remove…",
   ...props
-}: { runId: string } & Omit<ComponentProps<typeof Button>, "onClick">) {
+}: { runId: string; rule?: RemovableRule | null } & Omit<ComponentProps<typeof Button>, "onClick">) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -226,7 +272,7 @@ export function RemoveRuleButton({
       >
         {children}
       </Button>
-      <RemoveRuleDialog runId={runId} open={open} onOpenChange={setOpen} />
+      <RemoveRuleDialog runId={runId} rule={rule} open={open} onOpenChange={setOpen} />
     </>
   );
 }

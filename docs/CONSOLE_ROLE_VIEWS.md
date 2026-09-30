@@ -13,7 +13,7 @@ A KYC record shows the same customer's refunds in a drawer (`linkedActivity` on 
 | Open cluster in Refunds | Yes | Yes | Yes |
 | Pay or reject a routed refund | Hidden | Yes, directly | Hidden |
 
-Run controls start where the evidence is: "Ask Devin for a rule" in the refunds cluster drawer for a manager, "Ask Devin to monitor merchants" on a UK business case for a manager or admin, "Ask Devin to start this app" on the Chargebacks Coming soon page (`AGENT_TRIGGER_SURFACE.md`), "Ask Devin to change this rule" on `/admin/policy`, and "Undo this change" on `/runs` for an admin on a merged run. Routed refunds are paid or rejected directly by a Manager; the KYC approval-request flow remains unchanged. Their placement on a KYC case, and per-role visibility, is open for the UI rework.
+Run controls start where the evidence is: "Ask Devin for a rule" in the refunds cluster drawer for a manager, "Ask Devin to monitor merchants" in the KYC pattern monitor's drawer for a manager or admin, "Ask Devin to start this app" on the Chargebacks Coming soon page (`AGENT_TRIGGER_SURFACE.md`), "Ask Devin to change this rule" on `/admin/policy`, and "Undo this change" on `/runs` for an admin on a merged run. Routed refunds are paid or rejected directly by a Manager; the KYC approval-request flow remains unchanged. Their placement on a KYC case, and per-role visibility, is open for the UI rework.
 
 The join is KYC `email` = refunds `customerEmail`, run on the server with the read client so no unmasked email reaches the browser. Covered by `apps/console/tests/tools/kyc-linked-activity.test.ts`.
 

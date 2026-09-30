@@ -11,9 +11,11 @@ import {
   DialogTitle,
 } from "@console/ui/dialog";
 import { Label } from "@console/ui/label";
+import { PrButton } from "@/components/pr-button";
 import { SuggestTextarea } from "@/components/suggest-textarea";
 import type { RunViewPayload } from "@/lib/devin-route";
 import { latestVerifySteps } from "@/lib/run-phases";
+import { prNumberFromUrl } from "@console/tool-automation/removal-preview";
 import { touchesSharedPath } from "@console/tool-automation/shared-paths";
 
 type Stage = "idle" | "approving" | "merging" | "merged" | "failed";
@@ -84,7 +86,7 @@ export function ApprovalDialog({
   const shared = (latest?.files ?? []).map((f) => f.path).filter(touchesSharedPath);
   const checks = latestVerifySteps(latest?.verify_steps ?? []);
   const pr = payload?.run.prUrl ?? latest?.pr_url ?? null;
-  const prNumber = pr?.match(/pull\/(\d+)/)?.[1];
+  const prNumber = prNumberFromUrl(pr);
   const merged = payload?.run.status === "merged";
 
   useEffect(() => {
@@ -152,11 +154,7 @@ export function ApprovalDialog({
               <span className="text-red-400">
                 −{latest.files.reduce((n, f) => n + f.deletions, 0)}
               </span>{" "}
-              {pr ? (
-                <a href={pr} target="_blank" rel="noreferrer" className="ml-2 hover:underline">
-                  View diff on GitHub
-                </a>
-              ) : null}
+              {pr ? <PrButton url={pr} number={prNumber} className="ml-2" /> : null}
             </p>
           ) : null}
           <p>

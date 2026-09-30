@@ -3,9 +3,9 @@
 import type { ComponentProps } from "react";
 import Link from "next/link";
 import { TableCell, TableRow } from "@console/ui/table";
-import { GitHubMark } from "@console/ui/github-mark";
 import { StatusChip } from "@console/ui/status-chip";
 import { formatTimestamp } from "@console/ui/format";
+import { PrButton } from "@/components/pr-button";
 import { RemoveRuleButton } from "@/components/remove-rule-dialog";
 import { useWorkspace } from "@/components/workspace";
 
@@ -19,6 +19,9 @@ export interface RunRowData {
   requesterLabel: string;
   status: string;
   prUrl: string | null;
+  prNumber: number | null;
+  /** The rule the run's spec adds, e.g. "Refund hold"; null for specs without one. */
+  ruleName: string | null;
   reverses: string | null;
   requestedAt: number;
 }
@@ -38,7 +41,6 @@ export function RunRow({
   devinConnected: boolean;
 }) {
   const { setAgentFocus } = useWorkspace();
-  const prNumber = run.prUrl?.match(/pull\/(\d+)/)?.[1];
   return (
     <TableRow
       className="cursor-pointer hover:bg-accent/40"
@@ -58,15 +60,7 @@ export function RunRow({
       </TableCell>
       <TableCell>
         {run.prUrl ? (
-          <a
-            href={run.prUrl}
-            target="_blank"
-            rel="noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-1 font-mono text-[11px] hover:underline"
-          >
-            <GitHubMark className="size-3.5" />#{prNumber ?? "pr"}
-          </a>
+          <PrButton url={run.prUrl} number={run.prNumber} onClick={(e) => e.stopPropagation()} />
         ) : (
           "—"
         )}
@@ -92,6 +86,11 @@ export function RunRow({
           <span onClick={(e) => e.stopPropagation()}>
             <RemoveRuleButton
               runId={run.id}
+              rule={
+                run.ruleName
+                  ? { name: run.ruleName, prNumber: run.prNumber, prUrl: run.prUrl, askedAt: run.requestedAt, on: null }
+                  : null
+              }
               size="sm"
               variant="secondary"
               className="h-6 text-[11px]"
