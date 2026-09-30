@@ -43,7 +43,12 @@ export function RunWatcher() {
             seen.set(id, key);
           });
           const live = new Set(runIds);
-          for (const id of [...seen.keys()]) if (!live.has(id)) seen.delete(id);
+          for (const id of [...seen.keys()]) {
+            if (live.has(id)) continue;
+            // Leaving the list (pulled, or stopped) is a change too.
+            seen.delete(id);
+            changed = true;
+          }
           if (changed) router.refresh();
         }
       } catch {
