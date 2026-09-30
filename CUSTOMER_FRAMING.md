@@ -1,7 +1,5 @@
 # Customer Framing
 
-Why this console exists, who it serves and what the demo proves, written for stakeholders rather than engineers. The technical documentation lives in [`docs/`](docs/README.md).
-
 ## The Problem
 
 **Fintech teams face a critical challenge: risk and operations need to change the rules that move money quickly and with review, and today they can't have both.** Every change is a false choice. A business user edits Power Apps and the rule runs in 30 minutes with nobody checking it, or an engineer changes the code by hand and the rule waits weeks for a sprint.
