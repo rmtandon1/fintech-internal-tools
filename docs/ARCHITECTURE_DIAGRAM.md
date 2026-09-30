@@ -42,7 +42,7 @@
 | **Add** a rule | **Ask Devin for a rule** in the refunds cluster drawer | Route clustered refunds to the Manager queue for direct action | Engineer |
 | **Switch off** a rule | The rule's setting on `/admin/policy` | Set `refunds.clustering_window_days` to 0 during a courier outage | Admin only |
 | **Remove** a rule | **Undo this change** on a merged run in `/runs` | Remove the refund routing rule, keeping later work | Engineer |
-| **Monitor** merchants | **Ask Devin to monitor merchants** on a KYC case | Recheck approved UK merchants on Companies House daily | Engineer |
+| **Monitor** merchants | **Ask Devin to monitor merchants** from the KYC pattern monitor's finding | Recheck approved UK merchants on Companies House daily | Engineer |
 | **Migrate** an app | **Ask Devin to start this app** on its Coming soon page | Move Chargebacks from Power Apps into the console | Engineer and engine owner |
 
 ## The three-layer system

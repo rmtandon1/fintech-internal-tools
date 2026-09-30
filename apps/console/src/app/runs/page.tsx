@@ -24,6 +24,7 @@ import {
   operationsStartableBy,
   reversingRun,
 } from "@console/tool-automation";
+import { prNumberFromUrl } from "@console/tool-automation/removal-preview";
 import { roleLabel, ROLES, type Role } from "@console/permissions";
 import { devinMode } from "@/lib/devin-status";
 import { pageNumber } from "@/lib/page-number";
@@ -119,6 +120,8 @@ export default async function RunsPage({
                 ...run,
                 operationLabel: operationLabel(run.operation),
                 requesterLabel: requesterLabel(run.requestedByRole),
+                prNumber: prNumberFromUrl(run.prUrl),
+                ruleName: getSpec(run.spec)?.ruleName ?? null,
               }}
               statuses={automationTool.statuses}
               removable={removable(run, actor)}

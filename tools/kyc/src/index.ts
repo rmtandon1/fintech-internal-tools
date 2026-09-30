@@ -12,6 +12,11 @@ import type {
 import { rolesFor } from "@console/permissions";
 import { caseFile, materialDifferences } from "./case-file";
 import { refundsForCase } from "./linked-activity";
+import {
+  UNMONITORED_MERCHANTS_CLUSTER,
+  merchantFacts,
+  unmonitoredMerchants,
+} from "./monitoring";
 import { kycCases } from "./schema";
 import { seedKycCases } from "./seed";
 
@@ -40,6 +45,12 @@ export interface KycCase extends GovernedRecord {
 }
 
 export { caseFile };
+export {
+  UNMONITORED_MERCHANTS_CLUSTER,
+  UNMONITORED_MERCHANTS_KEY,
+  companyNumber,
+  unmonitoredMerchants,
+} from "./monitoring";
 export type {
   CheckKind,
   CheckResult,
@@ -320,19 +331,31 @@ export const kycTool = defineTool<KycCase>({
   attention: (r, now) =>
     OPEN_STATUSES.includes(r.status) && r.dueAt < now ? "overdue" : null,
   linkedActivity: refundsForCase,
+  clusters: [
+    {
+      id: UNMONITORED_MERCHANTS_CLUSTER,
+      label: "Approved merchants nobody has rechecked",
+      groups: () => unmonitoredMerchants(),
+      handoffSpec: "COMPANIES_HOUSE_CHECK.md",
+      noun: "merchants",
+      rowFacts: merchantFacts,
+    },
+  ],
   constants: [
     {
       key: MANAGER_REVIEW_SCORE_KEY,
+      label: "Manager review from risk score",
       value: 70,
       type: "number",
-      description: "Approving a customer at or above this risk score needs a manager.",
+      description: "Approving a customer with this risk score or higher needs a manager.",
       tool: "kyc",
     },
     {
       key: PROHIBITED_COUNTRIES_KEY,
+      label: "Blocked countries",
       value: ["IR", "KP", "SY", "CU"],
       type: "string_list",
-      description: "Customers from these countries can never be approved. Two-letter country codes.",
+      description: "Customers from these countries can never be approved.",
       tool: "kyc",
     },
   ],

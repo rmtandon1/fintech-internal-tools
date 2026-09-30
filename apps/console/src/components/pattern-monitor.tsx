@@ -4,12 +4,16 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Icon } from "@console/ui/icon";
 import { cn } from "@console/ui/utils";
+import { useWorkspace } from "@/components/workspace";
+import type { FindingRule } from "@/lib/rules-panel";
 
 export interface PatternFinding {
   key: string;
   headline: string;
   detail?: string;
   href: string;
+  /** Where the spec that handles this finding stands; "none" when there is no rule yet. */
+  rule?: FindingRule;
 }
 
 /** How long after the page opens the monitor window slides up. */
@@ -22,7 +26,8 @@ const LINE_MS = 700;
  * found. It opens a moment after the page does and prints its checks one by
  * one before naming the pattern, so the finding reads as something the
  * console noticed rather than a banner that was always there. Once seen in
- * this browser session it comes back minimised instead of replaying.
+ * this browser session it comes back minimised instead of replaying; so does
+ * a page whose findings a live rule already handles.
  */
 export function PatternMonitor({
   toolName,
@@ -45,13 +50,15 @@ export function PatternMonitor({
     `Checked ${scanned} ${noun}`,
     ...looksFor.map((pattern) => `Looking for: ${pattern.charAt(0).toLowerCase()}${pattern.slice(1)}`),
   ];
+  const handled = findings.length > 0 && findings.every((f) => f.rule?.kind === "on");
+  const attention = findings.filter((f) => f.rule?.kind !== "on").length;
 
   const [state, setState] = useState<"hidden" | "open" | "minimised">("hidden");
   const [shown, setShown] = useState(0);
 
   useEffect(() => {
     if (findings.length === 0) return;
-    if (readSeen(storageKey)) {
+    if (handled || readSeen(storageKey)) {
       setState("minimised");
       setShown(lines.length + 1);
       return;
@@ -67,22 +74,36 @@ export function PatternMonitor({
     return () => timers.forEach(clearTimeout);
     // The script is fixed for a given set of findings.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storageKey]);
+  }, [storageKey, handled]);
 
   if (findings.length === 0 || state === "hidden") return null;
 
   const done = shown > lines.length;
+  const minimise = () => {
+    writeSeen(storageKey);
+    setState("minimised");
+  };
 
   if (state === "minimised") {
     return (
       <button
         type="button"
         onClick={() => setState("open")}
-        className="fixed right-4 bottom-4 z-40 flex items-center gap-2 rounded-full border border-warning/50 bg-card px-4 py-2 text-sm font-medium shadow-lg hover:border-warning"
+        className={cn(
+          "fixed right-4 bottom-4 z-40 flex items-center gap-2 rounded-full border bg-card px-4 py-2 text-sm font-medium shadow-lg",
+          handled ? "border-success/50 hover:border-success" : "border-warning/50 hover:border-warning",
+        )}
         data-testid="pattern-monitor-pill"
+        data-handled={handled ? "true" : undefined}
       >
-        <span className="size-2 rounded-full bg-warning" />
-        {findings.length === 1 ? "1 pattern found" : `${findings.length} patterns found`}
+        <span className={cn("size-2 rounded-full", handled ? "bg-success" : "bg-warning")} />
+        {handled
+          ? findings.length === 1
+            ? "1 pattern handled"
+            : `${findings.length} patterns handled`
+          : attention === 1
+            ? "1 pattern found"
+            : `${attention} patterns found`}
       </button>
     );
   }
@@ -97,17 +118,14 @@ export function PatternMonitor({
         <span
           className={cn(
             "size-2 rounded-full",
-            done ? "bg-warning" : "animate-pulse bg-success",
+            done ? (handled ? "bg-success" : "bg-warning") : "animate-pulse bg-success",
           )}
         />
         <span className="text-sm font-medium text-white">Pattern monitor</span>
         <span className="text-xs text-white/50">· {toolName}</span>
         <button
           type="button"
-          onClick={() => {
-            writeSeen(storageKey);
-            setState("minimised");
-          }}
+          onClick={minimise}
           aria-label="Minimise"
           className="ml-auto rounded p-1 text-white/50 hover:bg-white/10 hover:text-white"
         >
@@ -133,34 +151,90 @@ export function PatternMonitor({
       {done ? (
         <div className="space-y-3 border-t border-white/10 px-4 py-3 animate-in fade-in slide-in-from-bottom-1 duration-500">
           {findings.map((finding) => (
-            <div key={finding.key} className="space-y-2">
-              <div className="flex items-start gap-2">
-                <Icon name="TriangleAlert" className="mt-0.5 size-4 shrink-0 text-warning" />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-white">{finding.headline}</p>
-                  {finding.detail ? (
-                    <p className="mt-0.5 text-[13px] leading-relaxed text-white/60">
-                      {finding.detail}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-              <Link
-                href={finding.href}
-                onClick={() => {
-                  writeSeen(storageKey);
-                  setState("minimised");
-                }}
-                className="ml-6 inline-flex h-8 items-center gap-1.5 rounded-md bg-warning px-3 text-sm font-medium text-warning-foreground hover:bg-warning/90"
-              >
-                Take a look
-                <Icon name="ArrowRight" className="size-4" />
-              </Link>
-            </div>
+            <Finding key={finding.key} finding={finding} onLeave={minimise} />
           ))}
         </div>
       ) : null}
     </aside>
+  );
+}
+
+/** One finding and what to do about it, by where its rule stands. */
+function Finding({ finding, onLeave }: { finding: PatternFinding; onLeave: () => void }) {
+  const { setAgentFocus } = useWorkspace();
+  const rule = finding.rule ?? { kind: "none" as const };
+  const tone = rule.kind === "on" ? "success" : "warning";
+  return (
+    <div className="space-y-2" data-testid="pattern-finding" data-rule={rule.kind}>
+      <div className="flex items-start gap-2">
+        <Icon
+          name={rule.kind === "on" ? "ShieldCheck" : "TriangleAlert"}
+          className={cn("mt-0.5 size-4 shrink-0", tone === "success" ? "text-success" : "text-warning")}
+        />
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-white">{finding.headline}</p>
+          {finding.detail ? (
+            <p className="mt-0.5 text-[13px] leading-relaxed text-white/60">{finding.detail}</p>
+          ) : null}
+        </div>
+      </div>
+      <div className="ml-6 flex flex-wrap items-center gap-2 text-[13px]">
+        {rule.kind === "none" ? (
+          <Link
+            href={finding.href}
+            onClick={onLeave}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-warning px-3 text-sm font-medium text-warning-foreground hover:bg-warning/90"
+          >
+            Take a look
+            <Icon name="ArrowRight" className="size-4" />
+          </Link>
+        ) : null}
+        {rule.kind === "building" ? (
+          <>
+            <span className="inline-flex items-center gap-1.5 text-white/75">
+              <Icon name="Bot" className="size-4 animate-pulse text-success" />
+              Devin is building a rule for this
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setAgentFocus({ kind: "run", runId: rule.runId });
+                onLeave();
+              }}
+              className="inline-flex h-7 items-center rounded-md border border-white/20 px-2.5 text-xs font-medium text-white hover:bg-white/10"
+              data-testid="finding-view-progress"
+            >
+              View progress
+            </button>
+          </>
+        ) : null}
+        {rule.kind === "on" ? (
+          <span className="inline-flex items-center gap-1.5 font-medium text-success" data-testid="finding-handled">
+            <Icon name="Check" className="size-4" />
+            Handled by {rule.name}
+          </span>
+        ) : null}
+        {rule.kind === "off" ? (
+          <>
+            <span className="text-white/75">{rule.name} is off</span>
+            <Link
+              href="#rules"
+              onClick={onLeave}
+              className="inline-flex h-7 items-center gap-1 rounded-md bg-warning px-2.5 text-xs font-medium text-warning-foreground hover:bg-warning/90"
+              data-testid="finding-turn-on"
+            >
+              Turn it on
+              <Icon name="ArrowUpRight" className="size-3.5" />
+            </Link>
+          </>
+        ) : null}
+        {rule.kind !== "none" ? (
+          <Link href={finding.href} onClick={onLeave} className="ml-auto text-xs text-white/50 hover:text-white">
+            See the cases
+          </Link>
+        ) : null}
+      </div>
+    </div>
   );
 }
 

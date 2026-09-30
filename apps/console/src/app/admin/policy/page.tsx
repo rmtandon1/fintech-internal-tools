@@ -86,7 +86,20 @@ export default async function PolicyConstantsPage() {
             {constants
               .filter((c) => c.tool === tool)
               .map((constant) => (
-                <ConstantEditor key={constant.key} constant={constant} />
+                <div key={constant.key} className="flex items-center gap-6 rounded-lg border border-border px-4 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-mono text-xs font-medium">{constant.key}</div>
+                    <div className="text-xs text-muted-foreground">{constant.description}</div>
+                  </div>
+                  <ConstantEditor
+                    setting={constant.key}
+                    type={constant.type}
+                    unit={null}
+                    value={constant.value}
+                    canEdit
+                    registered
+                  />
+                </div>
               ))}
           </div>
         ))

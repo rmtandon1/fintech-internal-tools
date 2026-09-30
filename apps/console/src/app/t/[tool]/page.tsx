@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@console/ui/table";
 import { maskRecord } from "@console/engine/pii/mask";
+import { listConstants } from "@console/engine/policy/constants";
 import { previewActions } from "@console/engine/policy/preview";
 import type { Actor, ClusterDecl, ClusterGroup, ToolDeclaration } from "@console/engine/types";
 import { ClusterDrawer, type ClusterRow } from "@/components/cluster-drawer";
@@ -23,8 +24,9 @@ import { ToggleGrid } from "@/components/toggle-grid";
 import { buildHandoffOffer, type HandoffOffer } from "@/lib/handoff";
 import { bridgeDeps } from "@/lib/bridge";
 import { devinMode } from "@/lib/devin-status";
-import { getSpec, operationsStartableBy } from "@console/tool-automation";
+import { getSpec, listRuns, operationsStartableBy } from "@console/tool-automation";
 import { modeFlagOff } from "@/lib/mode-flags";
+import { findingRule, type FindingRule } from "@/lib/rules-panel";
 import { currentActor } from "@/lib/session";
 import { resolveQueueFilters } from "@/lib/tool-queue-filters";
 import { cn } from "@console/ui/utils";
@@ -95,6 +97,7 @@ export default async function ToolQueuePage({
     .filter(({ groups }) => groups.length > 0);
   const inspect = typeof query.inspect === "string" ? query.inspect : undefined;
   const open = inspect ? resolveGroup(clusters, inspect) : undefined;
+  const ruleFor = clusterRules(decl, clusters.map(({ cluster }) => cluster));
 
   const sortHref = (field: string) =>
     href({
@@ -291,6 +294,7 @@ export default async function ToolQueuePage({
               headline: group.headline ?? chipLabel(group),
               detail: group.detail,
               href: href({ inspect: `${cluster.id}:${group.key}` }),
+              rule: ruleFor.get(cluster.id),
             })),
           )}
         />
@@ -307,6 +311,7 @@ export default async function ToolQueuePage({
           statuses={decl.statuses}
           ruleLabels={decl.ruleLabels}
           rows={clusterRows(decl, open.cluster, open.group, actor)}
+          noun={open.cluster.noun}
           canRequestRule={decl.revealRoles.includes(actor.role)}
           devinConnected={devinMode() === "live"}
           dispatch={dispatchOffer(decl, open.cluster, open.group, actor)}
@@ -363,6 +368,20 @@ function dispatchOffer(
     )
     .filter((o): o is HandoffOffer => o !== null);
   return offers.length > 0 ? offers : null;
+}
+
+/** Where each cluster's spec stands, so a finding can say who handles it. */
+function clusterRules(decl: ToolDeclaration, clusters: ClusterDecl[]): Map<string, FindingRule> {
+  const withSpec = clusters.filter((c) => c.handoffSpec);
+  if (withSpec.length === 0) return new Map();
+  const constants = listConstants();
+  const runs = listRuns({ limit: 200 });
+  return new Map(
+    withSpec.flatMap((cluster) => {
+      const spec = getSpec(cluster.handoffSpec!);
+      return spec ? [[cluster.id, findingRule(decl, spec, constants, runs)] as const] : [];
+    }),
+  );
 }
 
 function resolveGroup(
@@ -425,6 +444,7 @@ function clusterRows(
         requestedAt: typeof record.requestedAt === "number" ? record.requestedAt : null,
         trace: decision?.trace ?? null,
         pendingApproval: decision?.effect === "require_approval",
+        facts: cluster.rowFacts?.(record),
       },
     ];
   });

@@ -9,13 +9,14 @@ import type { ToolDeclaration } from "@console/engine/types";
 import { REFUND_CLUSTERING_HOLD, type DevinRun } from "@console/tool-automation";
 import { devinRuns } from "@console/tool-automation/schema";
 import { MANAGER_APPROVAL_USD_KEY, refundTool } from "@console/tool-refunds";
+import { kycTool } from "@console/tool-kyc";
 import { admin, analyst, manager, setupHarness } from "../helpers/harness";
 
 vi.mock("@/app/automation-actions", () => ({ dispatchAutomationRun: vi.fn(), previewRuleRemoval: vi.fn() }));
 vi.mock("@/app/actions", () => ({ submitIntent: vi.fn(), updateConstant: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
-import { RulesPanel } from "@/components/rules-panel";
+import { RULES_SUBTITLE, RulesPanel } from "@/components/rules-panel";
 import { WorkspaceProvider } from "@/components/workspace";
 
 /** The refund hold's on/off switch, as its spec names it. */
@@ -46,6 +47,10 @@ function render(decl: ToolDeclaration, actor: typeof admin): string {
   );
 }
 
+function card(html: string, key = SWITCH): string {
+  return new RegExp(`<li[^>]*data-testid="devin-rule"[^>]*data-key="${key.replace(".", "\\.")}"[^>]*>.*?</li>`).exec(html)?.[0] ?? "";
+}
+
 function insertRun(overrides: Partial<DevinRun>): void {
   db.insert(devinRuns)
     .values({
@@ -65,8 +70,8 @@ function insertRun(overrides: Partial<DevinRun>): void {
       requestedByRole: "manager",
       approvedBy: "usr_engineer",
       lastNote: null,
-      requestedAt: 1_700_000_000_000,
-      updatedAt: 1_700_000_000_000,
+      requestedAt: Date.UTC(2026, 8, 30, 9, 30),
+      updatedAt: Date.UTC(2026, 8, 30, 9, 30),
       version: 1,
       ...overrides,
     })
@@ -75,55 +80,76 @@ function insertRun(overrides: Partial<DevinRun>): void {
 
 beforeAll(() => {
   setupHarness();
-  registerConstants(refunds.constants ?? []);
+  registerConstants([...(refunds.constants ?? []), ...(kycTool.constants ?? [])]);
 });
 
 describe("RulesPanel", () => {
-  it("is the #rules region listing the declared settings with live values, editable by an admin only", () => {
-    setConstant(admin, MANAGER_APPROVAL_USD_KEY, "777");
-    const adminHtml = render(refunds, admin);
-    expect(adminHtml).toContain('id="rules"');
-    expect(adminHtml).toContain(MANAGER_APPROVAL_USD_KEY);
-    expect(adminHtml).toContain('value="777"');
-    expect(adminHtml).toContain(">Save<");
-    for (const viewer of [analyst, manager]) {
+  it("is the #rules region: subtitle, then Limits by label with money in dollars and no raw keys; only admins get the Edit link", () => {
+    setConstant(admin, MANAGER_APPROVAL_USD_KEY, "77700");
+    for (const viewer of [admin, manager, analyst]) {
       const html = render(refunds, viewer);
       expect(html).toContain('id="rules"');
-      expect(html).toMatch(/data-testid="rule-value">777</);
+      expect(html).toContain(RULES_SUBTITLE);
+      expect(html).toContain(">Limits<");
+      expect(html).toContain(">Manager approval limit<");
+      expect(html).toContain("Refunds of this amount or more need a manager");
+      expect(html).toMatch(/data-testid="rule-value">\$777\.00</);
+      expect(html).not.toContain("<input");
       expect(html).not.toContain(">Save<");
-      expect(html).not.toContain('data-testid="remove-rule"');
-      expect(html).not.toContain('data-testid="admin-action"');
+      // The key survives only as a tooltip.
+      expect(html).toContain(`title="${MANAGER_APPROVAL_USD_KEY}"`);
+      expect(html).not.toMatch(new RegExp(`>${MANAGER_APPROVAL_USD_KEY.replace(".", "\\.")}<`));
+      expect(html).toContain('data-testid="no-devin-rules"');
+      if (viewer === admin) expect(html).toMatch(/data-testid="edit-setting"[^>]*>Edit</);
+      else expect(html).not.toContain('data-testid="edit-setting"');
     }
   });
 
-  it("shows a merged change run's switch setting as a rule Devin added, with Remove… for the admin", () => {
+  it("shows a list setting as chips", () => {
+    const html = render(kycTool, manager);
+    expect(html).toContain(">Blocked countries<");
+    for (const code of ["IR", "KP", "SY", "CU"]) expect(html).toMatch(new RegExp(`rounded-full[^>]*>${code}<`));
+    expect(html).toContain(">Manager review from risk score<");
+    expect(html).toMatch(/data-testid="rule-value">70</);
+  });
+
+  it("shows a merged change run's switch as a card Devin added: name, description, toggle, provenance, PR button and Remove…", () => {
     insertRun({});
     setConstant(admin, SWITCH, "true");
     const html = render(refunds, admin);
-    const row = /<li[^>]*data-key="refunds\.clustering_hold"[^>]*>(.*?)<\/li>/.exec(html)?.[1] ?? "";
+    expect(html).toContain(">Added by Devin<");
+    const row = card(html);
     expect(row).toContain("Refund hold");
-    expect(row).toContain("Added by Devin ·");
-    expect(row).toContain("PR #42");
+    expect(row).toContain("Holds a merchant");
+    expect(row).toContain("Added by Devin · asked by Manager · 30 Sept 2026");
+    expect(row).toMatch(/data-testid="pr-button"[^>]*>.*?PR #42/);
     expect(row).toContain('href="https://github.com/o/r/pull/42"');
-    expect(row).toContain("asked by Manager");
-    expect(row).toContain(">On<");
-    expect(row).toContain(">Live<");
+    expect(row).toMatch(/data-testid="rule-on-off">On</);
+    expect(row).toMatch(/data-testid="rule-toggle"/);
     expect(row).toMatch(/data-testid="remove-rule"[^>]*>Remove…</);
-    expect(row).toContain(">Save<");
-    expect(render(refunds, manager)).not.toContain('data-testid="remove-rule"');
+    expect(row).not.toContain("line-through");
+    expect(row).not.toContain(">Save<");
+    // The manager gets the same live switch and Remove…; the server still checks.
+    const managerRow = card(render(refunds, manager));
+    expect(managerRow).toMatch(/data-testid="rule-toggle"/);
+    expect(managerRow).not.toMatch(/disabled=""[^>]*data-testid="rule-toggle"/);
+    expect(managerRow).toMatch(/data-testid="remove-rule"/);
 
     setConstant(admin, SWITCH, "false");
-    expect(render(refunds, admin)).toContain(">Off<");
+    expect(card(render(refunds, admin))).toMatch(/data-testid="rule-on-off">Off</);
   });
 
-  it("shows Removal in review while the undo is in flight, then Removed · PR #N struck through with no editor", () => {
-    insertRun({ id: "01UNDO", operation: "undo", status: "running", reverses: "01RUN", prUrl: null, mergeCommit: null });
+  it("shows an amber banner with the toggle disabled while the undo is in flight, then moves the rule to Recently removed with no strikethrough", () => {
+    insertRun({ id: "01UNDO", operation: "undo", status: "running", reverses: "01RUN", prUrl: "https://github.com/o/r/pull/57", mergeCommit: null });
     const inReview = render(refunds, admin);
-    expect(inReview).toContain("Removal in review");
-    expect(inReview).not.toContain('data-testid="remove-rule"');
+    const row = card(inReview);
+    expect(row).toContain('data-state="removal_in_review"');
+    expect(row).toMatch(/data-testid="removal-banner"[^>]*>.*?Devin is removing this rule ·.*?PR #57.*?in review/);
+    expect(row).toMatch(/disabled=""[^>]*data-testid="rule-toggle"/);
+    expect(row).not.toContain('data-testid="remove-rule"');
 
     db.update(devinRuns)
-      .set({ status: "merged", prUrl: "https://github.com/o/r/pull/57", mergeCommit: "e".repeat(40) })
+      .set({ status: "merged", mergeCommit: "e".repeat(40), updatedAt: Date.UTC(2026, 9, 2, 12) })
       .where(eq(devinRuns.id, "01UNDO"))
       .run();
     const gone: ToolDeclaration = {
@@ -131,24 +157,31 @@ describe("RulesPanel", () => {
       constants: (refundTool.constants ?? []).filter((c) => c.key !== SWITCH),
     };
     const removed = render(gone, admin);
-    const row = /<li[^>]*data-key="refunds\.clustering_hold"[^>]*>.*?<\/li>/.exec(removed)?.[0] ?? "";
-    expect(row).toContain('data-state="removed"');
-    expect(row).toContain(">Removed<");
-    expect(row).toContain("PR #57");
-    expect(row).toContain("PR #42");
-    expect(row).toContain("line-through");
-    expect(row).not.toContain(">Off<");
-    expect(row).not.toContain(">Save<");
-    expect(row).not.toContain('data-testid="remove-rule"');
+    expect(card(removed)).toBe("");
+    expect(removed).toContain("Recently removed (1)");
+    const line = /<li[^>]*data-testid="removed-rule"[^>]*>(.*?)<\/li>/.exec(removed)?.[1] ?? "";
+    expect(line).toContain("Refund hold");
+    expect(line).toContain("· removed by Devin ·");
+    expect(line).toContain("PR #57");
+    expect(line).toContain("2 Oct 2026");
+    expect(line).not.toContain("PR #42");
+    expect(removed).not.toContain("line-through");
+    expect(removed).not.toContain('data-testid="remove-rule"');
   });
 
-  it("renders the declaration's admin actions for the admin, and nothing for a tool with no rules", () => {
+  it("puts an admin action on its rule's card, keeps others in the header, and renders nothing for a tool with no rules", () => {
     const withActions: ToolDeclaration = {
       ...refunds,
-      adminActions: [{ label: "Recheck now", action: "recheck" }],
+      adminActions: [
+        { label: "Recheck now", action: "recheck", setting: MANAGER_APPROVAL_USD_KEY },
+        { label: "Rebuild index", action: "rebuild" },
+      ],
     };
-    expect(render(withActions, admin)).toMatch(/data-testid="admin-action"[^>]*>Recheck now</);
-    expect(render(withActions, manager)).not.toContain("Recheck now");
+    const html = render(withActions, manager);
+    const limit = /<li[^>]*data-key="refunds\.manager_approval_usd_minor"[^>]*>.*?<\/li>/.exec(html)?.[0] ?? "";
+    expect(limit).toMatch(/data-testid="admin-action"[^>]*>Recheck now</);
+    expect(limit).not.toContain("Rebuild index");
+    expect(html).toMatch(/data-testid="admin-action"[^>]*>Rebuild index</);
     const bare: ToolDeclaration = { ...refunds, name: "bare", constants: [] };
     expect(render(bare, admin)).toBe("");
   });

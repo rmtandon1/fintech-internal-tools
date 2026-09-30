@@ -41,10 +41,13 @@ request.
 
 ## Where it starts
 
-`/t/kyc/kyc_0104`, Wilko Limited, registration number 00365335, risk score 28,
-approved in 2021. Its company registry check reads "Checked by hand at onboarding:
-active". The **Ask Devin to monitor merchants** button shows on UK business cases
-for a KYC manager or an admin. An Analyst doesn't see it.
+`/t/kyc`: the pattern monitor finds "4 approved UK merchants haven't been rechecked
+since onboarding — checked by hand once, in 2021". **Take a look** opens a drawer
+listing Wilko Limited (00365335), Lakeland, Timpson and Screwfix with their company
+numbers and last check; **Ask Devin to monitor merchants** there hands all four over
+as evidence, for a KYC manager or an admin. An Analyst sees the finding but no button.
+Wilko's own page, `/t/kyc/kyc_0104`, shows the company number and its registry check
+("Checked by hand at onboarding: active", 2021) in place of an identity document.
 
 What Devin gets: the case id, the company's name and registration number, its
 country and status, and today's hand-typed registry check. No contact email, no

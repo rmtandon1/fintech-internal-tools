@@ -7,7 +7,7 @@ import type { RemovalPreview } from "@console/tool-automation/removal-preview";
 vi.mock("@/app/automation-actions", () => ({ dispatchAutomationRun: vi.fn(), previewRuleRemoval: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
-import { RemovalPreviewBody, RemoveRuleButton } from "@/components/remove-rule-dialog";
+import { RemovalPreviewBody, RemoveRuleButton, WHAT_HAPPENS } from "@/components/remove-rule-dialog";
 import { WorkspaceProvider } from "@/components/workspace";
 
 const preview: RemovalPreview = {
@@ -28,38 +28,40 @@ const preview: RemovalPreview = {
   nextStep: "Devin opens a pull request that takes this rule out, keeping the one change made since, and an engineer reviews it before anything changes here.",
 };
 
+const rule = { name: "Refund hold", prNumber: 42, prUrl: "https://github.com/o/r/pull/42", askedAt: preview.mergedAt!, on: false };
+
 describe("RemovalPreviewBody", () => {
-  it("shows what it is, what it touched, what changed since and what happens next", () => {
-    const html = renderToStaticMarkup(createElement(RemovalPreviewBody, { preview }));
-    expect(html).toContain("What it is");
-    expect(html).toContain("send them to a manager for approval");
-    expect(html).toContain("Asked by Manager");
+  it("shows provenance with the PR button and current state, the request quoted, what happens, and the detail folded", () => {
+    const html = renderToStaticMarkup(createElement(RemovalPreviewBody, { preview, rule }));
+    expect(html).toContain("Added by Devin · asked by Manager ·");
+    expect(html).toMatch(/data-testid="pr-button"[^>]*>.*?PR #42/);
     expect(html).toContain('href="https://github.com/o/r/pull/42"');
-    expect(html).toContain("PR #42");
-    expect(html).toContain("merged 30 Sept 2026");
-    expect(html).toContain("What it touched");
+    expect(html).toContain("30 Sept 2026");
+    expect(html).toMatch(/data-testid="removal-current-state"[^>]*>Off</);
+    expect(html).toContain("send them to a manager for approval");
+    expect(html).toContain(">What happens<");
+    for (const line of WHAT_HAPPENS) expect(html).toContain(line);
+    expect(html).toMatch(/<details[^>]*data-testid="engineering-detail"/);
+    expect(html).not.toMatch(/<details[^>]*open/);
     expect(html).toContain("tools/refunds/src/clustering-hold.ts");
     expect(html).toContain("+40");
     expect(html).toContain("−2");
     expect(html).toContain("1 test file added or changed");
-    expect(html).toContain("refunds.clustering_window_days");
-    expect(html).toContain("Changed since");
-    expect(html).toContain("eeeeeee");
-    expect(html).toContain("Tighten the hold (#57)");
-    expect(html).toContain("PR #57");
-    expect(html).toContain("Devin keeps these");
-    expect(html).toMatch(/data-testid="removal-next">Devin opens a pull request/);
+    // Nothing engineering-flavoured escapes the fold.
+    const outside = html.slice(0, html.indexOf("<details"));
+    expect(outside).not.toContain("tools/refunds");
+    expect(outside).not.toContain("ddddddd");
+    expect(outside).not.toContain("01RUN");
+    expect(html).not.toContain("Changed since");
+    expect(html).not.toContain("Devin keeps these");
     expect(html).not.toContain("<textarea");
-    expect(html).not.toContain("What Devin will see");
   });
 
-  it("says when nothing changed since and when the merge is not local yet", () => {
+  it("says when the merge is not local yet and when no tests changed", () => {
     const quiet = renderToStaticMarkup(
-      createElement(RemovalPreviewBody, { preview: { ...preview, changedSince: [], tests: [], settings: [] } }),
+      createElement(RemovalPreviewBody, { preview: { ...preview, tests: [], settings: [] } }),
     );
-    expect(quiet).toContain("Nothing else has touched these files since.");
     expect(quiet).toContain("No tests added or changed");
-    expect(quiet).toContain("no settings declared");
     const notLocal = renderToStaticMarkup(
       createElement(RemovalPreviewBody, { preview: { ...preview, mergedAt: null, files: [] } }),
     );
@@ -70,9 +72,10 @@ describe("RemovalPreviewBody", () => {
 describe("RemoveRuleButton", () => {
   it("renders the trigger with the dialog closed", () => {
     const html = renderToStaticMarkup(
-      createElement(WorkspaceProvider, null, createElement(RemoveRuleButton, { runId: "01RUN" }, "Remove…")),
+      createElement(WorkspaceProvider, null, createElement(RemoveRuleButton, { runId: "01RUN", rule }, "Remove…")),
     );
     expect(html).toMatch(/data-testid="remove-rule"[^>]*>Remove…</);
-    expect(html).not.toContain("Ask Devin to remove it");
+    expect(html).not.toContain("Remove rule<");
+    expect(html).not.toContain("Remove Refund hold?");
   });
 });

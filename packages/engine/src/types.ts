@@ -206,7 +206,13 @@ export interface ConstantDefinition {
   type: "number" | "string_list" | "boolean";
   description: string;
   tool: string;
+  /** What operators see in place of the key, e.g. "Manager approval limit". */
+  label?: string;
+  /** How the value is shown and edited; `usd_minor` renders cents as dollars. */
+  unit?: ConstantUnit;
 }
+
+export type ConstantUnit = "usd_minor";
 
 /** PII-free aggregate of another tool's records tied to this one. */
 export interface LinkedActivitySummary {
@@ -303,6 +309,8 @@ export interface ToolDeclaration<TRecord extends GovernedRecord = GovernedRecord
 export interface AdminActionDecl {
   label: string;
   action: string;
+  /** The setting of the rule this action belongs to; the button sits on that rule's card. */
+  setting?: string;
 }
 
 /** One group within a cluster: an aggregate over records, carrying no PII. */
@@ -334,6 +342,10 @@ export interface ClusterDecl {
   traceAction?: string;
   /** The spec a Devin run for this cluster would follow, if any. */
   handoffSpec?: string;
+  /** What the rows are, for the drawer's heading, e.g. "merchants". */
+  noun?: string;
+  /** Short facts shown under each row in the drawer, in place of an amount. */
+  rowFacts?: (record: GovernedRecord) => { label: string; value: string }[];
 }
 
 export interface ListOptions {
