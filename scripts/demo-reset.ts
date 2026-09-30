@@ -7,7 +7,7 @@ import { join } from "node:path";
  *
  *   pnpm exec tsx scripts/demo-reset.ts
  *
- * Each take gets its own branch, `demo-<date>-<time>`, cut from `demo-base`
+ * Each take gets its own branch, `demo-<date>-<time>` (to the second), cut from `demo-base`
  * (or `DEMO_BASE_BRANCH`) on GitHub: the code the demo starts from. Devin
  * branches from the take's branch and its pull requests merge into it.
  * Nothing is force-pushed or deleted; earlier takes' branches stay as they are.
@@ -41,7 +41,7 @@ function step(text: string): void {
 function stamp(): string {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
 }
 
 /** Sets one `KEY=value` line in `.env`, keeping every other line as it is. */
