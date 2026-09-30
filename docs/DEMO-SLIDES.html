@@ -43,6 +43,10 @@
   .next { background: var(--ink); } .next h3 { color: #93c5fd; } .next li { color: #fff; }
   .next ol { margin-left: 24px; }
   .fit { background: var(--accent-soft); border: 1px solid #bfdbfe; } .fit h3 { color: var(--accent); }
+  /* Slides 3–5 */
+  .plan { background: var(--accent-soft); border-color: var(--accent); } .plan h2 { color: var(--accent); }
+  .col li.fix { color: var(--green); font-weight: 600; }
+  .col li b, .fit li b { color: var(--ink); }
   .hint { position: fixed; right: 18px; bottom: 12px; font: 13px/1 Helvetica, Arial, sans-serif; color: #64748b; }
   @media print {
     @page { size: 1600px 900px; margin: 0; }
@@ -61,8 +65,8 @@
     <div class="eyebrow">The demo</div>
     <h1>Your team asks, Devin builds, an engineer approves</h1>
     <p class="lede">Changes go live the same day, and an engineer still checks every one.</p>
-    <div class="diagram"><img src="demo-loop.svg" alt="The loop: your team asks, Devin builds, an engineer approves, an admin turns it on. The demo covers a rule, a connector and an app."></div>
-    <div class="footer"><span>After Power Apps · build vs buy</span><span>1 / 4</span></div>
+    <div class="diagram"><img src="demo-loop.svg" alt="The loop: your team asks, Devin builds, an engineer merges it on GitHub, a manager switches it on. The demo adds a rule, switches it off and removes it, then adds a daily Companies House check."></div>
+    <div class="footer"><span>After Power Apps · build vs buy</span><span>1 / 5</span></div>
   </section>
 
   <!-- Slide 2 -->
@@ -71,82 +75,132 @@
     <h1>Power Apps is five products in one</h1>
     <p class="lede">It costs about $250K a year. If you leave, you have to replace all five.</p>
     <table>
-      <thead><tr><th style="width:24%">Power Apps</th><th class="devin" style="width:56%">What replaces it</th><th style="width:20%">Shown in</th></tr></thead>
+      <thead><tr><th style="width:24%">Power Apps</th><th class="devin" style="width:50%">What replaces it</th><th style="width:26%">Shown in</th></tr></thead>
       <tbody>
-        <tr><td>App builder</td><td class="devin">Each app is a page in the console</td><td>Apps</td></tr>
-        <tr><td>Dataverse</td><td class="devin">Each app's data, with access set by role</td><td>Throughout</td></tr>
-        <tr><td>Connectors</td><td class="devin">Code that talks to outside systems directly</td><td>Connectors</td></tr>
-        <tr><td>Power Automate</td><td class="devin">Rules and approvals, all in one place</td><td>Rules</td></tr>
-        <tr><td>Admin plane</td><td class="devin">Roles, settings you can change live, and a full audit log</td><td>Rules</td></tr>
+        <tr><td>App builder</td><td class="devin">Each app is a page in the console, written by Devin</td><td>What Devin built</td></tr>
+        <tr><td>Dataverse</td><td class="devin">One database for every app, with access set by role</td><td>Throughout</td></tr>
+        <tr><td>Connectors</td><td class="devin">Code that talks to outside systems directly</td><td>Merchant monitoring</td></tr>
+        <tr><td>Power Automate</td><td class="devin">Rules and daily jobs, in code an engineer reviews</td><td>Refund hold</td></tr>
+        <tr><td>Admin plane</td><td class="devin">Roles, switches you flip live, and a full audit log</td><td>Switching rules on and off</td></tr>
       </tbody>
     </table>
-    <div class="footer"><span>After Power Apps · build vs buy</span><span>2 / 4</span></div>
+    <div class="footer"><span>After Power Apps · build vs buy</span><span>2 / 5</span></div>
   </section>
 
   <!-- Slide 3 -->
   <section class="slide" data-title="What it costs">
     <div class="eyebrow">What it costs</div>
-    <h1>Engineers still check every change. They just don't write it.</h1>
-    <table>
-      <thead><tr><th style="width:22%"></th><th style="width:24%">Power Apps today</th><th style="width:24%">Your engineers</th><th class="devin" style="width:30%">Your engineers + Devin</th></tr></thead>
-      <tbody>
-        <tr><td>Adding a rule</td><td>About 30 minutes, no one checks it</td><td>1–2 weeks</td><td class="devin">Same day, checked by an engineer</td></tr>
-        <tr><td>Turning a rule off</td><td>Edit it live</td><td>Ship a fix</td><td class="devin">Flip a switch in settings</td></tr>
-        <tr><td>Removing a rule</td><td>Rarely happens</td><td>Waits for a ticket</td><td class="devin">Devin removes it and an engineer checks</td></tr>
-        <tr><td>Adding an app</td><td>More licences</td><td>Weeks of work</td><td class="devin">One pull request to start, security built in</td></tr>
-      </tbody>
-    </table>
-    <div class="footer"><span>After Power Apps · build vs buy</span><span>3 / 4</span></div>
+    <h1>You don't pocket the $250K. You swap it.</h1>
+    <div class="cols">
+      <div class="col no">
+        <h2>What replaces the licence</h2>
+        <ul>
+          <li>Devin usage</li>
+          <li>Engineer time to review and own it</li>
+          <li>Hosting, login and backups</li>
+          <li>Ongoing maintenance</li>
+        </ul>
+      </div>
+      <div class="col risk">
+        <h2>Year one costs more</h2>
+        <ul>
+          <li><b>Year 1:</b> about $300K to build the platform and move three apps, against $250K</li>
+          <li><b>After that:</b> about $150K a year to run, against $250K</li>
+          <li>About $50K more up front, then about $100K a year less</li>
+        </ul>
+      </div>
+      <div class="col yes">
+        <h2>What owning it buys</h2>
+        <ul>
+          <li>Your own integrations, data model and workflows</li>
+          <li>For example, a Tier-2 KYC approval that checks your fraud model and transaction history, and needs a second reviewer above a threshold</li>
+        </ul>
+      </div>
+    </div>
+    <p class="note">Illustrative figures. The pilot replaces them with yours. Also check whether your Power Apps licences grow with each of the ten new apps.</p>
+    <div class="footer"><span>After Power Apps · build vs buy</span><span>3 / 5</span></div>
   </section>
 
   <!-- Slide 4 -->
   <section class="slide" data-title="Build or buy">
-    <div class="eyebrow">Build or buy</div>
+    <div class="eyebrow">Build or buy · what you'll face</div>
     <h1>Build it yourselves, one app at a time, with one engineer in charge</h1>
     <div class="cols">
-      <div class="col yes">
-        <h2>What the demo proves</h2>
+      <div class="col risk">
+        <h2>Hidden logic</h2>
         <ul>
-          <li>Rules can be added, turned off and removed, and an engineer checks each change</li>
-          <li>A manual check can be replaced with an automatic one</li>
-          <li>New apps get the same security from day one</li>
-        </ul>
-      </div>
-      <div class="col no">
-        <h2>What it doesn't prove</h2>
-        <ul>
-          <li>Login, hosting, backups and support aren't built yet</li>
-          <li>Business users can't make changes themselves any more</li>
-          <li>It hasn't run on real data or at real volume</li>
+          <li>Formulas and flows nobody wrote down</li>
+          <li class="fix">Devin reads each app's export and lists every formula and flow step, done or to do</li>
         </ul>
       </div>
       <div class="col risk">
-        <h2>Risks</h2>
+        <h2>A platform to own</h2>
         <ul>
-          <li>Undocumented Power Apps formulas may work differently once moved</li>
-          <li>Reviews can get rushed as the number of changes grows</li>
-          <li>Engineering and hosting costs could cancel out the licence savings</li>
+          <li>Login, hosting, backups and monitoring that Power Apps gave you</li>
+          <li class="fix">Build them once, on the engine every app shares</li>
+        </ul>
+      </div>
+      <div class="col risk">
+        <h2>Review load and sprawl</h2>
+        <ul>
+          <li>Every change needs an engineer, and cheap changes invite more of them</li>
+          <li class="fix">One owner who can say no. Rules ship off, and come out when they stop earning their place</li>
         </ul>
       </div>
     </div>
     <div class="rec">
       <div class="next">
-        <h3>Next 90 days</h3>
-        <ol>
-          <li>Pick one engineer to own the system, and a second to review</li>
-          <li>Move Chargebacks and run it alongside the Power App</li>
-          <li>Decide: does it match, how long do reviews take, what does each change cost?</li>
-        </ol>
+        <h3>Why build</h3>
+        <ul>
+          <li>Internal tools become part of the product: same engine, same review, same owner</li>
+          <li>The ten new apps reuse the roles, rules and audit log the first three already have</li>
+        </ul>
       </div>
       <div class="fit">
         <h3>Where Devin fits</h3>
         <ul>
-          <li><b>If you build:</b> Devin writes the changes. Your engineers review and approve them.</li>
+          <li><b>If you build:</b> Devin writes the changes. Your engineers review and merge them.</li>
           <li><b>If you stay on Power Apps:</b> Devin can still build custom connectors and write tests and documentation.</li>
         </ul>
       </div>
     </div>
-    <div class="footer"><span>After Power Apps · build vs buy</span><span>4 / 4</span></div>
+    <div class="footer"><span>After Power Apps · build vs buy</span><span>4 / 5</span></div>
+  </section>
+
+  <!-- Slide 5 -->
+  <section class="slide" data-title="A pilot with your data">
+    <div class="eyebrow">Next 90 days</div>
+    <h1>A pilot on one app, with your data</h1>
+    <p class="lede">Refunds and KYC on your real merchants and cases, run alongside Power Apps before anything switches over.</p>
+    <div class="cols" id="pilot-timeline">
+      <div class="col no">
+        <h2>Weeks 1–3 · Set up</h2>
+        <ul>
+          <li>One engineer owns it, a second reviews</li>
+          <li>Your login, hosted in your cloud</li>
+          <li>A copy of your refunds and KYC data, kept inside your environment</li>
+        </ul>
+      </div>
+      <div class="col plan">
+        <h2>Weeks 4–10 · Side by side</h2>
+        <ul>
+          <li>Real refunds and KYC cases run through both</li>
+          <li>Solon decides, but pays nothing out</li>
+          <li>Your UK merchants rechecked on Companies House every day</li>
+          <li>Ops ask Devin for changes, and engineers review them</li>
+        </ul>
+      </div>
+      <div class="col yes">
+        <h2>Weeks 11–13 · Decide</h2>
+        <ul>
+          <li>Do its decisions match Power Apps?</li>
+          <li>How long from ask to live?</li>
+          <li>Engineer minutes and Devin cost per change</li>
+          <li>Then move the next app, or stay</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer"><span>After Power Apps · build vs buy</span><span>5 / 5</span></div>
   </section>
 
 </div>
