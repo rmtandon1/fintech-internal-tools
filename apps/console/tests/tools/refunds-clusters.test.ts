@@ -167,9 +167,6 @@ describe("refunds clusters", () => {
         tool: "refunds",
       },
     ]);
-    expect(refundTool.constants?.find((c) => c.key === CLUSTERING_WINDOW_DAYS_KEY)?.value).toBe(0);
-    expect(clusteringWindowDays()).toBe(0);
-    expect(setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "14").ok).toBe(true);
     expect(clusteringWindowDays()).toBe(14);
 
     expect(setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "0").ok).toBe(true);
@@ -191,5 +188,34 @@ describe("refunds clusters", () => {
     expect(setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "1").ok).toBe(true);
     expect(clusteringWindowDays()).toBe(1);
     expect(notReceivedByMerchant().find((g) => g.key === "Kestrel Outdoors")).toBeUndefined();
+  });
+
+  it("no longer declares refunds.clustering_window_days on the tool", () => {
+    expect(refundTool.constants?.map((c) => c.key)).not.toContain(CLUSTERING_WINDOW_DAYS_KEY);
+  });
+
+  it("keeps Kestrel's not-received refunds in the analyst's queue with the window at 14: execute runs no clustering_hold", () => {
+    expect(setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "14").ok).toBe(true);
+    const analystQueue = refundTool
+      .list({ filters: { queue: "analyst" }, limit: 1000, offset: 0 })
+      .rows.map((r) => r.id);
+    const managerQueue = refundTool
+      .list({ filters: { queue: "manager" }, limit: 1000, offset: 0 })
+      .rows.map((r) => r.id);
+    for (const id of ["rfnd_0014", "rfnd_0013", "rfnd_0012", "rfnd_0011"]) {
+      const record = refundTool.get(id);
+      if (!record) throw new Error(`missing ${id}`);
+      const decision = previewActions(refundTool, record, analyst).find((p) => p.action === "execute")?.decision;
+      expect(decision?.effect).toBe("allow");
+      expect(decision?.trace.map((o) => o.rule)).toEqual([
+        "within_captured_amount",
+        "not_disputed",
+        "amount_approval",
+        "goodwill_approval",
+        "merchant_insolvency",
+      ]);
+      expect(analystQueue).toContain(id);
+      expect(managerQueue).not.toContain(id);
+    }
   });
 });
