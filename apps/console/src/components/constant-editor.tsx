@@ -7,7 +7,7 @@ import { updateConstant } from "@/app/actions";
 import { Button } from "@console/ui/button";
 import { Input } from "@console/ui/input";
 import type { ConstantDefinition } from "@console/engine/types";
-import { formatUsdMinor } from "@/lib/rules-panel";
+import { formatUsdMinor } from "@/lib/rule-format";
 
 type Value = ConstantDefinition["value"];
 

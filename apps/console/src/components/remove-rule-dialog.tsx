@@ -20,7 +20,7 @@ import {
 import type { RemovalPreview } from "@console/tool-automation/removal-preview";
 import { PrButton } from "@/components/pr-button";
 import { useWorkspace } from "@/components/workspace";
-import { formatDay } from "@/lib/rules-panel";
+import { formatDay } from "@/lib/rule-format";
 
 /** What the rule's card knows about it; the dialog shows this while the merge is read. */
 export interface RemovableRule {

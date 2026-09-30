@@ -4,6 +4,9 @@ import { roleLabel } from "@console/permissions";
 import type { DevinRun, RunnableSpec } from "@console/tool-automation";
 import { getSpec, isInFlight } from "@console/tool-automation";
 import { prNumberFromUrl } from "@console/tool-automation/removal-preview";
+import { formatDay, formatUsdMinor } from "@/lib/rule-format";
+
+export { formatDay, formatUsdMinor };
 
 /** Where a rule Devin added stands: live, being removed, or removed. */
 export type DevinRuleState =
@@ -74,24 +77,6 @@ export function isOn(value: number | string[] | boolean): boolean {
   return value !== 0 && value !== false;
 }
 
-/** `$500.00`: a `usd_minor` setting as operators read it. */
-export function formatUsdMinor(minor: number): string {
-  return (minor / 100).toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-/** `30 Sept 2026`: the day something happened, without the time. */
-export function formatDay(ts: number): string {
-  return new Date(ts).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 function devinRules(tool: string, runs: readonly DevinRun[]): Map<string, DevinRuleInfo> {
   const rules = new Map<string, DevinRuleInfo>();
