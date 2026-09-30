@@ -10,7 +10,7 @@ import { buildContext, readContextJson } from "./context";
 export { readContextJson } from "./context";
 import type { DevinClient } from "./devin-api";
 import { SYNC_BRANCH, SYNC_REMOTE, type GitRunner } from "./git";
-import { type GitHubClient, parsePullUrl } from "./github-api";
+import { type GitHubClient, parsePullUrl, type PullRef } from "./github-api";
 import { automationTool, getRun, type DevinRun } from "./index";
 import {
   ContextFile,
@@ -601,38 +601,18 @@ export async function observeGitHubApproval(
     .find((m): m is { login: string; actor: Actor } => m.actor?.role === "engineer");
   if (!mapped) return { kind: "unmatched", login: reviews[0].login };
 
-  const checks = await deps.github.getChecks(ref, pull.headSha);
-  const branchContextSha256 =
-    (await deps.github.fileSha256(ref, pull.headSha, `runs/${run.id}/context.json`)) ?? "0".repeat(64);
-  const input = {
+  const outcome = await approvePrFromGitHub({
+    run,
+    deps,
+    ref,
     prUrl,
-    checksGreen: checks.green,
-    branchContextSha256,
+    headSha: pull.headSha,
+    login: mapped.login,
+    actor: mapped.actor,
     note: `Approved on GitHub by @${mapped.login}`,
-  };
-  const preview = previewActions(automationTool, run, mapped.actor, { approve_pr: input }).find(
-    (p) => p.action === "approve_pr",
-  );
-  if (preview?.offered !== true || preview.decision?.effect !== "allow") {
-    const reason =
-      preview?.decision?.reason ?? preview?.unavailableReason ?? "The console's approval rules did not allow it";
-    return { kind: "denied", login: mapped.login, actor: mapped.actor, reason, checks: checks.summary };
-  }
-  const approve = executeIntent(mapped.actor, {
-    tool: "automation",
-    action: "approve_pr",
-    recordId: run.id,
-    input,
-    idempotencyKey: key(run.id, `approve_pr:${pull.headSha}`),
   });
-  if (!applied(approve)) {
-    return {
-      kind: "denied",
-      login: mapped.login,
-      actor: mapped.actor,
-      reason: describeIntent(approve),
-      checks: checks.summary,
-    };
+  if (outcome.kind === "denied") {
+    return { kind: "denied", login: mapped.login, actor: mapped.actor, reason: outcome.reason, checks: outcome.checks };
   }
   let messageError: string | null = null;
   if (deps.devin && run.sessionId) {
@@ -642,7 +622,56 @@ export async function observeGitHubApproval(
       messageError = errorText(error);
     }
   }
-  return { kind: "approved", login: mapped.login, actor: mapped.actor, approve, messageError };
+  return { kind: "approved", login: mapped.login, actor: mapped.actor, approve: outcome.approve, messageError };
+}
+
+/**
+ * The governed `approve_pr` an action taken on GitHub counts as: the same
+ * server-read checks and branch digest, the same policy preview first so a
+ * transient denial leaves nothing stored, then `executeIntent` under the
+ * same idempotency key, acting as the mapped engineer.
+ */
+async function approvePrFromGitHub(args: {
+  run: DevinRun;
+  deps: BridgeDeps;
+  ref: PullRef;
+  prUrl: string;
+  headSha: string;
+  login: string;
+  actor: Actor;
+  note: string;
+}): Promise<{ kind: "approved"; approve: IntentResult } | { kind: "denied"; reason: string; checks: string }> {
+  const { run, deps, ref, prUrl, headSha, actor, note } = args;
+  const github = deps.github;
+  if (!github) return { kind: "denied", reason: "GitHub API is not configured", checks: "" };
+  const checks = await github.getChecks(ref, headSha);
+  const branchContextSha256 =
+    (await github.fileSha256(ref, headSha, `runs/${run.id}/context.json`)) ?? "0".repeat(64);
+  const input = {
+    prUrl,
+    checksGreen: checks.green,
+    branchContextSha256,
+    note,
+  };
+  const preview = previewActions(automationTool, run, actor, { approve_pr: input }).find(
+    (p) => p.action === "approve_pr",
+  );
+  if (preview?.offered !== true || preview.decision?.effect !== "allow") {
+    const reason =
+      preview?.decision?.reason ?? preview?.unavailableReason ?? "The console's approval rules did not allow it";
+    return { kind: "denied", reason, checks: checks.summary };
+  }
+  const approve = executeIntent(actor, {
+    tool: "automation",
+    action: "approve_pr",
+    recordId: run.id,
+    input,
+    idempotencyKey: key(run.id, `approve_pr:${headSha}`),
+  });
+  if (!applied(approve)) {
+    return { kind: "denied", reason: describeIntent(approve), checks: checks.summary };
+  }
+  return { kind: "approved", approve };
 }
 
 export type MergeOutcome =
@@ -676,11 +705,32 @@ export async function observeMerge(
   if (!deps.github) return { kind: "unavailable", reason: "GitHub API is not configured" };
   const pull = await deps.github.getPull(ref);
   if (pull.merged && pull.mergeCommit) {
-    const record = executeIntent(actor, {
+    // A merge by the mapped engineer counts as their approval: the same
+    // governed approve_pr runs first, so the merge lands from `approved`
+    // under `merge_follows_approval`. Any other merger — or an approval the
+    // rules deny — keeps the named gap note instead.
+    let mergeActor = actor;
+    if (run.status === "running" && pull.mergedBy) {
+      const merger = actorForGitHubLogin(pull.mergedBy);
+      if (merger?.role === "engineer") {
+        const approval = await approvePrFromGitHub({
+          run,
+          deps,
+          ref,
+          prUrl,
+          headSha: pull.headSha,
+          login: pull.mergedBy,
+          actor: merger,
+          note: `Approved on GitHub by @${pull.mergedBy}, who merged without a review`,
+        });
+        if (approval.kind === "approved") mergeActor = merger;
+      }
+    }
+    const record = executeIntent(mergeActor, {
       tool: "automation",
       action: "record_merge",
       recordId: run.id,
-      input: { mergeCommit: pull.mergeCommit, prUrl },
+      input: { mergeCommit: pull.mergeCommit, prUrl, mergedBy: pull.mergedBy ?? undefined },
       idempotencyKey: key(run.id, `record_merge:${pull.mergeCommit}`),
     });
     return { kind: "merged", record, mergeCommit: pull.mergeCommit };

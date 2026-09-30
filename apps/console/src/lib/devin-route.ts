@@ -16,6 +16,7 @@ import {
 } from "@console/tool-automation";
 import {
   describeGitHubApproval,
+  isSynced,
   observeGitHubApproval,
   observeMerge,
   observeRun,
@@ -26,6 +27,7 @@ import {
   runPrompt,
 } from "@console/tool-automation/bridge";
 import type { AppBridgeDeps } from "@/lib/bridge";
+import { getTool } from "@/registry";
 import { devinMode, type DevinMode } from "@/lib/devin-status";
 import { runOffers, type RunOffers } from "@/lib/run-surface";
 
@@ -88,6 +90,8 @@ export interface RunViewPayload {
   githubSyncedAt: number | null;
   /** A GitHub approval the console saw but did not record (unknown login, rules denied), or a merge message that failed. */
   githubNotice: string | null;
+  /** Where a merged run's change shows up for this viewer; null before the merge or when the viewer can't open the tool. */
+  changeLink: { href: string; label: string; live: boolean } | null;
 }
 
 /**
@@ -158,6 +162,16 @@ export async function handleGet(
   const frames = readReplay(deps.repoRoot, runId, deps.replaysDir);
   const latest = frames.at(-1) ?? null;
   const mode = devinMode();
+  const spec = getSpec(run.spec);
+  const decl = spec ? getTool(spec.tool) : undefined;
+  const changeLink =
+    run.status === "merged" && spec && decl && decl.visibleTo.includes(actor.role)
+      ? {
+          href: `/t/${spec.tool}`,
+          label: decl.displayName,
+          live: deps.git ? await isSynced(run, deps).catch(() => false) : true,
+        }
+      : null;
   const payload: RunViewPayload = {
     mode,
     run: publicRun(run),
@@ -186,6 +200,7 @@ export async function handleGet(
     ),
     githubSyncedAt: githubRead ? (deps.now ?? Date.now)() : null,
     githubNotice,
+    changeLink,
   };
   return { status: 200, body: payload };
 }

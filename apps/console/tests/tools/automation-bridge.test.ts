@@ -106,6 +106,8 @@ function fakeDevin(script: {
 
 function fakeGitHub(state: {
   merged?: boolean;
+  /** The login GitHub reports merged the PR. */
+  mergedBy?: string | null;
   /** Closed on GitHub; a merged PR is closed too. */
   closed?: boolean;
   green?: boolean;
@@ -125,6 +127,7 @@ function fakeGitHub(state: {
         state: state.merged || state.closed ? "closed" : "open",
         merged: state.merged ?? false,
         mergeCommit: state.merged ? MERGE : null,
+        mergedBy: state.merged ? (state.mergedBy ?? null) : null,
       };
     },
     async getChecks() {
@@ -920,6 +923,68 @@ describe("observeMerge and stopRun", () => {
     ]);
   });
 
+  it("counts a merge by the mapped engineer as their approval before recording the merge", async () => {
+    stopAll();
+    const out = await dispatchRun(admin, request, deps({ devin: fakeDevin({}).client }));
+    const run = getRun(out.runId);
+    if (!run) throw new Error("no run");
+    const devin = reportingPr();
+    const github = fakeGitHub({ merged: true, mergedBy: "rmtandon1", green: true, contextSha: run.contextSha256 });
+
+    const merged = await observeMerge(engineer, run, deps({ github: github.client, devin: devin.client }));
+    expect(merged.kind).toBe("merged");
+    if (merged.kind !== "merged") throw new Error(merged.kind);
+    expect(merged.record.outcome.status).toBe("applied");
+    const after = getRun(run.id);
+    expect(after?.status).toBe("merged");
+    expect(after?.mergeCommit).toBe(MERGE);
+    expect(after?.approvedBy).toBe(engineer.id);
+    expect(after?.lastNote).toBe("Approved on GitHub by @rmtandon1, who merged without a review");
+    expect(JSON.stringify(merged.record.outcome)).toContain("merge_follows_approval");
+    const trail = auditTrailFor("devin_run", run.id);
+    expect(trail.map((row) => row.action)).toEqual(["record_merge", "approve_pr", "record_session", "dispatch"]);
+    expect(trail.find((row) => row.action === "approve_pr")?.actorId).toBe(engineer.id);
+    // A merger needs no "merge now" message; the merge already happened.
+    expect(devin.calls.filter((c) => c.startsWith("message:"))).toEqual([]);
+  });
+
+  it("records a merge by a login no engineer claims, naming the merger in the gap note", async () => {
+    stopAll();
+    const out = await dispatchRun(admin, request, deps({ devin: fakeDevin({}).client }));
+    const run = getRun(out.runId);
+    if (!run) throw new Error("no run");
+    const github = fakeGitHub({ merged: true, mergedBy: "octo-eng" });
+
+    const merged = await observeMerge(engineer, run, deps({ github: github.client, devin: reportingPr().client }));
+    expect(merged.kind).toBe("merged");
+    const after = getRun(run.id);
+    expect(after?.status).toBe("merged");
+    expect(after?.approvedBy).toBeNull();
+    expect(after?.lastNote).toBe("Merged on GitHub by @octo-eng without a recorded approval");
+    expect(auditTrailFor("devin_run", run.id).some((row) => row.action === "approve_pr")).toBe(false);
+  });
+
+  it("merges with the named-gap note when the merger's approval is denied by red checks", async () => {
+    stopAll();
+    const out = await dispatchRun(admin, request, deps({ devin: fakeDevin({}).client }));
+    const run = getRun(out.runId);
+    if (!run) throw new Error("no run");
+    const github = fakeGitHub({
+      merged: true,
+      mergedBy: "rmtandon1",
+      green: false,
+      contextSha: run.contextSha256,
+    });
+
+    const merged = await observeMerge(engineer, run, deps({ github: github.client, devin: reportingPr().client }));
+    expect(merged.kind).toBe("merged");
+    const after = getRun(run.id);
+    expect(after?.status).toBe("merged");
+    expect(after?.approvedBy).toBeNull();
+    expect(after?.lastNote).toBe("Merged on GitHub by @rmtandon1 without a recorded approval");
+    expect(auditTrailFor("devin_run", run.id).some((row) => row.action === "approve_pr")).toBe(false);
+  });
+
   it("stops a run whose PR GitHub reports closed without a merge, once", async () => {
     const run = await approved();
     const closed = await observeMerge(admin, run, deps({ github: fakeGitHub({ closed: true }).client }));
@@ -1627,7 +1692,7 @@ describe("HTTP clients", () => {
     expect(ref).toEqual({ owner: "o", repo: "r", number: 7 });
 
     const pull = await client.getPull(ref);
-    expect(pull).toEqual({ headSha: HEAD, headRef: "devin/run", state: "closed", merged: true, mergeCommit: MERGE });
+    expect(pull).toEqual({ headSha: HEAD, headRef: "devin/run", state: "closed", merged: true, mergeCommit: MERGE, mergedBy: null });
     const checks = await client.getChecks(ref, HEAD);
     expect(checks.green).toBe(false);
     expect(checks.summary).toContain("pending: lint");
