@@ -13,8 +13,8 @@ import { buildRuleRows, formatDay, type RuleRow } from "@/lib/rules-panel";
 export const RULES_SUBTITLE =
   "What decides where these requests go. Changes apply straight away and are logged.";
 
-/** The roles that change settings and switch rules; others see the same controls, greyed out. */
-const EDITING_ROLES = ["manager", "admin"];
+/** The roles that switch rules on and off and ask for removals; others see the same controls, greyed out. */
+const SWITCHING_ROLES = ["manager", "admin"];
 
 /**
  * What decides where a tool's requests go: the built-in limits, then the
@@ -27,8 +27,9 @@ export function RulesPanel({ decl, actor }: { decl: ToolDeclaration; actor: Acto
   const looseActions = (decl.adminActions ?? []).filter((a) => !onCards.has(a));
   if (rows.length === 0 && looseActions.length === 0) return null;
 
-  const canEdit = EDITING_ROLES.includes(actor.role);
-  const canRemove = devinMode() === "live" && canEdit;
+  const canEditLimits = actor.role === "admin";
+  const canSwitch = SWITCHING_ROLES.includes(actor.role);
+  const canRemove = devinMode() === "live" && canSwitch;
   const limits = rows.filter((row) => !row.devin);
   const added = rows.filter((row) => row.devin && row.devin.state.kind !== "removed");
   const removed = rows.filter((row) => row.devin?.state.kind === "removed");
@@ -62,7 +63,7 @@ export function RulesPanel({ decl, actor }: { decl: ToolDeclaration; actor: Acto
                     type={row.type}
                     unit={row.unit}
                     value={row.value}
-                    canEdit={canEdit}
+                    canEdit={canEditLimits}
                     registered={row.constant !== null}
                   />
                   {row.actions.length > 0 ? <Actions tool={decl.name} actions={row.actions} /> : null}
@@ -82,7 +83,7 @@ export function RulesPanel({ decl, actor }: { decl: ToolDeclaration; actor: Acto
         ) : (
           <ul className="mt-2 space-y-3">
             {added.map((row) => (
-              <DevinRuleCard key={row.key} tool={decl.name} row={row} canEdit={canEdit} canRemove={canRemove} />
+              <DevinRuleCard key={row.key} tool={decl.name} row={row} canEdit={canSwitch} canRemove={canRemove} />
             ))}
           </ul>
         )}

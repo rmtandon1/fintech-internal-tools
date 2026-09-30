@@ -84,9 +84,9 @@ beforeAll(() => {
 });
 
 describe("RulesPanel", () => {
-  it("is the #rules region: subtitle, then Limits by label with money in dollars and no raw keys, the same controls for manager and admin", () => {
+  it("is the #rules region: subtitle, then Limits by label with money in dollars and no raw keys; only admins get the Edit link", () => {
     setConstant(admin, MANAGER_APPROVAL_USD_KEY, "77700");
-    for (const viewer of [admin, manager]) {
+    for (const viewer of [admin, manager, analyst]) {
       const html = render(refunds, viewer);
       expect(html).toContain('id="rules"');
       expect(html).toContain(RULES_SUBTITLE);
@@ -94,17 +94,15 @@ describe("RulesPanel", () => {
       expect(html).toContain(">Manager approval limit<");
       expect(html).toContain("Refunds of this amount or more need a manager");
       expect(html).toMatch(/data-testid="rule-value">\$777\.00</);
-      expect(html).toMatch(/data-testid="edit-setting"[^>]*>Edit</);
       expect(html).not.toContain("<input");
       expect(html).not.toContain(">Save<");
       // The key survives only as a tooltip.
       expect(html).toContain(`title="${MANAGER_APPROVAL_USD_KEY}"`);
       expect(html).not.toMatch(new RegExp(`>${MANAGER_APPROVAL_USD_KEY.replace(".", "\\.")}<`));
       expect(html).toContain('data-testid="no-devin-rules"');
+      if (viewer === admin) expect(html).toMatch(/data-testid="edit-setting"[^>]*>Edit</);
+      else expect(html).not.toContain('data-testid="edit-setting"');
     }
-    const analystHtml = render(refunds, analyst);
-    expect(analystHtml).toMatch(/data-testid="rule-value">\$777\.00</);
-    expect(analystHtml).not.toContain('data-testid="edit-setting"');
   });
 
   it("shows a list setting as chips", () => {
@@ -131,9 +129,10 @@ describe("RulesPanel", () => {
     expect(row).toMatch(/data-testid="remove-rule"[^>]*>Remove…</);
     expect(row).not.toContain("line-through");
     expect(row).not.toContain(">Save<");
-    // The manager sees the same controls.
+    // The manager gets the same live switch and Remove…; the server still checks.
     const managerRow = card(render(refunds, manager));
     expect(managerRow).toMatch(/data-testid="rule-toggle"/);
+    expect(managerRow).not.toMatch(/disabled=""[^>]*data-testid="rule-toggle"/);
     expect(managerRow).toMatch(/data-testid="remove-rule"/);
 
     setConstant(admin, SWITCH, "false");
