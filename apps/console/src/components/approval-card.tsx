@@ -10,7 +10,7 @@ import { Button } from "@console/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@console/ui/card";
 import { SuggestTextarea } from "@/components/suggest-textarea";
 import type { ApprovalView } from "@console/engine/approvals";
-import { formatRelative, humanize } from "@console/ui/format";
+import { formatTimestamp, humanize } from "@console/ui/format";
 
 type Gate = { ok: true } | { ok: false; reason: string };
 
@@ -67,7 +67,7 @@ export function ApprovalCard({
           <div className="min-w-0 flex-1">
             <CardTitle className="text-base">{approval.summary}</CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
-              Asked by {approval.requesterId} · {formatRelative(approval.createdAt)}
+              Asked by {approval.requesterId} · {formatTimestamp(approval.createdAt)}
             </p>
           </div>
           <div className="flex items-center gap-2">

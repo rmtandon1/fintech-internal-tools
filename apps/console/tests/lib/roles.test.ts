@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ALL_ROLES,
   canApprove,
+  DEMO_ROLES,
   MANAGER_ROLES,
   ROLE_META,
   ROLES,
@@ -68,6 +69,14 @@ describe("role catalog", () => {
     expect(MANAGER_ROLES).toEqual(["manager", "admin"]);
     expect(ALL_ROLES).toEqual(["analyst", "manager", "engineer", "admin"]);
     expect(MANAGER_ROLES).not.toContain("engineer");
+  });
+
+  it("keeps the engineer out of the header switcher but in the catalog GitHub approvals map to", () => {
+    expect(DEMO_ROLES).toEqual(["analyst", "manager", "admin"]);
+    expect(ROLES).toContain("engineer");
+    expect(ROLE_META.engineer.label).toBe("Engineer");
+    expect(DEMO_ACTORS.engineer.role).toBe("engineer");
+    expect(actorForGitHubLogin(DEMO_ACTORS.engineer.githubLogin ?? "")?.role).toBe("engineer");
   });
 
   it("only lets managers and admins approve", () => {

@@ -91,7 +91,7 @@ export interface RunViewPayload {
   githubSyncedAt: number | null;
   /** A GitHub approval the console saw but did not record (unknown login, rules denied), or a merge message that failed. */
   githubNotice: string | null;
-  /** Where a merged run's change shows up for this viewer; null before the merge or when the viewer can't open the tool. */
+  /** Where a merged run's change shows up for this viewer (the tool page's Rules panel); null before the merge or when the viewer can't open the tool. `live` once the merge commit is in the local checkout. */
   changeLink: { href: string; label: string; live: boolean } | null;
 }
 
@@ -174,7 +174,7 @@ export async function handleGet(
   const changeLink =
     run.status === "merged" && spec && decl && decl.visibleTo.includes(actor.role)
       ? {
-          href: `/t/${spec.tool}`,
+          href: `/t/${spec.tool}#rules`,
           label: decl.displayName,
           live: deps.git ? await isSynced(run, deps).catch(() => false) : true,
         }

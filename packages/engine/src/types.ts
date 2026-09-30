@@ -292,6 +292,17 @@ export interface ToolDeclaration<TRecord extends GovernedRecord = GovernedRecord
    * rule's reason on hover.
    */
   ruleFields?: Record<string, readonly string[]>;
+  /**
+   * Tool-wide actions an admin runs from the tool page with no record (a
+   * "Recheck now"). Each names an action in `actions` that handles a null
+   * record; the console submits it through `executeIntent`, so it is audited.
+   */
+  adminActions?: AdminActionDecl[];
+}
+
+export interface AdminActionDecl {
+  label: string;
+  action: string;
 }
 
 /** One group within a cluster: an aggregate over records, carrying no PII. */

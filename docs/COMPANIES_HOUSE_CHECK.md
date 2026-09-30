@@ -31,9 +31,9 @@ The request box in the handoff panel starts empty, with this sentence from
 `tools/automation/src/specs.ts` as a grey suggestion Tab accepts; the requester may
 type their own:
 
-> Recheck approved UK merchants against Companies House every day; when one enters
-> administration, liquidation or dissolution, send it and its refunds to a Manager
-> for review.
+> Recheck approved UK merchants against Companies House every day. When one enters
+> administration, liquidation or dissolution, send it and its refunds to a Manager,
+> and link each refund to its merchant's case.
 
 The key handling, the failure behaviour, the recorded responses and the
 off-by-default setting come from `DEVIN_RUN_PROTOCOL.md` › House rules, not the
@@ -73,6 +73,8 @@ person's name or document.
   House status.
 - **Refunds link by id.** A migration adds the KYC case link and backfills existing
   refunds; no name matching when a refund is decided.
+- **Both directions show.** A refund links to its merchant's case, and the case lists
+  the merchant's refunds (linkedActivity).
 - **Idempotent.** An active company changes nothing, and a rerun adds no duplicate
   checks, findings or holds.
 - **Failure flags, never passes.** A timeout, an error or an unknown number records

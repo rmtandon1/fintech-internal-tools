@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { DevinMode } from "@/lib/devin-status";
 import type { Actor } from "@console/engine/types";
 import { automationTool, listRuns, operationLabel } from "@console/tool-automation";
-import { formatRelative } from "@console/ui/format";
+import { formatTimestamp } from "@console/ui/format";
 import { StatusChip } from "@console/ui/status-chip";
 
 const RECENT = 5;
@@ -59,7 +59,7 @@ export function DevinWindowBody({ actor, mode }: { actor: Actor; mode: DevinMode
                 {run.intent}
               </Link>
               <span className="text-xs text-muted-foreground">{operationLabel(run.operation)}</span>
-              <span className="text-xs text-muted-foreground">{formatRelative(run.requestedAt)}</span>
+              <span className="text-xs text-muted-foreground">{formatTimestamp(run.requestedAt)}</span>
             </li>
           ))}
         </ul>

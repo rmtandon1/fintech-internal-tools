@@ -2,7 +2,9 @@
 
 import "@/app/bootstrap";
 import { revalidatePath } from "next/cache";
-import { getRun } from "@console/tool-automation";
+import { getRun, getSpec, operationsStartableBy, reversingRun } from "@console/tool-automation";
+import { execFileHistoryReader } from "@console/tool-automation/git";
+import { buildRemovalPreview, type RemovalPreview } from "@console/tool-automation/removal-preview";
 import {
   approveRun,
   describeIntent,
@@ -281,4 +283,43 @@ export async function stopAutomationRun(runId: string): Promise<BridgeResult> {
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+export type RemovalPreviewResult =
+  | {
+      ok: true;
+      preview: RemovalPreview;
+      /** The spec file and its undo sentence, which the dispatch form must carry verbatim. */
+      spec: string;
+      undoIntent: string;
+    }
+  | { ok: false; detail: string };
+
+/**
+ * What "Remove this rule" shows before the admin asks: read from the local
+ * checkout, nothing sent or recorded. Offered on the same terms as the undo
+ * itself: a merged change with its merge commit, not already being removed,
+ * to a role the spec lets start an undo.
+ */
+export async function previewRuleRemoval(runId: string): Promise<RemovalPreviewResult> {
+  const actor = await currentActor();
+  const run = getRun(runId);
+  const spec = run ? getSpec(run.spec) : undefined;
+  if (!run || !spec) return { ok: false, detail: "This run is not known to the console" };
+  if (run.status !== "merged" || run.operation !== "change" || !run.mergeCommit) {
+    return { ok: false, detail: "Only a merged change can be removed" };
+  }
+  if (reversingRun(run.id)) return { ok: false, detail: "A removal is already in review" };
+  if (!operationsStartableBy(actor.role, spec).includes("undo")) {
+    return { ok: false, detail: "Your role can't ask for a removal" };
+  }
+  try {
+    const preview = await buildRemovalPreview(run, spec, {
+      repoRoot: bridgeDeps().repoRoot,
+      history: execFileHistoryReader(),
+    });
+    return { ok: true, preview, spec: spec.file, undoIntent: spec.intents.undo };
+  } catch (error) {
+    return { ok: false, detail: message(error) };
+  }
 }

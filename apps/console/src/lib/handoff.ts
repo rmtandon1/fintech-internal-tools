@@ -108,7 +108,7 @@ export function buildHandoffOffer(
     spec: spec.file,
     operation,
     operationLabel: operationLabel(operation),
-    title: operation === "undo" ? "Undo this change" : spec.title,
+    title: operation === "undo" ? "Remove this rule" : spec.title,
     description:
       operation === "undo"
         ? "Devin takes the change back out of the code and keeps everything built since. An engineer reviews it before it goes live."

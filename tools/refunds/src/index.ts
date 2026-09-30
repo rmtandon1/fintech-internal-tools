@@ -14,6 +14,7 @@ import type {
   RuleContext,
   RuleOutcome,
   SortOption,
+  StatusDecl,
 } from "@console/engine/types";
 import { rolesFor } from "@console/permissions";
 import { MANAGER_APPROVAL_USD_KEY, notReceivedByMerchant } from "./clusters";
@@ -47,7 +48,17 @@ export interface Refund extends GovernedRecord {
   settledAt: number | null;
   lastNote: string | null;
   version: number;
+  /** Whose queue the refund sits in, set on listed rows; null once rejected. */
+  queue?: RefundQueue | null;
 }
+
+export type RefundQueue = "analyst" | "manager";
+
+/** The queue badge on a listed refund. */
+export const QUEUE_CHIPS: StatusDecl[] = [
+  { value: "analyst", label: "Analyst", tone: "neutral" },
+  { value: "manager", label: "Manager", tone: "warning" },
+];
 
 export const GOODWILL_APPROVAL_USD_KEY = "refunds.goodwill_approval_usd_minor";
 
@@ -138,6 +149,18 @@ function managerRouteFor(record: Refund): ApprovalOutcome | null {
   });
 }
 
+/**
+ * The queue a refund sits in right now: the manager's when the live execute
+ * rules would route an analyst's send to a manager, otherwise the analyst's.
+ * A rejected refund is in neither.
+ */
+export function queueOf(record: Refund): RefundQueue | null {
+  if (record.status === "rejected") return null;
+  const routed =
+    (record.status === "requested" || record.status === "failed") && managerRouteFor(record) !== null;
+  return routed ? "manager" : "analyst";
+}
+
 const paymentApprover: RefundRule = (ctx) => {
   const route = managerRoute(ctx);
   return route
@@ -213,6 +236,13 @@ export const refundTool = defineTool<Refund>({
       enumValues: ["duplicate", "not_received", "faulty", "cancelled", "goodwill", "fraud", "partial_delivery"],
     },
     { name: "disputed", label: "Dispute open", type: "boolean" },
+    {
+      name: "queue",
+      label: "Queue",
+      type: "enum",
+      enumValues: ["analyst", "manager"],
+      enumLabels: { analyst: "Analyst", manager: "Manager" },
+    },
     { name: "requestedBy", label: "Requested by", type: "string" },
     { name: "requestedAt", label: "Requested", type: "date" },
     { name: "settledAt", label: "Settled", type: "date" },
@@ -224,6 +254,7 @@ export const refundTool = defineTool<Refund>({
     { field: "amountMinor", align: "right", sortable: true },
     { field: "reasonCode" },
     { field: "status", sortable: true },
+    { field: "queue" },
     { field: "requestedAt", sortable: true },
   ],
   filters: [
@@ -469,20 +500,14 @@ export const refundTool = defineTool<Refund>({
       .where(where)
       .orderBy(order(sort))
       .all();
-    const queueRows =
-      filters.queue === "analyst" || filters.queue === "manager"
-        ? matchingRows.filter((record) => {
-            const routed =
-              (record.status === "requested" || record.status === "failed") &&
-              managerRouteFor(record) !== null;
-            return filters.queue === "manager"
-              ? routed
-              : record.status !== "rejected" && !routed;
-          })
-        : matchingRows;
+    const withQueue = (record: Refund): Refund => ({ ...record, queue: queueOf(record) });
+    if (filters.queue === "analyst" || filters.queue === "manager") {
+      const queueRows = matchingRows.map(withQueue).filter((record) => record.queue === filters.queue);
+      return { rows: queueRows.slice(offset, offset + limit), total: queueRows.length };
+    }
     return {
-      rows: queueRows.slice(offset, offset + limit),
-      total: queueRows.length,
+      rows: matchingRows.slice(offset, offset + limit).map(withQueue),
+      total: matchingRows.length,
     };
   },
   get: getRefund,

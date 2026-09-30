@@ -12,7 +12,8 @@ vi.mock("@/app/automation-actions", () => ({
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }));
 
 import { requesterLabel } from "@/components/run-summary";
-import { RunView } from "@/components/run-view";
+import { awaitingPull, mergedLine, RunView } from "@/components/run-view";
+import { WorkspaceProvider } from "@/components/workspace";
 import type { RunViewPayload } from "@/lib/devin-route";
 import { phaseLine } from "@/lib/run-checklist";
 import { runTitle, thinkingLine } from "@/lib/run-heading";
@@ -71,7 +72,9 @@ function payload(overrides: Partial<RunViewPayload> = {}): RunViewPayload {
 }
 
 function render(p: RunViewPayload): string {
-  return renderToStaticMarkup(createElement(RunView, { runId: RUN_ID, initial: p }));
+  return renderToStaticMarkup(
+    createElement(WorkspaceProvider, null, createElement(RunView, { runId: RUN_ID, initial: p })),
+  );
 }
 
 describe("runTitle", () => {
@@ -112,11 +115,13 @@ describe("thinkingLine", () => {
 });
 
 describe("RunView", () => {
-  it("shows Devin's current thinking from the latest frame", () => {
+  it("shows the latest from Devin from the latest frame, clamped to two lines until clicked", () => {
     const html = render(payload());
     expect(html).toContain("data-testid=\"devin-thinking\"");
-    expect(html).toContain("Devin’s current thinking");
+    expect(html).toContain("Latest from Devin:");
+    expect(html).not.toContain("current thinking");
     expect(html).toContain(editing.at(-1)?.status_detail ?? "missing");
+    expect(html).toMatch(/<button type="button" aria-expanded="false"[^>]*line-clamp-2[^>]*>Editing tools/);
   });
 
   it("shows the message sent to Devin as it was sent", () => {
@@ -294,20 +299,21 @@ describe("RunView", () => {
     expect(render(p)).not.toContain('data-testid="stopped-reason"');
   });
 
-  it("stops spinning and shows the last update once the run has ended", () => {
+  it("stops spinning and keeps the latest from Devin once the run has ended", () => {
     const p = payload();
     const html = render({ ...p, run: { ...p.run, status: "stopped" } });
-    expect(html).toContain("Devin’s last update");
+    expect(html).toContain("Latest from Devin:");
     expect(html).not.toContain("animate-spin");
     expect(html).toMatch(/data-state="active"><span class="[^"]*"><span class="[^"]*bg-warning" aria-label="Paused"/);
   });
 });
 
 describe("GitHub sync line", () => {
-  it("shows when GitHub was last read, with the GitHub mark, and any approval the console could not take", () => {
+  it("shows that GitHub was read, with the GitHub mark and no counter, and any approval the console could not take", () => {
     const html = render(payload({ githubSyncedAt: 1_700_000_000_000, githubNotice: "Approved on GitHub by @x (not a console engineer)" }));
     const block = /<div[^>]*data-testid="github-sync"[^>]*>(.*?)<\/div>/.exec(html)?.[1] ?? "";
-    expect(block).toContain("Synced with GitHub · 0s ago");
+    expect(block).toContain("Synced with GitHub</p>");
+    expect(block).not.toContain("ago");
     expect(block).toContain("<svg");
     expect(block).toContain("Approved on GitHub by @x (not a console engineer)");
   });
@@ -363,9 +369,8 @@ describe("Merged run next step", () => {
     const p = mergedRun();
     const html = render({ ...p, offers: { ...p.offers, sync: true } });
     expect(html).toContain("Pull merged code");
-    expect(html).toMatch(
-      /data-testid="merged-next-step"[^>]*>Merged\. Pull the merged code so this console runs the change\.</,
-    );
+    expect(html).toMatch(/data-testid="merged-next-step"[^>]*>.*Merged · pulling into the console…</);
+    expect(html).toMatch(/aria-label="Pulling"/);
     expect(html).not.toContain("PR #990");
     expect(html).not.toContain('data-testid="open-changed-tool"');
     // The PR number moved into the checklist, as a link.
@@ -378,26 +383,41 @@ describe("Merged run next step", () => {
     const html = render({
       ...p,
       outcome: "The hold is live in this console.",
-      changeLink: { href: "/t/refunds", label: "Refunds", live: true },
+      changeLink: { href: "/t/refunds#rules", label: "Refunds", live: true },
     });
     expect(html).toContain('data-testid="open-changed-tool"');
-    expect(html).toContain('href="/t/refunds"');
-    expect(html).toContain("See it in Refunds");
-    expect(html).toMatch(
-      /data-testid="merged-next-step"[^>]*>The hold is live in this console\.</,
-    );
+    expect(html).toContain('href="/t/refunds#rules"');
+    expect(html).toContain("See it on Refunds →");
+    expect(html).toMatch(/data-testid="merged-next-step"[^>]*>.*Live in the console · ddddddd</);
+    expect(html).not.toContain("animate-spin");
     expect(html).not.toContain("PR #990");
     expect(html).toMatch(new RegExp(`<a[^>]*href="${PR_URL.replaceAll("/", "\\/")}"`));
   });
 
-  it("says the change is not live yet when the tool is linked but the checkout lags", () => {
+  it("says it is still pulling when the tool is linked but the checkout lags, and keeps polling", () => {
     const p = mergedRun();
-    const html = render({
-      ...p,
-      changeLink: { href: "/t/refunds", label: "Refunds", live: false },
-    });
-    expect(html).toMatch(
-      /data-testid="merged-next-step"[^>]*>Merged\. It runs here once an engineer pulls the merged code\.</,
+    const lagging = { ...p, changeLink: { href: "/t/refunds#rules", label: "Refunds", live: false } };
+    const html = render(lagging);
+    expect(html).toMatch(/data-testid="merged-next-step"[^>]*>.*Merged · pulling into the console…</);
+    expect(html).not.toContain('data-testid="open-changed-tool"');
+    expect(awaitingPull(lagging)).toBe(true);
+    expect(mergedLine(lagging)).toBe("Merged · pulling into the console…");
+    const live = { ...p, changeLink: { href: "/t/refunds#rules", label: "Refunds", live: true } };
+    expect(awaitingPull(live)).toBe(false);
+    expect(mergedLine(live)).toBe("Live in the console · ddddddd");
+    expect(awaitingPull({ ...live, offers: { ...live.offers, sync: true } })).toBe(true);
+    expect(mergedLine(payload())).toBeNull();
+    expect(awaitingPull(payload())).toBe(false);
+  });
+
+  it("offers Remove this rule on a merged change the viewer may undo", () => {
+    const p = mergedRun();
+    const offered = render({ ...p, offers: { ...p.offers, reverse: { offered: true } } });
+    expect(offered).toMatch(/data-testid="remove-rule"[^>]*>Remove this rule</);
+    expect(render(p)).not.toContain('data-testid="remove-rule"');
+    const running = payload();
+    expect(render({ ...running, offers: { ...running.offers, reverse: { offered: true } } })).not.toContain(
+      'data-testid="remove-rule"',
     );
   });
 

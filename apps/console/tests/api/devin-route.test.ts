@@ -128,7 +128,7 @@ describe("GET /api/devin/<runId>", () => {
     const d = deps();
     const out = await dispatchRun(admin, request, d);
     const body = (await handleGet(out.runId, admin, d)).body as RunViewPayload;
-    expect(body.reviewerChecklist).toHaveLength(10);
+    expect(body.reviewerChecklist).toHaveLength(11);
     expect(body.reviewerChecklist[0]).toMatch(/^Only approved UK business cases are rechecked/);
   });
 
@@ -374,7 +374,7 @@ describe("GET /api/devin/<runId>", () => {
     expect(devin.sent).toEqual([]);
 
     const adminView = (await handleGet(out.runId, admin, d)).body as RunViewPayload;
-    expect(adminView.changeLink).toEqual({ href: "/t/refunds", label: "Refunds", live: true });
+    expect(adminView.changeLink).toEqual({ href: "/t/refunds#rules", label: "Refunds", live: true });
     const approvals = listAuditEvents({ recordId: out.runId, action: "approve_pr" }).rows;
     expect(approvals).toHaveLength(1);
     expect(approvals[0]?.actorId).toBe(engineer.id);

@@ -16,7 +16,7 @@ import {
   AUTOMATION_ROLES,
   automationTool,
   countRuns,
-  getRun,
+  type DevinRun,
   getSpec,
   isInFlight,
   listRuns,
@@ -25,9 +25,7 @@ import {
   reversingRun,
 } from "@console/tool-automation";
 import { roleLabel, ROLES, type Role } from "@console/permissions";
-import { type AppBridgeDeps, bridgeDeps } from "@/lib/bridge";
 import { devinMode } from "@/lib/devin-status";
-import { buildHandoffOffer, type HandoffOffer, reversalEvidence } from "@/lib/handoff";
 import { pageNumber } from "@/lib/page-number";
 import { currentActor } from "@/lib/session";
 
@@ -39,36 +37,17 @@ function requesterLabel(role: string): string {
   return ROLE_NAMES.includes(role) ? roleLabel(role as Role) : role;
 }
 
-/** An undo handoff for this row, or null when the row can't be undone. */
-function reversalOffer(runId: string, actor: Actor, deps: AppBridgeDeps): HandoffOffer | null {
-  const run = getRun(runId);
-  const spec = run ? getSpec(run.spec) : undefined;
-  if (
-    !run ||
-    !spec ||
-    run.status !== "merged" ||
-    run.operation !== "change" ||
-    !run.mergeCommit ||
-    reversingRun(run.id) ||
-    !operationsStartableBy(actor.role, spec).includes("undo")
-  ) {
-    return null;
-  }
-  try {
-    const evidence = reversalEvidence(deps.repoRoot, run.id);
-    return buildHandoffOffer(
-      spec,
-      "undo",
-      actor,
-      {
-        ...evidence,
-        reverses: { runId: run.id, mergeCommit: run.mergeCommit, prUrl: run.prUrl },
-      },
-      deps,
-    );
-  } catch {
-    return null;
-  }
+/** Whether this merged change may be removed by the viewer: the "Remove this rule" dialog reads the rest. */
+function removable(run: DevinRun, actor: Actor): boolean {
+  const spec = getSpec(run.spec);
+  return (
+    spec !== undefined &&
+    run.status === "merged" &&
+    run.operation === "change" &&
+    run.mergeCommit !== null &&
+    reversingRun(run.id) === null &&
+    operationsStartableBy(actor.role, spec).includes("undo")
+  );
 }
 
 const PAGE_SIZE = 50;
@@ -80,7 +59,6 @@ export default async function RunsPage({
 }) {
   const actor = await currentActor();
   if (!AUTOMATION_ROLES.includes(actor.role)) redirect("/");
-  const deps = bridgeDeps();
   const total = countRuns();
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const page = Math.min(pages, pageNumber((await searchParams).page));
@@ -143,7 +121,7 @@ export default async function RunsPage({
                 requesterLabel: requesterLabel(run.requestedByRole),
               }}
               statuses={automationTool.statuses}
-              reversalOffer={reversalOffer(run.id, actor, deps)}
+              removable={removable(run, actor)}
               devinConnected={devinMode() === "live"}
             />
           ))}

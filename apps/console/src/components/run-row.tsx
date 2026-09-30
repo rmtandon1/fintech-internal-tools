@@ -3,12 +3,11 @@
 import type { ComponentProps } from "react";
 import Link from "next/link";
 import { TableCell, TableRow } from "@console/ui/table";
-import { Button } from "@console/ui/button";
 import { GitHubMark } from "@console/ui/github-mark";
 import { StatusChip } from "@console/ui/status-chip";
-import { formatRelative } from "@console/ui/format";
+import { formatTimestamp } from "@console/ui/format";
+import { RemoveRuleButton } from "@/components/remove-rule-dialog";
 import { useWorkspace } from "@/components/workspace";
-import type { HandoffOffer } from "@/lib/handoff";
 
 /** The /runs row's fields, plain data so they cross the server boundary. */
 export interface RunRowData {
@@ -28,13 +27,13 @@ export interface RunRowData {
 export function RunRow({
   run,
   statuses,
-  reversalOffer,
+  removable,
   devinConnected,
 }: {
   run: RunRowData;
   statuses: ComponentProps<typeof StatusChip>["statuses"];
-  /** Built server-side when this merged change may be undone. */
-  reversalOffer: HandoffOffer | null;
+  /** Whether the viewer may ask Devin to remove this merged change. */
+  removable: boolean;
   /** Whether a handoff can be sent right now (`DEVIN_API_KEY` set). */
   devinConnected: boolean;
 }) {
@@ -86,25 +85,21 @@ export function RunRow({
         )}
       </TableCell>
       <TableCell>
-        <span className="text-muted-foreground">{formatRelative(run.requestedAt)}</span>
+        <span className="text-muted-foreground">{formatTimestamp(run.requestedAt)}</span>
       </TableCell>
       <TableCell>
-        {reversalOffer ? (
+        {removable ? (
           <span onClick={(e) => e.stopPropagation()}>
-          <Button
-            size="sm"
-            variant="secondary"
-            className="h-6 text-[11px]"
-            disabled={!devinConnected}
-            title={devinConnected ? undefined : "Set DEVIN_API_KEY to connect Devin"}
-            onClick={(e) => {
-              e.stopPropagation();
-              setAgentFocus({ kind: "handoff", offer: reversalOffer });
-            }}
-            data-testid="reverse-run"
-          >
-            Undo this change
-          </Button>
+            <RemoveRuleButton
+              runId={run.id}
+              size="sm"
+              variant="secondary"
+              className="h-6 text-[11px]"
+              disabled={!devinConnected}
+              title={devinConnected ? undefined : "Set DEVIN_API_KEY to connect Devin"}
+            >
+              Remove this rule
+            </RemoveRuleButton>
           </span>
         ) : null}
       </TableCell>

@@ -13,7 +13,8 @@
     "./context": "./src/context.ts",
     "./bridge": "./src/bridge.ts",
     "./playbook-registration": "./src/playbook-registration.ts",
-    "./git": "./src/git.ts"
+    "./git": "./src/git.ts",
+    "./removal-preview": "./src/removal-preview.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
