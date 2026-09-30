@@ -72,7 +72,12 @@ export type ProcessRunner = (
 ) => string;
 
 const runProcess: ProcessRunner = (file, args, options) =>
-  execFileSync(file, args, { ...options, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  execFileSync(file, args, {
+    env: { ...options.env, NODE_ENV: process.env.NODE_ENV },
+    timeout: options.timeout,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  });
 
 /**
  * One request, made in a child process so the synchronous governed write path
@@ -121,7 +126,9 @@ export function useCompaniesHouseTransport(transport: CompaniesHouseTransport | 
 }
 
 /** Live with a key on the server, recordings without one. */
-export function companiesHouseTransport(env: NodeJS.ProcessEnv = process.env): CompaniesHouseTransport {
+export function companiesHouseTransport(
+  env: Readonly<Partial<Record<string, string>>> = process.env,
+): CompaniesHouseTransport {
   if (override) return override;
   const key = env[COMPANIES_HOUSE_API_KEY_ENV]?.trim();
   return key ? liveTransport(key) : recordedTransport();

@@ -121,9 +121,10 @@ function addMerchant(id: string, documentNumber: string): void {
 }
 
 function addRefund(id: string, merchant: string, merchantCaseId: string | null): void {
-  const base = refund("rfnd_0015");
+  const base = db.select().from(refunds).where(eq(refunds.id, "rfnd_0015")).get();
+  if (!base) throw new Error("no seeded refund rfnd_0015");
   db.insert(refunds)
-    .values({ ...base, id, paymentId: `pay_${id}`, merchant, merchantCaseId, queue: undefined })
+    .values({ ...base, id, paymentId: `pay_${id}`, merchant, merchantCaseId })
     .run();
 }
 
