@@ -13,7 +13,11 @@ import type {
   SortOption,
 } from "@console/engine/types";
 import { rolesFor } from "@console/permissions";
-import { MERCHANT_MONITORING_KEY } from "@console/tool-refunds";
+import {
+  MERCHANT_MONITORING_KEY,
+  clusterHoldForCustomer,
+  clusterHoldReason,
+} from "@console/tool-refunds";
 import { caseFile, materialDifferences } from "./case-file";
 import { companiesHouseTransport } from "./companies-house";
 import { refundsForCase } from "./linked-activity";
@@ -165,6 +169,20 @@ const declaredVsFound: CaseRule = ({ record }) => {
         reason: `${n} material difference${n === 1 ? "" : "s"} between what the customer declared and what the checks found`,
       }
     : { type: "allow", rule: "declared_vs_found" };
+};
+
+/** A customer with a refund held by the refund clustering hold needs a manager to approve. */
+const linkedRefundHold: CaseRule = ({ record, constants }) => {
+  const hold = record ? clusterHoldForCustomer(record.email, constants) : null;
+  return hold
+    ? {
+        type: "require_approval",
+        rule: "linked_refund_hold",
+        tier: "manager",
+        allowedRoles: rolesFor("kyc", "manager"),
+        reason: `Customer has a refund on hold: ${clusterHoldReason(hold)}`,
+      }
+    : { type: "allow", rule: "linked_refund_hold" };
 };
 
 const escalatedNeedsManager: CaseRule = ({ record }) =>
@@ -422,6 +440,7 @@ export const kycTool = defineTool<KycCase>({
         riskTierApproval,
         pepApproval,
         declaredVsFound,
+        linkedRefundHold,
         escalatedNeedsManager,
       ],
       suggest: () => ({ note: "Identity checks complete." }),
@@ -557,6 +576,7 @@ export const kycTool = defineTool<KycCase>({
     reject_always_permitted: "Rejecting is always allowed",
     request_info_always_permitted: "Asking for information is always allowed",
     escalate_always_permitted: "Escalating is always allowed",
+    linked_refund_hold: "Linked refund hold",
     merchant_monitoring_on: "Merchant monitoring switched on",
     merchants_to_recheck: "Approved UK merchants to recheck",
   },

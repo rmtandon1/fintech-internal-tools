@@ -167,6 +167,9 @@ describe("refunds clusters", () => {
         tool: "refunds",
       },
     ]);
+    expect(refundTool.constants?.find((c) => c.key === CLUSTERING_WINDOW_DAYS_KEY)?.value).toBe(0);
+    expect(clusteringWindowDays()).toBe(0);
+    expect(setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "14").ok).toBe(true);
     expect(clusteringWindowDays()).toBe(14);
 
     expect(setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "0").ok).toBe(true);
@@ -190,11 +193,15 @@ describe("refunds clusters", () => {
     expect(notReceivedByMerchant().find((g) => g.key === "Kestrel Outdoors")).toBeUndefined();
   });
 
-  it("no longer declares refunds.clustering_window_days on the tool", () => {
-    expect(refundTool.constants?.map((c) => c.key)).not.toContain(CLUSTERING_WINDOW_DAYS_KEY);
+  it("declares refunds.clustering_window_days on the tool, off at 0", () => {
+    expect(refundTool.constants?.find((c) => c.key === CLUSTERING_WINDOW_DAYS_KEY)).toMatchObject({
+      value: 0,
+      type: "number",
+      tool: "refunds",
+    });
   });
 
-  it("keeps Kestrel's not-received refunds in the analyst's queue with the window at 14: execute runs no clustering_hold", () => {
+  it("with the window at 14, keeps Kestrel's first refund with the analyst and sends the one that crosses the limit, and every later one, to the manager", () => {
     expect(setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "14").ok).toBe(true);
     const analystQueue = refundTool
       .list({ filters: { queue: "analyst" }, limit: 1000, offset: 0 })
@@ -202,20 +209,30 @@ describe("refunds clusters", () => {
     const managerQueue = refundTool
       .list({ filters: { queue: "manager" }, limit: 1000, offset: 0 })
       .rows.map((r) => r.id);
-    for (const id of ["rfnd_0014", "rfnd_0013", "rfnd_0012", "rfnd_0011"]) {
+    const held: Record<string, boolean> = {
+      rfnd_0014: false,
+      rfnd_0013: true,
+      rfnd_0012: true,
+      rfnd_0011: true,
+    };
+    for (const [id, isHeld] of Object.entries(held)) {
       const record = refundTool.get(id);
       if (!record) throw new Error(`missing ${id}`);
       const decision = previewActions(refundTool, record, analyst).find((p) => p.action === "execute")?.decision;
-      expect(decision?.effect).toBe("allow");
+      expect(decision?.effect).toBe(isHeld ? "require_approval" : "allow");
       expect(decision?.trace.map((o) => o.rule)).toEqual([
         "within_captured_amount",
         "not_disputed",
         "amount_approval",
         "goodwill_approval",
+        "clustering_hold",
         "merchant_insolvency",
       ]);
-      expect(analystQueue).toContain(id);
-      expect(managerQueue).not.toContain(id);
+      expect(decision?.trace.find((o) => o.rule === "clustering_hold")?.type).toBe(
+        isHeld ? "require_approval" : "allow",
+      );
+      expect(analystQueue.includes(id)).toBe(!isHeld);
+      expect(managerQueue.includes(id)).toBe(isHeld);
     }
   });
 });

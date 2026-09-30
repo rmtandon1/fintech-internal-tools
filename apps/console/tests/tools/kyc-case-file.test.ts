@@ -6,11 +6,12 @@ import { approve, listApprovals } from "@console/engine/approvals";
 import { executeIntent } from "@console/engine/execute-intent";
 import { previewActions } from "@console/engine/policy/preview";
 import { registerConstants } from "@console/engine/policy/register";
+import { setConstant } from "@console/engine/policy/set-constant";
 import type { Actor, IntentOutcome } from "@console/engine/types";
 import { caseFile, kycTool } from "@console/tool-kyc";
 import { kycCases, kycDiscrepancies } from "@console/tool-kyc/schema";
 import { CLUSTERING_WINDOW_DAYS_KEY, refundTool } from "@console/tool-refunds";
-import { manager, analyst, setupHarness } from "../helpers/harness";
+import { admin, manager, analyst, setupHarness } from "../helpers/harness";
 
 beforeAll(() => {
   setupHarness();
@@ -74,7 +75,7 @@ describe("kyc case file", () => {
     expect(kycTool.get("kyc_0005")?.lastNote).not.toContain("PEP list");
   });
 
-  it("kyc_0013, the customer behind Kestrel's rfnd_0012, clears approval with the refund window at 14: no linked_refund_hold", () => {
+  it("kyc_0013, the customer behind Kestrel's rfnd_0012, needs a manager with the refund window at 14 (linked_refund_hold) and clears again at 0", () => {
     registerConstants([
       {
         key: CLUSTERING_WINDOW_DAYS_KEY,
@@ -85,12 +86,20 @@ describe("kyc case file", () => {
       },
     ]);
     refundTool.seed?.();
+    expect(setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "14").ok).toBe(true);
     expect(refundTool.get("rfnd_0012")?.merchant).toBe("Kestrel Outdoors");
     const record = kycTool.get("kyc_0013");
     if (!record) throw new Error("missing kyc_0013");
-    const decision = previewActions(kycTool, record, analyst).find((p) => p.action === "approve")?.decision;
-    expect(decision?.effect).toBe("allow");
-    expect(decision?.trace.map((o) => o.rule)).not.toContain("linked_refund_hold");
+    const held = previewActions(kycTool, record, analyst).find((p) => p.action === "approve")?.decision;
+    expect(held?.effect).toBe("require_approval");
+    expect(held?.trace).toContainEqual(
+      expect.objectContaining({ type: "require_approval", rule: "linked_refund_hold", tier: "manager" }),
+    );
+
+    expect(setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "0").ok).toBe(true);
+    const off = previewActions(kycTool, record, analyst).find((p) => p.action === "approve")?.decision;
+    expect(off?.effect).toBe("allow");
+    expect(off?.trace).toContainEqual({ type: "allow", rule: "linked_refund_hold" });
   });
 
   it("kyc_0013 approves straight through and the trace holds nothing", () => {
@@ -246,6 +255,7 @@ describe("kyc case file", () => {
       "risk_tier_approval",
       "pep_approval",
       "declared_vs_found",
+      "linked_refund_hold",
       "escalated_needs_manager",
     ]);
   });
