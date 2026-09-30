@@ -30,7 +30,7 @@ An undo removes one earlier change, the target in `context.json`, from the code 
 - **Failure holds, never passes.** A lookup that times out, errors or finds nothing shows "couldn't check" and needs a person, like a material difference.
 - **Recorded responses.** Tests never call a live service; they replay recorded responses, recorded from the live service when the session has the key. Without the key at runtime the console uses the recordings and labels the result "test data". Never invent a response for a seeded record.
 - **Links between tools.** A record that relates to another tool's record shows it through the tool declaration's `linkedActivity`.
-- **Admin triggers.** An action an admin starts by hand, such as a recheck, is declared in the tool's `adminActions`, so it appears in the Rules panel on the tool's page.
+- **Hand-run actions.** An action someone starts by hand, such as a recheck, is declared in the tool's `adminActions` with `setting` set to its rule's switch setting, so its button sits on that rule's card in the Rules panel. Managers and admins may run it.
 - **No customer data.** No names, emails, card numbers or documents in trace reasons, notes or the pull request.
 - **Tests stay honest.** Never delete or shrink a test file, and never add `.skip`, `.only`, `.todo`, `any`, `@ts-ignore`, `@ts-expect-error`, `eslint-disable` or `as unknown as`.
 

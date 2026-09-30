@@ -58,7 +58,7 @@ person's name or document.
 - **Refunds only carry a merchant name.** There is no link from a refund to the
   merchant's KYC case; the migration that adds it must backfill existing refunds.
 - **Nothing runs on a schedule.** There is no scheduler and no audited system actor;
-  the daily recheck and the admin's "Recheck now" both have to write through
+  the daily recheck and a manager's "Recheck now" both have to write through
   `executeIntent`.
 - **Refund rules can't read KYC.** The hold on an insolvent merchant's refunds is a
   new join between two tools, and it needs the case id, not the merchant name.
@@ -82,7 +82,7 @@ person's name or document.
   checks, findings or holds.
 - **Failure flags, never passes.** A timeout, an error or an unknown number records
   "couldn't check" and flags the case for a Manager, without holding its refunds.
-- **Two audited entry points.** A daily scheduled run and an admin "Recheck now"
+- **Two audited entry points.** A daily scheduled run and a "Recheck now"
   action both write through `executeIntent` as a system actor, and report the
   result across every merchant checked.
 - **The key stays on the server.** `COMPANIES_HOUSE_API_KEY` is read server-side,
@@ -90,13 +90,14 @@ person's name or document.
 - **Recorded responses.** Tests replay recorded responses for active,
   administration, liquidation, dissolved, not found, an error and a timeout, with
   no live call; no recording invents a seeded company's result.
-- **Off until an admin turns it on.** The recheck sits behind a KYC rule setting
-  the KYC tool declares, 0 by default; at 0 there are no lookups and no holds.
+- **Off until someone turns it on.** The recheck sits behind the
+  `kyc.merchant_monitoring` switch, off by default; while it is off there are no
+  lookups and no holds.
 
 ## After merge
 
-1. An admin sets the merchant monitoring setting to 1 in `/admin/policy` (rule
-   settings) and presses **Recheck now**.
+1. A manager switches **Merchant monitoring** on in the Rules panel on `/t/kyc`
+   and presses **Recheck now** on its card.
 2. Expected outcome: "4 UK merchants checked · 1 in liquidation · 5 refunds sent to
    a manager".
 3. Wilko's case shows the live status and a Declared vs found row: declared "Wilko

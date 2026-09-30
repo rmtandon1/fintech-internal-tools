@@ -96,7 +96,7 @@ export const REFUND_CLUSTERING_HOLD: RunnableSpec = {
   intents: {
     change:
       "Once a merchant's \"not received\" refunds add up past the manager limit, send them to a manager for approval. Send those customers' KYC approvals to a manager too.",
-    undo: "Undo the refund hold: remove the refund rule, the linked KYC rule and its time-window setting, and keep every change made since.",
+    undo: "Undo the refund hold: remove the refund rule, the linked KYC rule and its switch setting, and keep every change made since.",
   },
   summaries: {
     change:
@@ -119,7 +119,7 @@ export const REFUND_CLUSTERING_HOLD: RunnableSpec = {
       "Every later refund in the same cluster is routed to the manager's queue too.",
       "A `faulty` refund from the same merchant is not affected.",
       "Rejected refunds don't count toward the total.",
-      "With `refunds.clustering_window_days` at 0, `clustering_hold` reads allow and no refund is routed by this rule. This is the KILL_SWITCH setting.",
+      "With the `refunds.clustering_hold` switch off, `clustering_hold` reads allow and no refund is routed by this rule.",
       "Approving a case whose email matches a customer in a held cluster needs a manager, whatever the risk score. The trace names `linked_refund_hold`.",
       "A case whose customer has no held refunds is unchanged. Score 68 still clears.",
       "The existing KYC and refund tests that count or order the rules are changed on purpose and named in the plan; no test is lost.",
@@ -163,7 +163,7 @@ export const COMPANIES_HOUSE_CHECK: RunnableSpec = {
   },
   outcomes: {
     change:
-      "Merchant monitoring is built and off; once an admin turns it on in rule settings, the daily recheck sends insolvent merchants and their refunds to a manager.",
+      "Merchant monitoring is built and off; once a manager switches it on in the Rules panel, the daily recheck sends insolvent merchants and their refunds to a manager.",
     undo: "Merchant monitoring is removed. UK merchants are checked on Companies House by hand again.",
   },
   constantKeys: [MANAGER_REVIEW_SCORE_KEY],
@@ -179,10 +179,10 @@ export const COMPANIES_HOUSE_CHECK: RunnableSpec = {
       "A refund links to its merchant's case, and the case lists the merchant's refunds (linkedActivity).",
       "An active company changes nothing, and a rerun adds no duplicate checks, findings or holds.",
       "A timeout, an error or an unknown number records \"couldn't check\" and flags the case for a Manager, without holding its refunds.",
-      "A daily scheduled entry point and an admin \"Recheck now\" action both write through `executeIntent` as an audited system actor, and report the result across every merchant checked.",
+      "A daily scheduled entry point and a \"Recheck now\" action that managers and admins run from the Merchant monitoring card both write through `executeIntent` as an audited system actor, and report the result across every merchant checked.",
       "`COMPANIES_HOUSE_API_KEY` is read on the server, documented in `.env.example`, and never logged or sent to the browser.",
       "Tests replay recorded responses for active, administration, liquidation, dissolved, not found, an error and a timeout, with no live call; no recording invents a seeded company's result.",
-      "The recheck sits behind a KYC rule setting the KYC tool declares, 0 by default; at 0 there are no lookups and no holds.",
+      "The recheck sits behind the `kyc.merchant_monitoring` switch, off by default; while it is off there are no lookups and no holds.",
     ],
     undo: [
       "`pnpm verify` is green.",
