@@ -1,0 +1,42 @@
+{
+  "files": [
+    { "path": "tools/kyc/src/companies-house.ts", "op": "create", "reason": "Companies House company-profile client: server-side COMPANIES_HOUSE_API_KEY, one call per merchant with a 5s timeout, recorded responses labelled test data when there is no key, failures mapped to couldn't check" },
+    { "path": "tools/kyc/src/companies-house-recordings.json", "op": "create", "reason": "Responses recorded from the live Companies House API for the seeded merchants and for administration, dissolved, not-found and error cases, plus the timeout outcome" },
+    { "path": "tools/kyc/src/merchant-monitoring.ts", "op": "create", "reason": "Picks approved UK business cases, turns each lookup into a check row, a material declared-vs-found row and an escalation, and records the merchant's registry standing for refunds; idempotent on rerun" },
+    { "path": "tools/kyc/src/index.ts", "op": "modify", "reason": "Declare kyc.merchant_monitoring (0 = off), add the governed null-record recheck action and its Recheck now admin action, rule labels" },
+    { "path": "tools/kyc/src/linked-activity.ts", "op": "modify", "reason": "A merchant case lists the refunds linked to it by case id, alongside the customer-email join" },
+    { "path": "tools/refunds/src/schema.ts", "op": "modify", "reason": "refunds.merchant_case_id link and the merchant_registry_status table the refunds rule reads" },
+    { "path": "tools/refunds/src/merchant-standing.ts", "op": "create", "reason": "merchant_insolvency rule: a refund whose linked merchant is in administration, liquidation or dissolved on Companies House needs a manager while the switch is on" },
+    { "path": "tools/refunds/src/index.ts", "op": "modify", "reason": "Add merchant_insolvency to the execute rules, the merchant case field, the switch key export and rule label" },
+    { "path": "tools/refunds/src/seed.ts", "op": "modify", "reason": "Seeded merchant refunds carry their merchant case id so a re-seed keeps the link" },
+    { "path": "apps/console/src/schema.ts", "op": "modify", "reason": "Export the new merchant_registry_status table for migrations" },
+    { "path": "apps/console/drizzle/0011_merchant_case_link.sql", "op": "create", "reason": "Add the link column and standing table, and backfill existing refunds to their merchant case once" },
+    { "path": "apps/console/drizzle/meta/0011_snapshot.json", "op": "create", "reason": "Drizzle snapshot for the new migration" },
+    { "path": "apps/console/drizzle/meta/_journal.json", "op": "modify", "reason": "Register the new migration" },
+    { "path": "apps/console/scripts/recheck-merchants.ts", "op": "create", "reason": "Daily scheduled entry point: submits the recheck through executeIntent as the system actor, one idempotency key per day, and prints every merchant's result" },
+    { "path": "apps/console/package.json", "op": "modify", "reason": "kyc:recheck script for the daily schedule" },
+    { "path": ".env.example", "op": "modify", "reason": "Document COMPANIES_HOUSE_API_KEY" },
+    { "path": "apps/console/tests/tools/kyc-merchant-monitoring.test.ts", "op": "create", "reason": "One test per acceptance behaviour, replaying recorded responses" }
+  ],
+  "reuses": [
+    { "module": "packages/engine/src/execute-intent.ts", "reason": "The recheck, scheduled or by hand, is a governed intent: policy, idempotency and audit" },
+    { "module": "tools/kyc/src/index.ts#declared_vs_found", "reason": "The material registry finding holds the KYC case for a manager without a new KYC rule" },
+    { "module": "tools/refunds/src/index.ts#queueOf", "reason": "Refunds leave the analyst queue through the existing manager routing of execute rules" },
+    { "module": "packages/engine/src/types.ts#adminActions", "reason": "Recheck now appears in the KYC Rules panel and submits through submitIntent" },
+    { "module": "tools/kyc/src/linked-activity.ts", "reason": "The case shows its merchant's refunds through linkedActivity" },
+    { "module": "packages/engine/src/policy/register.ts", "reason": "The switch setting is registered from the tool's constants at 0" }
+  ],
+  "acceptance": [
+    "only approved UK business cases are rechecked, one lookup per merchant per run, others untouched",
+    "administration, liquidation and dissolved add a material declared-vs-found row with the registry status and current name, escalate the case, and declared_vs_found holds approval with no new KYC rule",
+    "the merchant's pending and later refunds need a manager, leave the analyst queue, and the trace names merchant_insolvency, the merchant and the status",
+    "refunds link to the merchant case by id, the migration backfills existing refunds, and the decision reads the id not the name",
+    "the merchant case lists its refunds through linkedActivity and the refund shows its merchant case",
+    "an active company changes nothing and a rerun adds no duplicate checks, findings or holds",
+    "timeout, error and not found record couldn't check and escalate the case without holding refunds",
+    "the daily entry point and the Recheck now admin action both run through executeIntent as audited system and admin actors and report every merchant",
+    "COMPANIES_HOUSE_API_KEY is read on the server, documented in .env.example, sent only to Companies House and never in results or audit",
+    "tests replay recordings for active, administration, liquidation, dissolved, not found, error and timeout with no live call; without a key results are labelled test data",
+    "kyc.merchant_monitoring is declared by kyc at 0 and at 0 the recheck makes no lookup and holds nothing"
+  ]
+}
