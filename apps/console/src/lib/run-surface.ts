@@ -76,7 +76,7 @@ export async function runOffers(
     reply: latest?.phase_status === "waiting_for_user",
     reverse,
     sync:
-      actor.role === "engineer" &&
+      actor.role === "admin" &&
       run.status === "merged" &&
       deps.git !== undefined &&
       !(await isSynced(run, deps).catch(() => false)),

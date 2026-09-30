@@ -63,6 +63,8 @@ export interface BridgeDeps {
   playbookId?: string;
   /** `owner/repo` on GitHub; named in the session prompt so Devin clones the right repository. */
   repository?: string;
+  /** The console's base URL; the PR description opens with a link back to the run here. */
+  consoleUrl?: string;
   /** Looks the playbook up when `playbookId` is not configured; null when there is none. */
   resolvePlaybookId?: () => Promise<string | null>;
   maxAcuLimit?: number;
@@ -159,7 +161,17 @@ interface SessionPromptInput {
   spec: RunnableSpec;
   repository?: string;
   base: { branch: string; commit: string };
+  consoleUrl?: string;
 }
+
+/**
+ * The setting that switches each spec's rule off, named in a change's prompt
+ * so the console's Rules panel can find the rule after the merge.
+ */
+export const SWITCH_SETTINGS: Record<string, string> = {
+  "REFUND_CLUSTERING_HOLD.md": "refunds.clustering_window_days",
+  "COMPANIES_HOUSE_CHECK.md": "kyc.merchant_monitoring",
+};
 
 /** The playbook's procedure steps, listed in the prompt so the session shows them up front. */
 const RUN_STEPS = ["Intake", "Baseline", "Plan", "Edit", "Verify", "Pull request", "Merge"] as const;
@@ -180,13 +192,21 @@ export function sessionPrompt(input: SessionPromptInput): string {
           `Repository: https://github.com/${input.repository}. Branch from ${base.branch} at ${base.commit.slice(0, 7)} and open the pull request against ${base.branch}.`,
         ]
       : []),
+    ...(input.operation === "change" && SWITCH_SETTINGS[spec.file]
+      ? [`Switch setting: ${SWITCH_SETTINGS[spec.file]}.`]
+      : []),
     `Work from the attached runs/${runId}/context.json; commit it unchanged on your branch.`,
     ...(spec.sendSpec
       ? []
       : [
           "The attachment is the whole brief: work out the behaviour the sentence leaves unsaid from the code and its tests. Do not open the feature specs under docs/.",
         ]),
-    "Follow .devin/run-protocol.playbook.md and docs/DEVIN_RUN_PROTOCOL.md.",
+    ...(input.consoleUrl
+      ? [
+          `Start the pull request description with this line: ▶ [Open this change in the console](${input.consoleUrl.replace(/\/$/, "")}/t/automation/${runId})`,
+        ]
+      : []),
+    "Follow .devin/run-protocol.playbook.md. Don't merge the pull request: an engineer reviews and merges it on GitHub.",
     "",
     "Steps:",
     ...RUN_STEPS.map((step, i) => `${i + 1}. ${step}`),
@@ -280,6 +300,7 @@ export async function dispatchRun(
     spec,
     repository: deps.repository,
     base: built.context.base,
+    consoleUrl: deps.consoleUrl,
   });
 
   let sessionInput: { sessionId: string; sessionUrl: string | null } | { error: string };
@@ -504,17 +525,8 @@ export async function approveRun(
     return { approve, reviewError: null, checks: checks.summary };
   }
   if (approve.replayed && (await deps.github.hasApprovingReview(ref, pull.headSha))) {
-    // The review is already up, but its merge message may never have sent —
-    // the retried approval completes that side effect too.
-    let reviewError: string | null = null;
-    if (deps.devin && run.sessionId) {
-      try {
-        await deps.devin.sendMessage(run.sessionId, `Run ${run.id} is approved. Merge ${prUrl} now.`);
-      } catch (error) {
-        reviewError = errorText(error);
-      }
-    }
-    return { approve, reviewError, checks: checks.summary };
+    // The review is already up; the engineer merges on GitHub.
+    return { approve, reviewError: null, checks: checks.summary };
   }
 
   let reviewError: string | null = null;
@@ -524,9 +536,6 @@ export async function approveRun(
       pull.headSha,
       `Approved from the ops console for run ${run.id} (context ${run.contextSha256.slice(0, 12)}).`,
     );
-    if (deps.devin && run.sessionId) {
-      await deps.devin.sendMessage(run.sessionId, `Run ${run.id} is approved. Merge ${prUrl} now.`);
-    }
   } catch (error) {
     reviewError = errorText(error);
   }
@@ -537,8 +546,8 @@ export async function approveRun(
 export const CONSOLE_REVIEW_PREFIX = "Approved from the ops console";
 
 export type GitHubApprovalOutcome =
-  /** A mapped engineer approved on GitHub and `approve_pr` applied; `messageError` is set when Devin was not told. */
-  | { kind: "approved"; login: string; actor: Actor; approve: IntentResult; messageError: string | null }
+  /** A mapped engineer approved on GitHub and `approve_pr` applied. */
+  | { kind: "approved"; login: string; actor: Actor; approve: IntentResult }
   /** A mapped engineer approved on GitHub but the same rules the button runs said no. */
   | { kind: "denied"; login: string; actor: Actor; reason: string; checks: string }
   /** Someone approved on GitHub whose login no console engineer claims. */
@@ -557,10 +566,6 @@ export function readGitHub(outcome: GitHubApprovalOutcome | MergeOutcome): boole
 /** One line for the run view; null when there is nothing worth saying. */
 export function describeGitHubApproval(outcome: GitHubApprovalOutcome): string | null {
   switch (outcome.kind) {
-    case "approved":
-      return outcome.messageError
-        ? `Approved on GitHub by @${outcome.login}; Devin was not told to merge: ${outcome.messageError}`
-        : null;
     case "denied":
       return `Approved on GitHub by @${outcome.login}, but the console did not record it: ${outcome.reason}`;
     case "unmatched":
@@ -614,15 +619,7 @@ export async function observeGitHubApproval(
   if (outcome.kind === "denied") {
     return { kind: "denied", login: mapped.login, actor: mapped.actor, reason: outcome.reason, checks: outcome.checks };
   }
-  let messageError: string | null = null;
-  if (deps.devin && run.sessionId) {
-    try {
-      await deps.devin.sendMessage(run.sessionId, `Run ${run.id} is approved. Merge ${prUrl} now.`);
-    } catch (error) {
-      messageError = errorText(error);
-    }
-  }
-  return { kind: "approved", login: mapped.login, actor: mapped.actor, approve: outcome.approve, messageError };
+  return { kind: "approved", login: mapped.login, actor: mapped.actor, approve: outcome.approve };
 }
 
 /**

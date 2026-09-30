@@ -6,7 +6,7 @@
 - Feature specs (`REFUND_CLUSTERING_HOLD.md`, `COMPANIES_HOUSE_CHECK.md`, `CHARGEBACKS_FROM_POWER_APPS.md`) supply a suggested sentence the requester can accept or rewrite, plus allowed paths and the reviewer checklist. The house rules below apply to every run. A session never reads the spec unless the spec asks to be sent; then it reads only the sections marked as sent to Devin.
 - Starting a run is a governed write, like any other action. Each run appears in the audit chain five times, when it is requested, picked up, opens its pull request, is approved, and merges.
 - The console hands Devin a context file with the live settings and evidence, without customer data. Devin commits its plan before its first edit, and security checks in CI hold the diff to that plan.
-- An engineer approves, then Devin merges.
+- An engineer reviews and merges the pull request on GitHub. Devin never merges; the console records the merge and pulls it into the running console.
 - An undo removes one earlier change from the code as it is now, keeping everything merged since.
 - Switching a rule off is a setting change on `/admin/policy`, in seconds, with no run.
 - The console talks to the Devin v3 API from the server. `DEVIN_API_KEY` is the only setting it needs. Without it the console says Devin is not connected and dispatches nothing.
@@ -64,7 +64,7 @@ Polled run state is never written to `devin_runs`. Phase, `status_detail` and `s
 - The PR's required checks are green: Lint, Typecheck, Boundaries and Test (what `pnpm verify` runs).
 - **Context untouched**: the branch's `runs/<run_id>/context.json` hashes (SHA-256) to the `contextSha256` stored in the dispatch audit row. This is the one check the console runs itself, because CI can't read its SQLite.
 
-Its effect submits an approving review to GitHub as the engineer, then messages the Devin session to merge. The same intent also runs when a poll finds an approving review on GitHub by the engineer's mapped login (`GITHUB_APPROVER_LOGIN`, default `rmtandon1`), acting as that engineer, with the note `Approved on GitHub by @login` and no second review. See § Approval and merge.
+Its effect submits an approving review to GitHub as the engineer; the engineer then merges on GitHub. The same intent also runs when a poll finds an approving review on GitHub by the engineer's mapped login (`GITHUB_APPROVER_LOGIN`, default `rmtandon1`), acting as that engineer, with the note `Approved on GitHub by @login` and no second review. See § Approval and merge.
 
 `record_merge` accepts a run in `approved` or `running`. A merge GitHub reports before the console recorded an approval is still written, with `approvedBy` left null and the run's note set to `Merged on GitHub without a recorded approval`: the audit trail shows the gap rather than hiding it.
 
@@ -147,7 +147,7 @@ Each phase passes or stops the run, except that the guard checks are advisory: a
 | Edit         | Planned files change; `context.json` and `plan.json` do not. A file outside the plan is recorded in `files` and a note                                       | Reported by the guard on the PR; the run continues                                                             |
 | Verify       | `pnpm verify` is green. The tests named in `plan.json` pass. Test counts per file are at or above baseline. `pnpm check:run` results are reported in `guards`   | Two fix attempts, then reset and stop                                                                          |
 | Pull request | A PR is opened against `cognition-dashboard-devin-integration`                                                                                                    | Leave the branch pushed and report                                                                             |
-| Merge        | After an engineer's `approve_pr`, Devin merges (squash) and reports `merge_commit`                                                                           | Report why (checks re-running, conflict with a newer merge) and wait. Rebase inside the plan if the base moved |
+| Merge        | Devin waits at `waiting_for_user`; the engineer merges on GitHub and the console records `record_merge`                                                      | Nothing to report: Devin stops after the pull request                                                          |
 
 
 The plan is Devin's own, committed before any edit. The spec's allowed paths bound what the plan may touch. Committing first is what makes the boundary checkable: the reviewing engineer compares the diff with a list Devin wrote before it knew what the diff would be. Existing tests that pin the current behaviour (rule counts, trace order, per-record decisions) count as files the change touches and belong in the plan; a run that meets one it did not plan carries on and the guard names the file on the PR.
@@ -231,8 +231,8 @@ An undo is not `git revert` run by a machine. A clean revert only works if nothi
 
 Devin's job on an undo:
 
-1. Start from `git revert -m 1 <merge_commit>` on a fresh branch.
-2. Resolve conflicts so that the undone change's effect is gone, and every later change stays.
+1. Read the target's merge commit and every change merged since. Don't start from `git revert`: remove the target's effect by editing the code as it is now.
+2. Keep every later change, including later changes in the same files, and list each one in the PR under **Kept** beside what was **Removed**.
 3. Remove the constants that change declared. Restore any constant it changed to the value in its `context.json`, unless an admin has set it since. In that case, report both values in the PR and leave the declared default alone.
 4. Rewrite, don't delete, any later test that depended on the undone rule. Name each one.
 5. List in the PR anything the code can't undo: routed refunds still in the Manager queue, and constant rows still in the live database. These become operator steps.
@@ -255,15 +255,14 @@ The sections Summary, Updates since last revision, Local testing results, and Re
 
 ## Approval and merge
 
-Humans approve. Devin merges. The control a regulated change process needs is separation of duties: whoever wrote a change doesn't approve it. The approval is the control, not the merge click, so Devin can do the click.
+Humans approve and merge. The control a regulated change process needs is separation of duties: whoever wrote a change doesn't approve it. The engineer's merge on GitHub is that approval: a merge by the mapped engineer records their `approve_pr` first.
 
 1. The PR opens. The run view shows **Review and approve** to anyone with the `engineer` role who didn't request the run.
 2. The engineer approves in one of two places, and both record the same `approve_pr`:
    - **In the console.** The approval dialog (`AGENT_TRIGGER_SURFACE.md` § Approval dialog) lists the spec's acceptance tests as the reviewer's checklist; the engineer checks the PR's tests against it. `approve_pr` checks the rules above and writes the audit row. Its effect, after the commit, submits an approving review to GitHub (`POST /repos/{owner}/{repo}/pulls/{n}/reviews`, `event: APPROVE`) as the engineer. The approval is recorded once per head sha; retrying an approval whose GitHub review failed re-posts the review without a second audit row.
    - **On GitHub.** The console polls the PR's reviews while the run is `running`. An approving review at the head sha by the login `GITHUB_APPROVER_LOGIN` maps to (default `rmtandon1`, the `engineer` actor) runs `approve_pr` as that engineer with the same server-read `checksGreen` and `branchContextSha256`, the same idempotency key and the note `Approved on GitHub by @login`. The console's own review is not counted; an approval by an unmapped login is shown on the run but records nothing; a denial (requester, red checks, changed context) is shown the way the button shows it. No second review is posted.
-3. Either way, the console then sends the Devin session the message to merge. Devin waits for that message, not for the GitHub review.
-4. Devin merges and reports `merge_commit` in `structured_output`.
-5. The console writes `record_merge` for the same engineer, with the PR URL and merge commit. If the PR was merged on GitHub with no approval the console recorded, `record_merge` still runs from `running`, with `approvedBy` null and the note `Merged on GitHub without a recorded approval`. The run view shows when GitHub was last read (`Synced with GitHub · Ns ago`).
+3. The engineer merges on GitHub. Devin stopped at the pull request and is never told to merge.
+4. The console writes `record_merge` for the same engineer, with the PR URL and merge commit. If the PR was merged on GitHub with no approval the console recorded, `record_merge` still runs from `running`, with `approvedBy` null and the note `Merged on GitHub without a recorded approval`. The run view shows when GitHub was last read (`Synced with GitHub · Ns ago`).
 
 Enforcement lives in GitHub. Branch protection on `cognition-dashboard-devin-integration` requires one approving review, the four CI checks — Lint, Typecheck, Boundaries and Test — and no bypass for Devin's GitHub account. Devin's docs recommend exactly this: branch protection "to ensure all required checks pass before Devin can merge changes" (docs.devin.ai, GitHub integration). A security profile can also restrict the session's git and GitHub CLI access (docs.devin.ai, Security Profiles).
 
@@ -271,9 +270,9 @@ Demo setup: the engineer's GitHub token sits in the server environment next to `
 
 ## After merge
 
-1. The console writes `record_merge` with the merge commit Devin reports. That closes the run in the audit chain.
-2. The local checkout pulls the integration branch (`git pull --ff-only origin cognition-dashboard-devin-integration`) when **Check merge** records the merge, or later through **Pull merged code** or **Reconcile** on `/t/automation` (both `engineer`-only). The pull is refused on another branch or a dirty tree — except an untracked `runs/<id>/context.json` that hashes to the merged run's `contextSha256`, which dispatch itself wrote; that one is deleted and the merge recreates it. When the pull changes a `package.json`, `pnpm-lock.yaml` or `pnpm-workspace.yaml`, `pnpm install --frozen-lockfile` runs first, and retries on the next sync while the installed lockfile lags the checkout's. `pnpm db:migrate` runs whenever drizzle's journal has entries past `__drizzle_migrations`, and retries on the next sync if it fails. See `GITHUB_INTEGRATION.md` § Merge sync.
-3. Constants a run declares must exist in the live database without a re-seed. `registerToolConstants` (`registerConstants`, which skips existing keys) runs on server start via `instrumentation.ts`, and again in-process right after the merge sync's `db:migrate`, so a merged rule works without a browser reload or restart. A production build still needs a rebuild to serve new source.
+1. The console writes `record_merge` with the merge commit GitHub reports. That closes the run in the audit chain.
+2. The local checkout pulls the sync branch (`SYNC_BRANCH`, default `cognition-dashboard-devin-integration`) as soon as the run's page next reads the merge, with no click. **Pull merged code** (admin) and **Reconcile** on `/t/automation` remain as fallbacks. The pull is refused on another branch or a dirty tree — except an untracked `runs/<id>/context.json` that hashes to the merged run's `contextSha256`, which dispatch itself wrote; that one is deleted and the merge recreates it. When the pull changes a `package.json`, `pnpm-lock.yaml` or `pnpm-workspace.yaml`, `pnpm install --frozen-lockfile` runs first, and retries on the next sync while the installed lockfile lags the checkout's. `pnpm db:migrate` runs whenever drizzle's journal has entries past `__drizzle_migrations`, and retries on the next sync if it fails. See `GITHUB_INTEGRATION.md` § Merge sync.
+3. Constants a run declares must exist in the live database without a re-seed. `registerToolConstants` (`registerConstants`, which skips existing keys) runs on server start via `instrumentation.ts`, in-process right after the merge sync's `db:migrate`, and whenever `bootstrap.ts` is evaluated with newly pulled tool code, so a merged rule's setting appears without a restart. A production build still needs a rebuild to serve new source.
 4. The next matching record goes through the new rule. That moment is the demo.
 
 `db:migrate` here is the console migrating its own database after a merge, not a Devin session writing live data. `db:setup` and `db:seed` remain off limits for the session; the merge sync never invokes them.

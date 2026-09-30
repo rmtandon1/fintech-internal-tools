@@ -118,6 +118,7 @@ export function bridgeDeps(): AppBridgeDeps {
     migrationsPending: () => migrationsPending(repoRoot),
     seedPending: async () => pendingSeedTools().length > 0,
     repository: githubRepository(repoRoot, process.env.SYNC_REMOTE ?? "origin"),
+    consoleUrl: process.env.CONSOLE_URL || "http://localhost:3001",
     replaysDir: join(repoRoot, "apps/console/data/replays"),
     syncRemote: process.env.SYNC_REMOTE,
     syncBranch: process.env.SYNC_BRANCH,

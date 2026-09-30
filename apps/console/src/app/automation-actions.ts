@@ -203,8 +203,8 @@ export async function observeAutomationMerge(runId: string): Promise<BridgeResul
 /** Pulls a run's merge into the local checkout; offered once the run is `merged`. */
 export async function syncAutomationRun(runId: string): Promise<BridgeResult> {
   const actor = await currentActor();
-  if (actor.role !== "engineer") {
-    return { ok: false, title: "Not allowed", detail: "Only an engineer can update the local code" };
+  if (actor.role !== "admin" && actor.role !== "engineer") {
+    return { ok: false, title: "Not allowed", detail: "Only an admin can update the local code" };
   }
   const run = getRun(runId);
   if (!run) return { ok: false, title: "Rule change not found" };

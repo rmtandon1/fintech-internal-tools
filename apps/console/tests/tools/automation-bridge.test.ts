@@ -569,7 +569,8 @@ describe("approveRun", () => {
     expect(out.approve.outcome.status).toBe("applied");
     expect(out.reviewError).toBeNull();
     expect(github.calls).toEqual(["pull", "checks", "file", "approve"]);
-    expect(devin.calls).toEqual(["get", `message:Run ${run.id} is approved. Merge ${PR} now.`]);
+    // The engineer merges on GitHub; Devin is never told to merge.
+    expect(devin.calls).toEqual(["get"]);
     const after = getRun(run.id);
     expect(after?.status).toBe("approved");
     expect(after?.prUrl).toBe(PR);
@@ -650,7 +651,7 @@ describe("approveRun", () => {
     expect(second.approve.replayed).toBe(true);
     expect(second.reviewError).toBeNull();
     expect(github.calls.slice(-5)).toEqual(["pull", "checks", "file", "reviews", "approve"]);
-    expect(devin.calls).toEqual(["get", `message:Run ${run.id} is approved. Merge ${PR} now.`]);
+    expect(devin.calls).toEqual(["get"]);
     expect(auditTrailFor("devin_run", run.id).filter((row) => row.action === "approve_pr")).toHaveLength(1);
   });
 
@@ -669,41 +670,27 @@ describe("approveRun", () => {
     expect(github.calls.filter((c) => c === "approve")).toHaveLength(1);
   });
 
-  it("sends the merge message on retry when the review posted but the message failed", async () => {
+  it("never tells Devin to merge, on the first approval or a retried one", async () => {
     const run = await runningWithPr();
     const github = fakeGitHub({ green: true, contextSha: run.contextSha256 });
-    const script = {
-      snapshot: {
-        status: "working",
-        statusDetail: null,
-        structuredOutput: output({ phase: "pull_request", pr_url: PR }),
-      },
-      messageFails: true,
-    };
-    const devin = fakeDevin(script);
+    const devin = reportingPr();
     const d = deps({ github: github.client, devin: devin.client });
 
     const first = await approveRun(engineer, run, undefined, d);
     expect(first.approve.outcome.status).toBe("applied");
-    expect(first.reviewError).toContain("503");
+    expect(first.reviewError).toBeNull();
 
-    script.messageFails = false;
     const approved = getRun(run.id);
     if (!approved) throw new Error("no run");
     const second = await approveRun(engineer, approved, undefined, d);
     expect(second.approve.replayed).toBe(true);
     expect(second.reviewError).toBeNull();
     expect(github.calls.filter((c) => c === "approve")).toHaveLength(1);
-    expect(devin.calls).toEqual([
-      "get",
-      `message:Run ${run.id} is approved. Merge ${PR} now.`,
-      `message:Run ${run.id} is approved. Merge ${PR} now.`,
-    ]);
+    expect(devin.calls.filter((c) => c.startsWith("message:"))).toEqual([]);
   });
 });
 
 describe("observeGitHubApproval", () => {
-  const MERGE_MESSAGE = (run: { id: string }) => `message:Run ${run.id} is approved. Merge ${PR} now.`;
   const byEngineer: ApprovingReview = { login: "rmtandon1", submittedAt: "2026-01-02T00:00:00Z", body: "LGTM" };
 
   async function runningWithPr() {
@@ -714,7 +701,7 @@ describe("observeGitHubApproval", () => {
     return run;
   }
 
-  it("treats the mapped engineer's GitHub approval as approve_pr and tells Devin to merge, without another review", async () => {
+  it("treats the mapped engineer's GitHub approval as approve_pr, without another review or a message to Devin", async () => {
     const run = await runningWithPr();
     const github = fakeGitHub({ green: true, contextSha: run.contextSha256, reviews: [byEngineer] });
     const devin = reportingPr();
@@ -726,10 +713,9 @@ describe("observeGitHubApproval", () => {
     expect(out.login).toBe("rmtandon1");
     expect(out.actor.id).toBe(engineer.id);
     expect(out.approve.outcome.status).toBe("applied");
-    expect(out.messageError).toBeNull();
     expect(describeGitHubApproval(out)).toBeNull();
     expect(github.calls).toEqual(["pull", "list-reviews", "checks", "file"]);
-    expect(devin.calls).toEqual(["get", MERGE_MESSAGE(run)]);
+    expect(devin.calls).toEqual(["get"]);
 
     const after = getRun(run.id);
     expect(after?.status).toBe("approved");
@@ -752,7 +738,7 @@ describe("observeGitHubApproval", () => {
     if (!approved) throw new Error("no run");
     const again = await observeGitHubApproval(approved, d);
     expect(again.kind).toBe("skipped");
-    expect(devin.calls.filter((c) => c.startsWith("message:"))).toEqual([MERGE_MESSAGE(run)]);
+    expect(devin.calls.filter((c) => c.startsWith("message:"))).toEqual([]);
     expect(auditTrailFor("devin_run", run.id).filter((row) => row.action === "approve_pr")).toHaveLength(1);
     expect(github.calls.filter((c) => c === "list-reviews")).toHaveLength(1);
   });
@@ -847,7 +833,7 @@ describe("observeGitHubApproval", () => {
     const green = await observeGitHubApproval(run, d);
     expect(green.kind).toBe("approved");
     expect(getRun(run.id)?.status).toBe("approved");
-    expect(devin.calls.filter((c) => c.startsWith("message:"))).toEqual([MERGE_MESSAGE(run)]);
+    expect(devin.calls.filter((c) => c.startsWith("message:"))).toEqual([]);
   });
 
   it("does nothing for a run that is not waiting on approval, or that has no PR or GitHub", async () => {
