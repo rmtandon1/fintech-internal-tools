@@ -167,6 +167,9 @@ describe("refunds clusters", () => {
         tool: "refunds",
       },
     ]);
+    expect(refundTool.constants?.find((c) => c.key === CLUSTERING_WINDOW_DAYS_KEY)?.value).toBe(0);
+    expect(clusteringWindowDays()).toBe(0);
+    expect(setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "14").ok).toBe(true);
     expect(clusteringWindowDays()).toBe(14);
 
     expect(setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "0").ok).toBe(true);
