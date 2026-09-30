@@ -454,7 +454,8 @@ export function replayGitHubClient(now: () => number = Date.now): GitHubClient {
     async getPull(pr) {
       const run = runFor(pr);
       const headSha = fakeSha("head", `${pr.owner}/${pr.repo}#${pr.number}`);
-      if (!run) return { headSha, headRef: `devin/replay`, state: "open", merged: false, mergeCommit: null };
+      if (!run)
+        return { headSha, headRef: `devin/replay`, state: "open", merged: false, mergeCommit: null, mergedBy: null };
       const merged =
         run.status === "merged" ||
         (run.status === "approved" && now() - run.updatedAt >= MERGE_DELAY_MS);
@@ -464,6 +465,7 @@ export function replayGitHubClient(now: () => number = Date.now): GitHubClient {
         state: merged ? "closed" : "open",
         merged,
         mergeCommit: merged ? (run.mergeCommit ?? fakeSha("merge", run.id)) : null,
+        mergedBy: null,
       };
     },
     async getChecks() {

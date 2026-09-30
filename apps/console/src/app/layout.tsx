@@ -65,7 +65,7 @@ export default async function RootLayout({
               <AppHeader actor={actor} roleChosen={role !== null} />
               <main className="min-h-0 flex-1 overflow-hidden p-4">{children}</main>
             </div>
-            <AgentWindow source={mode === "simulation" ? "Not connected" : "Connected"}>
+            <AgentWindow source={mode === "simulation" ? "Not connected" : "Connected"} role={actor.role}>
               <DevinWindowBody actor={actor} mode={mode} />
             </AgentWindow>
           </WorkspaceProvider>
