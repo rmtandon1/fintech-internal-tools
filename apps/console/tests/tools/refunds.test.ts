@@ -7,7 +7,7 @@ import { executeIntent } from "@console/engine/execute-intent";
 import { previewActions } from "@console/engine/policy/preview";
 import { registerConstants } from "@console/engine/policy/register";
 import type { Actor, GovernedRecord, Rule } from "@console/engine/types";
-import { refundTool } from "@console/tool-refunds";
+import { QUEUE_CHIPS, queueOf, type Refund, refundTool } from "@console/tool-refunds";
 import { admin, analyst, manager, setupHarness } from "../helpers/harness";
 import { expectRecordStatsMatchList } from "../helpers/stats";
 import { resolveStat } from "@/lib/stats";
@@ -68,6 +68,49 @@ describe("refund queues", () => {
     expect(refundTool.defaultFilters?.(analyst)).toEqual({ queue: "analyst" });
     expect(refundTool.defaultFilters?.(manager)).toEqual({ queue: "manager" });
     expect(refundTool.defaultFilters?.(admin)).toEqual({});
+  });
+
+  it("carries each listed refund's queue as a field and shows it as a column", () => {
+    const rows = refundTool.list({ filters: {}, limit: 1000, offset: 0 }).rows;
+    const byId = new Map(rows.map((row) => [row.id, row.queue]));
+    expect(byId.get("rfnd_0003")).toBe("manager");
+    expect(byId.get("rfnd_0004")).toBe("manager");
+    expect(byId.get("rfnd_0001")).toBe("analyst");
+    for (const row of rows) {
+      if (row.status === "rejected") expect(row.queue).toBeNull();
+      else expect(["analyst", "manager"]).toContain(row.queue);
+    }
+    for (const row of refundTool.list({ filters: { queue: "manager" }, limit: 1000, offset: 0 }).rows) {
+      expect(row.queue).toBe("manager");
+    }
+    expect(refundTool.listColumns.map((c) => c.field)).toContain("queue");
+    expect(refundTool.fields.find((f) => f.name === "queue")).toMatchObject({
+      type: "enum",
+      enumLabels: { analyst: "Analyst", manager: "Manager" },
+    });
+    expect(QUEUE_CHIPS.map((c) => c.value)).toEqual(["analyst", "manager"]);
+  });
+
+  it("moves a refund's own row to the manager queue when the live rules route it there", () => {
+    const execute = refundTool.actions.find((action) => action.name === "execute");
+    if (!execute) throw new Error("refunds.execute is not declared");
+    const before = refundTool.list({ filters: {}, limit: 1000, offset: 0 }).rows.find((r) => r.id === "rfnd_0001");
+    expect(before?.queue).toBe("analyst");
+    const route: Rule<GovernedRecord, unknown> = () => ({
+      type: "require_approval",
+      rule: "runtime_route",
+      tier: "manager",
+      allowedRoles: ["manager"],
+      reason: "Runtime routing rule",
+    });
+    execute.rules.push(route);
+    try {
+      const after = refundTool.list({ filters: {}, limit: 1000, offset: 0 }).rows.find((r) => r.id === "rfnd_0001");
+      expect(after?.queue).toBe("manager");
+      expect(queueOf(refundTool.get("rfnd_0001") as Refund)).toBe("manager");
+    } finally {
+      execute.rules.pop();
+    }
   });
 
   it("uses the execute declaration's live rules to determine queue placement", () => {

@@ -4,6 +4,7 @@ import type { ColumnDecl, GovernedRecord, ToolDeclaration } from "@console/engin
 import { formatFieldValue } from "@console/ui/format";
 import { TONE_INK, bandFor } from "@console/ui/gauge";
 import { kycTool } from "@console/tool-kyc";
+import { QUEUE_CHIPS, refundTool } from "@console/tool-refunds";
 import { riskBands } from "@/lib/customer-profile";
 import { kycThresholds } from "@/lib/kyc-thresholds";
 
@@ -28,6 +29,10 @@ export function RecordCell({
   const score = row[column.field];
   if (decl.name === kycTool.name && column.field === "riskScore" && typeof score === "number") {
     return <RiskScoreCell score={score} />;
+  }
+  if (decl.name === refundTool.name && column.field === "queue") {
+    const queue = row.queue;
+    return typeof queue === "string" ? <StatusChip value={queue} statuses={QUEUE_CHIPS} /> : <>—</>;
   }
   if (field) return <>{formatFieldValue(field, masked.values)}</>;
   return <>{String(masked.values[column.field] ?? "—")}</>;

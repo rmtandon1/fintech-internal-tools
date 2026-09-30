@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { Icon } from "@console/ui/icon";
 import { Panel } from "@/components/panel";
 import { RecordCell, columnIsNumeric } from "@/components/record-table";
+import { RulesPanel } from "@/components/rules-panel";
 import { StatStrip } from "@/components/stat-strip";
 import {
   Table,
@@ -187,6 +188,8 @@ export default async function ToolQueuePage({
       </div>
 
       <StatStrip decl={decl} actor={actor} />
+
+      <RulesPanel decl={decl} actor={actor} />
 
       <Panel className="min-h-0 flex-1" title={filterRow} bodyClassName="flex flex-col">
         {view === "toggles" && decl.toggle ? (

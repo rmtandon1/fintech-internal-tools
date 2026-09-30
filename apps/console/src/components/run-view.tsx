@@ -11,6 +11,7 @@ import { Icon } from "@console/ui/icon";
 import { cn } from "@console/ui/utils";
 import { StatusChip } from "@console/ui/status-chip";
 import { ApprovalDialog } from "@/components/approval-dialog";
+import { RemoveRuleButton } from "@/components/remove-rule-dialog";
 import { RunSummary, RUN_STATUS_OPTIONS, requesterLabel } from "@/components/run-summary";
 import { phaseLine } from "@/lib/run-checklist";
 import { runTitle, thinkingLine } from "@/lib/run-heading";
@@ -354,23 +355,29 @@ function Detail({ frames }: { frames: ReplayFrame[] }) {
   );
 }
 
-/** "Synced with GitHub · Ns ago", counting up each second between polls. */
-function SyncedWithGitHub({ at }: { at: number }) {
-  // Start at the sync instant so the server and client render the same text;
-  // the clock takes over once mounted.
-  const [now, setNow] = useState(at);
-  useEffect(() => {
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [at]);
-  const seconds = Math.max(0, Math.round((now - at) / 1000));
+function SyncedWithGitHub() {
   return (
     <p className="flex items-center gap-1.5">
       <GitHubMark className="size-3.5" />
-      Synced with GitHub · {seconds}s ago
+      Synced with GitHub
     </p>
   );
+}
+
+/** Whether a merged run's view should keep polling: the merge is not in the local checkout yet. */
+export function awaitingPull(payload: Pick<RunViewPayload, "run" | "changeLink" | "offers">): boolean {
+  return (
+    payload.run.status === "merged" &&
+    (payload.offers.sync || (payload.changeLink !== null && !payload.changeLink.live))
+  );
+}
+
+/** The merged run's line under the buttons; null before the merge or when the viewer can't open the tool. */
+export function mergedLine(payload: Pick<RunViewPayload, "run" | "changeLink" | "offers">): string | null {
+  if (payload.run.status !== "merged") return null;
+  if (awaitingPull(payload)) return "Merged · pulling into the console…";
+  if (!payload.changeLink) return null;
+  return `Live in the console · ${payload.run.mergeCommit?.slice(0, 7) ?? ""}`.trimEnd();
 }
 
 /**
@@ -398,6 +405,7 @@ export function RunView({
   const [payload, setPayload] = useState<RunViewPayload | null>(initial ?? null);
   const [approveOpen, setApproveOpen] = useState(false);
   const [reply, setReply] = useState("");
+  const [expanded, setExpanded] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const initialStatus = renderedStatus ?? (initial?.run.id === runId ? initial.run.status : null);
@@ -410,7 +418,8 @@ export function RunView({
       setPayload(body);
       if (lastStatus !== null && lastStatus !== body.run.status) router.refresh();
       lastStatus = body.run.status;
-      return !TERMINAL.has(body.run.status);
+      // A merged run keeps polling until the merge is pulled into this checkout.
+      return !TERMINAL.has(body.run.status) || awaitingPull(body);
     }
     let timer: ReturnType<typeof setTimeout> | null = null;
     async function loop() {
@@ -476,17 +485,9 @@ export function RunView({
   const pr = run.prUrl ?? out?.pr_url ?? null;
   const thinking = thinkingLine(latest, payload.devinMessage);
 
-  const ended = TERMINAL.has(run.status);
   const merged = run.status === "merged";
-  const mergedHint = !merged
-    ? null
-    : offers.sync
-      ? "Merged. Pull the merged code so this console runs the change."
-      : payload.changeLink
-        ? payload.changeLink.live
-          ? (payload.outcome ?? "The change is live in this console.")
-          : "Merged. It runs here once an engineer pulls the merged code."
-        : null;
+  const pulling = awaitingPull(payload);
+  const mergedHint = mergedLine(payload);
   const linkButton =
     "flex h-10 flex-1 items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors";
 
@@ -524,12 +525,19 @@ export function RunView({
             className="mx-5 mt-3 rounded-lg border border-info/30 bg-info/10 px-4 py-3"
             data-testid="devin-thinking"
           >
-            <p className="text-xs font-semibold text-info">
-              {ended ? "Devin\u2019s last update:" : "Devin\u2019s current thinking:"}
-            </p>
-            <p className="mt-1 line-clamp-4 whitespace-pre-line text-sm leading-snug text-foreground">
+            <p className="text-xs font-semibold text-info">Latest from Devin:</p>
+            <button
+              type="button"
+              onClick={() => setExpanded((e) => !e)}
+              aria-expanded={expanded}
+              title={expanded ? "Show less" : "Show the full message"}
+              className={cn(
+                "mt-1 w-full cursor-pointer whitespace-pre-line text-left text-sm leading-snug text-foreground",
+                !expanded && "line-clamp-2",
+              )}
+            >
               {thinking}
-            </p>
+            </button>
           </section>
         ) : null}
 
@@ -568,7 +576,16 @@ export function RunView({
 
       <div className="flex flex-wrap items-center gap-2 border-t border-border px-5 py-3">
         {merged && mergedHint ? (
-          <p className="w-full text-xs text-muted-foreground" data-testid="merged-next-step">
+          <p className="flex w-full items-center gap-2 text-xs text-muted-foreground" data-testid="merged-next-step">
+            {pulling ? (
+              <span
+                role="status"
+                aria-label="Pulling"
+                className="inline-block size-3 shrink-0 animate-spin rounded-full border-2 border-info border-t-transparent"
+              />
+            ) : (
+              <Icon name="Check" className="size-3.5 text-success" />
+            )}
             {mergedHint}
           </p>
         ) : null}
@@ -599,15 +616,19 @@ export function RunView({
             <GitHubMark className="size-4" />
             Pull merged code
           </Button>
-        ) : payload.changeLink ? (
+        ) : payload.changeLink?.live ? (
           <Link
             href={payload.changeLink.href}
             className={cn(linkButton, "bg-primary text-primary-foreground hover:bg-primary/90")}
             data-testid="open-changed-tool"
           >
-            <Icon name="ArrowRight" className="size-4" />
-            See it in {payload.changeLink.label}
+            See it on {payload.changeLink.label} →
           </Link>
+        ) : null}
+        {merged && offers.reverse.offered ? (
+          <RemoveRuleButton runId={runId} variant="outline" className="h-10">
+            Remove this rule
+          </RemoveRuleButton>
         ) : null}
         {offers.approve.offered ? (
           <Button className="h-10 flex-1" onClick={() => setApproveOpen(true)} data-testid="approve-run">
@@ -629,7 +650,7 @@ export function RunView({
 
       {payload.githubSyncedAt !== null || payload.githubNotice ? (
         <div className="flex flex-col gap-1 px-5 pb-3 text-[11px] text-muted-foreground" data-testid="github-sync">
-          {payload.githubSyncedAt !== null ? <SyncedWithGitHub at={payload.githubSyncedAt} /> : null}
+          {payload.githubSyncedAt !== null ? <SyncedWithGitHub /> : null}
           {payload.githubNotice ? <p className="text-warning">{payload.githubNotice}</p> : null}
         </div>
       ) : null}

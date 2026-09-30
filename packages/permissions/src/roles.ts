@@ -8,11 +8,11 @@ export const ROLES = [
 
 export type Role = (typeof ROLES)[number];
 
+/** The roles the header switcher offers. The engineer approves on GitHub and is never picked here. */
 export const DEMO_ROLES: readonly Role[] = [
   "analyst",
   "manager",
   "admin",
-  "engineer",
 ];
 
 export type RoleDomain = "kyc" | "refunds";

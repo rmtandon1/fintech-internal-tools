@@ -17,7 +17,7 @@ import { StatusChip } from "@console/ui/status-chip";
 import { Button } from "@console/ui/button";
 import { useWorkspace } from "@/components/workspace";
 import type { HandoffOffer } from "@/lib/handoff";
-import { formatMinorUnits, formatRelative } from "@console/ui/format";
+import { formatMinorUnits, formatTimestamp } from "@console/ui/format";
 import type { RuleOutcome, StatusDecl } from "@console/engine/types";
 
 /** One record inside an open cluster group, already masked on the server. */
@@ -109,7 +109,7 @@ function LimitChart({
           <span key={row.id} className="flex-1">
             <span className="block text-xs font-medium tabular-nums text-foreground">{usd(row.usdMinor)}</span>
             <span className="block text-[11px] text-muted-foreground">
-              {row.requestedAt ? formatRelative(row.requestedAt) : ""}
+              {row.requestedAt ? formatTimestamp(row.requestedAt) : ""}
             </span>
           </span>
         ))}

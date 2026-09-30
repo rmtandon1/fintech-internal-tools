@@ -1,6 +1,6 @@
 import type { RoleDomain } from "@console/permissions";
 import { MANAGER_REVIEW_SCORE_KEY } from "@console/tool-kyc";
-import { MANAGER_APPROVAL_USD_KEY } from "@console/tool-refunds";
+import { CLUSTERING_WINDOW_DAYS_KEY, MANAGER_APPROVAL_USD_KEY } from "@console/tool-refunds";
 
 export const OPERATIONS = ["change", "undo"] as const;
 export type Operation = (typeof OPERATIONS)[number];
@@ -70,6 +70,11 @@ export interface RunnableSpec {
   evidence: EvidenceSource;
   /** The reviewer's checklist per operation, copied from the spec's acceptance tests. Shown in the approval dialog; never sent to the session or written to context.json. */
   acceptance: Record<Operation, readonly string[]>;
+  /**
+   * The setting the merged change is switched on with (0 = off). A tool page
+   * lists a merged change run's setting as a rule Devin added.
+   */
+  switchSetting?: string;
 }
 
 export const REFUND_CLUSTERING_HOLD: RunnableSpec = {
@@ -102,6 +107,7 @@ export const REFUND_CLUSTERING_HOLD: RunnableSpec = {
     undo: "The refund hold and the linked KYC rule are removed. Refunds and KYC approvals work as they did before.",
   },
   constantKeys: [MANAGER_APPROVAL_USD_KEY, MANAGER_REVIEW_SCORE_KEY],
+  switchSetting: CLUSTERING_WINDOW_DAYS_KEY,
   evidence: { tool: "refunds", cluster: "merchant_not_received" },
   acceptance: {
     change: [
@@ -144,7 +150,7 @@ export const COMPANIES_HOUSE_CHECK: RunnableSpec = {
   sendSpec: false,
   intents: {
     change:
-      "Recheck approved UK merchants against Companies House every day; when one enters administration, liquidation or dissolution, send it and its refunds to a Manager for review.",
+      "Recheck approved UK merchants against Companies House every day. When one enters administration, liquidation or dissolution, send it and its refunds to a Manager, and link each refund to its merchant's case.",
     undo: "Undo merchant monitoring: remove the daily Companies House recheck, the refund hold and the merchant link, and keep every change made since.",
   },
   summaries: {
@@ -158,6 +164,7 @@ export const COMPANIES_HOUSE_CHECK: RunnableSpec = {
     undo: "Merchant monitoring is removed. UK merchants are checked on Companies House by hand again.",
   },
   constantKeys: ["kyc.companies_house_monitoring"],
+  switchSetting: "kyc.merchant_monitoring",
   evidence: { tool: "kyc" },
   acceptance: {
     change: [
@@ -165,6 +172,7 @@ export const COMPANIES_HOUSE_CHECK: RunnableSpec = {
       "Administration, liquidation or dissolution adds a material Declared vs found row with the registry's status and current name, and flags the case for a Manager; `declared_vs_found` does the holding, with no duplicate rule.",
       "That merchant's pending refunds and any new ones need a Manager: they leave the Analyst's queue, and the trace names the rule, the merchant and its Companies House status.",
       "Refunds link to the merchant's KYC case by ID, added by a migration that backfills existing refunds; no name matching when a refund is decided.",
+      "A refund links to its merchant's case, and the case lists the merchant's refunds (linkedActivity).",
       "An active company changes nothing, and a rerun adds no duplicate checks, findings or holds.",
       "A timeout, an error or an unknown number records \"couldn't check\" and flags the case for a Manager, without holding its refunds.",
       "A daily scheduled entry point and an admin \"Recheck now\" action both write through `executeIntent` as an audited system actor, and report the result across every merchant checked.",

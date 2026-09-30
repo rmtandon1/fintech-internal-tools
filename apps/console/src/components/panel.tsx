@@ -5,6 +5,7 @@ import { cn } from "@console/ui/utils";
  * body. Every screen region is a Panel.
  */
 export function Panel({
+  id,
   title,
   actions,
   className,
@@ -12,6 +13,8 @@ export function Panel({
   bodyClassName,
   children,
 }: {
+  /** An anchor for links into the region, e.g. `/t/refunds#rules`. */
+  id?: string;
   title: React.ReactNode;
   actions?: React.ReactNode;
   className?: string;
@@ -21,6 +24,7 @@ export function Panel({
 }) {
   return (
     <section
+      id={id}
       className={cn(
         "flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-xs",
         className,
