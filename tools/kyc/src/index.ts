@@ -2,17 +2,33 @@ import { and, asc, desc, eq, getTableColumns, gte, inArray, like, lt, or } from 
 import { z } from "zod";
 import { db } from "@console/db";
 import { defineAction, defineTool } from "@console/engine/declare";
+import { executeIntent } from "@console/engine/execute-intent";
 import type {
+  Actor,
   ApplyContext,
   ApplyResult,
   GovernedRecord,
+  IntentResult,
   Rule,
   SortOption,
 } from "@console/engine/types";
 import { rolesFor } from "@console/permissions";
-import { clusterHoldForCustomer, clusterHoldReason } from "@console/tool-refunds";
+import {
+  MERCHANT_MONITORING_KEY,
+  clusterHoldForCustomer,
+  clusterHoldReason,
+} from "@console/tool-refunds";
 import { caseFile, materialDifferences } from "./case-file";
+import { companiesHouseTransport } from "./companies-house";
 import { refundsForCase } from "./linked-activity";
+import {
+  approvedUkMerchants,
+  findingFor,
+  recheckMerchants,
+  recheckSummary,
+  writeRecheck,
+  type MerchantRecheck,
+} from "./merchant-monitoring";
 import { kycCases } from "./schema";
 import { seedKycCases } from "./seed";
 
@@ -53,6 +69,31 @@ export type {
 export const MANAGER_REVIEW_SCORE_KEY = "kyc.manager_review_score";
 export const COMPANIES_HOUSE_MONITORING_KEY = "kyc.companies_house_monitoring";
 export const PROHIBITED_COUNTRIES_KEY = "kyc.prohibited_countries";
+export { MERCHANT_MONITORING_KEY };
+export {
+  COMPANIES_HOUSE_API_KEY_ENV,
+  LOOKUP_TIMEOUT_MS,
+  RECORDED_FAILURES,
+  companiesHouseTransport,
+  liveTransport,
+  lookupCompany,
+  recordedTransport,
+  useCompaniesHouseTransport,
+  type CompaniesHouseTransport,
+  type ProcessRunner,
+  type RecordedResponse,
+} from "./companies-house";
+export { registryDifferenceId, type MerchantRecheck } from "./merchant-monitoring";
+
+/** The tool-wide action that rechecks every approved UK merchant on Companies House. */
+export const RECHECK_MERCHANTS_ACTION = "recheck_merchants";
+
+/** Who the daily recheck runs as; an admin-level system actor. */
+export const MERCHANT_MONITORING_ACTOR: Actor = {
+  id: "sys_merchant_monitoring",
+  name: "Daily Companies House recheck",
+  role: "admin",
+};
 
 const OPEN_STATUSES = ["pending_review", "info_requested", "escalated"];
 
@@ -158,6 +199,21 @@ const escalatedNeedsManager: CaseRule = ({ record }) =>
 const allow =
   (rule: string): CaseRule =>
   () => ({ type: "allow", rule });
+
+/** The recheck makes no lookup while `kyc.merchant_monitoring` is 0. */
+const merchantMonitoringOn: CaseRule = ({ constants }) =>
+  constants.number(MERCHANT_MONITORING_KEY, 0) === 0
+    ? {
+        type: "deny",
+        rule: "merchant_monitoring_on",
+        reason: `Merchant monitoring is off: ${MERCHANT_MONITORING_KEY} is 0`,
+      }
+    : { type: "allow", rule: "merchant_monitoring_on" };
+
+const merchantsToRecheck: CaseRule = () =>
+  approvedUkMerchants().length === 0
+    ? { type: "deny", rule: "merchants_to_recheck", reason: "No approved UK merchants to recheck" }
+    : { type: "allow", rule: "merchants_to_recheck" };
 
 const SORTABLE = {
   customerName: kycCases.customerName,
@@ -358,7 +414,16 @@ export const kycTool = defineTool<KycCase>({
       description: "Set to 1 to recheck approved UK merchants on Companies House daily. 0 keeps it off.",
       tool: "kyc",
     },
+    {
+      key: MERCHANT_MONITORING_KEY,
+      value: 0,
+      type: "number",
+      description:
+        "Set to 1 to recheck approved UK merchants on Companies House daily; one in administration, liquidation or dissolved goes to a manager with its refunds. 0 keeps it off.",
+      tool: "kyc",
+    },
   ],
+  adminActions: [{ label: "Recheck now", action: RECHECK_MERCHANTS_ACTION }],
   actions: [
     defineAction<KycCase, z.ZodObject<{ note: z.ZodOptional<z.ZodString> }>, Patch>({
       name: "approve",
@@ -448,6 +513,23 @@ export const kycTool = defineTool<KycCase>({
       }),
       apply: (ctx, decision) => write(ctx, decision.patch),
     }),
+    defineAction<KycCase, z.ZodObject<Record<string, never>>, RecheckPatch>({
+      name: RECHECK_MERCHANTS_ACTION,
+      label: "Recheck merchants on Companies House",
+      description:
+        "Look up every approved UK merchant on Companies House once; administration, liquidation, dissolved or a failed lookup sends the case to a manager.",
+      allowedRoles: rolesFor("kyc", "admin"),
+      input: z.object({}),
+      // Tool-wide: started from the Rules panel or the daily schedule, never offered on a case.
+      fromStatus: [],
+      createsRecord: true,
+      rules: [merchantMonitoringOn, merchantsToRecheck],
+      decide: () => {
+        const results = recheckMerchants(companiesHouseTransport());
+        return { summary: recheckSummary(results), patch: { results } };
+      },
+      apply: (ctx, decision) => applyRecheck(ctx, decision.patch),
+    }),
   ],
   list: ({ filters, search, sort, limit, offset }) => {
     const clauses = [];
@@ -495,6 +577,8 @@ export const kycTool = defineTool<KycCase>({
     request_info_always_permitted: "Asking for information is always allowed",
     escalate_always_permitted: "Escalating is always allowed",
     linked_refund_hold: "Linked refund hold",
+    merchant_monitoring_on: "Merchant monitoring switched on",
+    merchants_to_recheck: "Approved UK merchants to recheck",
   },
   ruleFields: {
     documents_complete: ["documentsComplete"],
@@ -534,6 +618,44 @@ function write(
   const after = getCase(record.id);
   if (!after) throw new Error(`kyc case ${record.id} vanished mid-apply`);
   return { recordId: record.id, before: record, after };
+}
+
+interface RecheckPatch {
+  results: MerchantRecheck[];
+}
+
+/**
+ * Writes every merchant's result. The audit row is filed on the first case the
+ * recheck flagged, or the first case checked when none was, and its summary
+ * lists every merchant's result.
+ */
+function applyRecheck(
+  { tx, now }: ApplyContext<KycCase, unknown>,
+  patch: RecheckPatch,
+): ApplyResult<KycCase> {
+  const subject = (patch.results.find((r) => findingFor(r)) ?? patch.results[0])?.caseId;
+  const before = subject ? getCase(subject) : null;
+  if (!subject || !before) throw new Error("the recheck has no merchant to report on");
+  writeRecheck(tx, patch.results, now);
+  const after = getCase(subject);
+  if (!after) throw new Error(`kyc case ${subject} vanished mid-apply`);
+  return { recordId: subject, before: after.version === before.version + 1 ? before : null, after };
+}
+
+/** One idempotency key per UTC day, so the daily schedule rechecks at most once a day. */
+export function dailyRecheckKey(now: number): string {
+  return `kyc.${RECHECK_MERCHANTS_ACTION}:${new Date(now).toISOString().slice(0, 10)}`;
+}
+
+/** The daily scheduled recheck: the same governed action, as the system actor. */
+export function runScheduledRecheck(now: number = Date.now()): IntentResult {
+  return executeIntent(MERCHANT_MONITORING_ACTOR, {
+    tool: "kyc",
+    action: RECHECK_MERCHANTS_ACTION,
+    recordId: null,
+    input: {},
+    idempotencyKey: dailyRecheckKey(now),
+  });
 }
 
 function getCase(id: string): KycCase | null {

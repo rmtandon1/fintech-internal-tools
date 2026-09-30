@@ -18,6 +18,8 @@ interface SeedRefund {
   customerEmail: string;
   cardLast4: string;
   merchant: string;
+  /** The merchant's KYC case, for merchants onboarded through KYC. */
+  merchantCaseId?: string;
   psp: string;
   currency: string;
   capturedMinor: number;
@@ -42,6 +44,7 @@ const REFUNDS: SeedRefund[] = [
     customerEmail: "helena.vasquez@example.com",
     cardLast4: "4417",
     merchant: "Northwind Freight",
+    merchantCaseId: "kyc_0003",
     psp: "stripe",
     currency: "EUR",
     capturedMinor: 12_900,
@@ -91,6 +94,7 @@ const REFUNDS: SeedRefund[] = [
     customerEmail: "kyb@harbourpointcapital.example.com",
     cardLast4: "1180",
     merchant: "Harbour Point Capital",
+    merchantCaseId: "kyc_0011",
     psp: "adyen",
     currency: "USD",
     capturedMinor: 1_450_000,
@@ -142,6 +146,7 @@ const REFUNDS: SeedRefund[] = [
     customerEmail: "selim.aydin@example.com",
     cardLast4: "6612",
     merchant: "Northwind Freight",
+    merchantCaseId: "kyc_0003",
     psp: "stripe",
     currency: "USD",
     capturedMinor: 74_500,
@@ -193,6 +198,7 @@ const REFUNDS: SeedRefund[] = [
     customerEmail: "viktor.sandoval@example.com",
     cardLast4: "7712",
     merchant: "Northwind Freight",
+    merchantCaseId: "kyc_0003",
     psp: "stripe",
     currency: "USD",
     capturedMinor: 22_000,
@@ -282,6 +288,7 @@ const REFUNDS: SeedRefund[] = [
     customerEmail: "molly.reyes@example.com",
     cardLast4: "2210",
     merchant: "Wilko",
+    merchantCaseId: "kyc_0104",
     psp: "stripe",
     currency: "GBP",
     capturedMinor: 2_499,
@@ -299,6 +306,7 @@ const REFUNDS: SeedRefund[] = [
     customerEmail: "dan.whitfield@example.com",
     cardLast4: "8874",
     merchant: "Wilko",
+    merchantCaseId: "kyc_0104",
     psp: "adyen",
     currency: "GBP",
     capturedMinor: 3_950,
@@ -316,6 +324,7 @@ const REFUNDS: SeedRefund[] = [
     customerEmail: "sana.qureshi@example.com",
     cardLast4: "5510",
     merchant: "Wilko",
+    merchantCaseId: "kyc_0104",
     psp: "checkout",
     currency: "GBP",
     capturedMinor: 1_800,
@@ -333,6 +342,7 @@ const REFUNDS: SeedRefund[] = [
     customerEmail: "tom.eckersley@example.com",
     cardLast4: "3395",
     merchant: "Wilko",
+    merchantCaseId: "kyc_0104",
     psp: "stripe",
     currency: "GBP",
     capturedMinor: 6_499,
@@ -350,6 +360,7 @@ const REFUNDS: SeedRefund[] = [
     customerEmail: "lucia.marino@example.com",
     cardLast4: "7708",
     merchant: "Wilko",
+    merchantCaseId: "kyc_0104",
     psp: "adyen",
     currency: "GBP",
     capturedMinor: 3_200,
@@ -368,6 +379,7 @@ const REFUNDS: SeedRefund[] = [
     customerEmail: "grace.holloway@example.com",
     cardLast4: "6642",
     merchant: "Lakeland",
+    merchantCaseId: "kyc_0105",
     psp: "stripe",
     currency: "GBP",
     capturedMinor: 4_500,
@@ -391,6 +403,7 @@ export function seedRefunds(): void {
       customerEmail: r.customerEmail,
       cardLast4: r.cardLast4,
       merchant: r.merchant,
+      merchantCaseId: r.merchantCaseId ?? null,
       psp: r.psp,
       currency: r.currency,
       capturedMinor: r.capturedMinor,

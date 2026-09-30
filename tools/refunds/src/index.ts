@@ -19,6 +19,7 @@ import type {
 import { rolesFor } from "@console/permissions";
 import { clusteringHold } from "./clustering-hold";
 import { CLUSTERING_WINDOW_DAYS_KEY, MANAGER_APPROVAL_USD_KEY, notReceivedByMerchant } from "./clusters";
+import { merchantInsolvency } from "./merchant-standing";
 import { refunds } from "./schema";
 import { seedRefunds } from "./seed";
 
@@ -29,6 +30,14 @@ export {
   notReceivedByMerchant,
 } from "./clusters";
 export { clusterHoldFor, clusterHoldForCustomer, clusterHoldReason } from "./clustering-hold";
+export {
+  INSOLVENT_COMPANY_STATUSES,
+  MERCHANT_MONITORING_KEY,
+  companyStatusPhrase,
+  isInsolventCompanyStatus,
+  merchantInsolvencyFor,
+  type InsolventCompanyStatus,
+} from "./merchant-standing";
 
 export interface Refund extends GovernedRecord {
   id: string;
@@ -36,6 +45,7 @@ export interface Refund extends GovernedRecord {
   customerEmail: string;
   cardLast4: string;
   merchant: string;
+  merchantCaseId: string | null;
   psp: string;
   currency: string;
   capturedMinor: number;
@@ -202,6 +212,7 @@ export const refundTool = defineTool<Refund>({
   fields: [
     { name: "paymentId", label: "Payment", type: "string" },
     { name: "merchant", label: "Merchant", type: "string" },
+    { name: "merchantCaseId", label: "Merchant case", type: "string" },
     { name: "customerEmail", label: "Customer email", type: "string", isPII: true },
     { name: "cardLast4", label: "Card", type: "string", isPII: true, revealTail: 4 },
     { name: "psp", label: "Processor", type: "string" },
@@ -350,7 +361,7 @@ export const refundTool = defineTool<Refund>({
     },
   ],
   sections: [
-    { title: "Payment", fields: ["paymentId", "merchant", "psp", "capturedMinor", "refundedMinor"] },
+    { title: "Payment", fields: ["paymentId", "merchant", "merchantCaseId", "psp", "capturedMinor", "refundedMinor"] },
     { title: "Refund", fields: ["amountMinor", "currency", "usdMinor", "reasonCode", "disputed"] },
     { title: "Customer", fields: ["customerEmail", "cardLast4"] },
     { title: "Case", fields: ["requestedBy", "requestedAt", "settledAt", "lastNote"] },
@@ -401,7 +412,14 @@ export const refundTool = defineTool<Refund>({
       fromStatus: ["requested", "failed"],
       tone: "primary",
       routeToApprover: true,
-      rules: [withinCapturedAmount, notDisputed, amountApproval, goodwillApproval, clusteringHold],
+      rules: [
+        withinCapturedAmount,
+        notDisputed,
+        amountApproval,
+        goodwillApproval,
+        clusteringHold,
+        merchantInsolvency,
+      ],
       suggest: () => ({ note: "Checks passed; sending to the processor." }),
       decide: ({ record, input }) => ({
         summary: `Send ${record?.id ?? ""} to processor: ${money(record?.amountMinor ?? 0, record?.currency ?? "USD")} to ${record?.merchant ?? ""}`,
@@ -472,6 +490,7 @@ export const refundTool = defineTool<Refund>({
     goodwill_approval: "Goodwill limit",
     payment_approver: "Manager approval",
     clustering_hold: "Refund clustering hold",
+    merchant_insolvency: "Merchant insolvency",
     settlement_is_a_record_keeping_step: "Record-keeping step",
     failure_is_a_record_keeping_step: "Record-keeping step",
   },
@@ -481,6 +500,7 @@ export const refundTool = defineTool<Refund>({
     amount_approval: ["amountMinor", "usdMinor"],
     goodwill_approval: ["reasonCode", "amountMinor"],
     clustering_hold: ["merchant", "reasonCode", "usdMinor"],
+    merchant_insolvency: ["merchant", "merchantCaseId"],
   },
   clusters: [
     {
