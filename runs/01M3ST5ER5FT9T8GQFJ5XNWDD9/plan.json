@@ -1,0 +1,29 @@
+{
+  "files": [
+    { "path": "tools/refunds/src/clustering-hold.ts", "op": "create", "reason": "clustering_hold rule: a merchant's non-rejected not_received refunds inside refunds.clustering_window_days, summed in request order; the refund whose running total reaches the manager limit and every later one needs a manager. Also the per-customer lookup the KYC rule reads, and the trace reason (merchant, running total, window, limit; no customer data)." },
+    { "path": "tools/refunds/src/index.ts", "op": "modify", "reason": "Add clustering_hold to execute before merchant_insolvency (queueOf and managerRoute then route held refunds to the manager), declare refunds.clustering_window_days at 0, add its rule label and fields, export the hold helpers." },
+    { "path": "tools/kyc/src/index.ts", "op": "modify", "reason": "Add linked_refund_hold to approve before escalated_needs_manager: a case whose email has a held refund needs a manager whatever the risk score; add its label." },
+    { "path": "apps/console/tests/tools/refunds-clustering-hold.test.ts", "op": "create", "reason": "Refund hold behaviour: declared at 0 and off at 0; the crossing refund and every later one go to the manager; the first applies; faulty refunds and rejected refunds are unaffected / don't count." },
+    { "path": "apps/console/tests/tools/kyc-linked-refund-hold.test.ts", "op": "create", "reason": "Linked KYC hold: a held customer's approval needs a manager whatever the score; a customer with no held refund is unchanged." },
+    { "path": "apps/console/tests/tools/kyc-case-file.test.ts", "op": "modify", "reason": "Rewrite the kyc_0013 window-at-14 test to expect linked_refund_hold (and allow again at 0); add linked_refund_hold to the approve rule order." },
+    { "path": "apps/console/tests/tools/refunds-clusters.test.ts", "op": "modify", "reason": "Rewrite the window test (tool now declares 0, so it sets 14 via setConstant), the 'no longer declares' test to expect the setting at 0, and the Kestrel queue test to expect the crossing refund and later ones in the manager's queue with clustering_hold in the trace." }
+  ],
+  "reuses": [
+    { "module": "tools/refunds/src/clusters.ts", "reason": "CLUSTERING_WINDOW_DAYS_KEY, MANAGER_APPROVAL_USD_KEY and their defaults; same window and rejected-refund semantics as notReceivedByMerchant." },
+    { "module": "tools/refunds/src/index.ts queueOf/managerRoute", "reason": "Queue placement and reject routing follow execute's live rules, so a held refund moves to the manager's queue without new code." },
+    { "module": "packages/engine (evaluatePolicy, executeIntent, approvals, registerConstants, setConstant)", "reason": "The holds are require_approval rule outcomes; approval requests and audit go through the existing governed write path." },
+    { "module": "tools/kyc/src/linked-activity.ts refundsForCase", "reason": "The KYC case already shows the customer's refunds and held approvals through linkedActivity; no new link is needed." },
+    { "module": "@console/permissions rolesFor", "reason": "Manager roles for the refunds and kyc tiers." }
+  ],
+  "acceptance": [
+    "The refunds tool declares refunds.clustering_window_days at 0, and at 0 clustering_hold reads allow for every refund and none leaves the analyst's queue.",
+    "With the window at 14, the refund that takes Kestrel's not_received total to the manager limit (rfnd_0013, $925) needs a manager, leaves the analyst's queue for the manager's, and an analyst cannot execute it; the trace names clustering_hold, the merchant and the running total.",
+    "Every later refund in the same cluster (rfnd_0012 $1,400, rfnd_0011 $1,880) goes to the manager's queue too.",
+    "The first refund in the cluster (rfnd_0014, $465, under the limit) stays with the analyst and is applied.",
+    "A faulty refund from the same merchant is not held.",
+    "Rejected refunds don't count toward the running total.",
+    "With the window at 14, approving kyc_0013 (customer behind held rfnd_0012, risk 68) needs a manager; the trace names linked_refund_hold and carries no customer data.",
+    "A KYC case whose customer has no held refund is unchanged: kyc_0013 clears at window 0, and when its refund is rejected.",
+    "Approve's rule order includes linked_refund_hold before escalated_needs_manager; execute's trace includes clustering_hold before merchant_insolvency."
+  ]
+}
