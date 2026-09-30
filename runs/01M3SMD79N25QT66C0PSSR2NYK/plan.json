@@ -1,0 +1,28 @@
+{
+  "files": [
+    { "path": "tools/refunds/src/clustering-hold.ts", "op": "create", "reason": "clustering_hold rule: the merchant's non-rejected not_received refunds inside refunds.clustering_window_days, summed in request order; the refund that takes the total to the manager limit and every later one needs a manager. Also the per-customer lookup the KYC rule reads." },
+    { "path": "tools/refunds/src/index.ts", "op": "modify", "reason": "Register clustering_hold on execute (so queueOf and reject's payment_approver route held refunds to the manager), declare refunds.clustering_window_days at 0, add its rule label and fields, export the hold helpers." },
+    { "path": "tools/kyc/src/index.ts", "op": "modify", "reason": "Add linked_refund_hold to approve, before escalated_needs_manager: a case whose email has a held refund needs a manager." },
+    { "path": "apps/console/tests/tools/refunds-clustering-hold.test.ts", "op": "create", "reason": "Refund hold behaviour tests (first refund applies, crossing refund and later ones go to the manager, faulty unaffected, rejected don't count, window 0 is off)." },
+    { "path": "apps/console/tests/tools/kyc-linked-refund-hold.test.ts", "op": "create", "reason": "Linked KYC hold tests (held customer needs a manager whatever the score; customer with no held refunds unchanged, score 68 clears)." },
+    { "path": "apps/console/tests/tools/kyc-case-file.test.ts", "op": "modify", "reason": "Rewrite 'approve's rules run in order with the new rules before escalation' to include linked_refund_hold before escalated_needs_manager." },
+    { "path": "apps/console/tests/tools/refunds-clusters.test.ts", "op": "modify", "reason": "Rewrite 'a window of 0 switches the hold off...': the tool now declares the window at 0, so the test sets 14 through setConstant instead of relying on registerConstants inserting 14." }
+  ],
+  "reuses": [
+    { "module": "tools/refunds/src/clusters.ts", "reason": "CLUSTERING_WINDOW_DAYS_KEY, MANAGER_APPROVAL_USD_KEY and their defaults; same window and rejected-refund semantics as notReceivedByMerchant." },
+    { "module": "packages/engine (evaluatePolicy, executeIntent, approvals)", "reason": "The hold is a require_approval rule outcome; routing, approval requests and audit go through the existing governed write path." },
+    { "module": "tools/refunds/src/index.ts queueOf/managerRoute", "reason": "Queue placement and reject routing already follow execute's live rules, so a held refund moves to the manager's queue without new code." },
+    { "module": "@console/permissions rolesFor", "reason": "Manager roles for the refunds and kyc tiers." }
+  ],
+  "acceptance": [
+    "The first refund in a cluster whose running total is under the manager line is applied.",
+    "The refund that takes the merchant's not_received total over the manager line within the window needs a manager and leaves the analyst's queue for the manager's; the trace names clustering_hold, the merchant and the running total.",
+    "Every later refund in the same cluster is routed to the manager's queue too.",
+    "A faulty refund from the same merchant is not affected.",
+    "Rejected refunds don't count toward the total.",
+    "With refunds.clustering_window_days at 0 (the declared default), clustering_hold reads allow and no refund is routed by it.",
+    "Approving a case whose email matches a customer in a held cluster needs a manager, whatever the risk score; the trace names linked_refund_hold.",
+    "A case whose customer has no held refunds is unchanged; score 68 still clears.",
+    "Existing tests moved on purpose: kyc-case-file 'approve's rules run in order with the new rules before escalation' and refunds-clusters 'a window of 0 switches the hold off but the strip keeps a 14-day window; a negative window falls back to 14 days'; no test is lost."
+  ]
+}
