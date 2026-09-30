@@ -16,6 +16,7 @@ import {
   type GitHubClient,
   IN_FLIGHT_STATUSES,
   COMPANIES_HOUSE_CHECK,
+  REFUND_CLUSTERING_HOLD,
   type SessionSnapshot,
 } from "@console/tool-automation";
 import { replayDevinClient, replayGitHubClient, scriptedFrames } from "../helpers/scripted-clients";
@@ -29,6 +30,7 @@ import { admin, analyst, setupHarness } from "../helpers/harness";
 
 const engineer: Actor = { id: "usr_engineer", name: "Engineer", role: "engineer" };
 const CASE = ["kyc_0003"];
+const KESTREL = ["rfnd_0011", "rfnd_0012", "rfnd_0013", "rfnd_0014"];
 
 let repoRoot: string;
 let replaysDir: string;
@@ -227,6 +229,7 @@ describe("GET /api/devin/<runId>", () => {
           state: "closed" as const,
           merged: true,
           mergeCommit: "d".repeat(40),
+          mergedBy: null,
         };
       },
       async getChecks() {
@@ -261,7 +264,9 @@ describe("GET /api/devin/<runId>", () => {
   function githubWith(state: {
     reviews?: { login: string; body?: string }[];
     merged?: boolean;
+    mergedBy?: string | null;
     closed?: boolean;
+    green?: boolean;
     contextSha: () => string | null;
   }) {
     const client: GitHubClient = {
@@ -272,10 +277,11 @@ describe("GET /api/devin/<runId>", () => {
           state: state.merged || state.closed ? "closed" : "open",
           merged: state.merged ?? false,
           mergeCommit: state.merged ? "d".repeat(40) : null,
+          mergedBy: state.merged ? (state.mergedBy ?? null) : null,
         };
       },
       async getChecks() {
-        return { green: true, summary: "all checks green" };
+        return { green: state.green ?? true, summary: state.green === false ? "failed: verify" : "all checks green" };
       },
       async fileSha256() {
         return state.contextSha();
@@ -337,6 +343,41 @@ describe("GET /api/devin/<runId>", () => {
     expect(body.githubNotice).toBe("Approved on GitHub by @drive-by (not a console engineer)");
     expect(devin.sent).toEqual([]);
     expect(listAuditEvents({ recordId: out.runId, action: "approve_pr" }).rows).toHaveLength(0);
+  });
+
+  it("records the mapped engineer's merge as their approval, and links the changed tool", async () => {
+    stopAll();
+    const devin = prReported();
+    let contextSha: string | null = null;
+    const github = githubWith({ merged: true, mergedBy: "rmtandon1", contextSha: () => contextSha });
+    const d = { ...deps(), devin: devin.client, github };
+    const out = await dispatchRun(
+      admin,
+      {
+        spec: REFUND_CLUSTERING_HOLD.file,
+        operation: "change",
+        intent: REFUND_CLUSTERING_HOLD.intents.change,
+        evidenceKey: "Kestrel Outdoors",
+        evidenceIds: KESTREL,
+      },
+      d,
+    );
+    contextSha = getRun(out.runId)?.contextSha256 ?? null;
+
+    const merged = (await handleGet(out.runId, engineer, d)).body as RunViewPayload;
+    expect(merged.run.status).toBe("merged");
+    expect(merged.run.approvedBy).toBe(engineer.id);
+    expect(merged.run.lastNote).toBe("Approved on GitHub by @rmtandon1, who merged without a review");
+    // The engineer can't open the refunds queue, so the poll's payload links nothing.
+    expect(merged.changeLink).toBeNull();
+    expect(devin.sent).toEqual([]);
+
+    const adminView = (await handleGet(out.runId, admin, d)).body as RunViewPayload;
+    expect(adminView.changeLink).toEqual({ href: "/t/refunds", label: "Refunds", live: true });
+    const approvals = listAuditEvents({ recordId: out.runId, action: "approve_pr" }).rows;
+    expect(approvals).toHaveLength(1);
+    expect(approvals[0]?.actorId).toBe(engineer.id);
+    expect(listAuditEvents({ recordId: out.runId, action: "record_merge" }).rows).toHaveLength(1);
   });
 
   it("records a merge GitHub reports before any approval, and says so on the run", async () => {

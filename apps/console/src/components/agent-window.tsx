@@ -15,9 +15,12 @@ import { useWorkspace } from "@/components/workspace";
  */
 function AgentWindowContent({
   children,
+  role,
   onRunTitle,
 }: {
   children?: React.ReactNode;
+  /** The viewer's role; part of the run view's key so a role switch remounts it. */
+  role?: string;
   onRunTitle: (title: string) => void;
 }) {
   const { agentFocus } = useWorkspace();
@@ -25,7 +28,7 @@ function AgentWindowContent({
     return <HandoffPanel offer={agentFocus.offer} />;
   }
   if (agentFocus?.kind === "run") {
-    return <RunView key={agentFocus.runId} runId={agentFocus.runId} onTitle={onRunTitle} />;
+    return <RunView key={`${agentFocus.runId}:${role ?? ""}`} runId={agentFocus.runId} onTitle={onRunTitle} />;
   }
   return <>{children}</>;
 }
@@ -41,9 +44,12 @@ function AgentWindowContent({
 export function AgentWindow({
   children,
   source = "",
+  role,
 }: {
   children?: React.ReactNode;
   source?: string;
+  /** The viewer's role, threaded to the run view's remount key. */
+  role?: string;
 }) {
   const { agentOpen, setAgentOpen, toggleAgent, agentFocus } = useWorkspace();
   const [runTitle, setRunTitle] = useState<{ runId: string; title: string } | null>(null);
@@ -93,7 +99,7 @@ export function AgentWindow({
           className="max-h-[85vh] rounded-none border-0"
           bodyClassName="flex flex-col"
         >
-          <AgentWindowContent onRunTitle={onRunTitle}>{children}</AgentWindowContent>
+          <AgentWindowContent role={role} onRunTitle={onRunTitle}>{children}</AgentWindowContent>
         </Panel>
       </DialogContent>
     </Dialog>

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -30,6 +31,8 @@ const RUN_STATUSES = RUN_STATUS_OPTIONS;
 const PHASE_ORDER = ["intake", "baseline", "plan", "edit", "verify", "pull_request", "approved", "merged"] as const;
 /** The note `observeGitHubApproval` records; the approval row shows it in place of the actor id. */
 const GITHUB_APPROVAL_PREFIX = "Approved on GitHub by @";
+/** The gap note `record_merge` writes when GitHub names the merger; shown under the approval row. */
+const GITHUB_MERGED_PREFIX = "Merged on GitHub by @";
 
 const PHASE_LABELS: Record<(typeof PHASE_ORDER)[number], string> = {
   intake: "Read the evidence",
@@ -46,6 +49,8 @@ type CheckLine = {
   state: "done" | "active" | "waiting" | "failed";
   label: string;
   detail?: string;
+  /** When set, the detail renders as an external link (the PR's number). */
+  href?: string;
   kind?: "note" | "artifact";
 };
 type CheckPhase = CheckLine & { children?: CheckLine[] };
@@ -54,6 +59,7 @@ function CheckRow({
   state,
   label,
   detail,
+  href,
   children,
   kind,
   nested = false,
@@ -134,15 +140,30 @@ function CheckRow({
         {label}
       </span>
       {detail ? (
-        <span
-          className={cn(
-            "shrink-0 font-mono text-xs tabular-nums",
-            nested ? "max-w-[50%] truncate" : "text-muted-foreground",
-          )}
-          title={nested ? detail : undefined}
-        >
-          {detail}
-        </span>
+        href ? (
+          <a
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className={cn(
+              "shrink-0 font-mono text-xs tabular-nums underline-offset-2 hover:underline",
+              nested ? "max-w-[50%] truncate" : "text-muted-foreground",
+            )}
+            title={nested ? detail : undefined}
+          >
+            {detail}
+          </a>
+        ) : (
+          <span
+            className={cn(
+              "shrink-0 font-mono text-xs tabular-nums",
+              nested ? "max-w-[50%] truncate" : "text-muted-foreground",
+            )}
+            title={nested ? detail : undefined}
+          >
+            {detail}
+          </span>
+        )
       ) : null}
       {children && children.length > 0 ? (
         <ul className="ml-2.5 mt-0.5 w-full pl-5" data-testid="phase-lines">
@@ -247,12 +268,19 @@ function Checklist({
       }
       case "pull_request":
         row.detail = prNumber ? `#${prNumber}` : undefined;
+        if (run.status === "merged" && pr) row.href = pr;
         break;
       case "approved":
         if (run.lastNote?.startsWith(GITHUB_APPROVAL_PREFIX)) {
           row.label = run.lastNote;
         } else {
           row.detail = run.approvedBy ?? (run.status === "merged" ? "not recorded" : undefined);
+          if (run.status === "merged" && !run.approvedBy && run.lastNote?.startsWith(GITHUB_MERGED_PREFIX)) {
+            row.children = [
+              ...notes,
+              { state: "done" as const, label: run.lastNote, kind: "note" as const },
+            ];
+          }
         }
         break;
       case "merged":
@@ -449,6 +477,16 @@ export function RunView({
   const thinking = thinkingLine(latest, payload.devinMessage);
 
   const ended = TERMINAL.has(run.status);
+  const merged = run.status === "merged";
+  const mergedHint = !merged
+    ? null
+    : offers.sync
+      ? "Merged. Pull the merged code so this console runs the change."
+      : payload.changeLink
+        ? payload.changeLink.live
+          ? (payload.outcome ?? "The change is live in this console.")
+          : "Merged. It runs here once an engineer pulls the merged code."
+        : null;
   const linkButton =
     "flex h-10 flex-1 items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors";
 
@@ -529,6 +567,11 @@ export function RunView({
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2 border-t border-border px-5 py-3">
+        {merged && mergedHint ? (
+          <p className="w-full text-xs text-muted-foreground" data-testid="merged-next-step">
+            {mergedHint}
+          </p>
+        ) : null}
         {sessionUrl ? (
           <a
             href={sessionUrl}
@@ -540,7 +583,7 @@ export function RunView({
             View in Devin session
           </a>
         ) : null}
-        {pr ? (
+        {pr && !merged ? (
           <a
             href={pr}
             target="_blank"
@@ -556,6 +599,15 @@ export function RunView({
             <GitHubMark className="size-4" />
             Pull merged code
           </Button>
+        ) : payload.changeLink ? (
+          <Link
+            href={payload.changeLink.href}
+            className={cn(linkButton, "bg-primary text-primary-foreground hover:bg-primary/90")}
+            data-testid="open-changed-tool"
+          >
+            <Icon name="ArrowRight" className="size-4" />
+            See it in {payload.changeLink.label}
+          </Link>
         ) : null}
         {offers.approve.offered ? (
           <Button className="h-10 flex-1" onClick={() => setApproveOpen(true)} data-testid="approve-run">

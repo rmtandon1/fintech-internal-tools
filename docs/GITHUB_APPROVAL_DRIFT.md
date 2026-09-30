@@ -90,6 +90,11 @@ uses rather than writing around it.
 - `record_merge` accepts `running` as well as `approved`. From `running` it keeps `approvedBy`
   null, writes rule `merge_without_recorded_approval` and sets the run's note to
   `Merged on GitHub without a recorded approval`. The approval row reads `not recorded`.
+- A merge by a login that maps to a console engineer runs the same `approve_pr` as a review,
+  with the note `Approved on GitHub by @login, who merged without a review`, before
+  `record_merge`; the run lands `merge_follows_approval` with `approvedBy` set.
+- Any other merge — no `merged_by`, an unmapped login, or an approval the rules deny — records
+  the gap note naming the merger from `merged_by`.
 - `observeMerge` falls back to the PR URL from the poll or the session's latest structured output,
   so a PR merged before `record_pr` ran is still found.
 - The merge is recorded as the approver when there is one, else as the console's engineer actor
@@ -115,11 +120,14 @@ uses rather than writing around it.
 - reports a denial while checks are red without spending the approval's idempotency key
 
 Under `observeMerge and stopRun`: records a merge GitHub reports on a running run, naming the
-missing approval.
+missing approval; counts a merge by the mapped engineer as their approval before recording the
+merge; records a merge by a login no engineer claims, naming the merger in the gap note; merges
+with the named-gap note when the merger's approval is denied by red checks.
 
 `apps/console/tests/api/devin-route.test.ts`: records the mapped engineer's GitHub approval on
 the poll and tells Devin to merge, once; shows an approval by a login no engineer claims without
-recording it; records a merge GitHub reports before any approval, and says so on the run.
+recording it; records the mapped engineer's merge as their approval, and links the changed tool;
+records a merge GitHub reports before any approval, and says so on the run.
 
 These run against scripted GitHub and Devin clients. #123's browser check ran in simulation mode,
 so the day-ahead Kestrel run is approved on GitHub to check one real approval (Loom Demo Checklist).

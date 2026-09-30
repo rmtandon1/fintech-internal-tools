@@ -249,16 +249,29 @@ const prNotYetRecorded: RunRule<RecordPrInput> = ({ record, input }) =>
 const RecordMergeInput = z.object({
   mergeCommit: z.string().regex(/^[0-9a-f]{7,40}$/),
   prUrl: z.string().url(),
+  /** The GitHub login that merged the PR, when GitHub reported one. */
+  mergedBy: z.string().min(1).max(100).optional(),
 });
 type RecordMergeInput = z.infer<typeof RecordMergeInput>;
 
 export const MERGED_WITHOUT_APPROVAL_NOTE = "Merged on GitHub without a recorded approval";
 
+/** The run's note when a merge lands with no recorded approval, naming the merger GitHub reported. */
+export function mergedWithoutApprovalNote(mergedBy?: string | null): string {
+  return mergedBy
+    ? `Merged on GitHub by @${mergedBy} without a recorded approval`
+    : MERGED_WITHOUT_APPROVAL_NOTE;
+}
+
 /** A merge is a fact GitHub reports; one recorded before any approval is allowed, and named. */
-const mergeRecordsApprovalGap: RunRule<RecordMergeInput> = ({ record }) =>
+const mergeRecordsApprovalGap: RunRule<RecordMergeInput> = ({ record, input }) =>
   record?.status === "approved"
     ? { type: "allow", rule: "merge_follows_approval" }
-    : { type: "allow", rule: "merge_without_recorded_approval", message: MERGED_WITHOUT_APPROVAL_NOTE };
+    : {
+        type: "allow",
+        rule: "merge_without_recorded_approval",
+        message: mergedWithoutApprovalNote(input.mergedBy),
+      };
 
 const StopInput = z.object({ reason: z.string().min(1).max(500) });
 
@@ -478,7 +491,7 @@ export const automationTool = defineTool<DevinRun>({
           status: "merged",
           mergeCommit: input.mergeCommit,
           prUrl: input.prUrl,
-          ...(record?.status === "approved" ? {} : { note: MERGED_WITHOUT_APPROVAL_NOTE }),
+          ...(record?.status === "approved" ? {} : { note: mergedWithoutApprovalNote(input.mergedBy) }),
         },
         nextStatus: "merged",
       }),

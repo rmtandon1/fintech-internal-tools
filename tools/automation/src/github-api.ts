@@ -22,6 +22,8 @@ export interface PullState {
   state: "open" | "closed";
   merged: boolean;
   mergeCommit: string | null;
+  /** Login of whoever merged the PR; null unless it is merged. */
+  mergedBy: string | null;
 }
 
 export interface ChecksState {
@@ -73,6 +75,7 @@ const Pull = z.object({
   state: z.enum(["open", "closed"]),
   merged: z.boolean(),
   merge_commit_sha: z.string().nullable(),
+  merged_by: z.object({ login: z.string() }).nullable().optional(),
 });
 
 const CheckRuns = z.object({
@@ -139,6 +142,7 @@ export function httpGitHubClient(token: string, fetchImpl: FetchLike, baseUrl = 
         state: pull.state,
         merged: pull.merged,
         mergeCommit: pull.merged ? pull.merge_commit_sha : null,
+        mergedBy: pull.merged ? (pull.merged_by?.login ?? null) : null,
       };
     },
     async getChecks(pr, headSha) {

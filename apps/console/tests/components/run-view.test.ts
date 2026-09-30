@@ -65,6 +65,7 @@ function payload(overrides: Partial<RunViewPayload> = {}): RunViewPayload {
     },
     githubSyncedAt: null,
     githubNotice: null,
+    changeLink: null,
     ...overrides,
   };
 }
@@ -339,5 +340,89 @@ describe("GitHub sync line", () => {
     );
     expect(html).toContain("Approved by an engineer");
     expect(html).toContain("not recorded");
+  });
+});
+
+describe("Merged run next step", () => {
+  const PR_URL = "https://github.com/rmtandon1/buy-v-build-cog-demo/pull/990";
+  function mergedRun(overrides: Partial<RunViewPayload["run"]> = {}) {
+    const p = payload();
+    return payload({
+      run: {
+        ...p.run,
+        status: "merged",
+        prUrl: PR_URL,
+        mergeCommit: "d".repeat(40),
+        approvedBy: "usr_engineer",
+        ...overrides,
+      },
+    });
+  }
+
+  it("offers the pull as the next step when the checkout lacks the merge", () => {
+    const p = mergedRun();
+    const html = render({ ...p, offers: { ...p.offers, sync: true } });
+    expect(html).toContain("Pull merged code");
+    expect(html).toMatch(
+      /data-testid="merged-next-step"[^>]*>Merged\. Pull the merged code so this console runs the change\.</,
+    );
+    expect(html).not.toContain("PR #990");
+    expect(html).not.toContain('data-testid="open-changed-tool"');
+    // The PR number moved into the checklist, as a link.
+    expect(html).toContain(`<a href="${PR_URL}"`);
+    expect(html).toContain("#990");
+  });
+
+  it("links the changed tool when the merged code already runs here", () => {
+    const p = mergedRun();
+    const html = render({
+      ...p,
+      outcome: "The hold is live in this console.",
+      changeLink: { href: "/t/refunds", label: "Refunds", live: true },
+    });
+    expect(html).toContain('data-testid="open-changed-tool"');
+    expect(html).toContain('href="/t/refunds"');
+    expect(html).toContain("See it in Refunds");
+    expect(html).toMatch(
+      /data-testid="merged-next-step"[^>]*>The hold is live in this console\.</,
+    );
+    expect(html).not.toContain("PR #990");
+    expect(html).toMatch(new RegExp(`<a[^>]*href="${PR_URL.replaceAll("/", "\\/")}"`));
+  });
+
+  it("says the change is not live yet when the tool is linked but the checkout lags", () => {
+    const p = mergedRun();
+    const html = render({
+      ...p,
+      changeLink: { href: "/t/refunds", label: "Refunds", live: false },
+    });
+    expect(html).toMatch(
+      /data-testid="merged-next-step"[^>]*>Merged\. It runs here once an engineer pulls the merged code\.</,
+    );
+  });
+
+  it("keeps the footer pull-request button while the run is still running", () => {
+    const p = payload();
+    const html = render({ ...p, run: { ...p.run, prUrl: PR_URL } });
+    expect(html).toContain("PR #990");
+  });
+
+  it("names the merger under the approval row when no approval was recorded", () => {
+    const html = render(
+      mergedRun({
+        approvedBy: null,
+        lastNote: "Merged on GitHub by @octo-eng without a recorded approval",
+      }),
+    );
+    expect(html).toContain("not recorded");
+    expect(html).toContain("Merged on GitHub by @octo-eng without a recorded approval");
+  });
+
+  it("shows a merge that was its own approval as the approval row's label", () => {
+    const html = render(
+      mergedRun({ lastNote: "Approved on GitHub by @rmtandon1, who merged without a review" }),
+    );
+    expect(html).toContain("Approved on GitHub by @rmtandon1, who merged without a review");
+    expect(html).not.toContain("not recorded");
   });
 });
