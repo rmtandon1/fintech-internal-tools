@@ -1,9 +1,13 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { ulid } from "ulid";
+import { listAuditEvents } from "@console/engine/audit/query";
 import { executeIntent } from "@console/engine/execute-intent";
 import { setConstant } from "@console/engine/policy/set-constant";
-import { APPROVAL_THRESHOLD_KEY } from "../fixtures/widgets";
-import { admin, analyst, makeWidget, setupHarness } from "../helpers/harness";
+import type { Actor } from "@console/engine/types";
+import { APPROVAL_THRESHOLD_KEY, SPEND_FEE_KEY } from "../fixtures/widgets";
+import { admin, analyst, makeWidget, manager, setupHarness } from "../helpers/harness";
+
+const engineer: Actor = { id: "usr_engineer", name: "Engineer", role: "engineer" };
 
 beforeAll(() => setupHarness());
 
@@ -86,5 +90,40 @@ describe("policy precedence", () => {
     expect(spend(40, "w_constant").outcome.status).toBe("pending_approval");
 
     setConstant(admin, APPROVAL_THRESHOLD_KEY, "50");
+  });
+});
+
+describe("setConstant", () => {
+  const managerKeys = new Set([APPROVAL_THRESHOLD_KEY]);
+
+  it("lets a manager change a key named in managerKeys, audited with the before/after values", () => {
+    setConstant(admin, APPROVAL_THRESHOLD_KEY, "50");
+    const result = setConstant(manager, APPROVAL_THRESHOLD_KEY, "60", { managerKeys });
+    expect(result).toEqual({ ok: true, key: APPROVAL_THRESHOLD_KEY, before: 50, after: 60 });
+
+    const row = listAuditEvents({ recordId: APPROVAL_THRESHOLD_KEY, limit: 1 }).rows[0];
+    expect(row?.action).toBe("set_constant");
+    expect(row?.actorId).toBe(manager.id);
+    expect(JSON.parse(row?.beforeJson ?? "null")).toEqual({ key: APPROVAL_THRESHOLD_KEY, value: 50 });
+    expect(JSON.parse(row?.afterJson ?? "null")).toEqual({ key: APPROVAL_THRESHOLD_KEY, value: 60 });
+
+    setConstant(admin, APPROVAL_THRESHOLD_KEY, "50");
+  });
+
+  it("denies a manager any key not named in managerKeys, or when none are named", () => {
+    setConstant(admin, SPEND_FEE_KEY, "3");
+    for (const options of [{ managerKeys }, {}]) {
+      const result = setConstant(manager, SPEND_FEE_KEY, "9", options);
+      expect(result).toEqual({ ok: false, reason: "Managers may only switch rules on and off" });
+      expect(setConstant(admin, SPEND_FEE_KEY, "9").ok).toBe(true);
+      setConstant(admin, SPEND_FEE_KEY, "3");
+    }
+  });
+
+  it("denies analysts and engineers even when the key is in managerKeys", () => {
+    for (const actor of [analyst, engineer]) {
+      const result = setConstant(actor, APPROVAL_THRESHOLD_KEY, "10", { managerKeys });
+      expect(result).toEqual({ ok: false, reason: "Only admins may change policy constants" });
+    }
   });
 });

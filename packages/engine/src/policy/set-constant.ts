@@ -9,18 +9,34 @@ export type SetConstantResult =
   | { ok: true; key: string; before: unknown; after: unknown }
   | { ok: false; reason: string };
 
+export interface SetConstantOptions {
+  /** Keys a manager may change — the rules' on/off switches. Every other key is admin-only. */
+  managerKeys?: ReadonlySet<string>;
+}
+
 /**
- * Editing a policy threshold is itself a governed, audited action: admin only,
- * type-checked against the constant's declared type, and recorded with the
- * before/after values.
+ * Editing a policy threshold is itself a governed, audited action: admins may
+ * change any constant; managers only the keys the caller names as rule
+ * switches. Values are type-checked against the constant's declared type and
+ * recorded with the before/after values.
  */
 export function setConstant(
   actor: Actor,
   key: string,
   rawValue: string,
+  options: SetConstantOptions = {},
 ): SetConstantResult {
-  if (actor.role !== "admin") {
-    return { ok: false, reason: "Only admins may change policy constants" };
+  const allowed =
+    actor.role === "admin" ||
+    (actor.role === "manager" && options.managerKeys?.has(key) === true);
+  if (!allowed) {
+    return {
+      ok: false,
+      reason:
+        actor.role === "manager"
+          ? "Managers may only switch rules on and off"
+          : "Only admins may change policy constants",
+    };
   }
 
   const type = db

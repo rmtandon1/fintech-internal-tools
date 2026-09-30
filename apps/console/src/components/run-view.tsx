@@ -13,7 +13,8 @@ import { StatusChip } from "@console/ui/status-chip";
 import { ApprovalDialog } from "@/components/approval-dialog";
 import { RemoveRuleButton } from "@/components/remove-rule-dialog";
 import { RunSummary, RUN_STATUS_OPTIONS, requesterLabel } from "@/components/run-summary";
-import { phaseLine } from "@/lib/run-checklist";
+import { checklistStepStates, PHASE_ORDER, phaseLine } from "@/lib/run-checklist";
+import { useWorkspace } from "@/components/workspace";
 import { runTitle, thinkingLine } from "@/lib/run-heading";
 import { latestVerifySteps } from "@/lib/run-phases";
 import type { RunViewPayload } from "@/lib/devin-route";
@@ -29,7 +30,6 @@ async function fetchRun(runId: string): Promise<RunViewPayload | null> {
 
 const RUN_STATUSES = RUN_STATUS_OPTIONS;
 
-const PHASE_ORDER = ["intake", "baseline", "plan", "edit", "verify", "pull_request", "approved", "merged"] as const;
 /** The note `observeGitHubApproval` records; the approval row shows it in place of the actor id. */
 const GITHUB_APPROVAL_PREFIX = "Approved on GitHub by @";
 /** The gap note `record_merge` writes when GitHub names the merger; shown under the approval row. */
@@ -76,7 +76,7 @@ function CheckRow({
     <li
       className={cn(
         "flex flex-wrap items-center gap-x-3 py-1.5 text-sm",
-        nested && "gap-x-2 py-0.5 text-xs",
+        nested && "items-baseline gap-x-2 py-0.5 text-xs",
         !nested && state === "active" && "font-medium text-info",
         !nested && state === "failed" && "text-destructive",
         !nested && state === "waiting" && "text-muted-foreground",
@@ -132,9 +132,7 @@ function CheckRow({
       <span
         className={cn(
           "min-w-0 flex-1",
-          !nested && "truncate",
-          nested && kind === "note" && "whitespace-normal line-clamp-2",
-          nested && kind !== "note" && "truncate",
+          nested ? "whitespace-normal break-words" : "truncate",
         )}
         title={nested ? label : undefined}
       >
@@ -148,7 +146,7 @@ function CheckRow({
             rel="noreferrer"
             className={cn(
               "shrink-0 font-mono text-xs tabular-nums underline-offset-2 hover:underline",
-              nested ? "max-w-[50%] truncate" : "text-muted-foreground",
+              nested ? "max-w-[50%] break-words" : "text-muted-foreground",
             )}
             title={nested ? detail : undefined}
           >
@@ -158,7 +156,7 @@ function CheckRow({
           <span
             className={cn(
               "shrink-0 font-mono text-xs tabular-nums",
-              nested ? "max-w-[50%] truncate" : "text-muted-foreground",
+              nested ? "max-w-[50%] break-words" : "text-muted-foreground",
             )}
             title={nested ? detail : undefined}
           >
@@ -181,24 +179,30 @@ function Checklist({
   out,
   run,
   sessionStatusDetail,
+  stepsComplete,
 }: {
   out: StructuredOutput | null;
   run: RunViewPayload["run"];
   sessionStatusDetail: string | null;
+  /** Furthest "Step N of M complete" the session has reported; drives rows the output lags behind. */
+  stepsComplete: number;
 }) {
   const durations = out?.phase_durations_s ?? {};
   const current = out?.phase ?? null;
   // A running session that is working but has not reported a phase yet is reading the evidence.
   const working = run.status === "running" && (sessionStatusDetail ?? "working") === "working";
-  const reached = current ? PHASE_ORDER.indexOf(current === "merge" ? "merged" : current) : working ? 0 : -1;
+  const stepStates = checklistStepStates(out, working, stepsComplete);
+  const reached = Math.max(
+    current ? PHASE_ORDER.indexOf(current === "merge" ? "merged" : current) : working ? 0 : -1,
+    Math.min(stepsComplete, 6),
+  );
   const stateOf = (phase: (typeof PHASE_ORDER)[number]): CheckLine["state"] => {
     if (phase === "approved") return run.approvedBy ? "done" : run.status === "approved" ? "active" : "waiting";
     if (phase === "merged") return run.status === "merged" ? "done" : "waiting";
     if (phase === "pull_request" && (run.prUrl || out?.pr_url)) return "done";
     const i = PHASE_ORDER.indexOf(phase);
-    if (run.status === "merged" || i < reached) return "done";
-    if (i === reached) return out?.phase_status === "done" ? "done" : "active";
-    return "waiting";
+    if (run.status === "merged") return "done";
+    return stepStates[i];
   };
 
   const verifySteps = latestVerifySteps(out?.verify_steps ?? []);
@@ -402,6 +406,7 @@ export function RunView({
   onTitle?: (title: string) => void;
 }) {
   const router = useRouter();
+  const { setAgentOpen } = useWorkspace();
   const [payload, setPayload] = useState<RunViewPayload | null>(initial ?? null);
   const [approveOpen, setApproveOpen] = useState(false);
   const [reply, setReply] = useState("");
@@ -541,7 +546,12 @@ export function RunView({
           </section>
         ) : null}
 
-        <Checklist out={out} run={run} sessionStatusDetail={payload.sessionStatusDetail} />
+        <Checklist
+          out={out}
+          run={run}
+          sessionStatusDetail={payload.sessionStatusDetail}
+          stepsComplete={payload.devinStepsComplete}
+        />
 
         {payload.prompt ? (
           <section className="px-5 pb-3" data-testid="devin-message">
@@ -619,6 +629,15 @@ export function RunView({
         ) : payload.changeLink?.live ? (
           <Link
             href={payload.changeLink.href}
+            onClick={(e) => {
+              e.preventDefault();
+              const href = payload.changeLink?.href ?? "";
+              const samePage = window.location.pathname === href.split("#")[0];
+              setAgentOpen(false);
+              router.push(href);
+              router.refresh();
+              if (samePage) document.getElementById("rules")?.scrollIntoView();
+            }}
             className={cn(linkButton, "bg-primary text-primary-foreground hover:bg-primary/90")}
             data-testid="open-changed-tool"
           >

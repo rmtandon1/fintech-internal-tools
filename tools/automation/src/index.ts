@@ -92,13 +92,14 @@ const specKnown: RunRule<DispatchInput> = ({ input }) => {
 };
 
 /**
- * Managers may ask for a change on a domain spec; admins may also ask for
- * changes and are the only role that may ask for an undo.
+ * Admins may start anything; managers may start a change or an undo on a
+ * domain spec; no one else may start a run.
  */
 export function roleMayStart(role: Role, spec: RunnableSpec, operation: Operation): boolean {
   if (role === "admin") return true;
-  if (operation === "undo") return false;
-  return role === "manager" && spec.domain !== null;
+  return (
+    role === "manager" && spec.domain !== null && (operation === "change" || operation === "undo")
+  );
 }
 
 /** The operations of `spec` that `role` may dispatch. */

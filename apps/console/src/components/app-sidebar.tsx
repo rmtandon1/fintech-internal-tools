@@ -11,7 +11,6 @@ import {
   TooltipTrigger,
 } from "@console/ui/tooltip";
 import type { Actor } from "@console/engine/types";
-import { canApprove } from "@console/permissions";
 import { cn } from "@console/ui/utils";
 
 interface ToolLink {
@@ -41,7 +40,6 @@ export function AppSidebar({
   roleChosen,
   tools,
   runs,
-  pendingApprovals,
 }: {
   actor: Actor;
   /** False until a role is picked; the rail then offers only Home. */
@@ -49,7 +47,6 @@ export function AppSidebar({
   tools: ToolLink[];
   /** Whether this role sees the `automation` tool, and so the RUNS list. */
   runs: boolean;
-  pendingApprovals: number;
 }) {
   const pathname = usePathname();
   const [expanded, setExpanded] = useState(false);
@@ -70,17 +67,6 @@ export function AppSidebar({
             label: "Rule changes",
             icon: "Bot",
             active: pathname.startsWith("/runs") || pathname.startsWith("/t/automation"),
-          },
-        ]
-      : []),
-    ...(roleChosen && canApprove(actor.role)
-      ? [
-          {
-            href: "/inbox",
-            label: "Approvals",
-            icon: "Inbox",
-            active: pathname === "/inbox",
-            badge: pendingApprovals,
           },
         ]
       : []),

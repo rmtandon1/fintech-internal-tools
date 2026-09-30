@@ -256,6 +256,11 @@ export function getSpec(file: string): RunnableSpec | undefined {
   return SPECS.find((s) => s.file === file);
 }
 
+/** Every rule's on/off switch; the only settings a manager may change. */
+export const SWITCH_SETTING_KEYS: ReadonlySet<string> = new Set(
+  SPECS.flatMap((s) => (s.switchSetting ? [s.switchSetting] : [])),
+);
+
 /** The path globs a run of `spec` may plan to touch, plus its own `runs/` dir. */
 export function allowedPaths(spec: RunnableSpec, runId: string): string[] {
   return [...spec.allowedPaths, `runs/${runId}/**`];

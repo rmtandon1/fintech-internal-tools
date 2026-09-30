@@ -12,7 +12,7 @@ import { setConstant } from "@console/engine/policy/set-constant";
 import { revealField } from "@console/engine/pii/reveal";
 import type { IntentResult, Role } from "@console/engine/types";
 import { ROLES } from "@console/permissions";
-import { AUTOMATION_ROLES } from "@console/tool-automation";
+import { AUTOMATION_ROLES, SWITCH_SETTING_KEYS } from "@console/tool-automation";
 import { OPS_MODES } from "@/lib/modes";
 import { modeFlagOff } from "@/lib/mode-flags";
 import { THEME_COOKIE } from "@/lib/theme";
@@ -133,7 +133,7 @@ export async function revealPii(tool: string, recordId: string, field: string) {
 
 export async function updateConstant(key: string, value: string) {
   const actor = await currentActor();
-  const result = setConstant(actor, key, value);
+  const result = setConstant(actor, key, value, { managerKeys: SWITCH_SETTING_KEYS });
   revalidatePath("/", "layout");
   return result;
 }

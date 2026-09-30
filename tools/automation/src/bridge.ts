@@ -193,14 +193,14 @@ export function sessionPrompt(input: SessionPromptInput): string {
         ]),
     ...(input.consoleUrl
       ? [
-          `Start the pull request description with this line: ▶ [Open this change in the console](${input.consoleUrl.replace(/\/$/, "")}/t/automation/${runId})`,
+          `Start your first pull request comment with this line: ▶ [Open this change in the console](${input.consoleUrl.replace(/\/$/, "")}/t/automation/${runId})`,
         ]
       : []),
     "Follow .devin/run-protocol.playbook.md. Don't merge the pull request: an engineer reviews and merges it on GitHub.",
     "",
     "Steps:",
     ...RUN_STEPS.map((step, i) => `${i + 1}. ${step}`),
-    `After each step, post one chat message: "Step N of ${RUN_STEPS.length} complete: <step>: <one-line result>".`,
+    `After each step, update structured output, then post one chat message: "Step N of ${RUN_STEPS.length} complete: <result>", with the result in plain English for an ops manager, under 15 words.`,
   ].join("\n");
 }
 

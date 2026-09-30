@@ -6,7 +6,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
 import { AgentWindow } from "@/components/agent-window";
 import { DevinWindowBody } from "@/components/devin-window-body";
-import { countPendingFor } from "@console/engine/approvals";
+import { RunWatcher } from "@/components/run-watcher";
 import { automationTool } from "@console/tool-automation";
 import { enabledFlagKeys } from "@console/tool-flags";
 import { OPS_MODES } from "@/lib/modes";
@@ -48,7 +48,6 @@ export default async function RootLayout({
     })
     .map((t) => ({ name: t.name, displayName: t.displayName, icon: t.icon }));
   const runs = visible.some((t) => t.name === automationTool.name);
-  const pending = countPendingFor(actor);
   const mode = devinMode();
 
   return (
@@ -60,7 +59,8 @@ export default async function RootLayout({
       <body className="h-screen overflow-hidden bg-background font-sans text-foreground antialiased">
         <div className="flex h-full">
           <WorkspaceProvider>
-            <AppSidebar actor={actor} roleChosen={role !== null} tools={tools} runs={runs} pendingApprovals={pending} />
+            <AppSidebar actor={actor} roleChosen={role !== null} tools={tools} runs={runs} />
+            {runs ? <RunWatcher /> : null}
             <div className="flex min-w-0 flex-1 flex-col">
               <AppHeader actor={actor} roleChosen={role !== null} />
               <main className="min-h-0 flex-1 overflow-hidden p-4">{children}</main>
