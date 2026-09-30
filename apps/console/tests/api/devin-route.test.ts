@@ -24,8 +24,9 @@ import { approveRun, dispatchRun, prClosedReason } from "@console/tool-automatio
 import { devinRuns } from "@console/tool-automation/schema";
 import { kycTool } from "@console/tool-kyc";
 import { refundTool } from "@console/tool-refunds";
-import { handleGet, handlePost, type RunViewPayload } from "@/lib/devin-route";
+import { handleActive, handleGet, handlePost, type RunViewPayload } from "@/lib/devin-route";
 import type { AppBridgeDeps } from "@/lib/bridge";
+import { fakeGit } from "../helpers/fake-git";
 import { admin, analyst, setupHarness } from "../helpers/harness";
 
 const engineer: Actor = { id: "usr_engineer", name: "Engineer", role: "engineer" };
@@ -514,6 +515,74 @@ describe("GET /api/devin/<runId>", () => {
     } finally {
       vi.unstubAllEnvs();
     }
+  });
+});
+
+describe("GET /api/devin/active", () => {
+  const runIds = async (actor: Actor, d: AppBridgeDeps) => {
+    const result = await handleActive(actor, d);
+    expect(result.status).toBe(200);
+    return (result.body as { runIds: string[] }).runIds;
+  };
+
+  it("rejects a role outside AUTOMATION_ROLES", async () => {
+    const result = await handleActive(analyst, deps());
+    expect(result.status).toBe(403);
+  });
+
+  it("lists an in-flight run and drops it once it stops", async () => {
+    stopAll();
+    const d = deps();
+    const out = await dispatchRun(admin, request, d);
+    expect(await runIds(admin, d)).toContain(out.runId);
+
+    executeIntent(admin, {
+      tool: "automation",
+      action: "stop",
+      recordId: out.runId,
+      input: { reason: "cleanup" },
+      idempotencyKey: ulid(),
+    });
+    expect(await runIds(admin, d)).not.toContain(out.runId);
+  });
+
+  function mergedRun(mergeCommit: string): string {
+    const id = ulid();
+    db.insert(devinRuns)
+      .values({
+        id,
+        operation: "change",
+        spec: COMPANIES_HOUSE_CHECK.file,
+        tool: "kyc",
+        intent: "a merged run",
+        contextSha256: "f".repeat(64),
+        sessionId: null,
+        sessionUrl: null,
+        status: "merged",
+        prUrl: "https://github.com/rmtandon1/buy-v-build-cog-demo/pull/99",
+        mergeCommit,
+        reverses: null,
+        requestedBy: admin.id,
+        requestedByRole: admin.role,
+        approvedBy: null,
+        lastNote: null,
+        requestedAt: 1,
+        updatedAt: 1,
+        version: 1,
+      })
+      .run();
+    return id;
+  }
+
+  it("keeps a merged run listed until its merge commit is in the checkout", async () => {
+    const commit = "e".repeat(40);
+    const id = mergedRun(commit);
+
+    const unsynced = { ...deps(), git: fakeGit({ ancestors: [] }).git };
+    expect(await runIds(admin, unsynced)).toContain(id);
+
+    const synced = { ...deps(), git: fakeGit({ ancestors: [commit] }).git };
+    expect(await runIds(admin, synced)).not.toContain(id);
   });
 });
 

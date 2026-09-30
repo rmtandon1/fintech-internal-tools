@@ -18,7 +18,10 @@ describe("sessionPrompt", () => {
       consoleUrl: "http://localhost:3001/",
     });
     expect(prompt).toContain("Switch setting: refunds.clustering_hold.");
-    expect(prompt).toContain("▶ [Open this change in the console](http://localhost:3001/t/automation/RUN1)");
+    expect(prompt).toContain(
+      "Start your first pull request comment with this line: ▶ [Open this change in the console](http://localhost:3001/t/automation/RUN1)",
+    );
+    expect(prompt).not.toContain("Start the pull request description");
     expect(prompt).toContain("Don't merge the pull request: an engineer reviews and merges it on GitHub.");
     expect(prompt).toContain("Branch from demo at aaaaaaa and open the pull request against demo.");
     expect(prompt).not.toContain("docs/DEVIN_RUN_PROTOCOL.md");

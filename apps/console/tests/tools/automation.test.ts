@@ -146,14 +146,10 @@ describe("dispatch rules", () => {
     stop(applied(dispatch(admin, chargebacks)));
   });
 
-  it("role_may_start_operation: an undo by a manager is denied, only the admin may start one", () => {
-    const merged = merge(applied(dispatch(admin)));
-    deniedBy(
-      dispatch(manager, { operation: "undo", reverses: merged.id, evidenceIds: [] }),
-      "role_may_start_operation",
-    );
+  it("role_may_start_operation: a manager may start an undo on a domain spec", () => {
+    const merged = merge(applied(dispatch(manager)));
     const undo = applied(
-      dispatch(admin, {
+      dispatch(manager, {
         operation: "undo",
         reverses: merged.id,
         evidenceIds: [],
@@ -162,6 +158,25 @@ describe("dispatch rules", () => {
     );
     expect(undo.reverses).toBe(merged.id);
     stop(undo);
+  });
+
+  it("role_may_start_operation: a manager's undo on a spec with no domain is denied", () => {
+    const chargebacks = {
+      spec: CHARGEBACKS_FROM_POWER_APPS.file,
+      intent: CHARGEBACKS_FROM_POWER_APPS.intents.change,
+      evidenceIds: ["README.md"],
+    };
+    const merged = merge(applied(dispatch(admin, chargebacks)));
+    deniedBy(
+      dispatch(manager, {
+        spec: CHARGEBACKS_FROM_POWER_APPS.file,
+        operation: "undo",
+        reverses: merged.id,
+        evidenceIds: [],
+        intent: CHARGEBACKS_FROM_POWER_APPS.intents.undo,
+      }),
+      "role_may_start_operation",
+    );
   });
 
   it("spec_known: an unregistered spec is denied", () => {

@@ -1,9 +1,13 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { ulid } from "ulid";
+import { listAuditEvents } from "@console/engine/audit/query";
 import { executeIntent } from "@console/engine/execute-intent";
 import { setConstant } from "@console/engine/policy/set-constant";
+import type { Actor } from "@console/engine/types";
 import { APPROVAL_THRESHOLD_KEY } from "../fixtures/widgets";
-import { admin, analyst, makeWidget, setupHarness } from "../helpers/harness";
+import { admin, analyst, makeWidget, manager, setupHarness } from "../helpers/harness";
+
+const engineer: Actor = { id: "usr_engineer", name: "Engineer", role: "engineer" };
 
 beforeAll(() => setupHarness());
 
@@ -86,5 +90,28 @@ describe("policy precedence", () => {
     expect(spend(40, "w_constant").outcome.status).toBe("pending_approval");
 
     setConstant(admin, APPROVAL_THRESHOLD_KEY, "50");
+  });
+});
+
+describe("setConstant", () => {
+  it("lets a manager change a setting, audited with the before/after values", () => {
+    setConstant(admin, APPROVAL_THRESHOLD_KEY, "50");
+    const result = setConstant(manager, APPROVAL_THRESHOLD_KEY, "60");
+    expect(result).toEqual({ ok: true, key: APPROVAL_THRESHOLD_KEY, before: 50, after: 60 });
+
+    const row = listAuditEvents({ recordId: APPROVAL_THRESHOLD_KEY, limit: 1 }).rows[0];
+    expect(row?.action).toBe("set_constant");
+    expect(row?.actorId).toBe(manager.id);
+    expect(JSON.parse(row?.beforeJson ?? "null")).toEqual({ key: APPROVAL_THRESHOLD_KEY, value: 50 });
+    expect(JSON.parse(row?.afterJson ?? "null")).toEqual({ key: APPROVAL_THRESHOLD_KEY, value: 60 });
+
+    setConstant(admin, APPROVAL_THRESHOLD_KEY, "50");
+  });
+
+  it("denies analysts and engineers", () => {
+    for (const actor of [analyst, engineer]) {
+      const result = setConstant(actor, APPROVAL_THRESHOLD_KEY, "10");
+      expect(result).toEqual({ ok: false, reason: "Only managers and admins may change policy constants" });
+    }
   });
 });

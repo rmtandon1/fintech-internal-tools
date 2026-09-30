@@ -28,6 +28,7 @@ const phaseLines = (html: string) =>
 function payload(overrides: Partial<RunViewPayload> = {}): RunViewPayload {
   return {
     mode: "live",
+    devinStepsComplete: 0,
     run: {
       id: RUN_ID,
       operation: "change",

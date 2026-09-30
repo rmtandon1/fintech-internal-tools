@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { StructuredOutput } from "@console/tool-automation";
-import { CHECKLIST_GLYPH, runChecklist } from "../../src/lib/run-checklist";
+import { CHECKLIST_GLYPH, checklistStepStates, runChecklist } from "../../src/lib/run-checklist";
 import { scriptedFrames } from "../helpers/scripted-clients";
 
 /** A structured output with every optional field absent. */
@@ -115,5 +115,39 @@ describe("runChecklist", () => {
     for (const f of frames.slice(first)) {
       expect(runChecklist(f.structured_output).some((l) => l.field === "conflicts")).toBe(true);
     }
+  });
+});
+
+describe("checklistStepStates", () => {
+  it("marks the steps the session reported done, ahead of a lagging output", () => {
+    const out = output({ phase: "intake", phase_status: "running" });
+    expect(checklistStepStates(out, true, 3)).toEqual([
+      "done",
+      "done",
+      "done",
+      "active",
+      "waiting",
+      "waiting",
+    ]);
+  });
+
+  it("leaves the rows to the output alone when no step messages have arrived", () => {
+    const out = output({ phase: "intake", phase_status: "running" });
+    expect(checklistStepStates(out, true, 0)).toEqual([
+      "active",
+      "waiting",
+      "waiting",
+      "waiting",
+      "waiting",
+      "waiting",
+    ]);
+    expect(checklistStepStates(null, false, 0)).toEqual([
+      "waiting",
+      "waiting",
+      "waiting",
+      "waiting",
+      "waiting",
+      "waiting",
+    ]);
   });
 });

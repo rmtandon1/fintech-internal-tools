@@ -1,3 +1,4 @@
+import { withoutStepPrefix } from "@console/tool-automation/step-messages";
 import type { RunViewPayload } from "@/lib/devin-route";
 import { phaseLine } from "@/lib/run-checklist";
 
@@ -14,5 +15,6 @@ export function thinkingLine(
   latest: RunViewPayload["latest"],
   devinMessage: string | null = null,
 ): string | null {
-  return devinMessage ?? latest?.status_detail ?? phaseLine(latest?.structured_output ?? null);
+  const message = devinMessage === null ? null : withoutStepPrefix(devinMessage);
+  return (message && message.length > 0 ? message : null) ?? latest?.status_detail ?? phaseLine(latest?.structured_output ?? null);
 }

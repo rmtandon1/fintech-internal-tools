@@ -133,3 +133,48 @@ export function runChecklist(out: Output | null): ChecklistLine[] {
 export function phaseLine(out: Output | null): string | null {
   return out ? `${PHASE_LABELS[out.phase]} · ${PHASE_STATUS_LABELS[out.phase_status]}` : null;
 }
+
+/** The run view's checklist rows, in order: the session's six steps, then the review milestones. */
+export const PHASE_ORDER = [
+  "intake",
+  "baseline",
+  "plan",
+  "edit",
+  "verify",
+  "pull_request",
+  "approved",
+  "merged",
+] as const;
+
+/** How many leading rows Devin's "Step N of M complete" messages can drive. */
+const STEP_ROWS = 6;
+
+export type ChecklistRowState = "done" | "active" | "waiting";
+
+/**
+ * Row states for the six session steps, combining the reported phase with the
+ * session's step messages (`stepsComplete` = furthest step reported done).
+ * Either signal alone moves the checklist: a session that only reports
+ * structured output behaves exactly as before, and one whose messages run
+ * ahead of its output still advances its rows.
+ */
+export function checklistStepStates(
+  out: Pick<Output, "phase" | "phase_status"> | null,
+  working: boolean,
+  stepsComplete: number,
+): ChecklistRowState[] {
+  const outReached = out
+    ? PHASE_ORDER.indexOf(out.phase === "merge" ? "merged" : (out.phase as (typeof PHASE_ORDER)[number]))
+    : working
+      ? 0
+      : -1;
+  const reached =
+    stepsComplete > 0 ? Math.max(outReached, Math.min(stepsComplete, STEP_ROWS)) : outReached;
+  return PHASE_ORDER.slice(0, STEP_ROWS).map((_, i) => {
+    if (i < reached) return "done";
+    if (i === reached) {
+      return i === outReached && out?.phase_status === "done" ? "done" : "active";
+    }
+    return "waiting";
+  });
+}

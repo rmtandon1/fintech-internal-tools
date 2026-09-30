@@ -67,7 +67,7 @@ export async function runOffers(
         : reversingRun(run.id)
           ? { offered: false, reason: "This run is already undone" }
           : !operationsStartableBy(actor.role, spec).includes("undo")
-            ? { offered: false, reason: "Only the admin may undo a change" }
+            ? { offered: false, reason: "Only a manager or admin may undo a change" }
             : { offered: true };
 
   return {

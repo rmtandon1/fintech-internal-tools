@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseStepMessage } from "./step-messages";
 
 /**
  * Server-only client for the Devin v3 API. The console calls it after a
@@ -62,6 +63,11 @@ export interface DevinClient {
   terminateSession(sessionId: string): Promise<void>;
   /** Devin's most recent message in the session, or null before it has said anything. */
   latestMessage?(sessionId: string): Promise<string | null>;
+  /**
+   * Devin's most recent message plus the furthest "Step N of M complete" it
+   * has reported — one read where a caller wants both.
+   */
+  messageDigest?(sessionId: string): Promise<{ latest: string | null; stepsComplete: number }>;
 }
 
 interface CallInit {
@@ -74,8 +80,11 @@ export const DEVIN_API_BASE = "https://api.devin.ai/v3";
 /** Pages of 100 read when looking for Devin's latest message. */
 const MESSAGE_PAGE_LIMIT = 20;
 
-/** Per session: the cursor of the last full page read and the latest Devin message up to it. */
-const messageCursors = new Map<string, { after: string | null; latest: string | null }>();
+/** Per session: the read cursor, the latest Devin message, and the furthest step reported. */
+const messageCursors = new Map<
+  string,
+  { after: string | null; latest: string | null; stepsComplete: number }
+>();
 
 export class DevinApiError extends Error {
   constructor(
@@ -157,6 +166,33 @@ export function httpDevinClient(creds: DevinCredentials, fetchImpl: FetchLike): 
     return url;
   }
 
+  async function messageDigest(sessionId: string) {
+    const path = `${await orgPath()}/sessions/${encodeURIComponent(sessionId)}/messages`;
+    let { after, latest, stepsComplete } = messageCursors.get(path) ?? {
+      after: null,
+      latest: null,
+      stepsComplete: 0,
+    };
+    for (let page = 0; page < MESSAGE_PAGE_LIMIT; page++) {
+      const query = new URLSearchParams({ first: "100", ...(after ? { after } : {}) });
+      const json = await call(`${path}?${query}`, { method: "GET" });
+      const items = field(json, "items");
+      for (const item of Array.isArray(items) ? items : []) {
+        const text = field(item, "message");
+        if (field(item, "source") === "devin" && typeof text === "string" && text.trim()) {
+          latest = text.trim();
+          const step = parseStepMessage(latest);
+          if (step) stepsComplete = Math.max(stepsComplete, step.step);
+        }
+      }
+      const cursor = field(json, "end_cursor");
+      if (field(json, "has_next_page") !== true || typeof cursor !== "string") break;
+      after = cursor;
+    }
+    messageCursors.set(path, { after, latest, stepsComplete });
+    return { latest, stepsComplete };
+  }
+
   return {
     async createSession(req) {
       const attachmentUrl = await uploadAttachment(req.attachment.name, req.attachment.body);
@@ -193,23 +229,9 @@ export function httpDevinClient(creds: DevinCredentials, fetchImpl: FetchLike): 
         structuredOutput: field(json, "structured_output") ?? null,
       };
     },
+    messageDigest,
     async latestMessage(sessionId) {
-      const path = `${await orgPath()}/sessions/${encodeURIComponent(sessionId)}/messages`;
-      let { after, latest } = messageCursors.get(path) ?? { after: null, latest: null };
-      for (let page = 0; page < MESSAGE_PAGE_LIMIT; page++) {
-        const query = new URLSearchParams({ first: "100", ...(after ? { after } : {}) });
-        const json = await call(`${path}?${query}`, { method: "GET" });
-        const items = field(json, "items");
-        for (const item of Array.isArray(items) ? items : []) {
-          const text = field(item, "message");
-          if (field(item, "source") === "devin" && typeof text === "string" && text.trim()) latest = text.trim();
-        }
-        const cursor = field(json, "end_cursor");
-        if (field(json, "has_next_page") !== true || typeof cursor !== "string") break;
-        after = cursor;
-      }
-      messageCursors.set(path, { after, latest });
-      return latest;
+      return (await messageDigest(sessionId)).latest;
     },
     async sendMessage(sessionId, message) {
       await call(`${await orgPath()}/sessions/${encodeURIComponent(sessionId)}/messages`, {

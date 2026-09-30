@@ -1,3 +1,5 @@
+import { inArray } from "drizzle-orm";
+import { db } from "@console/db";
 import { DEMO_ACTORS } from "@console/engine/actor";
 import { listAuditEvents } from "@console/engine/audit/query";
 import { previewActions } from "@console/engine/policy/preview";
@@ -14,6 +16,8 @@ import {
   type ReplayFrame,
   type RunStatus,
 } from "@console/tool-automation";
+import { devinRuns } from "@console/tool-automation/schema";
+import { stepsComplete } from "@console/tool-automation/step-messages";
 import {
   describeGitHubApproval,
   isSynced,
@@ -72,6 +76,8 @@ export interface RunViewPayload {
   sessionUrl: string | null;
   /** Devin's latest message in the live session; null in simulation or before it has said anything. */
   devinMessage: string | null;
+  /** The furthest "Step N of M complete" the live session has reported; 0 before the first or in simulation. */
+  devinStepsComplete: number;
   /** The live session's `status_detail` from this read's poll (e.g. `working`, `waiting_for_user`); null when not polled. */
   sessionStatusDetail: string | null;
   /** The business sentence for what the run changes once merged. */
@@ -179,16 +185,28 @@ export async function handleGet(
           live: deps.git ? await isSynced(run, deps).catch(() => false) : true,
         }
       : null;
+  // One message read feeds both the "latest from Devin" line and the
+  // checklist's step count; a client without messageDigest falls back to
+  // latestMessage alone.
+  const digest =
+    mode === "live" && run.sessionId
+      ? deps.devin?.messageDigest
+        ? await deps.devin.messageDigest(run.sessionId).catch(() => null)
+        : deps.devin?.latestMessage
+          ? await deps.devin
+              .latestMessage(run.sessionId)
+              .then((latest) => ({ latest, stepsComplete: stepsComplete(latest ? [latest] : []) }))
+              .catch(() => null)
+          : null
+      : null;
   const payload: RunViewPayload = {
     mode,
     run: publicRun(run),
     frames,
     latest,
     sessionUrl: mode === "live" ? sessionPage(run) : null,
-    devinMessage:
-      mode === "live" && run.sessionId && deps.devin?.latestMessage
-        ? await deps.devin.latestMessage(run.sessionId).catch(() => null)
-        : null,
+    devinMessage: digest?.latest ?? null,
+    devinStepsComplete: digest?.stepsComplete ?? 0,
     sessionStatusDetail:
       outcome?.kind === "output" || outcome?.kind === "no_output" ? outcome.statusDetail : null,
     summary: getSpec(run.spec)?.summaries?.[run.operation as Operation] ?? run.intent,
@@ -223,6 +241,29 @@ function mergeRecorder(run: DevinRun, viewer: Actor): Actor {
     return Object.values(DEMO_ACTORS).find((a) => a.id === run.approvedBy) ?? viewer;
   }
   return DEMO_ACTORS.engineer;
+}
+
+/**
+ * The run ids the merge watcher should poll: every in-flight run, plus merged
+ * runs whose merge commit is not in this checkout yet (the same pull
+ * condition the GET applies before it syncs).
+ */
+export async function handleActive(actor: Actor, deps: AppBridgeDeps): Promise<RouteResult> {
+  if (forbidden(actor)) return { status: 403, body: { error: "forbidden" } };
+  const rows = db
+    .select()
+    .from(devinRuns)
+    .where(inArray(devinRuns.status, [...IN_FLIGHT_STATUSES, "merged"]))
+    .all();
+  const runIds: string[] = [];
+  for (const run of rows) {
+    if ((IN_FLIGHT_STATUSES as readonly string[]).includes(run.status)) {
+      runIds.push(run.id);
+    } else if (deps.git && !(await isSynced(run, deps).catch(() => true))) {
+      runIds.push(run.id);
+    }
+  }
+  return { status: 200, body: { runIds } };
 }
 
 export async function handlePost(

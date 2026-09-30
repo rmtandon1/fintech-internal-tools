@@ -8,6 +8,7 @@
     "./seed": "./src/seed.ts",
     "./specs": "./src/specs.ts",
     "./shared-paths": "./src/shared-paths.ts",
+    "./step-messages": "./src/step-messages.ts",
     "./phases": "./src/phases.ts",
     "./run-files": "./src/run-files.ts",
     "./context": "./src/context.ts",

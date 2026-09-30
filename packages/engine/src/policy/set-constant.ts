@@ -10,7 +10,8 @@ export type SetConstantResult =
   | { ok: false; reason: string };
 
 /**
- * Editing a policy threshold is itself a governed, audited action: admin only,
+ * Editing a policy threshold is itself a governed, audited action: managers
+ * and admins only,
  * type-checked against the constant's declared type, and recorded with the
  * before/after values.
  */
@@ -19,8 +20,8 @@ export function setConstant(
   key: string,
   rawValue: string,
 ): SetConstantResult {
-  if (actor.role !== "admin") {
-    return { ok: false, reason: "Only admins may change policy constants" };
+  if (actor.role !== "admin" && actor.role !== "manager") {
+    return { ok: false, reason: "Only managers and admins may change policy constants" };
   }
 
   const type = db
