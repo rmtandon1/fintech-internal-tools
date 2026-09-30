@@ -7,7 +7,7 @@ import { previewActions } from "@console/engine/policy/preview";
 import { registerConstants } from "@console/engine/policy/register";
 import { setConstant } from "@console/engine/policy/set-constant";
 import type { Actor } from "@console/engine/types";
-import { CLUSTERING_WINDOW_DAYS_KEY, queueOf, refundTool } from "@console/tool-refunds";
+import { CLUSTERING_WINDOW_DAYS_KEY, queueOf, type Refund, refundTool } from "@console/tool-refunds";
 import { refunds } from "@console/tool-refunds/schema";
 import { admin, analyst, setupHarness } from "../helpers/harness";
 
@@ -43,7 +43,7 @@ function executePreview(recordId: string) {
 function queue(recordId: string) {
   const record = refundTool.get(recordId);
   if (!record) throw new Error(`missing ${recordId}`);
-  return queueOf(record);
+  return queueOf(record as Refund);
 }
 
 function listed(q: "analyst" | "manager"): string[] {
