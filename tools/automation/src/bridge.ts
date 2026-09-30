@@ -164,14 +164,6 @@ interface SessionPromptInput {
   consoleUrl?: string;
 }
 
-/**
- * The setting that switches each spec's rule off, named in a change's prompt
- * so the console's Rules panel can find the rule after the merge.
- */
-export const SWITCH_SETTINGS: Record<string, string> = {
-  "REFUND_CLUSTERING_HOLD.md": "refunds.clustering_window_days",
-  "COMPANIES_HOUSE_CHECK.md": "kyc.merchant_monitoring",
-};
 
 /** The playbook's procedure steps, listed in the prompt so the session shows them up front. */
 const RUN_STEPS = ["Intake", "Baseline", "Plan", "Edit", "Verify", "Pull request", "Merge"] as const;
@@ -192,9 +184,7 @@ export function sessionPrompt(input: SessionPromptInput): string {
           `Repository: https://github.com/${input.repository}. Branch from ${base.branch} at ${base.commit.slice(0, 7)} and open the pull request against ${base.branch}.`,
         ]
       : []),
-    ...(input.operation === "change" && SWITCH_SETTINGS[spec.file]
-      ? [`Switch setting: ${SWITCH_SETTINGS[spec.file]}.`]
-      : []),
+    ...(input.operation === "change" && spec.switchSetting ? [`Switch setting: ${spec.switchSetting}.`] : []),
     `Work from the attached runs/${runId}/context.json; commit it unchanged on your branch.`,
     ...(spec.sendSpec
       ? []

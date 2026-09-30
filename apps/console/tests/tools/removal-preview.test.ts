@@ -104,7 +104,7 @@ describe("buildRemovalPreview", () => {
         return [{ sha: "e".repeat(40), committedAt: 1_700_000_500_000, subject: "Tighten the hold (#57)" }];
       },
       async addedLines() {
-        return ['      key: "refunds.clustering_window_days",'];
+        return ['      key: "refunds.clustering_hold",'];
       },
     };
     const preview = await buildRemovalPreview(run, REFUND_CLUSTERING_HOLD, { repoRoot: "/repo", history });
@@ -116,7 +116,7 @@ describe("buildRemovalPreview", () => {
       prUrl: run.prUrl,
       mergedAt: 1_700_000_000_000,
       tests: ["apps/console/tests/tools/refunds-clustering-hold.test.ts"],
-      settings: ["refunds.clustering_window_days"],
+      settings: ["refunds.clustering_hold"],
       changedSince: [{ sha: "e".repeat(40), prNumber: 57, subject: "Tighten the hold (#57)" }],
     });
     expect(preview.files).toHaveLength(3);
@@ -189,11 +189,11 @@ describe("execFileHistoryReader", () => {
     git("init", "-q", "-b", "main");
     write("tools/refunds/src/index.ts", "export const a = 1;\n");
     git("add", "."); git("commit", "-q", "-m", "init");
-    write("tools/refunds/src/index.ts", 'export const a = 1;\nexport const KEY = "refunds.clustering_window_days";\n');
+    write("tools/refunds/src/index.ts", 'export const a = 1;\nexport const KEY = "refunds.clustering_hold";\n');
     write("apps/console/tests/tools/hold.test.ts", "it()\n");
     git("add", "."); git("commit", "-q", "-m", "Add the hold (#42)");
     const merge = git("rev-parse", "HEAD");
-    write("tools/refunds/src/index.ts", 'export const a = 2;\nexport const KEY = "refunds.clustering_window_days";\n');
+    write("tools/refunds/src/index.ts", 'export const a = 2;\nexport const KEY = "refunds.clustering_hold";\n');
     git("add", "."); git("commit", "-q", "-m", "Tighten the hold (#57)");
     write("docs/x.md", "unrelated\n");
     git("add", "."); git("commit", "-q", "-m", "Docs (#58)");
@@ -208,13 +208,13 @@ describe("execFileHistoryReader", () => {
     expect(meta?.subject).toBe("Add the hold (#42)");
     expect(meta?.committedAt).toBeGreaterThan(1_600_000_000_000);
     expect(await history.commitMeta(cwd, "f".repeat(40))).toBeNull();
-    expect((await history.addedLines(cwd, merge)).sort()).toEqual(['export const KEY = "refunds.clustering_window_days";', "it()"]);
+    expect((await history.addedLines(cwd, merge)).sort()).toEqual(['export const KEY = "refunds.clustering_hold";', "it()"]);
     const later = await history.commitsTouching(cwd, merge, "HEAD", ["tools/refunds/src/index.ts", "apps/console/tests/tools/hold.test.ts"]);
     expect(later.map((c) => c.subject)).toEqual(["Tighten the hold (#57)"]);
     expect(await history.commitsTouching(cwd, merge, "HEAD", [])).toEqual([]);
 
     const preview = await buildRemovalPreview({ ...run, mergeCommit: merge }, REFUND_CLUSTERING_HOLD, { repoRoot: cwd, history });
-    expect(preview.settings).toEqual(["refunds.clustering_window_days"]);
+    expect(preview.settings).toEqual(["refunds.clustering_hold"]);
     expect(preview.tests).toEqual(["apps/console/tests/tools/hold.test.ts"]);
     expect(preview.changedSince.map((c) => c.prNumber)).toEqual([57]);
     expect(git("rev-parse", "HEAD")).toBe(head);

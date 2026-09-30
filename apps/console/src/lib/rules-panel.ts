@@ -75,7 +75,7 @@ function devinRules(tool: string, runs: readonly DevinRun[]): Map<string, DevinR
           ? { kind: "removal_in_review", runId: reversal.id }
           : { kind: "live" };
     rules.set(spec.switchSetting, {
-      name: specShortName(spec.file),
+      name: spec.ruleName ?? specShortName(spec.file),
       runId: run.id,
       spec: spec.file,
       prNumber: prNumberFromUrl(run.prUrl),

@@ -8,7 +8,7 @@ import { setConstant } from "@console/engine/policy/set-constant";
 import type { ToolDeclaration } from "@console/engine/types";
 import { REFUND_CLUSTERING_HOLD, type DevinRun } from "@console/tool-automation";
 import { devinRuns } from "@console/tool-automation/schema";
-import { CLUSTERING_WINDOW_DAYS_KEY, MANAGER_APPROVAL_USD_KEY, refundTool } from "@console/tool-refunds";
+import { MANAGER_APPROVAL_USD_KEY, refundTool } from "@console/tool-refunds";
 import { admin, analyst, manager, setupHarness } from "../helpers/harness";
 
 vi.mock("@/app/automation-actions", () => ({ dispatchAutomationRun: vi.fn(), previewRuleRemoval: vi.fn() }));
@@ -18,20 +18,23 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 import { RulesPanel } from "@/components/rules-panel";
 import { WorkspaceProvider } from "@/components/workspace";
 
+/** The refund hold's on/off switch, as its spec names it. */
+const SWITCH = REFUND_CLUSTERING_HOLD.switchSetting ?? "refunds.clustering_hold";
+
 /**
  * The refunds tool as it stands once the refund hold has merged: the hold
- * declares its window setting at 0 (off). Declared here so these tests don't
+ * declares its switch, off by default. Declared here so these tests don't
  * depend on the hold being in the codebase.
  */
 const refunds: ToolDeclaration = {
   ...refundTool,
   constants: [
-    ...(refundTool.constants ?? []).filter((c) => c.key !== CLUSTERING_WINDOW_DAYS_KEY),
+    ...(refundTool.constants ?? []).filter((c) => c.key !== SWITCH),
     {
-      key: CLUSTERING_WINDOW_DAYS_KEY,
-      value: 0,
-      type: "number",
-      description: "Days of not-received refunds the refund hold adds up; 0 switches it off.",
+      key: SWITCH,
+      value: false,
+      type: "boolean",
+      description: "Holds a merchant's not-received refunds for a manager once together they pass the manager limit.",
       tool: "refunds",
     },
   ],
@@ -95,10 +98,10 @@ describe("RulesPanel", () => {
 
   it("shows a merged change run's switch setting as a rule Devin added, with Remove… for the admin", () => {
     insertRun({});
-    setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "30");
+    setConstant(admin, SWITCH, "true");
     const html = render(refunds, admin);
-    const row = /<li[^>]*data-key="refunds\.clustering_window_days"[^>]*>(.*?)<\/li>/.exec(html)?.[1] ?? "";
-    expect(row).toContain("Refund clustering hold");
+    const row = /<li[^>]*data-key="refunds\.clustering_hold"[^>]*>(.*?)<\/li>/.exec(html)?.[1] ?? "";
+    expect(row).toContain("Refund hold");
     expect(row).toContain("Added by Devin ·");
     expect(row).toContain("PR #42");
     expect(row).toContain('href="https://github.com/o/r/pull/42"');
@@ -109,7 +112,7 @@ describe("RulesPanel", () => {
     expect(row).toContain(">Save<");
     expect(render(refunds, manager)).not.toContain('data-testid="remove-rule"');
 
-    setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "0");
+    setConstant(admin, SWITCH, "false");
     expect(render(refunds, admin)).toContain(">Off<");
   });
 
@@ -125,10 +128,10 @@ describe("RulesPanel", () => {
       .run();
     const gone: ToolDeclaration = {
       ...refunds,
-      constants: (refundTool.constants ?? []).filter((c) => c.key !== CLUSTERING_WINDOW_DAYS_KEY),
+      constants: (refundTool.constants ?? []).filter((c) => c.key !== SWITCH),
     };
     const removed = render(gone, admin);
-    const row = /<li[^>]*data-key="refunds\.clustering_window_days"[^>]*>.*?<\/li>/.exec(removed)?.[0] ?? "";
+    const row = /<li[^>]*data-key="refunds\.clustering_hold"[^>]*>.*?<\/li>/.exec(removed)?.[0] ?? "";
     expect(row).toContain('data-state="removed"');
     expect(row).toContain(">Removed<");
     expect(row).toContain("PR #57");

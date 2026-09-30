@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getSpec } from "@console/tool-automation";
-import { SWITCH_SETTINGS, sessionPrompt } from "@console/tool-automation/bridge";
+import { COMPANIES_HOUSE_CHECK, REFUND_CLUSTERING_HOLD, getSpec } from "@console/tool-automation";
+import { sessionPrompt } from "@console/tool-automation/bridge";
 
 const spec = getSpec("REFUND_CLUSTERING_HOLD.md");
 const base = { branch: "demo", commit: "a".repeat(40) };
@@ -17,7 +17,7 @@ describe("sessionPrompt", () => {
       base,
       consoleUrl: "http://localhost:3001/",
     });
-    expect(prompt).toContain("Switch setting: refunds.clustering_window_days.");
+    expect(prompt).toContain("Switch setting: refunds.clustering_hold.");
     expect(prompt).toContain("▶ [Open this change in the console](http://localhost:3001/t/automation/RUN1)");
     expect(prompt).toContain("Don't merge the pull request: an engineer reviews and merges it on GitHub.");
     expect(prompt).toContain("Branch from demo at aaaaaaa and open the pull request against demo.");
@@ -31,7 +31,11 @@ describe("sessionPrompt", () => {
     expect(prompt).not.toContain("Open this change in the console");
   });
 
-  it("names switch settings only for specs that exist", () => {
-    for (const file of Object.keys(SWITCH_SETTINGS)) expect(getSpec(file)).toBeDefined();
+  it("names each rule's own switch setting in its change prompt", () => {
+    for (const rule of [REFUND_CLUSTERING_HOLD, COMPANIES_HOUSE_CHECK]) {
+      expect(rule.switchSetting).toBeTruthy();
+      const prompt = sessionPrompt({ runId: "RUN3", operation: "change", intent: "x", spec: rule, base });
+      expect(prompt).toContain(`Switch setting: ${rule.switchSetting}.`);
+    }
   });
 });

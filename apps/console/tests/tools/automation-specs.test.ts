@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { COMPANIES_HOUSE_CHECK, REFUND_CLUSTERING_HOLD, SPECS } from "@console/tool-automation";
-import { CLUSTERING_WINDOW_DAYS_KEY } from "@console/tool-refunds";
 
 const SENTENCE =
   "Recheck approved UK merchants against Companies House every day. When one enters administration, liquidation or dissolution, send it and its refunds to a Manager, and link each refund to its merchant's case.";
@@ -11,9 +10,10 @@ const CHECKLIST_LINE =
 
 describe("automation specs", () => {
   it("names the setting each change is switched on with", () => {
-    expect(REFUND_CLUSTERING_HOLD.switchSetting).toBe(CLUSTERING_WINDOW_DAYS_KEY);
-    expect(REFUND_CLUSTERING_HOLD.switchSetting).toBe("refunds.clustering_window_days");
+    expect(REFUND_CLUSTERING_HOLD.switchSetting).toBe("refunds.clustering_hold");
+    expect(REFUND_CLUSTERING_HOLD.ruleName).toBe("Refund hold");
     expect(COMPANIES_HOUSE_CHECK.switchSetting).toBe("kyc.merchant_monitoring");
+    expect(COMPANIES_HOUSE_CHECK.ruleName).toBe("Merchant monitoring");
     for (const spec of SPECS) {
       if (spec.switchSetting) expect(spec.switchSetting.startsWith(`${spec.tool}.`)).toBe(true);
     }

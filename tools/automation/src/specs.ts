@@ -1,6 +1,6 @@
 import type { RoleDomain } from "@console/permissions";
 import { MANAGER_REVIEW_SCORE_KEY } from "@console/tool-kyc";
-import { CLUSTERING_WINDOW_DAYS_KEY, MANAGER_APPROVAL_USD_KEY } from "@console/tool-refunds";
+import { MANAGER_APPROVAL_USD_KEY } from "@console/tool-refunds";
 
 export const OPERATIONS = ["change", "undo"] as const;
 export type Operation = (typeof OPERATIONS)[number];
@@ -75,6 +75,8 @@ export interface RunnableSpec {
    * lists a merged change run's setting as a rule Devin added.
    */
   switchSetting?: string;
+  /** The rule's name on screen, e.g. in the tool page's Rules panel. */
+  ruleName?: string;
 }
 
 export const REFUND_CLUSTERING_HOLD: RunnableSpec = {
@@ -107,7 +109,8 @@ export const REFUND_CLUSTERING_HOLD: RunnableSpec = {
     undo: "The refund hold and the linked KYC rule are removed. Refunds and KYC approvals work as they did before.",
   },
   constantKeys: [MANAGER_APPROVAL_USD_KEY, MANAGER_REVIEW_SCORE_KEY],
-  switchSetting: CLUSTERING_WINDOW_DAYS_KEY,
+  switchSetting: "refunds.clustering_hold",
+  ruleName: "Refund hold",
   evidence: { tool: "refunds", cluster: "merchant_not_received" },
   acceptance: {
     change: [
@@ -163,8 +166,9 @@ export const COMPANIES_HOUSE_CHECK: RunnableSpec = {
       "Merchant monitoring is built and off; once an admin turns it on in rule settings, the daily recheck sends insolvent merchants and their refunds to a manager.",
     undo: "Merchant monitoring is removed. UK merchants are checked on Companies House by hand again.",
   },
-  constantKeys: ["kyc.companies_house_monitoring"],
+  constantKeys: [MANAGER_REVIEW_SCORE_KEY],
   switchSetting: "kyc.merchant_monitoring",
+  ruleName: "Merchant monitoring",
   evidence: { tool: "kyc" },
   acceptance: {
     change: [
