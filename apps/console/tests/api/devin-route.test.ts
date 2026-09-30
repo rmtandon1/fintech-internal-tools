@@ -306,7 +306,7 @@ describe("GET /api/devin/<runId>", () => {
       structuredOutput: scriptedFrames("change", "run", "0".repeat(64), "0".repeat(40)).at(-1)!.structured_output,
     });
 
-  it("records the mapped engineer's GitHub approval on the poll and tells Devin to merge, once", async () => {
+  it("records the mapped engineer's GitHub approval on the poll once, and never tells Devin to merge", async () => {
     stopAll();
     const devin = prReported();
     let contextSha: string | null = null;
@@ -322,11 +322,12 @@ describe("GET /api/devin/<runId>", () => {
     expect(first.run.prUrl).toMatch(/pull\/990$/);
     expect(first.githubSyncedAt).toBe(t);
     expect(first.githubNotice).toBeNull();
-    expect(devin.sent).toEqual([`Run ${out.runId} is approved. Merge ${first.run.prUrl} now.`]);
+    // The engineer merges on GitHub; the session is sent nothing.
+    expect(devin.sent).toEqual([]);
 
     const again = (await handleGet(out.runId, admin, d)).body as RunViewPayload;
     expect(again.run.status).toBe("approved");
-    expect(devin.sent).toHaveLength(1);
+    expect(devin.sent).toEqual([]);
     expect(listAuditEvents({ recordId: out.runId, action: "approve_pr" }).rows).toHaveLength(1);
   });
 

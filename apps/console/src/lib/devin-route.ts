@@ -25,6 +25,7 @@ import {
   readGitHub,
   readReplay,
   runPrompt,
+  syncMergedRun,
 } from "@console/tool-automation/bridge";
 import type { AppBridgeDeps } from "@/lib/bridge";
 import { getTool } from "@/registry";
@@ -157,6 +158,12 @@ export async function handleGet(
     const merge = await observeMerge(mergeRecorder(run, actor), run, deps).catch(() => null);
     if (merge) githubRead ||= readGitHub(merge);
     run = getRun(runId) ?? run;
+  }
+
+  // The console runs what merged: once a run is merged, pull its merge into
+  // this checkout (install, migrate, seed new tools) without anyone asking.
+  if (run.status === "merged" && deps.git && !(await isSynced(run, deps).catch(() => true))) {
+    await syncMergedRun(run, deps).catch(() => null);
   }
 
   const frames = readReplay(deps.repoRoot, runId, deps.replaysDir);

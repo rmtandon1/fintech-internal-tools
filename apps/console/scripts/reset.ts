@@ -6,7 +6,7 @@ import { AUDIT_HEAD_ID } from "@console/engine/audit/append";
 import { GENESIS_HASH, computeRowHash, hashableFields, type HashableAuditRow } from "@console/engine/audit/chain";
 
 /**
- * Rebuilds the demo database while keeping what the recorded Devin runs need:
+ * Rebuilds the demo database. By default it keeps what the recorded Devin runs need:
  * every `devin_runs` row (run pages, Undo buttons), the automation
  * `approval_requests`, `idempotency_keys` and `audit_log` rows (the approval
  * trace), re-chained onto the fresh log, and the `audit_head` checkpoint.
@@ -14,6 +14,7 @@ import { GENESIS_HASH, computeRowHash, hashableFields, type HashableAuditRow } f
  * touched. The old database is renamed aside, not deleted.
  *
  *   pnpm db:reset
+ *   pnpm db:reset --fresh   # a blank slate: no runs, an empty audit log
  *
  * Stop `pnpm dev` first — this does not check for a running server. Refuses
  * to run under NODE_ENV=production.
@@ -123,13 +124,14 @@ function stamp(): string {
 
 function main(): void {
   const dbPath = resolve(process.env.DATABASE_PATH ?? "data/console.db");
+  const fresh = process.argv.includes("--fresh");
 
   let kept: KeptRows = { devinRuns: [], approvalRequests: [], idempotencyKeys: [], auditLog: [] };
   let backupPath: string | null = null;
   if (existsSync(dbPath)) {
     const src = new Database(dbPath);
     src.pragma("wal_checkpoint(TRUNCATE)");
-    kept = readKeptRows(src);
+    if (!fresh) kept = readKeptRows(src);
     src.close();
     backupPath = `${dbPath}.before-reset-${stamp()}`;
     renameSync(dbPath, backupPath);
@@ -146,7 +148,9 @@ function main(): void {
   dest.close();
 
   console.log(
-    `kept ${kept.devinRuns.length} runs and ${kept.auditLog.length} audit rows; previous database at ${backupPath ?? "none"}`,
+    fresh
+      ? `fresh database: no runs, empty audit log; previous database at ${backupPath ?? "none"}`
+      : `kept ${kept.devinRuns.length} runs and ${kept.auditLog.length} audit rows; previous database at ${backupPath ?? "none"}`,
   );
 }
 
