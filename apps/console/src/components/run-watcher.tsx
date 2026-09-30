@@ -30,7 +30,7 @@ export function RunWatcher() {
           const payloads = await Promise.all(
             runIds.map((id) =>
               fetch(`/api/devin/${id}`)
-                .then((r) => (r.ok ? ((r.json() as unknown) as RunViewPayload) : null))
+                .then((r) => (r.ok ? (r.json() as Promise<RunViewPayload>) : null))
                 .catch(() => null),
             ),
           );

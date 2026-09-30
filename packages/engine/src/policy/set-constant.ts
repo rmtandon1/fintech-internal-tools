@@ -11,9 +11,8 @@ export type SetConstantResult =
 
 /**
  * Editing a policy threshold is itself a governed, audited action: managers
- * and admins only,
- * type-checked against the constant's declared type, and recorded with the
- * before/after values.
+ * and admins only, type-checked against the constant's declared type, and
+ * recorded with the before/after values.
  */
 export function setConstant(
   actor: Actor,
