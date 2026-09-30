@@ -18,6 +18,25 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 import { RulesPanel } from "@/components/rules-panel";
 import { WorkspaceProvider } from "@/components/workspace";
 
+/**
+ * The refunds tool as it stands once the refund hold has merged: the hold
+ * declares its window setting at 0 (off). Declared here so these tests don't
+ * depend on the hold being in the codebase.
+ */
+const refunds: ToolDeclaration = {
+  ...refundTool,
+  constants: [
+    ...(refundTool.constants ?? []).filter((c) => c.key !== CLUSTERING_WINDOW_DAYS_KEY),
+    {
+      key: CLUSTERING_WINDOW_DAYS_KEY,
+      value: 0,
+      type: "number",
+      description: "Days of not-received refunds the refund hold adds up; 0 switches it off.",
+      tool: "refunds",
+    },
+  ],
+};
+
 function render(decl: ToolDeclaration, actor: typeof admin): string {
   return renderToStaticMarkup(
     createElement(WorkspaceProvider, null, createElement(RulesPanel, { decl, actor })),
@@ -53,19 +72,19 @@ function insertRun(overrides: Partial<DevinRun>): void {
 
 beforeAll(() => {
   setupHarness();
-  registerConstants(refundTool.constants ?? []);
+  registerConstants(refunds.constants ?? []);
 });
 
 describe("RulesPanel", () => {
   it("is the #rules region listing the declared settings with live values, editable by an admin only", () => {
     setConstant(admin, MANAGER_APPROVAL_USD_KEY, "777");
-    const adminHtml = render(refundTool, admin);
+    const adminHtml = render(refunds, admin);
     expect(adminHtml).toContain('id="rules"');
     expect(adminHtml).toContain(MANAGER_APPROVAL_USD_KEY);
     expect(adminHtml).toContain('value="777"');
     expect(adminHtml).toContain(">Save<");
     for (const viewer of [analyst, manager]) {
-      const html = render(refundTool, viewer);
+      const html = render(refunds, viewer);
       expect(html).toContain('id="rules"');
       expect(html).toMatch(/data-testid="rule-value">777</);
       expect(html).not.toContain(">Save<");
@@ -77,7 +96,7 @@ describe("RulesPanel", () => {
   it("shows a merged change run's switch setting as a rule Devin added, with Remove… for the admin", () => {
     insertRun({});
     setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "30");
-    const html = render(refundTool, admin);
+    const html = render(refunds, admin);
     const row = /<li[^>]*data-key="refunds\.clustering_window_days"[^>]*>(.*?)<\/li>/.exec(html)?.[1] ?? "";
     expect(row).toContain("Refund clustering hold");
     expect(row).toContain("Added by Devin ·");
@@ -88,15 +107,15 @@ describe("RulesPanel", () => {
     expect(row).toContain(">Live<");
     expect(row).toMatch(/data-testid="remove-rule"[^>]*>Remove…</);
     expect(row).toContain(">Save<");
-    expect(render(refundTool, manager)).not.toContain('data-testid="remove-rule"');
+    expect(render(refunds, manager)).not.toContain('data-testid="remove-rule"');
 
     setConstant(admin, CLUSTERING_WINDOW_DAYS_KEY, "0");
-    expect(render(refundTool, admin)).toContain(">Off<");
+    expect(render(refunds, admin)).toContain(">Off<");
   });
 
   it("shows Removal in review while the undo is in flight, then Removed · PR #N struck through with no editor", () => {
     insertRun({ id: "01UNDO", operation: "undo", status: "running", reverses: "01RUN", prUrl: null, mergeCommit: null });
-    const inReview = render(refundTool, admin);
+    const inReview = render(refunds, admin);
     expect(inReview).toContain("Removal in review");
     expect(inReview).not.toContain('data-testid="remove-rule"');
 
@@ -105,7 +124,7 @@ describe("RulesPanel", () => {
       .where(eq(devinRuns.id, "01UNDO"))
       .run();
     const gone: ToolDeclaration = {
-      ...refundTool,
+      ...refunds,
       constants: (refundTool.constants ?? []).filter((c) => c.key !== CLUSTERING_WINDOW_DAYS_KEY),
     };
     const removed = render(gone, admin);
@@ -122,12 +141,12 @@ describe("RulesPanel", () => {
 
   it("renders the declaration's admin actions for the admin, and nothing for a tool with no rules", () => {
     const withActions: ToolDeclaration = {
-      ...refundTool,
+      ...refunds,
       adminActions: [{ label: "Recheck now", action: "recheck" }],
     };
     expect(render(withActions, admin)).toMatch(/data-testid="admin-action"[^>]*>Recheck now</);
     expect(render(withActions, manager)).not.toContain("Recheck now");
-    const bare: ToolDeclaration = { ...refundTool, name: "bare", constants: [] };
+    const bare: ToolDeclaration = { ...refunds, name: "bare", constants: [] };
     expect(render(bare, admin)).toBe("");
   });
 });
