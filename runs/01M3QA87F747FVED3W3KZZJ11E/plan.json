@@ -1,0 +1,67 @@
+{
+  "files": [
+    {
+      "path": "tools/refunds/src/clustering-hold.ts",
+      "op": "create",
+      "reason": "clustering_hold rule: a not_received refund whose merchant's running not_received total in the window reaches the manager limit needs a manager; plus the customer lookup the KYC rule uses"
+    },
+    {
+      "path": "tools/refunds/src/index.ts",
+      "op": "modify",
+      "reason": "register clustering_hold last on execute (so reject routes too), declare refunds.clustering_window_days at 0 (off until an admin turns it on), label and export it"
+    },
+    {
+      "path": "tools/kyc/src/index.ts",
+      "op": "modify",
+      "reason": "linked_refund_hold on approve: a customer with a refund held by clustering_hold needs a manager whatever the risk score"
+    },
+    {
+      "path": "apps/console/tests/tools/refunds-clustering-hold.test.ts",
+      "op": "create",
+      "reason": "tests for the refund hold: running total, window, kill switch, queue routing, rejected and other reasons ignored"
+    },
+    {
+      "path": "apps/console/tests/tools/kyc-linked-refund-hold.test.ts",
+      "op": "create",
+      "reason": "tests for linked_refund_hold on KYC approval"
+    },
+    {
+      "path": "apps/console/tests/tools/refunds-clusters.test.ts",
+      "op": "modify",
+      "reason": "'a window of 0 switches the hold off...' asserts clusteringWindowDays() is 14 after registerConstants seeds the row at 14; the tool now declares the row at 0 first, so the test sets 14 through setConstant"
+    }
+  ],
+  "reuses": [
+    {
+      "module": "tools/refunds/src/clusters.ts",
+      "reason": "window and manager-limit keys, the 14-day fallback for a negative window, and the same not_received / non-rejected cluster definition the pattern monitor shows"
+    },
+    {
+      "module": "packages/engine/src/policy/evaluate.ts",
+      "reason": "the hold is a require_approval policy rule on refunds.execute, so the existing manager queue, previews and trace pick it up"
+    },
+    {
+      "module": "packages/engine/src/execute-intent.ts",
+      "reason": "held refunds and KYC approvals go through the existing manager approval path; no new write path"
+    },
+    {
+      "module": "tools/kyc/src/linked-activity.ts",
+      "reason": "same email = customer_email join between a KYC case and its refunds"
+    }
+  ],
+  "acceptance": [
+    "routes the refund that takes Kestrel's not_received total to the manager limit, and every later one, to a manager",
+    "names clustering_hold, the merchant and the running total in the trace",
+    "leaves the refund before the total reaches the limit with the analyst",
+    "moves held refunds out of the analyst queue into the manager queue",
+    "routes an analyst's rejection of a held refund to a manager too",
+    "lets a manager send a held refund directly",
+    "reads allow with refunds.clustering_window_days at 0, the declared default",
+    "does not count rejected refunds or refunds outside the window",
+    "ignores refunds of other reason codes and merchants below the limit",
+    "routes KYC approval for a customer with a held refund to a manager whatever the risk score",
+    "names linked_refund_hold in the KYC trace without the customer's email",
+    "approves the same customer straight through with the window at 0",
+    "leaves customers with no held refund unaffected"
+  ]
+}
