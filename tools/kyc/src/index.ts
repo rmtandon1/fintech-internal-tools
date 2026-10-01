@@ -10,6 +10,7 @@ import type {
   SortOption,
 } from "@console/engine/types";
 import { rolesFor } from "@console/permissions";
+import { heldClusterForCustomer } from "@console/tool-refunds";
 import { caseFile, materialDifferences } from "./case-file";
 import { refundsForCase } from "./linked-activity";
 import {
@@ -149,6 +150,20 @@ const escalatedNeedsManager: CaseRule = ({ record }) =>
         reason: "Escalated cases need a manager",
       }
     : { type: "allow", rule: "escalated_needs_manager" };
+
+/** A customer with a refund in a held refund cluster needs a manager, whatever the risk score. */
+const linkedRefundHold: CaseRule = ({ record, constants }) => {
+  const group = record ? heldClusterForCustomer(record.email, constants) : null;
+  return group
+    ? {
+        type: "require_approval",
+        rule: "linked_refund_hold",
+        tier: "manager",
+        allowedRoles: rolesFor("kyc", "manager"),
+        reason: `Customer has a refund held with ${group.label}'s not-received refunds: a manager must approve`,
+      }
+    : { type: "allow", rule: "linked_refund_hold" };
+};
 
 const allow =
   (rule: string): CaseRule =>
@@ -375,6 +390,7 @@ export const kycTool = defineTool<KycCase>({
         riskTierApproval,
         pepApproval,
         declaredVsFound,
+        linkedRefundHold,
         escalatedNeedsManager,
       ],
       suggest: () => ({ note: "Identity checks complete." }),

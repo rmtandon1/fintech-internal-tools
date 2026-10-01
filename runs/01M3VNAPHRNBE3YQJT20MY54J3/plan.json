@@ -1,0 +1,42 @@
+{
+  "files": [
+    {
+      "path": "tools/refunds/src/clustering-hold.ts",
+      "op": "create",
+      "reason": "clustering_hold rule on execute and the held-customer lookup KYC reads, both behind refunds.clustering_hold, built on the shared notReceivedByMerchant cluster query"
+    },
+    {
+      "path": "tools/refunds/src/index.ts",
+      "op": "modify",
+      "reason": "register clustering_hold on execute, declare the refunds.clustering_hold switch (boolean, off) and label the rule"
+    },
+    {
+      "path": "tools/kyc/src/index.ts",
+      "op": "modify",
+      "reason": "linked_refund_hold on approve: a case whose customer has a refund in a held cluster needs a manager"
+    },
+    {
+      "path": "apps/console/tests/tools/refunds-clustering-hold.test.ts",
+      "op": "create",
+      "reason": "one test per clustering_hold and linked_refund_hold behaviour"
+    }
+  ],
+  "reuses": [
+    { "module": "tools/refunds/src/clusters.ts", "reason": "notReceivedByMerchant and clusteringWindowDays decide which merchants are clustered, so the hold and the cluster strip agree" },
+    { "module": "tools/refunds/src/index.ts", "reason": "managerRoute/queueOf already move a refund to the manager queue and route reject when any execute rule requires approval" },
+    { "module": "packages/engine/src/policy/constants.ts", "reason": "loadConstants().boolean reads the switch setting live" },
+    { "module": "packages/engine/src/execute-intent.ts", "reason": "every write in the tests goes through executeIntent" },
+    { "module": "@console/permissions", "reason": "rolesFor gives the manager roles for the approval outcome" }
+  ],
+  "acceptance": [
+    "With the switch on, every pending refund in a merchant's not_received cluster needs a manager, sits in the manager queue, and the trace names clustering_hold, the merchant and the total.",
+    "With the switch on, a later not_received refund from the same merchant in the window needs a manager too.",
+    "With the switch on, a merchant whose not_received refunds stay under the manager limit together goes through as before.",
+    "With the switch on, a faulty refund from a clustered merchant is not affected.",
+    "Rejected refunds don't count toward the total, so a cluster that falls under the limit releases its refunds.",
+    "With the switch off, clustering_hold reads allow and the clustered refunds stay in the analyst queue and pay straight through.",
+    "With the switch on, approving a KYC case whose email matches a customer in a held cluster needs a manager whatever the risk score, and the trace names linked_refund_hold.",
+    "A KYC case whose customer has no held refunds is unchanged: a score 68 case still clears, and with the switch off a linked case clears too.",
+    "The switch is declared on the refunds tool as a boolean that is off by default."
+  ]
+}

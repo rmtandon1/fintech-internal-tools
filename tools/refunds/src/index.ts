@@ -17,6 +17,7 @@ import type {
   StatusDecl,
 } from "@console/engine/types";
 import { rolesFor } from "@console/permissions";
+import { CLUSTERING_HOLD_KEY, clusteringHold } from "./clustering-hold";
 import { MANAGER_APPROVAL_USD_KEY, notReceivedByMerchant } from "./clusters";
 import { refunds } from "./schema";
 import { seedRefunds } from "./seed";
@@ -27,6 +28,13 @@ export {
   clusteringWindowDays,
   notReceivedByMerchant,
 } from "./clusters";
+export {
+  CLUSTERING_HOLD_KEY,
+  clusteringHold,
+  clusteringHoldOn,
+  heldClusterForCustomer,
+  heldClusters,
+} from "./clustering-hold";
 
 export interface Refund extends GovernedRecord {
   id: string;
@@ -384,6 +392,15 @@ export const refundTool = defineTool<Refund>({
       description: "Goodwill refunds of this amount or more need a manager's approval.",
       tool: "refunds",
     },
+    {
+      key: CLUSTERING_HOLD_KEY,
+      label: "Refund hold",
+      value: false,
+      type: "boolean",
+      description:
+        "Sends a merchant's not-received refunds to a manager once together they pass the manager limit, and those customers' KYC approvals too.",
+      tool: "refunds",
+    },
   ],
   actions: [
     defineAction<Refund, z.ZodObject<{ note: z.ZodOptional<z.ZodString> }>, Patch>({
@@ -395,7 +412,7 @@ export const refundTool = defineTool<Refund>({
       fromStatus: ["requested", "failed"],
       tone: "primary",
       routeToApprover: true,
-      rules: [withinCapturedAmount, notDisputed, amountApproval, goodwillApproval],
+      rules: [withinCapturedAmount, notDisputed, amountApproval, goodwillApproval, clusteringHold],
       suggest: () => ({ note: "Checks passed; sending to the processor." }),
       decide: ({ record, input }) => ({
         summary: `Send ${record?.id ?? ""} to processor: ${money(record?.amountMinor ?? 0, record?.currency ?? "USD")} to ${record?.merchant ?? ""}`,
@@ -464,6 +481,7 @@ export const refundTool = defineTool<Refund>({
     not_disputed: "No open chargeback",
     amount_approval: "Approval limit",
     goodwill_approval: "Goodwill limit",
+    clustering_hold: "Refund hold",
     payment_approver: "Manager approval",
     settlement_is_a_record_keeping_step: "Record-keeping step",
     failure_is_a_record_keeping_step: "Record-keeping step",
@@ -473,6 +491,7 @@ export const refundTool = defineTool<Refund>({
     not_disputed: ["disputed"],
     amount_approval: ["amountMinor", "usdMinor"],
     goodwill_approval: ["reasonCode", "amountMinor"],
+    clustering_hold: ["merchant", "reasonCode", "usdMinor"],
   },
   clusters: [
     {
