@@ -225,7 +225,6 @@ describe("kyc case file", () => {
       "risk_tier_approval",
       "pep_approval",
       "declared_vs_found",
-      "linked_refund_hold",
       "escalated_needs_manager",
     ]);
   });
