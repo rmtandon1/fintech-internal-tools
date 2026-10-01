@@ -131,6 +131,16 @@ export async function revealPii(tool: string, recordId: string, field: string) {
   return result;
 }
 
+/** Each record's display name, so an action's result can list records by name. */
+export async function recordLabels(tool: string, ids: string[]): Promise<{ id: string; label: string }[]> {
+  const decl = getTool(tool);
+  if (!decl) return [];
+  return ids.slice(0, 100).flatMap((id) => {
+    const record = decl.get(id);
+    return record ? [{ id, label: String(record[decl.titleField] ?? id) }] : [];
+  });
+}
+
 export async function updateConstant(key: string, value: string) {
   const actor = await currentActor();
   const result = setConstant(actor, key, value, { managerKeys: SWITCH_SETTING_KEYS });
