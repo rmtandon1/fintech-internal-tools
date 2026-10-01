@@ -95,7 +95,7 @@ export const REFUND_CLUSTERING_HOLD: RunnableSpec = {
   sendSpec: false,
   intents: {
     change:
-      "Once a merchant's \"not received\" refunds add up past the manager limit, send them to a manager for approval. Send those customers' KYC approvals to a manager too.",
+      "If a merchant's refunds of type \"not received\" add up to more than the manager limit, send them all to a manager for approval. Potential fraud. Also route those customers' KYC approvals to a manager.",
     undo: "Undo the refund hold: remove the refund rule, the linked KYC rule and its switch setting, and keep every change made since.",
   },
   summaries: {
@@ -114,9 +114,9 @@ export const REFUND_CLUSTERING_HOLD: RunnableSpec = {
   evidence: { tool: "refunds", cluster: "merchant_not_received" },
   acceptance: {
     change: [
-      "The first refund in a cluster whose running total is under the manager line is applied.",
-      "The refund that takes the merchant's `not_received` total over the manager line within the window needs a manager: it leaves the analyst's queue for the manager's. The trace names `clustering_hold`, the merchant and the running total.",
-      "Every later refund in the same cluster is routed to the manager's queue too.",
+      "Once a merchant's `not_received` refunds within the window together pass the manager line, every one of them still pending needs a manager, the first included: they leave the analyst's queue for the manager's. The trace names `clustering_hold`, the merchant and the total.",
+      "A later `not_received` refund from the same merchant in the window needs a manager too.",
+      "While a merchant's `not_received` refunds stay under the manager line together, they go through as before.",
       "A `faulty` refund from the same merchant is not affected.",
       "Rejected refunds don't count toward the total.",
       "With the `refunds.clustering_hold` switch off, `clustering_hold` reads allow and no refund is routed by this rule.",

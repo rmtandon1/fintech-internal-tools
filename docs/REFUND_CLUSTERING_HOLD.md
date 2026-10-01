@@ -20,7 +20,7 @@ Nothing in the console connects those facts, and no rule catches them.
 
 The sentence the requester sends. The request box starts empty and offers it as a grey suggestion Tab accepts; the requester may type their own:
 
-> Once a merchant's "not received" refunds add up past the manager limit, send them to a manager for approval. Send those customers' KYC approvals to a manager too.
+> If a merchant's refunds of type "not received" add up to more than the manager limit, send them all to a manager for approval. Potential fraud. Also route those customers' KYC approvals to a manager.
 
 It is deliberately short. It doesn't mention the window, rejected refunds, frozen-FX amounts or where the rule sits in the trace. Devin never sees this file: it has to find each of those in the code, and the acceptance tests below are what the reviewer checks its tests against. That gap is what the viewer should notice (`AGENT_TRIGGER_SURFACE.md` § One sentence, not a chat panel).
 
@@ -41,9 +41,9 @@ These are the reviewer's contract, shown in the approval dialog. Devin does not 
 
 Refunds:
 
-1. The first refund in a cluster whose running total is under the manager line is applied.
-2. The refund that takes the merchant's `not_received` total over the manager line within the window needs a manager: it leaves the analyst's queue for the manager's. The trace names `clustering_hold`, the merchant and the running total.
-3. Every later refund in the same cluster is routed to the manager's queue too.
+1. Once a merchant's `not_received` refunds within the window together pass the manager line, every one of them still pending needs a manager, the first included: they leave the analyst's queue for the manager's. The trace names `clustering_hold`, the merchant and the total.
+2. A later `not_received` refund from the same merchant in the window needs a manager too.
+3. While a merchant's `not_received` refunds stay under the manager line together, they go through as before.
 4. A `faulty` refund from the same merchant is not affected.
 5. Rejected refunds don't count toward the total.
 6. With `refunds.clustering_window_days` at 0, `clustering_hold` reads allow and no refund is routed by this rule. This is the KILL_SWITCH setting.

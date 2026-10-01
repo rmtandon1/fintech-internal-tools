@@ -38,7 +38,7 @@ describe("RemovalPreviewBody", () => {
     expect(html).toContain('href="https://github.com/o/r/pull/42"');
     expect(html).toContain("30 Sept 2026");
     expect(html).toMatch(/data-testid="removal-current-state"[^>]*>Off</);
-    expect(html).toContain("send them to a manager for approval");
+    expect(html).toContain("send them all to a manager for approval");
     expect(html).toContain(">What happens<");
     for (const line of WHAT_HAPPENS) expect(html).toContain(line);
     expect(html).toMatch(/<details[^>]*data-testid="engineering-detail"/);
