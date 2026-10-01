@@ -1,4 +1,4 @@
-# 10-Minute Loom Video Script: Devin-Driven Internal Tools for a Regulated Fintech
+# Five-Minute Loom Video Script: Devin-Driven Internal Tools for a Regulated Fintech
 
 ## 🎯 Opening (45 seconds)
 "I built a full-stack internal tools console with Devin, which I've called Solon, for a regulated fintech. It automates governed changes to the business rules that decide how the team handles its customers' data.
