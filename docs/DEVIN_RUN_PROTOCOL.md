@@ -83,7 +83,7 @@ Devin's VM runs a freshly seeded database. It cannot see `apps/console/data/cons
   "run_id": "01K5Z3Q8M4V7N2X9C6B1D0F3GH",
   "operation": "change",
   "spec": "REFUND_CLUSTERING_HOLD.md",
-  "intent": "Once a merchant's \"not received\" refunds add up past the manager limit, send them to a manager for approval. Send those customers' KYC approvals to a manager too.",
+  "intent": "Once a merchant's \"not received\" refunds add up past the manager limit, send all of them to a manager for approval, including the first. Send those customers' KYC approvals to a manager too.",
   "requested_by": "manager",
   "base": { "branch": "cognition-dashboard-devin-integration", "commit": "1a67f60…" },
   "allowed_paths": [
