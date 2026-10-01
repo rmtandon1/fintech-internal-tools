@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import { db } from "@console/db";
 import { listApprovals } from "@console/engine/approvals";
 import type { Actor, LinkedActivity } from "@console/engine/types";
@@ -7,15 +7,16 @@ import { refunds } from "@console/tool-refunds/schema";
 import type { KycCase } from "./index";
 
 /**
- * Refunds raised by the same customer, joined on `email = customer_email`
- * on the server. The aggregate carries no PII, so every KYC role gets it;
+ * Refunds linked to the case on the server: those raised by the same
+ * customer (`email = customer_email`) and, for a merchant, those whose
+ * `merchant_case_id` is this case. The aggregate carries no PII, so every KYC role gets it;
  * rows and the cluster link only go to roles that can open the refunds tool.
  */
 export function refundsForCase(record: KycCase, actor: Actor): LinkedActivity | null {
   const rows = db
     .select()
     .from(refunds)
-    .where(eq(refunds.customerEmail, record.email))
+    .where(or(eq(refunds.merchantCaseId, record.id), eq(refunds.customerEmail, record.email)))
     .all();
   if (rows.length === 0) return null;
 
