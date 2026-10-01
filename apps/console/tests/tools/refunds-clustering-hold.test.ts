@@ -99,6 +99,12 @@ function insertCase(id: string, email: string, riskScore: number): void {
     .run();
 }
 
+function customerEmailOf(id: string): string {
+  const row = db.select({ email: refunds.customerEmail }).from(refunds).where(eq(refunds.id, id)).get();
+  if (!row) throw new Error(`missing ${id}`);
+  return row.email;
+}
+
 function kycCase(id: string) {
   const record = kycTool.get(id);
   if (!record) throw new Error(`missing ${id}`);
@@ -212,7 +218,7 @@ describe("clustering_hold with the switch on", () => {
 
 describe("linked_refund_hold on KYC approval", () => {
   it("sends a low-risk case whose customer has a held refund to a manager", () => {
-    insertCase("kyc_hold_linked", refund("rfnd_0011").customerEmail, 20);
+    insertCase("kyc_hold_linked", customerEmailOf("rfnd_0011"), 20);
     expect(preview(kycTool, kycCase("kyc_hold_linked"), "approve").trace).toContainEqual({
       type: "allow",
       rule: "linked_refund_hold",

@@ -390,8 +390,8 @@ export const kycTool = defineTool<KycCase>({
         riskTierApproval,
         pepApproval,
         declaredVsFound,
-        escalatedNeedsManager,
         linkedRefundHold,
+        escalatedNeedsManager,
       ],
       suggest: () => ({ note: "Identity checks complete." }),
       decide: ({ record, input }) => ({
