@@ -1,422 +1,195 @@
-# 5-Minute Loom Video Script: Devin-Driven Ownership of Platform Tools
+# 10-Minute Loom Video Script: Devin-Driven Internal Tools for a Regulated Fintech
 
-## 🎯 Opening (40 seconds)
+## 🎯 Opening (45 seconds)
+"I built a full-stack internal tools console with Devin, which I've called Solon, for a regulated fintech. It automates governed changes to the business rules that decide how the team handles its customers' data.
 
-**▶ SLIDE 1 · Your team asks, Devin builds, an engineer approves.** The recording opens on it.
+The brief: can Devin replace the client's current Power Apps setup for building their internal tools?"
 
-[Point along the four boxes.]
-
-> "Without a release pipeline, a rule changes one of two ways."
->
-> "Someone edits a flow in the browser, live in minutes, unreviewed. Or it's a ticket, and weeks."
->
-> "There's another option. Your team asks for a change, Devin builds it, and an engineer approves it."
->
-> "I built Solon, this console, with Devin AI: a full-stack operations console for a regulated fintech. Next.js and React in front, a governed engine on SQLite behind it, and only the engine writes to the database."
->
-> "The console drives Devin through the Devin v3 API and GitHub's REST API. Devin coordinates the files, runs the test suite, opens the pull request and merges it. The person asking sends one sentence, and an engineer reviews."
-
-[Press → to slide 2.]
+**Tech Stack:**
+- Frontend: Next.js and React with Tailwind CSS
+- Backend: one engine on the server that every write goes through, over SQLite
+- Integrations: the console drives Devin through the Devin API and follows pull requests through the GitHub API
+- Why Devin? It edits across the codebase, runs the tests and opens the pull request. An engineer reviews and merges.
 
 ---
 
-## 🧭 Power Apps Today (25 seconds)
+## 🧭 The Pitch: Two Paths (1 minute 20 seconds)
 
-**▶ SLIDE 2 · Power Apps is five products in one.**
+**▶ Slide 1 · Devin lets ops change their own rules, with every change reviewed**
 
-> "Power Apps is five products: an app builder, Dataverse, connectors, Power Automate, and an admin plane."
->
-> "Leaving it means owning all five. Everything I show next replaces one, in code your team owns."
+"What follows is a pitch to the client on building versus buying their internal tools. We think a fintech's team runs two paths:"
 
-The comparison is on slide 2 of `docs/DEMO-SLIDES.html`; refer to it rather than reading the table here.
+1. **Data-shaped work** - queues, lookups and simple approvals, handled by ops on a low-code platform
+2. **Money-moving or regulator-visible work** - robustly engineered
 
-**◀ CONSOLE.** [Viewing as Manager, on Home.]
+"The problem is that the boundary drifts. A simple queue grows into an approval flow, and before long a Power Automate flow is part of how refunds get decided. There's a third option: use Devin to build your internal tools platform."
+
+**What the demo covers:**
+- A new rule that spans two apps
+- A manual workflow, automated
+- A new app function: the console calling an outside service for the first time
+
+**▶ Slide 2 · Leaving Power Apps means replacing five products, not one**
+
+"Business ops use Power Apps while your engineers focus on product and platform. That's an opportunity cost, but the real cost to evaluate is whether maintaining all of this going forward is sustainable."
 
 ---
 
-## 🧩 Rules: Added, Switched Off, Removed (2 minutes 20 seconds)
+## 🏗 Quick Tour (40 seconds)
 
-### Before
+[Console Home, viewing as Manager]
 
-[Point at the three live apps.]
+"Devin built this. Three live apps - KYC review, Refunds and Feature flags - plus 17 coming soon across Compliance, Money Movement, Customers and Platform, to give a sense of where the platform could go."
 
-> "Three live apps on one engine. Devin wrote the code; I wrote the specs and reviewed every pull request."
->
-> "Every write goes through the engine. There's a test that makes sure of it — and it fails the build if anything tries to go around."
->
-> "First, a change inside an app we already run."
+"Every write goes through one engine. Because every future app is built on the same kernel, it inherits roles, rules and the audit log automatically."
 
-[Open the **Refunds** tile.]
-
-[Open the Kestrel cluster drawer.]
-
-> "Four 'not received' refunds from Kestrel Outdoors, each just under the $500 manager line. Together, $1,880."
-
-[Switch role: Analyst.]
-
-[On `rfnd_0013`, click **Send to processor**.]
-
-[It goes straight to **With processor**.]
-
-> "An analyst pays one. $460, under the line, straight through. Nothing stopped it."
-
-### Ask, build, approve
-
-[Switch role: Manager.]
-
-[Click **Ask Devin for a rule**.]
-
-[Type the first words, press Tab.]
-
-> "The grey text is a suggestion saved with this change in the repo, so the take reads the same every time. Tab accepts it; a manager can type their own words instead."
->
-> "A manager asks Devin for a rule that adds them up."
-
-[Point at the sentence, the four refunds, the two limits.]
-
-[Point at the allowed paths: three files and tests.]
-
-> "One sentence, the four refunds, and three files it may change. No customer emails, no card numbers."
->
-> "The spec with the edge cases goes to the reviewer — and Devin is told not to open it."
-
-[Click **Send to Devin**.]
-
-[Cut to the finished run; read "Took …" aloud.]
-
-> "This took Devin *(time)*. It committed the plan before writing any code — and there's a guard on the run, so touching a file outside that plan fails it."
-
-[Point at the changed assertion in `refunds-clusters.test.ts`.]
-
-> "An existing test said all four refunds pass. Devin changed it to three held."
->
-> "*(328)* tests before, *(new total)* after."
-
-[Switch role: Engineer.]
-
-[On **Rule changes**, click the top row, the one with the PR number, to open its run in the Devin panel.]
-
-[Click **Review and approve**.]
-
-[Point at "The approver cannot be the requester".]
-
-> "Now I'm the engineer. The person who asked can't approve. That's checked in code every time someone approves."
-
-[Click **Approve as engineer**.]
-
-[Point at **Checks** and **Context untouched ✓**.]
-
-> "It also checks the build is green and that Devin worked from the request we sent."
-
-[Let the rows fill in, down to the audit row.]
-
-[Close the dialog; click **Pull merged code**.]
-
-> "It's merged. An engineer pulls it into the running console."
-
-### Held
-
-[Switch role: Analyst.]
-
-[`rfnd_0011` is no longer in the refunds queue; **With a manager** counts it.]
-
-> "Back to the analyst. The next Kestrel refund has left their queue, and nobody clicked anything."
-
-[Switch role: Manager. Open `rfnd_0011` in the manager's queue, then the trace: `clustering_hold` and the running total.]
-
-> "It's in the manager's queue, and the trace says why: the new rule, and how much Kestrel has added up to."
-
-> "The rule itself is a sum. The work is everything around it: the KYC side, a switch to turn it off, tests, review, and later an undo that keeps what came after."
-
-### Switch it off
-
-[Off camera: merge the `partial_delivery` pull request.]
-
-[Off camera: `pnpm db:scenario courier-outage`.]
-
-[Switch role: Manager.]
-
-[Open **Refunds**: 60 Fernhill refunds need your approval.]
-
-> "A courier outage. Sixty genuine refunds from a trusted merchant, all in the manager's queue."
-
-[Switch role: Admin.]
-
-[In **Rule settings**, set `refunds.clustering_window_days` to 0.]
-
-[Save; point at the audit row.]
-
-> "Zero means off, and a test proves it. One setting, one audit row, no deploy."
-
-### Remove it
-
-[Open **Rule changes**, then the merged Kestrel run.]
-
-[Click **Undo this change**.]
-
-[Click **Ask Devin to undo it**.]
-
-[Cut to the finished undo.]
-
-> "Undoing it is the hard part. A plain git revert conflicts, because a partial-delivery reason code has since gone into the same file."
-
-[Point at the conflict: kept `partial_delivery`, removed `clustering_hold`.]
-
-> "Devin kept the later work and took the rule out."
-
-[Point at the removed tests, then the sixty routed refunds.]
-
-> "Devin lists the tests it removed, and the sixty routed refunds still in the manager's queue for someone to pay or reject. Nothing else was touched."
-
-[As Engineer: approve, merge, **Pull merged code**.]
-
-> "The undo gets the same review the rule did."
-
-### Outcome
-
-[Switch role: Analyst.]
-
-[`rfnd_0014` is back in the analyst's queue; click **Send to processor**.]
-
-[It goes straight to **With processor**.]
-
-> "The analyst's click goes straight through again."
-
-[Open the trace, then the reason-code dropdown.]
-
-> "No trace of the rule, and partial delivery is still in the list."
+"So Devin can build the apps. The real question is whether ops teams can still change them."
 
 ---
 
-## 🔎 Connectors: Monitoring Merchants Every Day (75 seconds)
+## 🧩 Add a Rule - Refund Hold (3 minutes)
 
-### Before
+### The Pattern
+[Refunds page, pattern monitor open on Kestrel Outdoors]
 
-[Switch role: Analyst.]
+"Four refunds, all 'parcel not received', all just under the $500 manager approval limit. That looks suspicious."
 
-[Open `kyc_0104`, Wilko Limited.]
+**Pattern Monitor:**
+- A simple declared SQL query over the refunds table - no AI watching the queue
+- The strip shows the query's result as a chip
 
-> "That change stayed inside the console. This one reaches outside it, to a government register — every day."
+### Ask Devin
+[Take a look → Ask Devin for a rule → Tab → Send to Devin]
 
-[Point at the registry check: "Checked by hand at onboarding: active", dated 2021.]
+"Without leaving the page, the manager asks Devin for a rule:
 
-[Point at the five Wilko refunds on `/t/refunds`, each settling straight through.]
+**The Request:**
+- If a merchant's 'not received' refunds add up to more than the manager limit, send them all to a manager - potential fraud
+- Route those customers' KYC approvals to a manager too
 
-> "Wilko was checked once, when it was onboarded. UK rules want ongoing monitoring; nobody has looked since. Wilko is in liquidation today under a new name — and its five 'not received' refunds still pay straight through."
+Summing a merchant's refunds sounds like a one-liner, but it isn't: rejected refunds mustn't count, and goodwill refunds have their own approval limit."
 
-### Ask, build, approve
+### Devin at Work
+**Console Modal:**
+- Live steps from the Devin API, so you never have to leave the console
+- Context goes to Devin as a JSON file, and a Devin playbook gives it the standard instructions
+- Shows the files Devin read, the changes it made, and its lint and test results
 
-[Switch role: Admin.]
+### Review and Merge
+[Open the pull request on GitHub]
 
-[Click **Ask Devin to monitor merchants**.]
+"The pull request shows the decisions Devin made and the judgement calls it took. It knows the manager limit, and that the rule covers all four refunds. The engineer reviews and merges on GitHub, and the console picks up the merge through the GitHub API."
 
-[Type the first words, press Tab.]
+### Switch It On
+[See it on Refunds → Rules panel]
 
-> "One sentence, written like a ticket: recheck approved UK merchants daily, and send an insolvent one and its refunds to a manager."
+"Refund hold now sits in the Rules panel with its pull request. Devin ships every rule switched off, and the monitor says so. Turn it on, and all four refunds move to the manager."
 
-[Point at **What Devin will see**: name, number, country.]
+[Open a held refund]
+"The relevant details are highlighted, and the manager decides: release the funds, or reject."
 
-> "How to build it — the key, the timeout, failing closed, shipping switched off — is in the repo's house rules, not the prompt."
-
-[Click **Send to Devin**.]
-
-[Cut to the finished run; read "Took …" aloud.]
-
-[Point at the files: *(the refund-to-case link migration, the daily entry point, the refund rule)*.]
-
-> "This one had to build three things that didn't exist: refunds only carry a merchant name, so a migration links them to the KYC case; there was no scheduler, so the daily recheck runs as an audited system actor; and refund rules couldn't read KYC."
->
-> "A failed lookup flags the case for a manager without holding its refunds. Tests replay recorded responses — no live call."
-
-[As Engineer: approve, merge, **Pull merged code**.]
-
-[Switch role: Admin.]
-
-[In **Rule settings**, set the merchant monitoring setting to 1, then click **Recheck now**.]
-
-> "It merged switched off. Turning it on is a separate change, with its own audit row."
-
-### Outcome
-
-[Point at the recheck result: "4 UK merchants checked · 1 in liquidation · 5 refunds sent to a manager".]
-
-[Open `kyc_0104`: Declared vs found shows declared "Wilko Limited, active", found "WL REALISATIONS (2023) LIMITED, liquidation".]
-
-[Open `/t/refunds` as Manager: the five Wilko refunds wait for review.]
-
-> "Wilko is flagged with its live status, and its refunds wait for a manager. Lakeland, Timpson and Screwfix checked clean — nothing changed for them."
+[Click Reject]
 
 ---
 
-## 📦 Apps: Starting the Next One (70 seconds)
+## ⏯ Switch Off & Remove (1 minute 20 seconds)
 
-### Before
+### Switch It Off
+[Rules panel → toggle Refund hold off]
+"If the rule turns out not to be fit for purpose, switch it off. The refunds go straight back to the analyst queue."
 
-> "Both of those changed an app that already exists. This time there's no app yet."
+### Remove It
+[Remove… → Remove rule]
+"Realistically, you'd want it out of the codebase entirely. The window shows the original request and what happens when it's removed.
 
-[Switch role: Admin.]
+This isn't a git revert. Devin edits the code as it stands today, so anything merged since stays where it is."
 
-[On Home, open **Chargebacks** under Coming soon.]
-
-[Point at the sample rows.]
-
-> "Chargebacks still runs in a Power App, with two Power Automate flows."
-
-[Point at **Included automatically**.]
-
-> "Nobody has built it yet, and it already has roles, approvals, live settings and an audit log."
-
-### Ask, build, approve
-
-[Click **Ask Devin to start this app**.]
-
-[Point at the export: seven files.]
-
-> "Two screens, two flows, fifty disputes. I'm asking for the first pull request, not the whole app."
-
-[Click **Send to Devin**.]
-
-[Cut to the finished run; read "Took …" aloud.]
-
-[Open the pull request description on GitHub.]
-
-> "This took Devin *(time)*. Every formula and flow step in the export is listed, done or still to do."
-
-[Point at the file list: nothing under `packages/`.]
-
-> "*(Fifteen)* files. A new table, nothing under the engine, and the roles and approvals came with it."
-
-[As Engineer: approve, merge, **Pull merged code**.]
-
-[Switch role: Admin.]
-
-[In **Feature flags**, enable `app.chargebacks`.]
-
-> "The whole app merged behind one flag, switched off. If it doesn't match the Power App, the flag goes back off."
-
-### Outcome
-
-[Switch role: Analyst.]
-
-[Open the **Chargebacks** tile on Home.]
-
-[Point at "Over $1,000, due within 48 hours": 3.]
-
-> "The refunds team has a live queue. The hourly email is now a count: three due in 48 hours."
-
-[On `DSP-20401`, click **Accept**.]
-
-[It waits for a manager.]
-
-> "A $2,480 fraud accept waits for a manager, as it did in Power Apps. Everything still to move is listed in the pull request."
+[Skip ahead → open the pull request → merge → back to the console]
+"Refund hold now shows as Recently removed."
 
 ---
 
-## 🔧 Challenge: GitHub Approval Drift (30 seconds)
+## 🔎 Automate a Manual Check - Companies House (1 minute 50 seconds)
 
-**Differentiator:** a real problem from the build, traced from GitHub back to the run record and fixed in four layers, each through the same governed write path.
+### Why This One
+"So far Devin has only worked with data the console already holds. A lot of what Power Apps does reaches outside, through connectors and daily flows. So let's automate a check against Companies House."
 
-[Stay on the Chargebacks queue. Nothing new goes on screen.]
+### The Pattern
+[KYC review → Take a look]
+"The pattern monitor flags four UK merchants that were checked on Companies House by hand at onboarding, and never since."
 
-> "One challenge from the build: approvals that went around the console."
->
-> "Engineers review on GitHub. One approved a pull request there, and the console still said Devin was working. A merge on GitHub never reached the audit log at all."
->
-> "For a regulated team, that's merged code nobody recorded approving."
->
-> "The fix has four layers. Read the reviews from GitHub on every poll. Map the GitHub login to a console engineer. Run that approval through the same rules as the button, so the requester still can't approve. And if something merges with no approval, record the merge and name the gap."
->
-> "Approve in either place, and the record matches GitHub."
+### Ask Devin
+[Ask Devin to monitor merchants → Tab → Send to Devin]
+"Devin is sent the four merchants and what to look for on Companies House. Much of the process is the same as before, so let's skip to the pull request."
 
-Where each layer lives (not read aloud; write-up in `docs/GITHUB_APPROVAL_DRIFT.md`):
+### Merge and Recheck
+[Merge the pull request → See it on KYC → toggle Merchant monitoring on → Recheck now]
+"Devin added a rule called Merchant monitoring: every approved UK merchant is rechecked on Companies House against its original KYC details."
 
-- Read GitHub: `listApprovingReviews` in `tools/automation/src/github-api.ts`, polled from `handleGet` in `apps/console/src/lib/devin-route.ts`
-- Map the login: `actorForGitHubLogin` and `GITHUB_APPROVER_LOGIN` in `packages/engine/src/actor.ts`
-- Same rules: `observeGitHubApproval` in `tools/automation/src/bridge.ts` runs `approve_pr` through `executeIntent` with the button's idempotency key, so `approver_is_not_requester` applies
-- Name the gap: `record_merge` from `running` under `merge_without_recorded_approval` in `tools/automation/src/index.ts`
+**The Result:**
+- Four merchants rechecked against the live register
+- Three still active - nothing changes for them
+- Wilko Limited - in liquidation
 
----
+### Wilko
+[Click Wilko Limited → Declared vs found]
+"This is a real company. The Wilko brand still trades, but the company this system onboarded is now WL Realisations, in liquidation - and only Companies House shows that.
 
-## 💷 What It Costs (20 seconds)
-
-**▶ SLIDE 3 · What it costs.** Refer to the comparison table on the slide.
-
-> "There are three ways to run this."
-
-> "You still need engineers. They check the work instead of writing it."
-
-[Press → to slide 4.]
+Devin also linked the KYC case to the Refunds app, so Wilko's refunds now need a manager. It's not just a rule change: Devin connected two apps."
 
 ---
 
-## ⚖️ Build or Buy (60 seconds)
+## ⚖️ Build or Buy (1 minute)
 
-**▶ SLIDE 4 · Build or buy.** Stay on it to the end.
+**▶ Slide 3 · Build it yourselves, one app at a time, with one engineer in charge**
 
-[Point at **What the demo proves**.]
+"Should you build with Devin, or keep paying the licence? Build one app first, and see how Devin picks up the tacit knowledge: the formulas and flows nobody writes down."
 
-> "Here's what the demo proves. Rules can be added, turned off and removed, and an engineer checks every change. The same goes for connectors and new apps."
+**Why Build:**
+- Every later app comes off the same platform: the same engine, roles, rules and audit log
 
-[Point at **What it doesn't prove**.]
+**Risks:**
+- More individual ownership can mean an overwhelming number of business changes - a Jevons paradox
+- We don't know the true economics yet
 
-> "Here's what it doesn't prove. Login, hosting, backups and support still need to be built."
->
-> "Business users also can't make changes themselves any more. Every change goes through an engineer."
+**▶ Slide 4 · A 90-day pilot on your own data will settle the decision**
 
-[Point at **Risks**.]
+"So we propose a 90-day pilot on your own data and logins, judged on how accurately and consistently it decides compared with Power Apps."
 
-> "There are three main risks. Power Apps formulas that nobody documented might work differently once they're moved."
->
-> "Reviews could get rushed as the number of changes goes up."
->
-> "And engineering and hosting costs could cancel out the licence savings. We don't have real numbers for that yet."
+---
 
-[Point at **Next 90 days**.]
+## 🎯 Future Improvements (35 seconds)
 
-> "So I'd recommend building it yourselves, one app at a time, but only if you can put one engineer in charge of it."
->
-> "Start with Chargebacks. Run it alongside the Power App, then decide: does it match, how long do reviews take, and what does each change cost?"
+"One thing I didn't fully capitalise on was Devin working without being asked. Every change here started with a button.
 
-[Point at **Where Devin fits**.]
+1. **Scheduled Sweeps** - Devin's scheduled sessions could sweep every app once a week for rules that have sat switched off, and open a pull request to remove each one
+2. **Built for the Next Ten Apps** - especially useful across the ten new apps you're planning, because what makes internal tools a time sink isn't building them, it's maintaining them
 
-> "If you build, Devin writes the changes and your engineers review them. If you stay on Power Apps, Devin can still build custom connectors and write tests and documentation."
+Thanks for watching - chat soon!"
 
 ---
 
 ## 📝 Demo Checklist
 
 **Before recording:**
-
-- [ ] A day ahead, do the Devin runs in order:
-  - [ ] Kestrel rule, approved on GitHub as `rmtandon1` rather than in the console; its run reads "Approved on GitHub by @rmtandon1" and merges
-  - [ ] `partial_delivery` pull request, after the rule
-  - [ ] Undo conflicts on `git revert --no-commit`
-  - [ ] Courier outage scenario, then switch the rule off
-  - [ ] Undo the Kestrel rule
-  - [ ] Merchant monitoring
-  - [ ] Chargebacks app
-- [ ] Note each run's time, ACUs and test total
-- [ ] Check out the demo tag on the branch
-- [ ] `pnpm db:reset` within the hour
-- [ ] `/api/devin/status` reads `live`
-- [ ] `pnpm verify` green
-- [ ] Browser at 1440×900
-- [ ] Slide deck open in a second window
+- [ ] Start a fresh take: `pnpm exec tsx scripts/demo-reset.ts`
+- [ ] Start the console: `pnpm dev`, then open a new tab at http://localhost:3001 so the pattern monitor slides in
+- [ ] Check `/api/devin/status` reads live, with the GitHub token and Companies House key set
+- [ ] Browser at 1440×900, with the slides (`docs/DEMO-SLIDES.html`) and GitHub in separate windows
+- [ ] View the console as Manager
 
 **During recording:**
-
-- [ ] Follow the ▶ SLIDE and ◀ CONSOLE cues
-- [ ] Show each run's real "Took …" time
-- [ ] Click `rfnd_0013`, `rfnd_0011`, `rfnd_0014`, `DSP-20401` only once
-- [ ] Keep it under eight minutes
+- [ ] Slides 1-2, then the Home tour
+- [ ] Refunds: Take a look → Ask Devin for a rule → Tab → Send to Devin
+- [ ] Open the pull request, merge it on GitHub, See it on Refunds
+- [ ] Switch Refund hold on, open a held refund, reject it
+- [ ] Switch it off, Remove… → Remove rule, merge, show Recently removed
+- [ ] KYC: Take a look → Ask Devin to monitor merchants → Tab → Send to Devin
+- [ ] Merge, See it on KYC, switch Merchant monitoring on, Recheck now once
+- [ ] Click Wilko Limited, show Declared vs found, then its refunds
+- [ ] Slides 3-4, future improvements, close
 
 **After recording:**
-
-- [ ] Add chapter timestamps in comments
 - [ ] Link the GitHub repo in the description
-- [ ] Link `docs/GITHUB_APPROVAL_DRIFT.md` in the description for the GitHub approval drift challenge
-- [ ] List the five pull requests with time and ACUs
-- [ ] Attach `docs/DEMO-SLIDES.pdf`
-- [ ] Tag: #devin #ai-automation
-- [ ] Stop Devin sessions and reset the database
-- [ ] Tag the recorded commit
+- [ ] Add chapter timestamps in the comments
+- [ ] Tag: #devin #internal-tools #fintech #power-apps
