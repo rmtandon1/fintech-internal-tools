@@ -13,6 +13,8 @@ export const refunds = sqliteTable(
     customerEmail: text("customer_email").notNull(),
     cardLast4: text("card_last4").notNull(),
     merchant: text("merchant").notNull(),
+    /** The merchant's KYC case; the link refund rules read, never the merchant name. */
+    merchantCaseId: text("merchant_case_id"),
     psp: text("psp").notNull(),
     currency: text("currency").notNull(),
     capturedMinor: integer("captured_minor").notNull(),
@@ -31,5 +33,17 @@ export const refunds = sqliteTable(
   (t) => [
     index("refunds_status_idx").on(t.status),
     index("refunds_payment_idx").on(t.paymentId),
+    index("refunds_merchant_case_idx").on(t.merchantCaseId),
   ],
 );
+
+/**
+ * A merchant's Companies House status, keyed by its KYC case. Only an
+ * administration, liquidation or dissolved result is kept; KYC merchant
+ * monitoring writes it and the refunds `merchant_insolvency` rule reads it.
+ */
+export const merchantRegistryStatus = sqliteTable("merchant_registry_status", {
+  caseId: text("case_id").primaryKey(),
+  companyStatus: text("company_status").notNull(),
+  checkedAt: integer("checked_at").notNull(),
+});
