@@ -94,11 +94,14 @@ beforeAll(() => {
 });
 
 describe("refund hold removed", () => {
-  it("the refunds tool no longer declares the refund hold switch and execute runs its four earlier rules", () => {
+  it("the refunds tool no longer declares the refund hold switch and execute runs its four earlier rules first", () => {
     expect(refundTool.constants?.map((c) => c.key)).not.toContain(SWITCH);
-    expect(refundTool.actions.find((a) => a.name === "execute")?.rules).toHaveLength(4);
     const rules = preview(refundTool, refund("rfnd_0011"), "execute").trace.map((o) => o.rule);
-    expect(rules).toEqual(["within_captured_amount", "not_disputed", "amount_approval", "goodwill_approval"]);
+    expect(rules.slice(0, 4)).toEqual(["within_captured_amount", "not_disputed", "amount_approval", "goodwill_approval"]);
+    expect(rules).not.toContain("clustering_hold");
+    expect(refundTool.actions.find((a) => a.name === "execute")?.rules).toHaveLength(rules.length);
+    // Rules added since the removal follow the earlier four.
+    expect(rules.slice(4)).toEqual(["merchant_insolvency"]);
   });
 
   it("a leftover stored switch set to true holds no Kestrel refund: they stay with the analyst", () => {
