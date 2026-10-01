@@ -20,7 +20,7 @@ Nothing in the console connects those facts, and no rule catches them.
 
 The sentence the requester sends. The request box starts empty and offers it as a grey suggestion Tab accepts; the requester may type their own:
 
-> Once a merchant's "not received" refunds add up past the manager limit, send all of them to a manager for approval, including the first. Send those customers' KYC approvals to a manager too.
+> If a merchant's refunds of type "not received" add up to more than the manager limit, send them all to a manager for approval. Potential fraud. Also route those customers' KYC approvals to a manager.
 
 It is deliberately short. It doesn't mention the window, rejected refunds, frozen-FX amounts or where the rule sits in the trace. Devin never sees this file: it has to find each of those in the code, and the acceptance tests below are what the reviewer checks its tests against. That gap is what the viewer should notice (`AGENT_TRIGGER_SURFACE.md` § One sentence, not a chat panel).
 

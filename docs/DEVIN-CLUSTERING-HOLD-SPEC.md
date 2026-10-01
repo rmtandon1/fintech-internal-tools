@@ -61,7 +61,7 @@ code and no run.
 
 | Request | Structured change |
 |---|---|
-| "Once a merchant's 'not received' refunds add up past the manager limit, send all of them to a manager for approval, including the first." | `{ "action": "add_rule", "target": "refunds.execute", "oldIdentifier": null, "newIdentifier": "clustering_hold", "parameter": { "key": "refunds.clustering_window_days", "default": 14, "offValue": 0 } }` |
+| "If a merchant's refunds of type 'not received' add up to more than the manager limit, send them all to a manager for approval. Potential fraud." | `{ "action": "add_rule", "target": "refunds.execute", "oldIdentifier": null, "newIdentifier": "clustering_hold", "parameter": { "key": "refunds.clustering_window_days", "default": 14, "offValue": 0 } }` |
 | "Send those customers' KYC approvals to a manager too." | `{ "action": "add_rule", "target": "kyc.approve", "oldIdentifier": null, "newIdentifier": "linked_refund_hold", "parameter": { "key": "refunds.clustering_window_days", "default": 14, "offValue": 0 } }` |
 | "Switch the hold off." | `{ "action": "set_constant", "target": "/admin/policy", "oldIdentifier": "14", "newIdentifier": "0", "parameter": { "key": "refunds.clustering_window_days" } }` |
 | "Undo the refund hold …" | `{ "action": "remove_rule", "target": "refunds.execute,kyc.approve", "oldIdentifier": "clustering_hold,linked_refund_hold", "newIdentifier": null, "parameter": { "key": "refunds.clustering_window_days" } }` |

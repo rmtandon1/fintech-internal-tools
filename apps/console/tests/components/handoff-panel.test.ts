@@ -45,7 +45,7 @@ describe("HandoffPanel", () => {
   it("a change offer renders an empty request box with the spec's sentence as a grey suggestion Tab accepts", () => {
     const html = render(offer);
     expect(html).toContain('id="handoff-intent"');
-    expect(html).toContain('placeholder="Once a merchant');
+    expect(html).toContain('placeholder="If a merchant');
     expect(html).not.toContain(`>${REFUND_CLUSTERING_HOLD.intents.change}</textarea>`);
     expect(html).toContain(">Tab</kbd>");
     expect(html).toContain('aria-label="Intent"');

@@ -95,7 +95,7 @@ export const REFUND_CLUSTERING_HOLD: RunnableSpec = {
   sendSpec: false,
   intents: {
     change:
-      "Once a merchant's \"not received\" refunds add up past the manager limit, send all of them to a manager for approval, including the first. Send those customers' KYC approvals to a manager too.",
+      "If a merchant's refunds of type \"not received\" add up to more than the manager limit, send them all to a manager for approval. Potential fraud. Also route those customers' KYC approvals to a manager.",
     undo: "Undo the refund hold: remove the refund rule, the linked KYC rule and its switch setting, and keep every change made since.",
   },
   summaries: {
