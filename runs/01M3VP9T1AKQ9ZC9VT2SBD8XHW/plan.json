@@ -1,0 +1,59 @@
+{
+  "files": [
+    {
+      "path": "tools/refunds/src/clustering-hold.ts",
+      "op": "delete",
+      "reason": "the clustering_hold rule, the refunds.clustering_hold switch key and the held-customer lookup were all added by the refund hold"
+    },
+    {
+      "path": "tools/refunds/src/index.ts",
+      "op": "modify",
+      "reason": "unregister clustering_hold from execute, drop its exports, the refunds.clustering_hold switch declaration, its label and its facts; keep the shared cluster query and cluster strip"
+    },
+    {
+      "path": "tools/kyc/src/index.ts",
+      "op": "modify",
+      "reason": "remove linked_refund_hold from approve, its import from the refunds tool and its label"
+    },
+    {
+      "path": "apps/console/tests/tools/refunds-clustering-hold.test.ts",
+      "op": "delete",
+      "reason": "every test in it asserts the clustering_hold or linked_refund_hold behaviour being removed"
+    },
+    {
+      "path": "apps/console/tests/tools/kyc-case-file.test.ts",
+      "op": "modify",
+      "reason": "the pinned approve rule order no longer includes linked_refund_hold"
+    },
+    {
+      "path": "apps/console/tests/tools/refund-hold-removed.test.ts",
+      "op": "create",
+      "reason": "one test per behaviour the removal restores"
+    }
+  ],
+  "reuses": [
+    { "module": "tools/refunds/src/clusters.ts", "reason": "notReceivedByMerchant stays, so the cluster strip still flags the Kestrel refunds without holding them" },
+    { "module": "packages/engine/src/execute-intent.ts", "reason": "every write in the new tests goes through executeIntent" },
+    { "module": "packages/engine/src/policy/preview.ts", "reason": "previewActions shows the execute and approve traces without writing" },
+    { "module": "packages/engine/src/policy/set-constant.ts", "reason": "a leftover stored refunds.clustering_hold value is set to show it no longer changes decisions" }
+  ],
+  "acceptance": [
+    "The refunds tool no longer declares refunds.clustering_hold and execute runs its four earlier rules without clustering_hold.",
+    "Even with a leftover stored refunds.clustering_hold value of true, the four Kestrel not_received refunds stay in the analyst queue and execute reads allow.",
+    "An analyst can execute a Kestrel not_received refund straight through to the processor.",
+    "KYC approve no longer runs linked_refund_hold, and a low-risk case whose customer has a Kestrel refund clears with an analyst.",
+    "The KYC approve rule order is pinned without linked_refund_hold."
+  ],
+  "removed_tests": [
+    { "file": "apps/console/tests/tools/refunds-clustering-hold.test.ts", "name": "refund hold switch > is declared on the refunds tool as a boolean that is off by default" },
+    { "file": "apps/console/tests/tools/refunds-clustering-hold.test.ts", "name": "refund hold switch > while off, clustering_hold reads allow and the Kestrel refunds stay with the analyst" },
+    { "file": "apps/console/tests/tools/refunds-clustering-hold.test.ts", "name": "refund hold switch > while on with a clustering window of 0, nothing is held" },
+    { "file": "apps/console/tests/tools/refunds-clustering-hold.test.ts", "name": "clustering_hold with the switch on > sends every pending Kestrel refund, the first included, to the manager's queue and names the merchant and total" },
+    { "file": "apps/console/tests/tools/refunds-clustering-hold.test.ts", "name": "clustering_hold with the switch on > holds a later not_received refund from the same merchant in the window" },
+    { "file": "apps/console/tests/tools/refunds-clustering-hold.test.ts", "name": "clustering_hold with the switch on > lets a merchant whose not_received refunds stay under the limit together go through" },
+    { "file": "apps/console/tests/tools/refunds-clustering-hold.test.ts", "name": "clustering_hold with the switch on > does not hold a faulty refund from a clustered merchant" },
+    { "file": "apps/console/tests/tools/refunds-clustering-hold.test.ts", "name": "clustering_hold with the switch on > does not count rejected refunds, so a cluster that falls under the limit is released" },
+    { "file": "apps/console/tests/tools/refunds-clustering-hold.test.ts", "name": "linked_refund_hold on KYC approval > sends a low-risk case whose customer has a held refund to a manager" },
+    { "file": "apps/console/tests/tools/refunds-clustering-hold.test.ts", "name": "linked_refund_hold on KYC approval > leaves a case with no held refunds unchanged: score 68 still clears" }
+  ]
+}
