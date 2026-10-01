@@ -1,0 +1,84 @@
+{
+  "_about": "Responses recorded from GET https://api.company-information.service.gov.uk/company/{company_number} on 2026-09-30, trimmed to the fields the recheck reads. 'error' is the reply to a rejected key; 'timeout' is a request that gets no reply within the time limit.",
+  "companies": {
+    "00365335": {
+      "status": 200,
+      "body": {
+        "company_number": "00365335",
+        "company_name": "WL REALISATIONS (2023) LIMITED",
+        "company_status": "liquidation",
+        "type": "ltd",
+        "date_of_creation": "1941-02-13"
+      }
+    },
+    "00809688": {
+      "status": 200,
+      "body": {
+        "company_number": "00809688",
+        "company_name": "LAKELAND LIMITED",
+        "company_status": "active",
+        "type": "ltd",
+        "date_of_creation": "1964-06-19"
+      }
+    },
+    "00675216": {
+      "status": 200,
+      "body": {
+        "company_number": "00675216",
+        "company_name": "TIMPSON LIMITED",
+        "company_status": "active",
+        "type": "ltd",
+        "date_of_creation": "1960-11-16"
+      }
+    },
+    "03006378": {
+      "status": 200,
+      "body": {
+        "company_number": "03006378",
+        "company_name": "SCREWFIX DIRECT LIMITED",
+        "company_status": "active",
+        "type": "ltd",
+        "date_of_creation": "1995-01-05"
+      }
+    },
+    "12401266": {
+      "status": 200,
+      "body": {
+        "company_number": "12401266",
+        "company_name": "APPLETREE FARM CRESSING LIMITED",
+        "company_status": "administration",
+        "type": "ltd",
+        "date_of_creation": "2020-01-14"
+      }
+    },
+    "NI016353": {
+      "status": 200,
+      "body": {
+        "company_number": "NI016353",
+        "company_name": "YOUTH FASHIONS LIMITED",
+        "company_status": "dissolved",
+        "type": "ltd",
+        "date_of_creation": "1983-01-06",
+        "date_of_cessation": "2021-12-24"
+      }
+    },
+    "99999999": {
+      "status": 404,
+      "body": {
+        "message": "404 NOT_FOUND \"Resource not found for company profile 99999999\""
+      }
+    }
+  },
+  "failures": {
+    "error": {
+      "status": 401,
+      "body": {
+        "error": "Invalid Authorization",
+        "type": "ch:service"
+      }
+    },
+    "timeout": {
+      "timeout": true
+    }
+  }
+}
