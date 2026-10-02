@@ -31,7 +31,7 @@ const secondEngineer: Actor = { id: "usr_engineer_2", name: "Engineer 2", role: 
 
 const SHA = "a".repeat(64);
 const OTHER_SHA = "b".repeat(64);
-const PR = "https://github.com/rmtandon1/buy-v-build-cog-demo/pull/99";
+const PR = "https://github.com/rmtandon1/fintech-internal-tools/pull/99";
 /** The UK business case the Companies House check starts from. */
 const CASE = "kyc_0003";
 /** The four Kestrel Outdoors not_received refunds the seed ships. */

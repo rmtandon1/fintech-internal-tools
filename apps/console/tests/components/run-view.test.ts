@@ -339,7 +339,7 @@ describe("GitHub sync line", () => {
         run: {
           ...payload().run,
           status: "merged",
-          prUrl: "https://github.com/rmtandon1/buy-v-build-cog-demo/pull/990",
+          prUrl: "https://github.com/rmtandon1/fintech-internal-tools/pull/990",
           mergeCommit: "d".repeat(40),
           lastNote: "Merged on GitHub without a recorded approval",
         },
@@ -351,7 +351,7 @@ describe("GitHub sync line", () => {
 });
 
 describe("Merged run next step", () => {
-  const PR_URL = "https://github.com/rmtandon1/buy-v-build-cog-demo/pull/990";
+  const PR_URL = "https://github.com/rmtandon1/fintech-internal-tools/pull/990";
   function mergedRun(overrides: Partial<RunViewPayload["run"]> = {}) {
     const p = payload();
     return payload({

@@ -66,7 +66,7 @@ from the serving checkout's `origin` remote on github.com. `GITHUB_API_BASE` ove
 ## CI
 
 `.github/workflows/verify.yml` runs on every pull request and on pushes to
-`cognition-dashboard-devin-integration`. A newer push cancels the older run on the same ref.
+`internal-tools-console-demo`. A newer push cancels the older run on the same ref.
 
 | Job | Steps | Fails when |
 |---|---|---|
@@ -91,10 +91,10 @@ paths on the PR. CODEOWNERS only binds when branch protection requires code-owne
 
 ## Branch protection
 
-**As of 2026-09-28, `cognition-dashboard-devin-integration` is not protected.**
+**As of 2026-09-28, `internal-tools-console-demo` is not protected.**
 
 ```bash
-gh api repos/rmtandon1/fintech-internal-tools/branches/cognition-dashboard-devin-integration/protection
+gh api repos/rmtandon1/fintech-internal-tools/branches/internal-tools-console-demo/protection
 # {"message":"Branch not protected", … "status":"404"}
 ```
 
@@ -106,7 +106,7 @@ recorded approval` so the gap is visible rather than hidden. What GitHub adds is
 doesn't go through the console. To turn it on:
 
 ```bash
-gh api -X PUT repos/rmtandon1/fintech-internal-tools/branches/cognition-dashboard-devin-integration/protection \
+gh api -X PUT repos/rmtandon1/fintech-internal-tools/branches/internal-tools-console-demo/protection \
   --input - <<'JSON'
 {
   "required_status_checks": { "strict": false, "contexts": ["verify", "guards"] },
@@ -129,11 +129,11 @@ When a run merges, the console brings the merge into the checkout it serves from
 
 1. Runs one sync at a time.
 2. Skips unless the run is `merged` with a merge commit.
-3. Skips unless the checkout is on `cognition-dashboard-devin-integration` (or `SYNC_BRANCH`).
+3. Skips unless the checkout is on `internal-tools-console-demo` (or `SYNC_BRANCH`).
 4. Skips if the working tree has changes, except an untracked `runs/<id>/context.json` that
    dispatch wrote. When that file hashes to the merged run's `contextSha256` it's deleted, so
    the pull can recreate it.
-5. Runs `git pull --ff-only origin cognition-dashboard-devin-integration` (or `SYNC_REMOTE`).
+5. Runs `git pull --ff-only origin internal-tools-console-demo` (or `SYNC_REMOTE`).
 6. Fails if the merge commit isn't on `HEAD` afterwards.
 7. Runs `pnpm install --frozen-lockfile` when the pull changed a `package.json`,
    `pnpm-lock.yaml` or `pnpm-workspace.yaml`, or when `node_modules/.pnpm/lock.yaml` still lags
@@ -156,7 +156,7 @@ The sync runs when the console records the merge. If it was skipped, the run off
 | Approval fails with `GitHub API 403` on `/reviews` | Token lacks pull-request write, or belongs to the PR author | Use an engineer's token with write access; retry the approval |
 | Approval refused: checks not green | A check run is pending or failed | Wait for CI, or fix the failure on the branch |
 | Approval refused: context differs | `runs/<id>/context.json` on the branch changed | The run is void; stop it and dispatch again |
-| `skipped: checkout is not on cognition-dashboard-devin-integration` | Serving checkout switched branch | `git switch cognition-dashboard-devin-integration`, then **Pull merged code** |
+| `skipped: checkout is not on internal-tools-console-demo` | Serving checkout switched branch | `git switch internal-tools-console-demo`, then **Pull merged code** |
 | `skipped: working tree has uncommitted changes` | Edits in the serving checkout | Move them to a worktree ([INTEGRATION-SETUP.md](INTEGRATION-SETUP.md) issue 2) |
 | `failed: db:migrate failed: …` | Migration error | Fix forward in a PR; the next sync retries |
 | No PR comment from `guards` | PR from a fork | The comment step runs only for branches in the same repository |

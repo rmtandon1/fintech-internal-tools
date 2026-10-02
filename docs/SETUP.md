@@ -203,12 +203,12 @@ pnpm verify                                          # lint, typecheck, boundari
 
   ```bash
   git status --short
-  git switch cognition-dashboard-devin-integration
+  git switch internal-tools-console-demo
   rm -rf runs/<stopped_run_id>               # stray folder from a run that never merged
   ```
 
 - Keep feature work in a separate worktree, so the checkout the console runs from stays clean:
 
   ```bash
-  git worktree add ../console-work -b my-change origin/cognition-dashboard-devin-integration
+  git worktree add ../console-work -b my-change origin/internal-tools-console-demo
   ```

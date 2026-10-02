@@ -247,7 +247,7 @@ export function ApprovalDialog({
               <Row
                 mark="Devin"
                 label="Devin merging"
-                detail="squash into cognition-dashboard-devin-integration"
+                detail="squash into internal-tools-console-demo"
                 state={
                   stage === "merging" ? "active" : stage === "merged" ? "done" : "waiting"
                 }

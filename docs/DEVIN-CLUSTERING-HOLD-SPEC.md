@@ -16,7 +16,7 @@ brief is [REFUND_CLUSTERING_HOLD.md](REFUND_CLUSTERING_HOLD.md).
 
 ## 1. Current State
 
-Audited against `cognition-dashboard-devin-integration` at `a54fd58` (28 September 2026). The
+Audited against `internal-tools-console-demo` at `a54fd58` (28 September 2026). The
 hold is **not** in the code: #63 returned the demo to its before-state.
 
 | What | File | Line | Current value |
@@ -383,7 +383,7 @@ Copy, fill the two placeholders, and hand to the agent.
 
 ```text
 Repository: https://github.com/rmtandon1/fintech-internal-tools
-Base branch: cognition-dashboard-devin-integration (pull first; record the head sha as BASE)
+Base branch: internal-tools-console-demo (pull first; record the head sha as BASE)
 Branch: devin/<run_id>-clustering-hold   (outside a console run: devin/manual-clustering-hold)
 
 Task: add the refund clustering hold exactly as docs/DEVIN-CLUSTERING-HOLD-SPEC.md § 4 says.
@@ -403,7 +403,7 @@ Validate (all must pass):
 Git:
   git add -A && git commit -m "Hold a merchant's not-received refunds once they pass the manager line"
   git push -u origin HEAD
-  gh pr create --base cognition-dashboard-devin-integration --fill
+  gh pr create --base internal-tools-console-demo --fill
 
 Report exactly this JSON and nothing else:
 {
@@ -455,7 +455,7 @@ test "$(grep -c 'linkedRefundHold,$' tools/kyc/src/index.ts)" -eq 1
 test "$(grep -c 'decision?.effect).toBe("allow")' apps/console/tests/tools/refunds-clusters.test.ts)" -eq 0
 
 # Nothing outside the allowed paths, nothing in the engine
-git diff --name-only origin/cognition-dashboard-devin-integration... \
+git diff --name-only origin/internal-tools-console-demo... \
   | grep -vE '^(tools/refunds/src/(clustering-hold|index)\.ts|tools/kyc/src/index\.ts|apps/console/tests/)' \
   && { echo "file outside allowed paths"; exit 1; } || true
 

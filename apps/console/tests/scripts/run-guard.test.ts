@@ -14,7 +14,7 @@ import { afterAll, describe, expect, it } from "vitest";
 const REPO_ROOT = resolve(__dirname, "../../../..");
 const TSX = join(REPO_ROOT, "node_modules", ".bin", "tsx");
 const GUARD = join(REPO_ROOT, "scripts", "run-guard.ts");
-const BASE_BRANCH = "cognition-dashboard-devin-integration";
+const BASE_BRANCH = "internal-tools-console-demo";
 const RUN_ID = "01K5Z3Q8M4V7N2X9C6B1D0F3GH";
 const RUN_DIR = `runs/${RUN_ID}`;
 

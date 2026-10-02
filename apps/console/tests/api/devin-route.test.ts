@@ -559,7 +559,7 @@ describe("GET /api/devin/active", () => {
         sessionId: null,
         sessionUrl: null,
         status: "merged",
-        prUrl: "https://github.com/rmtandon1/buy-v-build-cog-demo/pull/99",
+        prUrl: "https://github.com/rmtandon1/fintech-internal-tools/pull/99",
         mergeCommit,
         reverses: null,
         requestedBy: admin.id,
