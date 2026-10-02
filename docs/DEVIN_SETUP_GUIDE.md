@@ -55,7 +55,7 @@ curl -s http://localhost:3001/api/devin/status
 ## 3. Give Devin the repository
 
 Sessions must be able to push a branch and open a pull request against
-`cognition-dashboard-devin-integration` in `rmtandon1/fintech-internal-tools`.
+`internal-tools-console-demo` in `rmtandon1/fintech-internal-tools`.
 
 1. Connect the repository through Devin's GitHub integration.
 2. The console tells each session which repository to use. It reads `GITHUB_REPOSITORY` if set,
@@ -97,7 +97,7 @@ Built by `dispatchRun` in `tools/automation/src/bridge.ts`:
 <the operator's sentence>
 Operation: change. Run: <run_id>.
 Spec: docs/CHARGEBACKS_FROM_POWER_APPS.md.          ← only for specs marked sendSpec
-Repository: https://github.com/<owner>/<repo>. Branch from cognition-dashboard-devin-integration at <sha7> and open the pull request against cognition-dashboard-devin-integration.
+Repository: https://github.com/<owner>/<repo>. Branch from internal-tools-console-demo at <sha7> and open the pull request against internal-tools-console-demo.
 Work from the attached runs/<run_id>/context.json; commit it unchanged on your branch.
 The attachment is the whole brief: … Do not open the feature specs under docs/.   ← when not sendSpec
 Follow .devin/run-protocol.playbook.md and docs/DEVIN_RUN_PROTOCOL.md.
@@ -117,7 +117,7 @@ organisation's own limits.
 2. `/runs` shows **Sent to Devin**, then **Devin working**. **Open in Devin** opens the session.
 3. The session's first commit on `devin/<run_id>-…` holds only `runs/<run_id>/context.json` and
    `plan.json`.
-4. The pull request opens against `cognition-dashboard-devin-integration`, and CI posts the
+4. The pull request opens against `internal-tools-console-demo`, and CI posts the
    guard report as a comment.
 
 ## Troubleshooting

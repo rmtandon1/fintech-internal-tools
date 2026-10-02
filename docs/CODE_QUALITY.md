@@ -73,7 +73,7 @@ review, CODEOWNERS and the playbook; the report says so in a footer.
 
 ```bash
 pnpm exec tsx scripts/run-guard.ts --list-checks
-pnpm exec tsx scripts/run-guard.ts --base origin/cognition-dashboard-devin-integration --markdown
+pnpm exec tsx scripts/run-guard.ts --base origin/internal-tools-console-demo --markdown
 ```
 
 Details: [DEVIN_RUN_PROTOCOL.md](DEVIN_RUN_PROTOCOL.md) § Guard checks.
@@ -108,7 +108,7 @@ pnpm --filter @console/app exec vitest run tests/tools/refunds.test.ts
 ## CI/CD
 
 `.github/workflows/verify.yml`, on every pull request and every push to
-`cognition-dashboard-devin-integration`, Node 24, pnpm with `--frozen-lockfile`:
+`internal-tools-console-demo`, Node 24, pnpm with `--frozen-lockfile`:
 
 - **`verify`**: Lint, Typecheck, Boundaries, Test.
 - **`guards`**: the run guard with `--markdown`, posted as one updating PR comment, then fails

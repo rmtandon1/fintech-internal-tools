@@ -36,7 +36,7 @@ Example response, trimmed to the three fields the client reads. Values are illus
     "phase_status": "done",
     "base_commit": "1a67f60",
     "branch": "devin/01K5Z3Q8-clustering-hold",
-    "pr_url": "https://github.com/rmtandon1/buy-v-build-cog-demo/pull/63",
+    "pr_url": "https://github.com/rmtandon1/fintech-internal-tools/pull/63",
     "stopped_by": null
   }
 }

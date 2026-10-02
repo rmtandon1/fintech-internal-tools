@@ -39,12 +39,12 @@ import { globToRegExp, touchesSharedPath } from "@console/tool-automation/shared
  *
  * Usage: tsx scripts/run-guard.ts [--base <ref>] [--markdown] [--list-checks]
  *   --base      ref to diff against (default: RUN_GUARD_BASE, then
- *               origin/$GITHUB_BASE_REF, then origin/cognition-dashboard-devin-integration)
+ *               origin/$GITHUB_BASE_REF, then origin/internal-tools-console-demo)
  *   --markdown  print the report as a Markdown table for the PR comment
  *   --list-checks  print the implemented check names, one per line, and exit
  */
 
-const INTEGRATION_BRANCH = "cognition-dashboard-devin-integration";
+const INTEGRATION_BRANCH = "internal-tools-console-demo";
 
 export const RUN_GUARD_NAMES = [
   "Stays in plan",

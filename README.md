@@ -11,7 +11,7 @@ launch. Devin handles three kinds of work, each started from the screen that sho
 
 1. **Rules.** Add a rule from the pattern that needs it, switch it off in seconds, and take it out
    of the code later.
-2. **Checks.** Replace a lookup analysts do by hand with one that runs from the case.
+2. **Checks.** Replace a check analysts do by hand, such as Companies House, with one that runs every day.
 3. **Apps.** Start moving the next Power App into the console, as a first pull request plus a list
    of what's left.
 
@@ -569,7 +569,7 @@ Chargebacks still runs in a Power App with two Power Automate flows. Its export 
 |---|---|
 | Devin v3 (`https://api.devin.ai/v3`) | `GET /self` · `POST /organizations/{org}/attachments` · `POST …/sessions` · `GET …/sessions/{id}` · `POST …/sessions/{id}/messages` · `DELETE …/sessions/{id}` |
 | GitHub REST | `GET /repos/{o}/{r}/pulls/{n}` · `GET …/commits/{sha}/check-runs` and `/status` · `GET …/contents/runs/<id>/context.json?ref=<head>` · `GET` and `POST …/pulls/{n}/reviews` |
-| git + pnpm | `git pull --ff-only origin cognition-dashboard-devin-integration` · `pnpm install --frozen-lockfile` · `pnpm db:migrate` · `pnpm db:seed:new` |
+| git + pnpm | `git pull --ff-only origin internal-tools-console-demo` · `pnpm install --frozen-lockfile` · `pnpm db:migrate` · `pnpm db:seed:new` |
 
 ### Managed entity schema
 
@@ -752,7 +752,7 @@ Find the layer first, then the symptom.
 ### Dashboard not updating after a merge
 
 - Open the run and click **Pull merged code**, or **Reconcile** on `/runs` as Engineer.
-- `git status` in the main checkout must be clean and on `cognition-dashboard-devin-integration`.
+- `git status` in the main checkout must be clean and on `internal-tools-console-demo`.
   Delete stray `runs/<id>/` folders from stopped runs.
 - `Module not found: '@console/tool-…'` means the sync's install didn't finish. Run `pnpm install`,
   then restart `pnpm dev`.
@@ -826,7 +826,7 @@ Find the layer first, then the symptom.
 
 ### Contributing
 
-- Branch from `cognition-dashboard-devin-integration` and open PRs against it.
+- Branch from `internal-tools-console-demo` and open PRs against it.
 - CI (`.github/workflows/verify.yml`) runs `verify` and the run guard on every PR, and posts the
   guard's report as a comment.
 - `runs/` and the guard are under CODEOWNERS. Changes under `packages/engine`, `packages/db*`,

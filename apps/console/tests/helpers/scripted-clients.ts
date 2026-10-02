@@ -27,7 +27,7 @@ import {
  * from a recording except by the "Replay" label the UI adds.
  */
 
-const REPO_PR_BASE = "https://github.com/rmtandon1/buy-v-build-cog-demo/pull";
+const REPO_PR_BASE = "https://github.com/rmtandon1/fintech-internal-tools/pull";
 
 /** A deterministic fake 40-hex digest, so replay runs look like git objects. */
 function fakeSha(...parts: string[]): string {

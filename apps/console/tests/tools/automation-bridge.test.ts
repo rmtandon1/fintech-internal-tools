@@ -56,7 +56,7 @@ import { admin, analyst, manager, setupHarness } from "../helpers/harness";
 const REPO_ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"]).toString().trim();
 const engineer: Actor = { id: "usr_engineer", name: "Engineer", role: "engineer" };
 const CASE = ["kyc_0003"];
-const PR = "https://github.com/rmtandon1/buy-v-build-cog-demo/pull/99";
+const PR = "https://github.com/rmtandon1/fintech-internal-tools/pull/99";
 const HEAD = "c".repeat(40);
 const MERGE = "d".repeat(40);
 
@@ -524,7 +524,7 @@ describe("observeRun", () => {
     const run = await running();
     await observeRun(admin, run, deps({ devin: reportingPr().client }));
     const recorded = getRun(run.id);
-    for (const prUrl of [PR, "https://github.com/rmtandon1/buy-v-build-cog-demo/pull/100"]) {
+    for (const prUrl of [PR, "https://github.com/rmtandon1/fintech-internal-tools/pull/100"]) {
       const again = executeIntent(admin, {
         tool: "automation",
         action: "record_pr",
@@ -1107,7 +1107,7 @@ describe("syncMergedRun", () => {
     const run = await merged();
     const fake = fakeGit({ branch: "devin/run" });
     const sync = await syncMergedRun(run, deps({ git: fake.git }));
-    expect(sync).toEqual({ kind: "skipped", reason: "checkout is not on cognition-dashboard-devin-integration" });
+    expect(sync).toEqual({ kind: "skipped", reason: "checkout is not on internal-tools-console-demo" });
     expect(fake.calls).not.toContain("status");
   });
 
@@ -1468,7 +1468,7 @@ describe("reconcileRuns", () => {
     if (!after) throw new Error("no run");
     expect(after.status).toBe("merged");
     expect(after.mergeCommit).toBe(MERGE);
-    expect(fake.calls.some((c) => c.startsWith("pull:origin/cognition-dashboard-devin-integration"))).toBe(true);
+    expect(fake.calls.some((c) => c.startsWith("pull:origin/internal-tools-console-demo"))).toBe(true);
 
     // A second look at the same merge replays the idempotent intent instead of writing again.
     const again = await observeMerge(engineer, after, deps({ github: fakeGitHub({ merged: true }).client }));

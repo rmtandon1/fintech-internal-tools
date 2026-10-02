@@ -3,7 +3,7 @@ name: verify
 on:
   pull_request:
   push:
-    branches: [cognition-dashboard-devin-integration]
+    branches: [internal-tools-console-demo]
 
 concurrency:
   group: verify-${{ github.workflow }}-${{ github.ref }}

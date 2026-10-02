@@ -22,7 +22,7 @@ export function fakeGit(state: {
   const git: GitRunner = {
     async currentBranch() {
       calls.push("branch");
-      return state.branch ?? "cognition-dashboard-devin-integration";
+      return state.branch ?? "internal-tools-console-demo";
     },
     async status() {
       calls.push("status");

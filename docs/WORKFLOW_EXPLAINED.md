@@ -25,7 +25,7 @@ The audit log (`/audit`) records the same run as it moves.
 | Waited | **Devin working**, with a live checklist | Devin planned, edited and tested on its own branch. Your console and data are untouched |
 | Devin finished | **Devin working**, pull request linked | A pull request is open on GitHub. CI is running. Nothing is live |
 | An engineer approved | **Approved** | GitHub has an approving review, and Devin has been asked to merge |
-| Devin merged | **Live** | The merge is on `cognition-dashboard-devin-integration`, pulled into the console's checkout, and migrated |
+| Devin merged | **Live** | The merge is on `internal-tools-console-demo`, pulled into the console's checkout, and migrated |
 | Devin couldn't start | **Couldn't start** | Nothing reached Devin. The run and its audit rows record why |
 | Someone pressed **Stop run**, or the session ended | **Stopped** | The session is ended. No branch reached the console |
 
@@ -406,7 +406,7 @@ about runs or rules is kept in the browser: there is no `localStorage` state.
 - ⚠ A production build (`pnpm start`) serves compiled code. After a merge, run `pnpm build`
   and restart it. `pnpm dev` picks the change up by itself.
 - ⚠ The pull is skipped when the console's checkout isn't on
-  `cognition-dashboard-devin-integration` or has uncommitted changes. The run then offers
+  `internal-tools-console-demo` or has uncommitted changes. The run then offers
   **Pull merged code**.
 - ⚠ Merges are noticed while someone has the run or `/runs` open. **Sync with GitHub** on
   `/runs` catches up on anything missed.
@@ -420,7 +420,7 @@ sqlite3 apps/console/data/console.db \
   "select id, status, pr_url, merge_commit from devin_runs order by requested_at desc limit 5;"
 sqlite3 apps/console/data/console.db \
   "select key, value_json, updated_by from runtime_constants where key like 'refunds.%';"
-git log --oneline -3 origin/cognition-dashboard-devin-integration
+git log --oneline -3 origin/internal-tools-console-demo
 ```
 
 ### 4. Optional future enhancements

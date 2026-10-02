@@ -85,7 +85,7 @@ Devin's VM runs a freshly seeded database. It cannot see `apps/console/data/cons
   "spec": "REFUND_CLUSTERING_HOLD.md",
   "intent": "If a merchant's refunds of type \"not received\" add up to more than the manager limit, send them all to a manager for approval. Potential fraud. Also route those customers' KYC approvals to a manager.",
   "requested_by": "manager",
-  "base": { "branch": "cognition-dashboard-devin-integration", "commit": "1a67f60…" },
+  "base": { "branch": "internal-tools-console-demo", "commit": "1a67f60…" },
   "allowed_paths": [
     "tools/refunds/src/clustering-hold.ts",
     "tools/refunds/src/index.ts",
@@ -146,7 +146,7 @@ Each phase passes or stops the run, except that the guard checks are advisory: a
 | Plan         | `runs/<run_id>/context.json` (verbatim) and `runs/<run_id>/plan.json` (the files Devin will touch, and why) are committed alone as the branch's first commit; the plan lists every existing test file whose assertions the change moves | Stop. Delete the branch                                                                                        |
 | Edit         | Planned files change; `context.json` and `plan.json` do not. A file outside the plan is recorded in `files` and a note                                       | Reported by the guard on the PR; the run continues                                                             |
 | Verify       | `pnpm verify` is green. The tests named in `plan.json` pass. Test counts per file are at or above baseline. `pnpm check:run` results are reported in `guards`   | Two fix attempts, then reset and stop                                                                          |
-| Pull request | A PR is opened against `cognition-dashboard-devin-integration`                                                                                                    | Leave the branch pushed and report                                                                             |
+| Pull request | A PR is opened against `internal-tools-console-demo`                                                                                                    | Leave the branch pushed and report                                                                             |
 | Merge        | Devin waits at `waiting_for_user`; the engineer merges on GitHub and the console records `record_merge`                                                      | Nothing to report: Devin stops after the pull request                                                          |
 
 
@@ -264,14 +264,14 @@ Humans approve and merge. The control a regulated change process needs is separa
 3. The engineer merges on GitHub. Devin stopped at the pull request and is never told to merge.
 4. The console writes `record_merge` for the same engineer, with the PR URL and merge commit. If the PR was merged on GitHub with no approval the console recorded, `record_merge` still runs from `running`, with `approvedBy` null and the note `Merged on GitHub without a recorded approval`. The run view shows when GitHub was last read (`Synced with GitHub · Ns ago`).
 
-Enforcement lives in GitHub. Branch protection on `cognition-dashboard-devin-integration` requires one approving review, the four CI checks — Lint, Typecheck, Boundaries and Test — and no bypass for Devin's GitHub account. Devin's docs recommend exactly this: branch protection "to ensure all required checks pass before Devin can merge changes" (docs.devin.ai, GitHub integration). A security profile can also restrict the session's git and GitHub CLI access (docs.devin.ai, Security Profiles).
+Enforcement lives in GitHub. Branch protection on `internal-tools-console-demo` requires one approving review, the four CI checks — Lint, Typecheck, Boundaries and Test — and no bypass for Devin's GitHub account. Devin's docs recommend exactly this: branch protection "to ensure all required checks pass before Devin can merge changes" (docs.devin.ai, GitHub integration). A security profile can also restrict the session's git and GitHub CLI access (docs.devin.ai, Security Profiles).
 
 Demo setup: the engineer's GitHub token sits in the server environment next to `DEVIN_API_KEY`, with `GITHUB_APPROVER_LOGIN` naming the engineer's GitHub login when it is not `rmtandon1`.
 
 ## After merge
 
 1. The console writes `record_merge` with the merge commit GitHub reports. That closes the run in the audit chain.
-2. The local checkout pulls the sync branch (`SYNC_BRANCH`, default `cognition-dashboard-devin-integration`) as soon as the run's page next reads the merge, with no click. **Pull merged code** (admin) and **Reconcile** on `/t/automation` remain as fallbacks. The pull is refused on another branch or a dirty tree — except an untracked `runs/<id>/context.json` that hashes to the merged run's `contextSha256`, which dispatch itself wrote; that one is deleted and the merge recreates it. When the pull changes a `package.json`, `pnpm-lock.yaml` or `pnpm-workspace.yaml`, `pnpm install --frozen-lockfile` runs first, and retries on the next sync while the installed lockfile lags the checkout's. `pnpm db:migrate` runs whenever drizzle's journal has entries past `__drizzle_migrations`, and retries on the next sync if it fails. See `GITHUB_INTEGRATION.md` § Merge sync.
+2. The local checkout pulls the sync branch (`SYNC_BRANCH`, default `internal-tools-console-demo`) as soon as the run's page next reads the merge, with no click. **Pull merged code** (admin) and **Reconcile** on `/t/automation` remain as fallbacks. The pull is refused on another branch or a dirty tree — except an untracked `runs/<id>/context.json` that hashes to the merged run's `contextSha256`, which dispatch itself wrote; that one is deleted and the merge recreates it. When the pull changes a `package.json`, `pnpm-lock.yaml` or `pnpm-workspace.yaml`, `pnpm install --frozen-lockfile` runs first, and retries on the next sync while the installed lockfile lags the checkout's. `pnpm db:migrate` runs whenever drizzle's journal has entries past `__drizzle_migrations`, and retries on the next sync if it fails. See `GITHUB_INTEGRATION.md` § Merge sync.
 3. Constants a run declares must exist in the live database without a re-seed. `registerToolConstants` (`registerConstants`, which skips existing keys) runs on server start via `instrumentation.ts`, in-process right after the merge sync's `db:migrate`, and whenever `bootstrap.ts` is evaluated with newly pulled tool code, so a merged rule's setting appears without a restart. A production build still needs a rebuild to serve new source.
 4. The next matching record goes through the new rule. That moment is the demo.
 

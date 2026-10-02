@@ -3,11 +3,11 @@ import { parseGitHubRepository } from "@/lib/bridge";
 
 describe("GitHub repository from the checkout's remote", () => {
   it("reads owner/repo from https and ssh remotes", () => {
-    expect(parseGitHubRepository("https://github.com/rmtandon1/buy-v-build-cog-demo.git\n")).toBe(
-      "rmtandon1/buy-v-build-cog-demo",
+    expect(parseGitHubRepository("https://github.com/rmtandon1/fintech-internal-tools.git\n")).toBe(
+      "rmtandon1/fintech-internal-tools",
     );
-    expect(parseGitHubRepository("https://github.com/rmtandon1/buy-v-build-cog-demo")).toBe(
-      "rmtandon1/buy-v-build-cog-demo",
+    expect(parseGitHubRepository("https://github.com/rmtandon1/fintech-internal-tools")).toBe(
+      "rmtandon1/fintech-internal-tools",
     );
     expect(parseGitHubRepository("git@github.com:acme/ops.console.git")).toBe("acme/ops.console");
   });
